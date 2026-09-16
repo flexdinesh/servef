@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
 
 export interface ProcessMetrics {
-  cpuUsage: number
+  cpuUsage: number | null
   goroutines: number
-  rssBytes: number
-  supported: boolean
+  memoryBytes: number
+  memorySource: "go" | "rss"
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -13,10 +13,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isProcessMetrics(value: unknown): value is ProcessMetrics {
   return isRecord(value)
-    && typeof value.cpuUsage === "number"
+    && (value.cpuUsage === null || typeof value.cpuUsage === "number")
     && typeof value.goroutines === "number"
-    && typeof value.rssBytes === "number"
-    && typeof value.supported === "boolean"
+    && typeof value.memoryBytes === "number"
+    && (value.memorySource === "go" || value.memorySource === "rss")
 }
 
 export function useProcessMetrics(): ProcessMetrics | null {

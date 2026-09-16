@@ -1,0 +1,6 @@
+{
+  "cpuUsage": null,
+  "goroutines": 8,
+  "memoryBytes": 25165824,
+  "memorySource": "go"
+}

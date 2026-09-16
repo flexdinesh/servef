@@ -15,8 +15,15 @@ function formatBytes(bytes: number): string {
 }
 
 export function StatusBar({ isLoading, metrics, page }: StatusBarProps) {
-  const processTitle = metrics?.supported
-    ? `servef process\nResident RAM: ${formatBytes(metrics.rssBytes)}\nCPU: ${metrics.cpuUsage.toFixed(1)}%\nGoroutines: ${metrics.goroutines}`
+  const processTitle = metrics
+    ? [
+        "servef process",
+        metrics.memorySource === "rss"
+          ? `Resident RAM: ${formatBytes(metrics.memoryBytes)}`
+          : `Go runtime system memory: ${formatBytes(metrics.memoryBytes)}`,
+        ...(metrics.cpuUsage === null ? [] : [`CPU: ${metrics.cpuUsage.toFixed(1)}%`]),
+        `Goroutines: ${metrics.goroutines}`,
+      ].join("\n")
     : undefined
 
   return (
@@ -30,11 +37,18 @@ export function StatusBar({ isLoading, metrics, page }: StatusBarProps) {
       <span className="status-grow" />
       {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
       <span>{page.fileCount.toLocaleString()} files</span>
-      {metrics?.supported && (
+      {metrics && (
         <span className="status-metrics" title={processTitle}>
-          <span><span className="status-metric-label">CPU </span>{metrics.cpuUsage.toFixed(1)}%</span>
-          <span aria-hidden="true">·</span>
-          <span><span className="status-metric-label">RAM </span>{formatBytes(metrics.rssBytes)}</span>
+          {metrics.cpuUsage !== null && (
+            <>
+              <span><span className="status-metric-label">CPU </span>{metrics.cpuUsage.toFixed(1)}%</span>
+              <span aria-hidden="true">·</span>
+            </>
+          )}
+          <span>
+            <span className="status-metric-label">{metrics.memorySource === "rss" ? "RAM " : "MEM "}</span>
+            {formatBytes(metrics.memoryBytes)}
+          </span>
         </span>
       )}
     </footer>

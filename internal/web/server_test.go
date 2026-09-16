@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flexdinesh/servef/internal/features"
 )
@@ -92,19 +93,52 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 }
 
 func TestAppServesProcessMetrics(t *testing.T) {
-	response := request(t, newTestApp(t, t.TempDir()), "/api/metrics")
+	app := newTestApp(t, t.TempDir())
+	app.metrics = metricsCollector{
+		readRSS: func() (uint64, error) {
+			return 0, errors.New("RSS unavailable")
+		},
+		readCPUTime: func() (time.Duration, error) {
+			return 0, errors.New("CPU unavailable")
+		},
+		readGoMemory: func() uint64 {
+			return 456
+		},
+	}
+	response := request(t, app, "/api/metrics")
 	if response.Code != http.StatusOK {
 		t.Fatalf("metrics status = %d, want %d", response.Code, http.StatusOK)
 	}
-	var metrics processMetrics
+	var contract map[string]json.RawMessage
+	if err := json.Unmarshal(response.Body.Bytes(), &contract); err != nil {
+		t.Fatal(err)
+	}
+	cpuUsage, ok := contract["cpuUsage"]
+	if !ok || string(cpuUsage) != "null" {
+		t.Fatalf("cpuUsage = %s, want null", cpuUsage)
+	}
+	for _, legacy := range []string{"rssBytes", "supported"} {
+		if _, ok := contract[legacy]; ok {
+			t.Fatalf("legacy field %q present", legacy)
+		}
+	}
+	var metrics struct {
+		MemoryBytes  uint64   `json:"memoryBytes"`
+		MemorySource string   `json:"memorySource"`
+		CPUUsage     *float64 `json:"cpuUsage"`
+		Goroutines   int      `json:"goroutines"`
+	}
 	if err := json.Unmarshal(response.Body.Bytes(), &metrics); err != nil {
 		t.Fatal(err)
 	}
+	if metrics.MemoryBytes != 456 || metrics.MemorySource != "go" {
+		t.Fatalf("memory = %d (%q), want 456 (go)", metrics.MemoryBytes, metrics.MemorySource)
+	}
+	if metrics.CPUUsage != nil {
+		t.Fatalf("CPU usage = %v, want null", *metrics.CPUUsage)
+	}
 	if metrics.Goroutines < 1 {
 		t.Fatalf("goroutines = %d, want positive", metrics.Goroutines)
-	}
-	if metrics.Supported && metrics.RSSBytes == 0 {
-		t.Fatal("supported metrics report zero RSS")
 	}
 }
 
