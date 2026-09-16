@@ -13,28 +13,56 @@ import (
 )
 
 type processMetrics struct {
-	RSSBytes   uint64  `json:"rssBytes"`
-	CPUUsage   float64 `json:"cpuUsage"`
-	Goroutines int     `json:"goroutines"`
-	Supported  bool    `json:"supported"`
+	MemoryBytes  uint64   `json:"memoryBytes"`
+	MemorySource string   `json:"memorySource"`
+	CPUUsage     *float64 `json:"cpuUsage"`
+	Goroutines   int      `json:"goroutines"`
 }
 
 type metricsCollector struct {
-	mu          sync.Mutex
-	lastSample  time.Time
-	lastCPUTime time.Duration
-	lastUsage   float64
+	mu           sync.Mutex
+	lastSample   time.Time
+	lastCPUTime  time.Duration
+	lastUsage    float64
+	readRSS      func() (uint64, error)
+	readCPUTime  func() (time.Duration, error)
+	readGoMemory func() uint64
 }
 
 func (c *metricsCollector) sample() processMetrics {
-	rss, rssErr := readProcessRSS()
-	cpu, cpuErr := c.sampleCPU()
-	return processMetrics{
-		RSSBytes:   rss,
-		CPUUsage:   cpu,
-		Goroutines: runtime.NumGoroutine(),
-		Supported:  rssErr == nil && cpuErr == nil,
+	memory, memoryErr := c.processRSS()
+	memorySource := "rss"
+	if memoryErr != nil {
+		memory = c.goMemory()
+		memorySource = "go"
 	}
+	cpu, cpuErr := c.sampleCPU()
+	var cpuUsage *float64
+	if cpuErr == nil {
+		cpuUsage = &cpu
+	}
+	return processMetrics{
+		MemoryBytes:  memory,
+		MemorySource: memorySource,
+		CPUUsage:     cpuUsage,
+		Goroutines:   runtime.NumGoroutine(),
+	}
+}
+
+func (c *metricsCollector) processRSS() (uint64, error) {
+	if c.readRSS != nil {
+		return c.readRSS()
+	}
+	return readProcessRSS()
+}
+
+func (c *metricsCollector) goMemory() uint64 {
+	if c.readGoMemory != nil {
+		return c.readGoMemory()
+	}
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.Sys
 }
 
 func readProcessRSS() (uint64, error) {
@@ -58,7 +86,7 @@ func (c *metricsCollector) sampleCPU() (float64, error) {
 	defer c.mu.Unlock()
 
 	now := time.Now()
-	cpuTime, err := readProcessCPUTime()
+	cpuTime, err := c.processCPUTime()
 	if err != nil {
 		return c.lastUsage, err
 	}
@@ -81,6 +109,13 @@ func (c *metricsCollector) sampleCPU() (float64, error) {
 	c.lastCPUTime = cpuTime
 	c.lastUsage = usage
 	return usage, nil
+}
+
+func (c *metricsCollector) processCPUTime() (time.Duration, error) {
+	if c.readCPUTime != nil {
+		return c.readCPUTime()
+	}
+	return readProcessCPUTime()
 }
 
 func readProcessCPUTime() (time.Duration, error) {

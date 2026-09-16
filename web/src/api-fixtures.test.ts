@@ -19,6 +19,7 @@ async function fixture(name: string): Promise<unknown> {
 test("frontend API fixtures satisfy runtime contracts", async () => {
   assert.notEqual(parseFeatureValue(await fixture("features.json")), null)
   assert.equal(isProcessMetrics(await fixture("metrics.json")), true)
+  assert.equal(isProcessMetrics(await fixture("metrics-go.json")), true)
   assert.equal(isSearchDocumentsResponse(await fixture("search-documents.json")), true)
   for (const name of ["page-index.json", "page-document.json", "page-missing.json"]) {
     assert.equal(isPageData(await fixture(name)), true, name)

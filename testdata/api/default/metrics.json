@@ -1,6 +1,6 @@
 {
   "cpuUsage": 1.2,
   "goroutines": 8,
-  "rssBytes": 25165824,
-  "supported": true
+  "memoryBytes": 25165824,
+  "memorySource": "rss"
 }

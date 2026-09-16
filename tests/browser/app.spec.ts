@@ -284,7 +284,13 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status).toContainText("guides/getting-started.md")
   await expect(status).toContainText("5 files")
-  if (process.platform === "linux") await expect(status).toContainText("RAM")
+  if (process.platform === "linux") {
+    await expect(status).toContainText("CPU")
+    await expect(status).toContainText("RAM")
+  } else {
+    await expect(status).not.toContainText("CPU")
+    await expect(status).toContainText("MEM")
+  }
 })
 
 test("resizes and persists the file tree", async ({ page }) => {
