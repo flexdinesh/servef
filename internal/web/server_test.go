@@ -27,10 +27,10 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
-	if got, want := landingData.FileCount, 5; got != want {
+	if got, want := landingData.FileCount, 6; got != want {
 		t.Fatalf("file count = %d, want %d", got, want)
 	}
-	assertContains(t, landing.Body.String(), "README.md", "getting-started.md", "api.markdown", "search.md")
+	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "api.markdown", "search.md")
 	for _, excluded := range []string{"notes.txt", "vendor", "ignored.md"} {
 		if strings.Contains(landing.Body.String(), excluded) {
 			t.Errorf("landing includes excluded fixture %q", excluded)
@@ -50,6 +50,18 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if guideData.FileSize == 0 {
 		t.Fatal("guide file size is zero")
 	}
+
+	codeBlocks, codeBlocksData := requestPageData(t, app, "/api/page?path=guides%2Fcode-blocks.md")
+	if codeBlocks.Code != http.StatusOK {
+		t.Fatalf("code blocks status = %d, want %d", codeBlocks.Code, http.StatusOK)
+	}
+	assertContains(t, codeBlocksData.Content,
+		`<pre><code class="language-json syntax-highlight">`,
+		`<pre><code class="language-bash syntax-highlight">`,
+		`<pre><code class="language-shell syntax-highlight">`,
+		`<pre><code class="language-custom-format">unknown &lt;syntax&gt; remains safely escaped`,
+		`<pre><code>plain text still supports copying`,
+	)
 
 	diagrams, diagramsData := requestPageData(t, app, "/api/page?path=guides%2Fdiagrams.md")
 	if diagrams.Code != http.StatusOK {
@@ -77,7 +89,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if err := json.Unmarshal(search.Body.Bytes(), &searchData); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(searchData.Documents), 5; got != want {
+	if got, want := len(searchData.Documents), 6; got != want {
 		t.Fatalf("search documents = %d, want %d", got, want)
 	}
 	foundSearchFixture := false

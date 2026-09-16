@@ -259,6 +259,34 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
   await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
 })
 
+test("labels and copies fenced code", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto("/view?path=guides%2Fcode-blocks.md")
+
+  const codeBlocks = page.locator(".code-block")
+  await expect(codeBlocks).toHaveCount(5)
+  for (const [index, language] of ["json", "bash", "shell"].entries()) {
+    await expect(codeBlocks.nth(index).getByRole("button")).toHaveAccessibleName(`Copy ${language} code`)
+  }
+  await expect(codeBlocks.nth(3).getByRole("button")).toHaveAccessibleName("Copy code")
+  await expect(codeBlocks.nth(4).getByRole("button")).toHaveAccessibleName("Copy code")
+
+  const codeBlock = codeBlocks.first()
+  const copy = codeBlock.getByRole("button")
+  await expect(copy).toHaveAccessibleName("Copy json code")
+  await expect(copy).toHaveCSS("border-radius", "6px")
+  await expect(copy.locator(".code-block-control-language")).toHaveText("json")
+  await expect(copy.locator(".code-block-control-copy")).toBeHidden()
+  expect(await copy.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(24)
+  await codeBlock.hover({ position: { x: 20, y: 20 } })
+  await expect(copy).toHaveCSS("width", "24px")
+  await expect(copy.locator(".code-block-control-language")).toBeHidden()
+  await expect(copy.locator(".code-block-control-copy")).toBeVisible()
+  await copy.click()
+  await expect(copy).toHaveAccessibleName("Copied json code")
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('"host": "localhost"')
+})
+
 test("opens, switches, and closes document tabs", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
@@ -283,7 +311,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
 
   const status = page.locator(".status-bar")
   await expect(status).toContainText("guides/getting-started.md")
-  await expect(status).toContainText("5 files")
+  await expect(status).toContainText("6 files")
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")
     await expect(status).toContainText("RAM")

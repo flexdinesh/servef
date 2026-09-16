@@ -17,6 +17,7 @@ func TestScanSharedMarkdownFixtures(t *testing.T) {
 	}
 
 	wantFiles := []string{
+		"guides/code-blocks.md",
 		"guides/diagrams.md",
 		"guides/getting-started.md",
 		"reference/topics/search.md",
