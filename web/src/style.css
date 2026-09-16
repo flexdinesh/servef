@@ -916,6 +916,55 @@ article pre {
   line-height: 1.6;
 }
 
+.code-block {
+  position: relative;
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+article .code-block > pre {
+  margin: 0;
+}
+
+.code-block-controls-portal {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+}
+
+.code-block-controls {
+  display: flex;
+  align-items: center;
+}
+
+.code-block-control-language {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.code-block-control-copy {
+  display: none;
+}
+
+.code-block-control-copy.visible,
+.code-block:hover .code-block-control-copy,
+.code-block-control:focus-visible .code-block-control-copy {
+  display: block;
+}
+
+.code-block:hover .code-block-control-language,
+.code-block-control:focus-visible .code-block-control-language {
+  display: none;
+}
+
+.code-block-control.icon-only,
+.code-block:hover .code-block-control,
+.code-block-control:focus-visible {
+  width: var(--space-5);
+  padding-right: 0;
+  padding-left: 0;
+}
+
 article code {
   font-family: var(--font-mono);
   font-size: 0.875em;

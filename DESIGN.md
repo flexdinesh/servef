@@ -195,6 +195,8 @@ Success, warning, and error states use the corresponding semantic tokens. Pair c
 
 Rendered content shares one prose system for headings, paragraphs, lists, quotes, code, tables, links, images, and diagrams. Do not style individual documents. Code and dense tables may scroll horizontally; prose must wrap. Mermaid controls follow the same control tokens as the application.
 
+Fenced code uses one floating control in the top-right corner. It shows a recognized language by default, replaces it with a copy icon when the block is hovered or the control receives keyboard focus, and uses a check or error icon for brief copy feedback. Unknown and unlabelled fences show the copy icon directly. The control overlays the block without adding a header row. Mermaid blocks keep their diagram-specific controls.
+
 ## Interaction states
 
 - Hover: increase contrast or change to the nearest surface role; never move layout.
