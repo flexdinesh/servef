@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Semantic version tag to publish (for example, v0.1.0)
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -46,29 +41,35 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Validate version
+      - name: Select release version
         id: version
         env:
-          RELEASE_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           set -euo pipefail
 
-          if [[ ! "$RELEASE_VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "version must be a semantic version such as v0.1.0" >&2
-            exit 1
-          fi
-
           git fetch --tags --force
-          if tag_commit="$(git rev-list -n 1 "$RELEASE_VERSION" 2>/dev/null)"; then
+          release_version="$(go run ./tools/release-version)"
+          tag_exists=false
+          if tag_commit="$(git rev-list -n 1 "$release_version" 2>/dev/null)"; then
             head_commit="$(git rev-parse HEAD)"
             if [[ "$tag_commit" != "$head_commit" ]]; then
-              echo "$RELEASE_VERSION points to $tag_commit, not current main $head_commit" >&2
+              echo "$release_version points to $tag_commit, not current main $head_commit" >&2
               exit 1
             fi
+            tag_exists=true
           fi
 
-          echo "tag=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "number=${RELEASE_VERSION#v}" >> "$GITHUB_OUTPUT"
+          release_exists=false
+          if gh release view "$release_version" >/dev/null 2>&1; then
+            release_exists=true
+          fi
+
+          echo "tag=$release_version" >> "$GITHUB_OUTPUT"
+          echo "number=${release_version#v}" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
+          echo "release_exists=$release_exists" >> "$GITHUB_OUTPUT"
 
       - name: Test
         run: |
@@ -100,7 +101,14 @@ jobs:
           git diff --exit-code -- internal/web/dist
           go build ./...
 
+      - name: Create release tag
+        if: steps.version.outputs.tag_exists != 'true'
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
       - name: Build release archives
+        if: steps.version.outputs.release_exists != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -136,22 +144,28 @@ jobs:
           )
 
       - name: Publish GitHub release
+        if: steps.version.outputs.release_exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
 
-          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_VERSION" release-dist/*.tar.gz release-dist/checksums.txt --clobber
-          else
-            gh release create "$RELEASE_VERSION" \
-              release-dist/*.tar.gz \
-              release-dist/checksums.txt \
-              --target "$(git rev-parse HEAD)" \
-              --title "$RELEASE_VERSION" \
-              --generate-notes
-          fi
+          gh release create "$RELEASE_VERSION" \
+            release-dist/*.tar.gz \
+            release-dist/checksums.txt \
+            --target "$(git rev-parse HEAD)" \
+            --title "$RELEASE_VERSION" \
+            --generate-notes
+
+      - name: Download existing release
+        if: steps.version.outputs.release_exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf release-dist
+          mkdir -p release-dist
+          gh release download "${{ steps.version.outputs.tag }}" --dir release-dist
 
       - name: Check out Homebrew tap
         uses: actions/checkout@v7
