@@ -16,6 +16,7 @@ export interface PageData {
   hasFile: boolean
   rootName: string
   selected: string
+  source: string
   tree: TreeNode[]
   warnings: string[]
 }
@@ -49,6 +50,7 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.hasFile === "boolean"
     && typeof value.rootName === "string"
     && typeof value.selected === "string"
+    && typeof value.source === "string"
     && Array.isArray(value.tree)
     && value.tree.every(isTreeNode)
     && Array.isArray(value.warnings)

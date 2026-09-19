@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180">
+  <rect width="640" height="180" rx="16" fill="#e8efff"/>
+  <circle cx="90" cy="90" r="50" fill="#2563eb"/>
+  <path d="M68 116V64h14l17 25 17-25h14v52h-15V87l-16 23-16-23v29z" fill="#fff"/>
+  <text x="170" y="103" fill="#20242c" font-family="system-ui, sans-serif" font-size="38" font-weight="700">servef preview</text>
+</svg>

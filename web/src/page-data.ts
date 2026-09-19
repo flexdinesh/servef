@@ -17,6 +17,7 @@ export const emptyPage: PageData = {
   hasFile: false,
   rootName: "",
   selected: "",
+  source: "",
   tree: [],
   warnings: [],
 }

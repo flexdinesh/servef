@@ -625,6 +625,10 @@ main {
   background: var(--color-surface);
 }
 
+main.source-mode {
+  padding: 0;
+}
+
 .sidebar-resizer {
   position: relative;
   z-index: 5;
@@ -654,12 +658,20 @@ main {
   background: var(--color-surface);
 }
 
+.workspace-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+}
+
 .buffer-tabs {
   display: flex;
   min-width: 0;
+  flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-secondary);
   scrollbar-width: none;
 }
@@ -749,6 +761,38 @@ main {
   height: 0.75rem;
 }
 
+.document-mode-toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  padding: 0 var(--space-1);
+  border-left: 1px solid var(--color-border);
+}
+
+.document-mode-toggle button {
+  height: 1.25rem;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.document-mode-toggle button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+}
+
+.document-mode-toggle button[aria-pressed="true"] {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  font-weight: 600;
+}
+
 .status-bar {
   display: flex;
   min-width: 0;
@@ -805,6 +849,69 @@ article {
   font-size: var(--text-base);
   line-height: 1.75;
   overflow-wrap: anywhere;
+}
+
+.markdown-source {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: auto;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  cursor: text;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-feature-settings: "calt" 1, "zero" 1, "cv02" 1, "cv08" 1, "ss01" 1;
+  font-variant-ligatures: normal;
+  tab-size: 4;
+}
+
+.markdown-source code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 40vh;
+  font: inherit;
+  line-height: 21px;
+}
+
+.markdown-source:focus-visible {
+  outline-offset: -2px;
+}
+
+.markdown-source-line {
+  display: flex;
+  height: 21px;
+}
+
+.markdown-source-line.active {
+  background: var(--color-surface-secondary);
+}
+
+.markdown-source-line-number {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  box-sizing: border-box;
+  padding: 0 14px 0 16px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.markdown-source-line.active .markdown-source-line-number {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.markdown-source-line-content {
+  min-width: max-content;
+  flex: 1;
+  padding-right: 40px;
+  white-space: pre;
 }
 
 article > :first-child {
@@ -933,8 +1040,30 @@ article .code-block > pre {
 }
 
 .code-block-controls {
+  position: relative;
   display: flex;
   align-items: center;
+}
+
+.code-block-copy-status {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  transform: translateY(-50%);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+  font-size: var(--text-xs);
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.code-block-copy-status.failed {
+  color: var(--color-destructive);
 }
 
 .code-block-control-language {
@@ -944,15 +1073,21 @@ article .code-block > pre {
 
 .code-block-control-copy {
   display: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--color-text-secondary);
+  stroke-width: 2;
 }
 
 .code-block-control-copy.visible,
+.code-block-control.feedback .code-block-control-copy,
 .code-block:hover .code-block-control-copy,
 .code-block-control:focus-visible .code-block-control-copy {
   display: block;
 }
 
 .code-block:hover .code-block-control-language,
+.code-block-control.feedback .code-block-control-language,
 .code-block-control:focus-visible .code-block-control-language {
   display: none;
 }
@@ -1466,7 +1601,7 @@ article hr {
   }
 
   .sidebar-resizer,
-  .buffer-tabs,
+  .workspace-toolbar,
   .status-bar {
     display: none;
   }

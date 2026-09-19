@@ -22,6 +22,16 @@ test("uses embedded page data on a direct production load", async ({ page }) => 
   expect(pageRequests).toBe(0)
 })
 
+test("renders local Markdown images", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const image = page.getByRole("img", { name: "servef preview fixture" })
+  await expect(image).toBeVisible()
+  await expect.poll(() => image.evaluate((element) => (
+    element instanceof HTMLImageElement && element.naturalWidth > 0 && element.naturalHeight > 0
+  ))).toBe(true)
+})
+
 test("browses nested Markdown without resetting the file tree", async ({ page }) => {
   await page.goto("/")
 
@@ -276,15 +286,41 @@ test("labels and copies fenced code", async ({ page }) => {
   await expect(copy).toHaveAccessibleName("Copy json code")
   await expect(copy).toHaveCSS("border-radius", "6px")
   await expect(copy.locator(".code-block-control-language")).toHaveText("json")
+  const languageColor = await copy.locator(".code-block-control-language").evaluate(
+    (element) => window.getComputedStyle(element).color,
+  )
   await expect(copy.locator(".code-block-control-copy")).toBeHidden()
   expect(await copy.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(24)
   await codeBlock.hover({ position: { x: 20, y: 20 } })
   await expect(copy).toHaveCSS("width", "24px")
   await expect(copy.locator(".code-block-control-language")).toBeHidden()
-  await expect(copy.locator(".code-block-control-copy")).toBeVisible()
+  const copyIcon = copy.locator(".code-block-control-copy")
+  await expect(copyIcon).toBeVisible()
+  await expect(copyIcon).toHaveCSS("width", "12px")
+  await expect(copyIcon).toHaveCSS("height", "12px")
+  await expect(copyIcon).toHaveCSS("color", languageColor)
+  await expect(copyIcon).toHaveCSS("stroke-width", "2px")
   await copy.click()
-  await expect(copy).toHaveAccessibleName("Copied json code")
+  await expect(copy).toHaveAccessibleName("Copy json code")
+  await page.mouse.move(0, 0)
+  await expect(copy).toHaveCSS("width", "24px")
+  await expect(copy.locator(".code-block-control-language")).toBeHidden()
+  await expect(copy.locator(".code-block-control-copy")).toBeVisible()
+  await expect(codeBlock.getByRole("status")).toHaveText("Copied")
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('"host": "localhost"')
+})
+
+test("copies fenced code when the modern clipboard API is unavailable", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined })
+  })
+  await page.goto("/view?path=guides%2Fcode-blocks.md")
+
+  const codeBlock = page.locator(".code-block").first()
+  const copy = codeBlock.getByRole("button", { name: "Copy json code" })
+  await copy.click()
+  await expect(codeBlock.getByRole("status")).toHaveText("Copied")
+  await expect(copy).toHaveCSS("outline-style", "none")
 })
 
 test("opens, switches, and closes document tabs", async ({ page }) => {
@@ -304,6 +340,59 @@ test("opens, switches, and closes document tabs", async ({ page }) => {
   await expect(page).toHaveURL(/path=guides%2Fdiagrams\.md/)
   await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toHaveCount(0)
   await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
+})
+
+test("switches document modes and remembers mode per open tab", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const view = page.getByRole("group", { name: "Document view" })
+  const preview = view.getByRole("button", { name: "Preview" })
+  const source = view.getByRole("button", { name: "Source" })
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+
+  await source.press("Enter")
+  await expect(source).toHaveAttribute("aria-pressed", "true")
+  const sourceView = page.getByRole("textbox", { name: "Markdown source" })
+  await expect(sourceView).toContainText("# Getting started")
+  await expect(sourceView).toHaveAttribute("aria-readonly", "true")
+  await expect(sourceView.locator(".markdown-source-line-number").first()).toHaveText("1")
+  await expect(sourceView.locator(".markdown-source-line-number").nth(1)).toHaveText("2")
+  const sourceLines = sourceView.locator(".markdown-source-line")
+  await expect(sourceLines.first()).toHaveClass(/active/)
+  await sourceLines.nth(2).click()
+  await expect(sourceLines.nth(2)).toHaveClass(/active/)
+  await expect(sourceLines.first()).not.toHaveClass(/active/)
+  await expect(sourceLines.nth(2)).toHaveCSS("height", "21px")
+  await expect(sourceView).toHaveCSS("font-size", "13.5px")
+  const sourceLeft = await sourceView.evaluate((element) => element.getBoundingClientRect().left)
+  const paneLeft = await page.locator("#document-pane").evaluate((element) => element.getBoundingClientRect().left)
+  expect(sourceLeft).toBe(paneLeft)
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
+
+  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  await tree.getByRole("link", { name: "diagrams.md" }).click()
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await tabs.getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(source).toHaveAttribute("aria-pressed", "true")
+
+  await tabs.getByRole("button", { name: "Close guides/getting-started.md" }).click()
+  await tree.getByRole("link", { name: "getting-started.md" }).click()
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+})
+
+test("resets document mode after reload", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const view = page.getByRole("group", { name: "Document view" })
+  await view.getByRole("button", { name: "Source" }).click()
+  await expect(page.getByLabel("Markdown source")).toBeVisible()
+
+  await page.reload()
+  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
 })
 
 test("shows document metadata and process metrics in the status line", async ({ page }) => {
