@@ -28,10 +28,10 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
-	if got, want := landingData.FileCount, 6; got != want {
+	if got, want := landingData.FileCount, 7; got != want {
 		t.Fatalf("file count = %d, want %d", got, want)
 	}
-	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "api.markdown", "search.md")
+	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "images.md", "api.markdown", "search.md")
 	for _, excluded := range []string{"notes.txt", "vendor", "ignored.md"} {
 		if strings.Contains(landing.Body.String(), excluded) {
 			t.Errorf("landing includes excluded fixture %q", excluded)
@@ -90,7 +90,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if err := json.Unmarshal(search.Body.Bytes(), &searchData); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(searchData.Documents), 6; got != want {
+	if got, want := len(searchData.Documents), 7; got != want {
 		t.Fatalf("search documents = %d, want %d", got, want)
 	}
 	foundSearchFixture := false

@@ -32,6 +32,18 @@ test("renders local Markdown images", async ({ page }) => {
   ))).toBe(true)
 })
 
+test("renders SVG, PNG, and JPEG Markdown images", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fimages.md")
+
+  for (const name of ["servef SVG preview", "servef PNG preview", "servef JPEG preview"]) {
+    const image = page.getByRole("img", { name })
+    await expect(image).toBeVisible()
+    await expect.poll(() => image.evaluate((element) => (
+      element instanceof HTMLImageElement && element.naturalWidth > 0 && element.naturalHeight > 0
+    ))).toBe(true)
+  }
+})
+
 test("browses nested Markdown without resetting the file tree", async ({ page }) => {
   await page.goto("/")
 
@@ -400,7 +412,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
 
   const status = page.locator(".status-bar")
   await expect(status).toContainText("guides/getting-started.md")
-  await expect(status).toContainText("6 files")
+  await expect(status).toContainText("7 files")
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")
     await expect(status).toContainText("RAM")

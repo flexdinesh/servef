@@ -20,6 +20,7 @@ func TestScanSharedMarkdownFixtures(t *testing.T) {
 		"guides/code-blocks.md",
 		"guides/diagrams.md",
 		"guides/getting-started.md",
+		"guides/images.md",
 		"reference/topics/search.md",
 		"reference/api.markdown",
 		"README.md",
