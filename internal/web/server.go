@@ -55,6 +55,7 @@ type pageData struct {
 	Tree      []treeNode `json:"tree"`
 	Selected  string     `json:"selected"`
 	Content   string     `json:"content"`
+	Source    string     `json:"source"`
 	FileSize  int64      `json:"fileSize"`
 	FileCount int        `json:"fileCount"`
 	HasFile   bool       `json:"hasFile"`
@@ -132,6 +133,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/metrics" {
 		a.serveMetrics(w)
+		return
+	}
+	if r.URL.Path == "/api/image" {
+		a.serveImage(w, r.URL.Query().Get("path"))
 		return
 	}
 	if r.URL.Path == "/api/page" {
@@ -220,6 +225,80 @@ func (a *App) serveMetrics(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, a.metrics.sample())
+}
+
+func (a *App) serveImage(w http.ResponseWriter, name string) {
+	contentType, ok := imageContentType(name)
+	if !ok {
+		http.NotFound(w, nil)
+		return
+	}
+	resolved, err := resolveImage(a.config.Root, name)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	content, err := os.ReadFile(resolved)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(content)
+}
+
+func imageContentType(name string) (string, bool) {
+	switch strings.ToLower(path.Ext(name)) {
+	case ".png":
+		return "image/png", true
+	case ".jpg", ".jpeg":
+		return "image/jpeg", true
+	case ".gif":
+		return "image/gif", true
+	case ".webp":
+		return "image/webp", true
+	case ".avif":
+		return "image/avif", true
+	case ".svg":
+		return "image/svg+xml", true
+	default:
+		return "", false
+	}
+}
+
+func resolveImage(root, name string) (string, error) {
+	if name == "" || filepath.IsAbs(name) {
+		return "", errors.New("invalid image path")
+	}
+	rel := path.Clean(filepath.ToSlash(name))
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", errors.New("invalid image path")
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	canonicalRoot, err := filepath.EvalSymlinks(absoluteRoot)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(filepath.Join(canonicalRoot, filepath.FromSlash(rel)))
+	if err != nil {
+		return "", err
+	}
+	relToRoot, err := filepath.Rel(canonicalRoot, resolved)
+	if err != nil || filepath.IsAbs(relToRoot) || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) {
+		return "", errors.New("image path escapes root")
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("image is not a regular file")
+	}
+	return resolved, nil
 }
 
 func (a *App) serveSearchDocuments(w http.ResponseWriter) {
@@ -346,6 +425,7 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			return data, http.StatusInternalServerError
 		}
+		data.Source = string(source)
 		var rendered bytes.Buffer
 		if err := a.renderMarkdown(source, selected, &rendered); err != nil {
 			data.Error = fmt.Sprintf("Could not render %s: %v", selected, err)
@@ -361,9 +441,13 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 func (a *App) renderMarkdown(source []byte, selected string, output *bytes.Buffer) error {
 	document := a.markdown.Parser().Parse(text.NewReader(source))
 	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if entering && node.Kind() == ast.KindLink {
-			link := node.(*ast.Link)
-			link.Destination = rewriteMarkdownLink(link.Destination, selected)
+		if entering {
+			switch value := node.(type) {
+			case *ast.Link:
+				value.Destination = rewriteMarkdownLink(value.Destination, selected)
+			case *ast.Image:
+				value.Destination = rewriteMarkdownImage(value.Destination, selected)
+			}
 		}
 		return ast.WalkContinue, nil
 	})
@@ -371,6 +455,29 @@ func (a *App) renderMarkdown(source []byte, selected string, output *bytes.Buffe
 		return err
 	}
 	return a.markdown.Renderer().Render(output, source, document)
+}
+
+func rewriteMarkdownImage(destination []byte, selected string) []byte {
+	target, err := url.Parse(string(destination))
+	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
+		return destination
+	}
+
+	imagePath := target.Path
+	if strings.HasPrefix(imagePath, "/") {
+		imagePath = strings.TrimPrefix(imagePath, "/")
+	} else {
+		imagePath = path.Join(path.Dir(selected), imagePath)
+	}
+	imagePath = path.Clean(imagePath)
+
+	query := target.Query()
+	query.Set("path", imagePath)
+	return []byte((&url.URL{
+		Path:     "/api/image",
+		RawQuery: query.Encode(),
+		Fragment: target.Fragment,
+	}).String())
 }
 
 func rewriteMarkdownLink(destination []byte, selected string) []byte {

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -180,6 +181,9 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	}
 	body := documentData.Content
 	assertContains(t, body, "<h1>Guide</h1>", "<table>", "&lt;script&gt;alert('no')&lt;/script&gt;")
+	if got, want := documentData.Source, "# Guide\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n<script>alert('no')</script>\n"; got != want {
+		t.Fatalf("source = %q, want %q", got, want)
+	}
 	if strings.Contains(body, "<script>alert") {
 		t.Fatal("raw Markdown HTML was rendered unsafely")
 	}
@@ -495,6 +499,111 @@ func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
 		`href="#section"`,
 		`href="notes.txt"`,
 	)
+}
+
+func TestAppRewritesLocalImageURLs(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), strings.Join([]string{
+		"![nested](../images/example.png#crop)",
+		"![root](/images/example.svg?theme=dark)",
+		"![query](local.webp?path=ignored&size=2)",
+		"![external](https://example.com/image.png)",
+		"![data](data:image/png;base64,AAAA)",
+		"![blob](blob:https://example.com/id)",
+		"![protocol relative](//example.com/image.png)",
+	}, "\n\n"))
+
+	response, data := requestPageData(t, newTestApp(t, root), "/api/page?path=docs%2FGuide.md")
+	if response.Code != http.StatusOK {
+		t.Fatalf("document status = %d, want %d", response.Code, http.StatusOK)
+	}
+	assertContains(t, data.Content,
+		`src="/api/image?path=images%2Fexample.png#crop"`,
+		`src="/api/image?path=images%2Fexample.svg&amp;theme=dark"`,
+		`src="/api/image?path=docs%2Flocal.webp&amp;size=2"`,
+		`src="https://example.com/image.png"`,
+		`src="data:image/png;base64,AAAA"`,
+		`src="blob:https://example.com/id"`,
+		`src="//example.com/image.png"`,
+	)
+}
+
+func TestAppServesSupportedImages(t *testing.T) {
+	root := t.TempDir()
+	tests := []struct {
+		name        string
+		contentType string
+	}{
+		{name: "image.png", contentType: "image/png"},
+		{name: "image.jpg", contentType: "image/jpeg"},
+		{name: "image.jpeg", contentType: "image/jpeg"},
+		{name: "image.gif", contentType: "image/gif"},
+		{name: "image.webp", contentType: "image/webp"},
+		{name: "image.avif", contentType: "image/avif"},
+		{name: "image.svg", contentType: "image/svg+xml"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			content := []byte("exact bytes for " + test.name)
+			name := filepath.Join(root, "images", test.name)
+			if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(name, content, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			response := request(t, newTestApp(t, root), "/api/image?path=images%2F"+test.name)
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+			}
+			if got := response.Header().Get("Content-Type"); got != test.contentType {
+				t.Errorf("Content-Type = %q, want %q", got, test.contentType)
+			}
+			if got := response.Header().Get("Cache-Control"); got != "no-cache" {
+				t.Errorf("Cache-Control = %q, want no-cache", got)
+			}
+			if got := response.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+				t.Errorf("X-Content-Type-Options = %q, want nosniff", got)
+			}
+			if got := response.Body.Bytes(); !bytes.Equal(got, content) {
+				t.Errorf("body = %q, want %q", got, content)
+			}
+		})
+	}
+}
+
+func TestAppRejectsUnsafeAndUnavailableImages(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "directory.png", "nested.md"), "# nested")
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("not an image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside.png")
+	if err := os.WriteFile(outside, []byte("outside"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "escape.png")); err != nil {
+		t.Fatal(err)
+	}
+
+	app := newTestApp(t, root)
+	for _, target := range []string{
+		"/api/image",
+		"/api/image?path=missing.png",
+		"/api/image?path=notes.txt",
+		"/api/image?path=directory.png",
+		"/api/image?path=..%2Foutside.png",
+		"/api/image?path=%2Foutside.png",
+		"/api/image?path=escape.png",
+	} {
+		t.Run(target, func(t *testing.T) {
+			response := request(t, app, target)
+			if response.Code != http.StatusNotFound {
+				t.Errorf("status = %d, want %d", response.Code, http.StatusNotFound)
+			}
+		})
+	}
 }
 
 func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {

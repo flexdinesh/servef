@@ -21,6 +21,7 @@
   ],
   "selected": "guides/getting-started.md",
   "content": "<h1>Getting started</h1><p>This page is served by the frontend-only fixture API.</p>",
+  "source": "# Getting started\n\nThis page is served by the frontend-only fixture API.\n",
   "fileSize": 84,
   "fileCount": 1,
   "hasFile": true,

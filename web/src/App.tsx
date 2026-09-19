@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 import { ModeToggle } from "./components/ModeToggle.tsx"
+import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
 import { FileTree } from "./FileTree.tsx"
 import {
@@ -75,6 +76,9 @@ export function App() {
     const selected = result ? initialPage(result)?.selected : undefined
     return selected ? [selected] : []
   })
+  const [documentModes, setDocumentModes] = useState<ReadonlyMap<string, DocumentMode>>(
+    () => new Map(),
+  )
   const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
   const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(
     () => new Set(openDirectoryPaths(result ? initialPage(result)?.tree ?? [] : [])),
@@ -163,6 +167,19 @@ export function App() {
   const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
   const hasData = result?.kind === "page" || lastPage !== null
   const loadError = result?.kind === "failure" ? result.message : ""
+  const documentMode = documentModes.get(page.selected) ?? "preview"
+
+  const changeDocumentMode = useCallback((mode: DocumentMode) => {
+    const path = page.selected
+    if (!page.hasFile || !path || mode === documentMode) return
+    setDocumentModes((current) => {
+      const next = new Map(current)
+      next.set(path, mode)
+      return next
+    })
+    scrollPositions.current.set(path, 0)
+    if (main.current) main.current.scrollTop = 0
+  }, [documentMode, page.hasFile, page.selected])
 
   const closeTab = useCallback((path: string) => {
     const index = openTabs.indexOf(path)
@@ -170,6 +187,12 @@ export function App() {
     const remaining = openTabs.filter((tab) => tab !== path)
     setOpenTabs(remaining)
     scrollPositions.current.delete(path)
+    setDocumentModes((current) => {
+      if (!current.has(path)) return current
+      const next = new Map(current)
+      next.delete(path)
+      return next
+    })
     if (page.selected !== path) return
 
     focusDocument.current = true
@@ -263,12 +286,17 @@ export function App() {
           onPointerCancel={stopResize}
         />
         <section className="workspace" aria-label="Document workspace">
-          <TabBar
-            activePath={page.selected}
-            tabs={openTabs}
-            onClose={closeTab}
-            onSelect={navigateToDocument}
-          />
+          <div className="workspace-toolbar">
+            <TabBar
+              activePath={page.selected}
+              tabs={openTabs}
+              onClose={closeTab}
+              onSelect={navigateToDocument}
+            />
+            {page.hasFile && (
+              <DocumentModeToggle mode={documentMode} onChange={changeDocumentMode} />
+            )}
+          </div>
           <DocumentPane
             hasData={hasData}
             isLoading={isLoading}
@@ -276,6 +304,7 @@ export function App() {
             main={main}
             navigate={navigateToHref}
             page={page}
+            mode={documentMode}
             retry={() => { void router.invalidate() }}
           />
           <StatusBar isLoading={isLoading} metrics={metrics} page={page} />

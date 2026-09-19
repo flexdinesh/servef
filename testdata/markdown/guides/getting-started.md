@@ -2,6 +2,8 @@
 
 Use this guide to exercise GitHub Flavored Markdown.
 
+![servef preview fixture](../assets/preview.svg)
+
 | Command | Purpose |
 | --- | --- |
 | `servef testdata/markdown` | Browse the fixture library |

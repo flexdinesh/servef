@@ -4,7 +4,8 @@ Serve and browse Markdown files from a local directory.
 
 ## Features
 
-- Render Markdown content
+- Render Markdown content and local images
+- Switch each open document between preview and read-only source
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
 - Show document details and supported process CPU/RAM in a status line
