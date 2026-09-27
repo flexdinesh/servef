@@ -15,6 +15,7 @@ export interface SearchHandlers {
   onInput(query: string): void
   onMove(delta: number): void
   onResultClick(index: number): void
+  onRetry(): void
 }
 
 export interface SearchView {
@@ -42,12 +43,12 @@ type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>
 export interface SearchControllerOptions {
   clearTimer?: (timer: TimerHandle) => void
   debounceMs?: number
-  fetchDocuments: () => Promise<SearchDocumentsResponse>
+  fetchDocuments: (signal: AbortSignal) => Promise<SearchDocumentsResponse>
+  createWorker: () => SearchWorker
   navigate: (path: string) => void
   setTimer?: (callback: () => void, delay: number) => TimerHandle
   shortcutTarget?: EventTarget
   view: SearchView
-  worker: SearchWorker
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -79,7 +80,7 @@ function isSearchResult(value: unknown): value is SearchResult {
 
 export function createSearchController({
   view,
-  worker,
+  createWorker,
   fetchDocuments,
   navigate,
   shortcutTarget = globalThis.document,
@@ -87,12 +88,14 @@ export function createSearchController({
   setTimer = globalThis.setTimeout.bind(globalThis),
   clearTimer = globalThis.clearTimeout.bind(globalThis),
 }: SearchControllerOptions) {
-  if (!view || !worker || !fetchDocuments || !navigate || !shortcutTarget) {
+  if (!view || !createWorker || !fetchDocuments || !navigate || !shortcutTarget) {
     throw new TypeError("Search controller dependencies are required")
   }
 
   let started = false
   let loading: Promise<void> | undefined
+  let worker: SearchWorker | undefined
+  let loadController: AbortController | undefined
   let ready = false
   let unavailable = false
   let warnings: string[] = []
@@ -111,8 +114,15 @@ export function createSearchController({
   }
 
   const fail = (message = "Search is unavailable."): void => {
+    if (!started) return
     ready = false
     unavailable = true
+    loadController?.abort()
+    loading = undefined
+    disposeWorker()
+    if (debounceTimer !== undefined) clearTimer(debounceTimer)
+    debounceTimer = undefined
+    activeRequestId = ++nextRequestId
     flattenedResults = []
     activeIndex = -1
     view.clearResults()
@@ -120,23 +130,31 @@ export function createSearchController({
   }
 
   const requestSearch = (requestedQuery: string, requestId: number): void => {
-    if (!ready || unavailable || requestedQuery !== query || !requestedQuery.trim()) return
+    if (!started || !ready || unavailable || requestId !== activeRequestId || requestedQuery !== query || !requestedQuery.trim()) return
     view.setStatus({ kind: "searching", message: "Searching…" })
-    worker.postMessage({ type: "search", requestId, query: requestedQuery })
+    try {
+      worker?.postMessage({ type: "search", requestId, query: requestedQuery })
+    } catch {
+      fail()
+    }
   }
 
   const scheduleSearch = (nextQuery: string): void => {
+    if (!started) return
     query = nextQuery
     activeRequestId = ++nextRequestId
     if (debounceTimer !== undefined) clearTimer(debounceTimer)
     debounceTimer = undefined
+    flattenedResults = []
+    activeIndex = -1
+    view.clearResults()
 
-    if (!query.trim()) {
-      renderEmptyQuery()
+    if (unavailable) {
+      view.setStatus({ kind: "error", message: "Search is unavailable." })
       return
     }
-    if (unavailable) {
-      fail()
+    if (!query.trim()) {
+      renderEmptyQuery()
       return
     }
     if (!ready) {
@@ -146,6 +164,7 @@ export function createSearchController({
     }
 
     const requestId = activeRequestId
+    view.setStatus({ kind: "searching", message: "Searching…" })
     debounceTimer = setTimer(() => {
       debounceTimer = undefined
       requestSearch(query, requestId)
@@ -156,17 +175,30 @@ export function createSearchController({
     if (loading) return loading
 
     view.setStatus({ kind: "loading", message: "Preparing search…" })
+    const controller = new AbortController()
+    loadController = controller
+    try {
+      worker = createWorker()
+      worker.addEventListener("message", onWorkerMessage)
+      worker.addEventListener("error", onWorkerError)
+    } catch {
+      fail()
+      return Promise.resolve()
+    }
+    const loadingWorker = worker
     loading = Promise.resolve()
-      .then(fetchDocuments)
+      .then(() => fetchDocuments(controller.signal))
       .then((payload) => {
+        if (!started || controller.signal.aborted) return
         warnings = payload.warnings
-        worker.postMessage({ type: "init", documents: payload.documents })
+        loadingWorker.postMessage({ type: "init", documents: payload.documents })
       })
-      .catch(() => fail())
+      .catch(() => { if (!controller.signal.aborted) fail() })
     return loading
   }
 
   const open = (): void => {
+    if (!started) return
     view.open()
     view.focusInput()
     if (unavailable) {
@@ -175,6 +207,13 @@ export function createSearchController({
     }
     void ensureLoaded()
     if (ready) scheduleSearch(query)
+  }
+
+  const retry = (): void => {
+    if (!started || !unavailable) return
+    unavailable = false
+    void ensureLoaded()
+    view.focusInput()
   }
 
   const close = (): void => {
@@ -202,7 +241,7 @@ export function createSearchController({
   }
 
   const onWorkerMessage = (event: Event): void => {
-    if (!(event instanceof MessageEvent) || !isRecord(event.data)) return
+    if (!started || event.target !== worker || !(event instanceof MessageEvent) || !isRecord(event.data)) return
     const message = event.data
     if (message.type === "ready") {
       ready = true
@@ -241,6 +280,13 @@ export function createSearchController({
 
   const onWorkerError = (): void => fail()
 
+  function disposeWorker(): void {
+    worker?.removeEventListener("message", onWorkerMessage)
+    worker?.removeEventListener("error", onWorkerError)
+    worker?.terminate?.()
+    worker = undefined
+  }
+
   const start = (): void => {
     if (started) return
     started = true
@@ -250,21 +296,22 @@ export function createSearchController({
       onActivate: activate,
       onClose: close,
       onResultClick: activate,
+      onRetry: retry,
     })
     shortcutTarget.addEventListener("keydown", onShortcut)
-    worker.addEventListener("message", onWorkerMessage)
-    worker.addEventListener("error", onWorkerError)
   }
 
   const destroy = (): void => {
     if (!started) return
     close()
     started = false
+    loadController?.abort()
+    loading = undefined
+    ready = false
+    unavailable = false
     shortcutTarget.removeEventListener("keydown", onShortcut)
-    worker.removeEventListener("message", onWorkerMessage)
-    worker.removeEventListener("error", onWorkerError)
+    disposeWorker()
     view.setHandlers(null)
-    worker.terminate?.()
   }
 
   return { start, destroy, open, close }

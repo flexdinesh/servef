@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { useFeatures } from "./components/FeatureProvider.tsx"
+import { Button } from "./components/ui/button.tsx"
 import { useTheme } from "./components/ThemeProvider.tsx"
 import { mermaidRenderer } from "./features.ts"
 import { MermaidSource } from "./MermaidSource.tsx"
@@ -26,7 +27,14 @@ class MermaidBoundary extends Component<MermaidBoundaryProps, MermaidBoundarySta
 
   render() {
     if (this.state.failed) {
-      return <MermaidSource source={this.props.source} error="Could not load Mermaid. Check your installation." />
+      return (
+        <>
+          <MermaidSource source={this.props.source} error="Could not load Mermaid. Reload to try again." />
+          <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+            Reload diagrams
+          </Button>
+        </>
+      )
     }
     return this.props.children
   }

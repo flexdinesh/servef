@@ -49,12 +49,14 @@ export function MarkdownDocument({ html, navigate }: MarkdownDocumentProps) {
 
   useLayoutEffect(() => {
     if (!article.current) return
+    const restoreBlocks: Array<() => void> = []
     const nextDiagrams = [...article.current.querySelectorAll("pre > code.language-mermaid")].flatMap((code, index) => {
       const pre = code.parentElement
       if (!pre) return []
       const host = document.createElement("div")
       host.className = "mermaid-portal"
       pre.replaceWith(host)
+      restoreBlocks.push(() => host.replaceWith(pre))
       return [{ host, key: index, source: code.textContent ?? "" }]
     })
     const nextCodeBlocks = [...article.current.querySelectorAll<HTMLElement>("pre > code")].flatMap((code, index) => {
@@ -66,10 +68,12 @@ export function MarkdownDocument({ html, navigate }: MarkdownDocumentProps) {
       host.className = "code-block-controls-portal"
       pre.replaceWith(wrapper)
       wrapper.append(pre, host)
+      restoreBlocks.push(() => wrapper.replaceWith(pre))
       return [{ host, key: index, language: codeLanguage(code), source: code.textContent ?? "" }]
     })
     setDiagrams(nextDiagrams)
     setCodeBlocks(nextCodeBlocks)
+    return () => { for (const restore of restoreBlocks) restore() }
   }, [html])
 
   return (

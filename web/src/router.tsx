@@ -55,7 +55,9 @@ export const router = createRouter({
   defaultPreload: "intent",
   defaultPreloadStaleTime: 2_000,
   routeTree,
-  scrollRestoration: true,
+  // The persistent workspace owns document scroll; the tree retains its DOM scroll.
+  scrollRestoration: false,
+  defaultHashScrollIntoView: false,
 })
 
 declare module "@tanstack/react-router" {

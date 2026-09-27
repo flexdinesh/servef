@@ -8,6 +8,7 @@ import {
   type SearchView,
   type SearchWorker,
   type SearchWorkerRequest,
+  type SearchDocumentsResponse,
 } from "./search-controller.ts"
 import type { SearchGroups } from "./search-engine.ts"
 
@@ -38,6 +39,11 @@ class ShortcutEvent extends Event {
 
 class WorkerFake extends EventTarget implements SearchWorker {
   messages: SearchWorkerRequest[] = []
+  terminated = false
+
+  terminate(): void {
+    this.terminated = true
+  }
 
   postMessage(message: SearchWorkerRequest): void {
     this.messages.push(message)
@@ -68,10 +74,16 @@ function lastSearchRequest(worker: WorkerFake): Extract<SearchWorkerRequest, { t
   return message
 }
 
-function setup({ warnings = [] }: { warnings?: string[] } = {}) {
+function setup({ warnings = [], fetchDocuments }: {
+  warnings?: string[]
+  fetchDocuments?(signal: AbortSignal): Promise<SearchDocumentsResponse>
+} = {}) {
   const target = new EventTarget()
   const worker = new WorkerFake()
+  const workers: WorkerFake[] = []
   const timers: Array<() => void> = []
+  const scheduledTimers = new Map<number, () => void>()
+  let timerID = 0
   const navigations: string[] = []
   const rendered: Array<SearchGroups & { activeIndex: number }> = []
   const statuses: SearchStatus[] = []
@@ -91,18 +103,31 @@ function setup({ warnings = [] }: { warnings?: string[] } = {}) {
   }
   const controller = createSearchController({
     view,
-    worker,
+    createWorker: () => {
+      const next = workers.length === 0 ? worker : new WorkerFake()
+      workers.push(next)
+      return next
+    },
     shortcutTarget: target,
-    fetchDocuments: async () => {
+    fetchDocuments: async (signal) => {
       fetchCount += 1
+      if (fetchDocuments) return fetchDocuments(signal)
       return { documents: [{ path: "guide.md", name: "guide.md", content: "Guide body" }], warnings }
     },
     navigate: (path) => { navigations.push(path) },
     setTimer: (callback) => {
       timers.push(callback)
-      return timers.length
+      scheduledTimers.set(++timerID, callback)
+      return timerID
     },
-    clearTimer: () => {},
+    clearTimer: (timer) => {
+      if (typeof timer !== "number") return
+      const callback = scheduledTimers.get(timer)
+      if (!callback) return
+      const index = timers.indexOf(callback)
+      if (index >= 0) timers.splice(index, 1)
+      scheduledTimers.delete(timer)
+    },
   })
   controller.start()
   return {
@@ -120,6 +145,7 @@ function setup({ warnings = [] }: { warnings?: string[] } = {}) {
     target,
     timers,
     worker,
+    workers,
   }
 }
 
@@ -135,6 +161,86 @@ test("Cmd/Ctrl+K opens the palette and loads documents only once", async () => {
   assert.equal(harness.fetchCount(), 1)
   assert.equal(harness.worker.messages.filter((message) => message.type === "init").length, 1)
   assert.equal(harness.calls.filter((name) => name === "open").length, 2)
+})
+
+test("changing query prevents activation until current results arrive", async () => {
+  const harness = setup()
+  harness.controller.open()
+  await flushPromises()
+  harness.worker.emit({ type: "ready" })
+  harness.handlers().onInput("guide")
+  nextTimer(harness.timers)
+  const requestId = lastSearchRequest(harness.worker).requestId
+  harness.worker.emit({ type: "results", requestId,
+    pathResults: [{ path: "guide.md", name: "guide.md", score: 1 }], contentResults: [] })
+
+  harness.handlers().onInput("other")
+  harness.handlers().onActivate()
+  harness.handlers().onResultClick(0)
+  assert.deepEqual(harness.navigations, [])
+
+  nextTimer(harness.timers)
+  harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId,
+    pathResults: [{ path: "other.md", name: "other.md", score: 1 }], contentResults: [] })
+  harness.handlers().onActivate()
+  assert.deepEqual(harness.navigations, ["other.md"])
+})
+
+test("retry replaces a failed worker and preserves the query", async () => {
+  const harness = setup()
+  harness.controller.open()
+  await flushPromises()
+  harness.worker.emit({ type: "ready" })
+  harness.handlers().onInput("guide")
+  harness.worker.dispatchEvent(new Event("error"))
+  assert.equal(harness.statuses.at(-1)?.kind, "error")
+
+  harness.handlers().onRetry()
+  await flushPromises()
+  assert.equal(harness.worker.terminated, true)
+  const replacement = harness.workers.at(-1)
+  assert.ok(replacement)
+  assert.notEqual(replacement, harness.worker)
+  replacement.emit({ type: "ready" })
+  nextTimer(harness.timers)
+  assert.equal(lastSearchRequest(replacement).query, "guide")
+})
+
+test("retry fetches again after a transient document failure", async () => {
+  let attempts = 0
+  const harness = setup({ fetchDocuments: async () => {
+    if (++attempts === 1) throw new Error("offline")
+    return { documents: [], warnings: [] }
+  } })
+  harness.controller.open()
+  await flushPromises()
+  await flushPromises()
+  assert.equal(harness.statuses.at(-1)?.kind, "error")
+  harness.handlers().onRetry()
+  await flushPromises()
+  assert.equal(attempts, 2)
+  harness.workers.at(-1)?.emit({ type: "ready" })
+  assert.equal(harness.statuses.at(-1)?.kind, "idle")
+})
+
+test("destroy aborts loading and ignores late settlements", async () => {
+  let finish: ((payload: SearchDocumentsResponse) => void) | undefined
+  let requestSignal: AbortSignal | undefined
+  const harness = setup({ fetchDocuments: (signal) => {
+    requestSignal = signal
+    return new Promise((resolve) => { finish = resolve })
+  } })
+  harness.controller.open()
+  await flushPromises()
+  harness.controller.destroy()
+  assert.equal(requestSignal?.aborted, true)
+  assert.equal(harness.worker.terminated, true)
+  const statusCount = harness.statuses.length
+  assert.ok(finish)
+  finish({ documents: [], warnings: [] })
+  await flushPromises()
+  assert.equal(harness.worker.messages.length, 0)
+  assert.equal(harness.statuses.length, statusCount)
 })
 
 test("stale worker responses are ignored and each group is capped at ten", async () => {
