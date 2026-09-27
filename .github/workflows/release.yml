@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check out main
@@ -101,12 +102,6 @@ jobs:
           git diff --exit-code -- internal/web/dist
           go build ./...
 
-      - name: Create release tag
-        if: steps.version.outputs.tag_exists != 'true'
-        run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
-
       - name: Build release archives
         if: steps.version.outputs.release_exists != 'true'
         shell: bash
@@ -143,6 +138,12 @@ jobs:
             shasum -a 256 *.tar.gz > checksums.txt
           )
 
+      - name: Create release tag
+        if: steps.version.outputs.tag_exists != 'true'
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
       - name: Publish GitHub release
         if: steps.version.outputs.release_exists != 'true'
         env:
@@ -156,7 +157,9 @@ jobs:
             release-dist/checksums.txt \
             --target "$(git rev-parse HEAD)" \
             --title "$RELEASE_VERSION" \
-            --generate-notes
+            --generate-notes \
+            --verify-tag \
+            --latest
 
       - name: Download existing release
         if: steps.version.outputs.release_exists == 'true'
