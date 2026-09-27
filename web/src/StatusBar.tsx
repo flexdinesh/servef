@@ -1,9 +1,8 @@
 import type { PageData } from "./page-data.ts"
-import type { ProcessMetrics } from "./process-metrics.ts"
+import { useProcessMetrics } from "./process-metrics.ts"
 
 interface StatusBarProps {
   isLoading: boolean
-  metrics: ProcessMetrics | null
   page: PageData
 }
 
@@ -14,7 +13,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1_073_741_824).toFixed(1)} GB`
 }
 
-export function StatusBar({ isLoading, metrics, page }: StatusBarProps) {
+export function StatusBar({ isLoading, page }: StatusBarProps) {
+  const metrics = useProcessMetrics()
   const processTitle = metrics
     ? [
         "servef process",

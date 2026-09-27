@@ -24,15 +24,20 @@ export function useProcessMetrics(): ProcessMetrics | null {
 
   useEffect(() => {
     let disposed = false
+    let pending: AbortController | null = null
 
     const refresh = async () => {
-      if (document.hidden) return
+      if (disposed || document.hidden || pending) return
+      const controller = new AbortController()
+      pending = controller
       try {
-        const response = await fetch("/api/metrics")
+        const response = await fetch("/api/metrics", { signal: controller.signal })
         const payload: unknown = await response.json()
         if (!disposed && response.ok && isProcessMetrics(payload)) setMetrics(payload)
       } catch {
         // Keep the last sample when the local server is briefly unavailable.
+      } finally {
+        pending = null
       }
     }
 
@@ -42,6 +47,7 @@ export function useProcessMetrics(): ProcessMetrics | null {
     document.addEventListener("visibilitychange", refreshWhenVisible)
     return () => {
       disposed = true
+      pending?.abort()
       window.clearInterval(timer)
       document.removeEventListener("visibilitychange", refreshWhenVisible)
     }

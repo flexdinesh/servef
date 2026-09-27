@@ -31,6 +31,7 @@ interface PreparedDiagram {
 export default function ExcalidrawMermaidCanvas({ source, theme }: { source: string; theme: MermaidTheme }) {
   const host = useRef<HTMLDivElement>(null)
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
+  const mountFrame = useRef<number | null>(null)
   const [diagram, setDiagram] = useState<PreparedDiagram | null>(null)
   const [error, setError] = useState("")
   const [height, setHeight] = useState(minimumDiagramHeight)
@@ -93,9 +94,17 @@ export default function ExcalidrawMermaidCanvas({ source, theme }: { source: str
     return () => window.removeEventListener("scroll", refresh, true)
   }, [])
 
+  useEffect(() => () => {
+    if (mountFrame.current !== null) cancelAnimationFrame(mountFrame.current)
+    apiRef.current = null
+  }, [])
+
   const onMount = useCallback((api: ExcalidrawImperativeAPI) => {
     apiRef.current = api
-    requestAnimationFrame(() => {
+    if (mountFrame.current !== null) cancelAnimationFrame(mountFrame.current)
+    mountFrame.current = requestAnimationFrame(() => {
+      mountFrame.current = null
+      if (apiRef.current !== api) return
       api.scrollToContent(api.getSceneElements(), {
         fitToViewport: true,
         maxZoom: 1,
