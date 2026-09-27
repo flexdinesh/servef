@@ -6,6 +6,16 @@
 - Node.js 26
 - pnpm 11
 
+## Install development version
+
+Development version, updated automatically after CI passes on `main`:
+
+```sh
+go install github.com/flexdinesh/servef@dev
+```
+
+The Go install includes the embedded frontend; Node.js and pnpm are not required.
+
 ## Commands
 
 | Purpose | Command |
