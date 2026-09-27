@@ -36,12 +36,6 @@ Specific stable version:
 go install github.com/flexdinesh/servef@v0.1.3
 ```
 
-Development version, updated automatically after CI passes on `main`:
-
-```sh
-go install github.com/flexdinesh/servef@dev
-```
-
 All Go installs include the embedded frontend; Node.js and pnpm are not required.
 
 ## Usage
