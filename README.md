@@ -24,9 +24,25 @@ brew install flexdinesh/tap/servef
 
 Requires Go 1.24 or later.
 
+Latest stable release:
+
 ```sh
 go install github.com/flexdinesh/servef@latest
 ```
+
+Specific stable version:
+
+```sh
+go install github.com/flexdinesh/servef@v0.1.3
+```
+
+Development version, updated automatically after CI passes on `main`:
+
+```sh
+go install github.com/flexdinesh/servef@dev
+```
+
+All Go installs include the embedded frontend; Node.js and pnpm are not required.
 
 ## Usage
 

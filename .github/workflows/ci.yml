@@ -49,3 +49,27 @@ jobs:
           pnpm build:web
           git diff --exit-code -- internal/web/dist
           go build ./...
+
+  release-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-dev
+      cancel-in-progress: false
+    steps:
+      - name: Check out tested commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Publish dev
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "A newer main commit exists; skipping this dev update."
+            exit 0
+          fi
+          git push origin HEAD:refs/heads/dev
