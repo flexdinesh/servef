@@ -6,15 +6,23 @@
 - Node.js 26
 - pnpm 11
 
-## Install development version
+## Install from main
 
-Development version, updated automatically after CI passes on `main`:
+Install the latest commit directly from `main`:
 
 ```sh
-go install github.com/flexdinesh/servef@dev
+go install github.com/flexdinesh/servef@main
 ```
 
 The Go install includes the embedded frontend; Node.js and pnpm are not required.
+
+`@main` follows the branch head without waiting for CI; `@latest` selects the
+latest stable version tag. Go module proxies may briefly cache an older branch
+revision. To bypass the proxy for this module:
+
+```sh
+GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@main
+```
 
 ## Commands
 
