@@ -34,21 +34,7 @@ The tap branch is deterministic per version, such as `servef-v0.1.0`. Rerunning 
 
 The tap repository owns Homebrew style, strict audit, install, and formula test checks before merge.
 
-## Development releases
-
-Every push to `main` runs **CI**. After its tests and build pass, the `release-dev` job advances the `dev` branch to that exact commit. This branch is an automated install channel; do not commit to it directly. Publication is serialized, outdated runs are skipped, and updates only fast-forward so older runs cannot move `dev` backward. Failed CI runs do not update `dev`.
-
-```sh
-go install github.com/flexdinesh/servef@dev
-```
-
-The committed frontend assets are verified by CI and included in Go installs. No Node.js or pnpm is needed to install or run the CLI.
-
-Development updates create no version tags, GitHub Releases, or Homebrew updates. Go resolves `@dev` to the branch's commit, usually as a pseudo-version; `@latest` continues to select the highest stable version tag. Go module proxies may briefly cache the previous `dev` revision. If needed, bypass the proxy for this module:
-
-```sh
-GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@dev
-```
+For installation directly from `main`, see the [development guide](development.md#install-from-main).
 
 ## Version series
 
