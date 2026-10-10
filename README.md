@@ -8,7 +8,9 @@ Serve and browse Markdown files from a local directory.
 - Switch each open document between preview and read-only source
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
-- Show document details and supported process CPU/RAM in a status line
+- Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
+- Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar
+- Show document details in the status bar; disclose process CPU/RAM from Ready
 - Switch between system, light, dark, and editor palettes
 - Render Mermaid diagrams with Excalidraw
 

@@ -17,19 +17,22 @@ class ShortcutEvent extends Event {
   readonly ctrlKey: boolean
   readonly key: string
   readonly metaKey: boolean
+  readonly shiftKey: boolean
   prevented = false
 
-  constructor({ altKey = false, ctrlKey = false, key, metaKey = false }: {
+  constructor({ altKey = false, ctrlKey = false, key, metaKey = false, shiftKey = false }: {
     altKey?: boolean
     ctrlKey?: boolean
     key: string
     metaKey?: boolean
+    shiftKey?: boolean
   }) {
     super("keydown")
     this.altKey = altKey
     this.ctrlKey = ctrlKey
     this.key = key
     this.metaKey = metaKey
+    this.shiftKey = shiftKey
   }
 
   preventDefault(): void {
@@ -149,10 +152,10 @@ function setup({ warnings = [], fetchDocuments }: {
   }
 }
 
-test("Cmd/Ctrl+K opens the palette and loads documents only once", async () => {
+test("Cmd/Ctrl+Shift+F opens content search and loads documents only once", async () => {
   const harness = setup()
-  const meta = new ShortcutEvent({ key: "k", metaKey: true })
-  const control = new ShortcutEvent({ key: "K", ctrlKey: true })
+  const meta = new ShortcutEvent({ key: "f", metaKey: true, shiftKey: true })
+  const control = new ShortcutEvent({ key: "F", ctrlKey: true, shiftKey: true })
   harness.target.dispatchEvent(meta)
   harness.target.dispatchEvent(control)
   await flushPromises()
@@ -161,6 +164,20 @@ test("Cmd/Ctrl+K opens the palette and loads documents only once", async () => {
   assert.equal(harness.fetchCount(), 1)
   assert.equal(harness.worker.messages.filter((message) => message.type === "init").length, 1)
   assert.equal(harness.calls.filter((name) => name === "open").length, 2)
+})
+
+test("file shortcuts and unmodified Find do not open content search", () => {
+  const harness = setup()
+  for (const event of [
+    new ShortcutEvent({ key: "k", ctrlKey: true }),
+    new ShortcutEvent({ key: "p", metaKey: true }),
+    new ShortcutEvent({ key: "f", ctrlKey: true }),
+    new ShortcutEvent({ key: "f", ctrlKey: true, shiftKey: true, altKey: true }),
+  ]) {
+    harness.target.dispatchEvent(event)
+    assert.equal(event.prevented, false)
+  }
+  assert.equal(harness.calls.includes("open"), false)
 })
 
 test("changing query prevents activation until current results arrive", async () => {
@@ -172,7 +189,7 @@ test("changing query prevents activation until current results arrive", async ()
   nextTimer(harness.timers)
   const requestId = lastSearchRequest(harness.worker).requestId
   harness.worker.emit({ type: "results", requestId,
-    pathResults: [{ path: "guide.md", name: "guide.md", score: 1 }], contentResults: [] })
+    pathResults: [], contentResults: [{ path: "guide.md", name: "guide.md", score: 1 }] })
 
   harness.handlers().onInput("other")
   harness.handlers().onActivate()
@@ -181,7 +198,7 @@ test("changing query prevents activation until current results arrive", async ()
 
   nextTimer(harness.timers)
   harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId,
-    pathResults: [{ path: "other.md", name: "other.md", score: 1 }], contentResults: [] })
+    pathResults: [], contentResults: [{ path: "other.md", name: "other.md", score: 1 }] })
   harness.handlers().onActivate()
   assert.deepEqual(harness.navigations, ["other.md"])
 })
@@ -243,7 +260,7 @@ test("destroy aborts loading and ignores late settlements", async () => {
   assert.equal(harness.statuses.length, statusCount)
 })
 
-test("stale worker responses are ignored and each group is capped at ten", async () => {
+test("stale responses and path-only hits are ignored; content results are capped at ten", async () => {
   const harness = setup()
   harness.controller.open()
   await flushPromises()
@@ -270,12 +287,12 @@ test("stale worker responses are ignored and each group is capped at ten", async
 
   const results = harness.rendered[0]
   assert.ok(results)
-  assert.equal(results.pathResults.length, 10)
+  assert.equal(results.pathResults.length, 0)
   assert.equal(results.contentResults.length, 10)
   assert.equal(results.activeIndex, 0)
 })
 
-test("keyboard selection traverses both groups and activation navigates", async () => {
+test("keyboard selection traverses content results and activation navigates", async () => {
   const harness = setup()
   harness.controller.open()
   await flushPromises()
@@ -287,12 +304,15 @@ test("keyboard selection traverses both groups and activation navigates", async 
     type: "results",
     requestId,
     pathResults: [{ path: "guide.md", name: "guide.md", score: 1 }],
-    contentResults: [{ path: "guide.md", name: "guide.md", score: 1, snippet: { text: "guide", highlights: [] } }],
+    contentResults: [
+      { path: "guide.md", name: "guide.md", score: 1, snippet: { text: "guide", highlights: [] } },
+      { path: "other.md", name: "other.md", score: 1, snippet: { text: "another guide", highlights: [] } },
+    ],
   })
 
   harness.handlers().onMove(1)
   harness.handlers().onActivate()
-  assert.deepEqual(harness.navigations, ["guide.md"])
+  assert.deepEqual(harness.navigations, ["other.md"])
   assert.equal(harness.activeSelections.at(-1), 1)
 })
 

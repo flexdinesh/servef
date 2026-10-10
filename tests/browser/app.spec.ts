@@ -48,68 +48,44 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
   await page.goto("/")
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByText("guides/").click()
-  await tree.getByText("reference/").click()
-  await tree.getByText("topics/").click()
-  await expect(tree.getByRole("link", { name: "getting-started.md" })).toBeVisible()
-  await expect(tree.getByRole("link", { name: "api.markdown" })).toBeVisible()
-  await expect(tree.getByRole("link", { name: "search.md" })).toBeVisible()
-  await expect(tree.getByText("guides/", { exact: true }).locator("svg"))
-    .toHaveClass(/lucide-folder/)
-  await expect(tree.getByRole("link", { name: "getting-started.md" }).locator("svg"))
-    .toHaveClass(/lucide-square-m/)
-  await expect(tree.getByRole("link", { name: "api.markdown" }).locator("svg"))
-    .toHaveAttribute("aria-hidden", "true")
+  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
+  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "api.markdown" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
   await expect(tree.getByText("notes.txt")).toHaveCount(0)
   await expect(tree.getByText("ignored.md")).toHaveCount(0)
-
-  const treeScroll = await tree.evaluate((element) => {
-    element.style.height = "80px"
-    element.scrollTop = 40
-    element.addEventListener("click", () => {
-      element.dataset.scrollAtNavigation = String(element.scrollTop)
-    }, { capture: true, once: true })
-    return element.scrollTop
-  })
-  expect(treeScroll).toBeGreaterThan(0)
 
   await page.evaluate(() => {
     document.body.dataset.navigationMarker = "preserved"
   })
-  await tree.getByRole("link", { name: "getting-started.md" }).click()
+  await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
   await expect(page).toHaveURL(/\/view\?path=guides%2Fgetting-started\.md$/)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("main table")).toContainText("pnpm dev")
   await expect(page).toHaveTitle("guides/getting-started.md · servef")
-  await expect(tree.getByRole("link", { name: "getting-started.md" })).toHaveAttribute("aria-current", "page")
+  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
-  await expect.poll(() => tree.evaluate((element) => (
-    element.dataset.scrollAtNavigation === String(element.scrollTop)
-  ))).toBe(true)
-  await expect(tree.getByRole("link", { name: "api.markdown" })).toBeVisible()
-  await expect(tree.getByRole("link", { name: "search.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "api.markdown" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 })
 
-test("keeps modified tree clicks native", async ({ context, page }) => {
+test("modified tree clicks select files without creating browser tabs", async ({ context, page }) => {
   await page.goto("/")
-
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByText("guides/").click()
-  const openedPage = context.waitForEvent("page")
-  await tree.getByRole("link", { name: "getting-started.md" }).click({ modifiers: ["Control"] })
-  const documentPage = await openedPage
-
-  await expect(page).toHaveURL(/\/$/)
-  await expect(documentPage).toHaveURL(/\/view\?path=guides%2Fgetting-started\.md$/)
-  await documentPage.close()
+  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "getting-started.md" }).click({ modifiers: ["Control"] })
+  await expect(page).toHaveURL(/path=guides%2Fgetting-started.md/)
+  expect(context.pages()).toHaveLength(1)
 })
 
 test("searches fixture content and opens the result", async ({ page }) => {
   await page.goto("/")
 
-  const search = page.getByPlaceholder("Search files and content…")
+  const search = page.getByPlaceholder("Search document content…")
   await expect(page.getByText("Select a Markdown file from the folder tree.")).toBeVisible()
-  await page.locator("body").press("ControlOrMeta+k")
+  await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
   await expect(search).toBeVisible()
   await search.fill("luminous-orchid")
 
@@ -129,9 +105,9 @@ test("navigates Markdown links and history without losing tree state", async ({ 
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByText("reference/").click()
-  await tree.getByText("topics/").click()
-  await expect(tree.getByRole("link", { name: "search.md" })).toBeVisible()
+  await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
+  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 
   await page.evaluate(() => {
     document.body.dataset.navigationMarker = "preserved"
@@ -140,20 +116,20 @@ test("navigates Markdown links and history without losing tree state", async ({ 
   await expect(page).toHaveURL(/\/view\?path=reference%2Ftopics%2Fsearch\.md$/)
   await expect(page.getByRole("heading", { level: 1, name: "Search notes" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
-  await expect(tree.getByRole("link", { name: "getting-started.md" })).toBeVisible()
-  await expect(tree.getByRole("link", { name: "search.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 
   await page.goBack()
   await expect(page).toHaveURL(/\/view\?path=guides%2Fgetting-started\.md$/)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
-  await expect(tree.getByRole("link", { name: "search.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 
   await page.goForward()
   await expect(page).toHaveURL(/\/view\?path=reference%2Ftopics%2Fsearch\.md$/)
   await expect(page.getByRole("heading", { level: 1, name: "Search notes" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
-  await expect(tree.getByRole("link", { name: "getting-started.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
 })
 
 test("preserves Markdown hashes during client navigation", async ({ page }) => {
@@ -181,12 +157,12 @@ test("recovers from an invalid page response", async ({ page }) => {
   })
   await page.goto("/")
 
-  await page.locator("body").press("ControlOrMeta+k")
-  const search = page.getByPlaceholder("Search files and content…")
+  await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
+  const search = page.getByPlaceholder("Search document content…")
   await search.fill("getting-started")
   await page.getByRole("option", {
     exact: true,
-    name: "getting-started.md guides/getting-started.md",
+    name: /getting-started.md guides\/getting-started.md/,
   }).click()
 
   await expect(page.getByRole("alert")).toContainText("invalid page response")
@@ -206,9 +182,9 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   await page.goto("/")
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByText("guides/").click()
-  await tree.getByRole("link", { name: "diagrams.md" }).dispatchEvent("click")
-  await tree.getByRole("link", { name: "getting-started.md" }).dispatchEvent("click")
+  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).dispatchEvent("click")
+  await tree.getByRole("treeitem", { name: "getting-started.md" }).dispatchEvent("click")
 
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   releaseDelayedResponse()
@@ -216,11 +192,11 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   await expect(page).toHaveURL(/\/view\?path=guides%2Fgetting-started\.md$/)
 })
 
-test("opens search from the header control", async ({ page }) => {
+test("opens content search from the status bar", async ({ page }) => {
   await page.goto("/")
 
-  await page.getByRole("button", { name: /Search/ }).click()
-  await expect(page.getByPlaceholder("Search files and content…")).toBeFocused()
+  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await expect(page.getByPlaceholder("Search document content…")).toBeFocused()
 })
 
 test("selects and persists an explicit theme", async ({ page }) => {
@@ -234,7 +210,7 @@ test("selects and persists an explicit theme", async ({ page }) => {
   await dark.click()
 
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(16, 18, 23)")
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
   expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("dark")
 
   await page.reload()
@@ -244,7 +220,7 @@ test("selects and persists an explicit theme", async ({ page }) => {
   await page.getByRole("button", { name: "Theme: Dark" }).click()
   await page.getByRole("menuitemradio", { name: "Light", exact: true }).click()
   await expect(page.locator("html")).toHaveClass(/light/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(247, 248, 250)")
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
 })
 
 test("system theme follows live OS changes", async ({ page }) => {
@@ -262,8 +238,8 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  const selected = tree.getByRole("link", { name: "getting-started.md" })
-  await expect(page.locator("article")).toHaveCSS("font-size", "16px")
+  const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
+  await expect(page.locator("article")).toHaveCSS("font-size", "15px")
   await expect(selected).toHaveCSS("font-size", "13px")
   await expect(selected).toHaveCSS("border-radius", "0px")
 })
@@ -296,7 +272,7 @@ test("labels and copies fenced code", async ({ page }) => {
   const codeBlock = codeBlocks.first()
   const copy = codeBlock.getByRole("button")
   await expect(copy).toHaveAccessibleName("Copy json code")
-  await expect(copy).toHaveCSS("border-radius", "6px")
+  await expect(copy).toHaveCSS("border-radius", "2px")
   await expect(copy.locator(".code-block-control-language")).toHaveText("json")
   const languageColor = await copy.locator(".code-block-control-language").evaluate(
     (element) => window.getComputedStyle(element).color,
@@ -339,7 +315,7 @@ test("opens, switches, and closes document tabs", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByRole("link", { name: "diagrams.md" }).click()
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
 
   const tabs = page.getByRole("tablist", { name: "Open documents" })
   await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
@@ -382,7 +358,7 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
 
   const tree = page.getByRole("complementary", { name: "Markdown files" })
-  await tree.getByRole("link", { name: "diagrams.md" }).click()
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(preview).toHaveAttribute("aria-pressed", "true")
 
   const tabs = page.getByRole("tablist", { name: "Open documents" })
@@ -390,7 +366,7 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   await expect(source).toHaveAttribute("aria-pressed", "true")
 
   await tabs.getByRole("button", { name: "Close guides/getting-started.md" }).click()
-  await tree.getByRole("link", { name: "getting-started.md" }).click()
+  await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
   await expect(preview).toHaveAttribute("aria-pressed", "true")
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
 })
@@ -411,14 +387,16 @@ test("shows document metadata and process metrics in the status line", async ({ 
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const status = page.locator(".status-bar")
-  await expect(status).toContainText("guides/getting-started.md")
+  await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
+  await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
   await expect(status).toContainText("7 files")
+  await status.locator("summary").click()
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")
-    await expect(status).toContainText("RAM")
+    await expect(status).toContainText("Resident RAM")
   } else {
     await expect(status).not.toContainText("CPU")
-    await expect(status).toContainText("MEM")
+    await expect(status).toContainText("Go runtime system memory")
   }
 })
 

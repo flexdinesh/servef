@@ -60,6 +60,7 @@ function isShortcutEvent(event: Event): event is Event & {
   ctrlKey: boolean
   key: string
   metaKey: boolean
+  shiftKey: boolean
 } {
   return "key" in event
     && typeof event.key === "string"
@@ -69,6 +70,8 @@ function isShortcutEvent(event: Event): event is Event & {
     && typeof event.ctrlKey === "boolean"
     && "altKey" in event
     && typeof event.altKey === "boolean"
+    && "shiftKey" in event
+    && typeof event.shiftKey === "boolean"
 }
 
 function isSearchResult(value: unknown): value is SearchResult {
@@ -110,7 +113,7 @@ export function createSearchController({
     flattenedResults = []
     activeIndex = -1
     view.clearResults()
-    view.setStatus({ kind: "idle", message: "Type to search file paths and content." })
+    view.setStatus({ kind: "idle", message: "Type to search document content." })
   }
 
   const fail = (message = "Search is unavailable."): void => {
@@ -234,7 +237,7 @@ export function createSearchController({
   }
 
   const onShortcut = (event: Event): void => {
-    if (isShortcutEvent(event) && (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
+    if (isShortcutEvent(event) && (event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey && event.key.toLowerCase() === "f") {
       event.preventDefault()
       open()
     }
@@ -258,7 +261,7 @@ export function createSearchController({
     if (message.type !== "results" || message.requestId !== activeRequestId) return
 
     const groups = {
-      pathResults: Array.isArray(message.pathResults) ? message.pathResults.filter(isSearchResult).slice(0, 10) : [],
+      pathResults: [],
       contentResults: Array.isArray(message.contentResults) ? message.contentResults.filter(isSearchResult).slice(0, 10) : [],
     }
     flattenedResults = [...groups.pathResults, ...groups.contentResults]

@@ -6,6 +6,7 @@
 /web/node_modules/
 /playwright-report/
 /test-results/
+/.impeccable/review/
 
 # Go test and coverage output
 /*.test

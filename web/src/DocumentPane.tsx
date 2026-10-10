@@ -44,7 +44,6 @@ export function DocumentPane({ hasData, isLoading, loadError, main, mode, naviga
         )
       ) : hasData ? (
         <div className="empty">
-          <div className="empty-mark" aria-hidden="true">M</div>
           <h1>Choose a Markdown file</h1>
           <p>Select a Markdown file from the folder tree.</p>
         </div>

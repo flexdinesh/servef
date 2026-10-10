@@ -28,7 +28,7 @@ function LifecycleFixture() {
       <button type="button" onClick={() => openSearch.current?.()}>Open search</button>
       <output aria-label="Navigation">{navigation}</output>
       {visible && <MarkdownDocument html={html} navigate={() => {}} />}
-      {visible && <StatusBar isLoading={false} page={emptyPage} />}
+      {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} />}
       <SearchDialog
         navigate={(path) => setNavigation(`${navigationPrefix}:${path}`)}
         registerOpen={(open) => { openSearch.current = open }}
