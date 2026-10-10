@@ -3,32 +3,29 @@ import test from "node:test"
 
 import { bestSnippet, createSearchEngine } from "./search-engine.ts"
 
-test("path and content matches are returned as independent groups", () => {
+test("content search matches document text, independently of file names", () => {
   const engine = createSearchEngine()
   engine.initialize([
     { path: "docs/guide.md", name: "guide.md", content: "The guide explains alpha and beta." },
     { path: "notes/alpha.md", name: "alpha.md", content: "alpha only" },
+    { path: "reference/configuration.md", name: "configuration.md", content: "Settings" },
   ])
 
-  const guideResults = engine.search("guide")
-  assert.deepEqual(guideResults.pathResults.map((result) => result.path), ["docs/guide.md"])
-  assert.deepEqual(guideResults.contentResults.map((result) => result.path), ["docs/guide.md"])
+  assert.deepEqual(engine.search("guide").contentResults.map((result) => result.path), ["docs/guide.md"])
   assert.deepEqual(engine.search("alpha beta").contentResults.map((result) => result.path), ["docs/guide.md"])
+  assert.deepEqual(engine.search("configuration").contentResults, [])
+  assert.deepEqual(engine.search("guide").pathResults, [])
 })
 
-test("path search supports prefix and mild fuzzy matching", () => {
+test("content search supports prefixes without fuzzy matches", () => {
   const engine = createSearchEngine()
-  engine.initialize([{ path: "reference/configuration.md", name: "configuration.md", content: "Settings" }])
+  engine.initialize([{ path: "reference/options.md", name: "options.md", content: "Configuration settings" }])
 
-  const prefix = engine.search("config").pathResults[0]
-  const fuzzy = engine.search("configuraton").pathResults[0]
-  assert.ok(prefix)
-  assert.ok(fuzzy)
-  assert.equal(prefix.path, "reference/configuration.md")
-  assert.equal(fuzzy.path, "reference/configuration.md")
+  assert.equal(engine.search("config").contentResults[0]?.path, "reference/options.md")
+  assert.deepEqual(engine.search("configuraton").contentResults, [])
 })
 
-test("results are capped at ten per group", () => {
+test("content results are capped at ten", () => {
   const engine = createSearchEngine()
   engine.initialize(Array.from({ length: 15 }, (_, index) => ({
     path: `guide-${index}.md`,
@@ -36,7 +33,7 @@ test("results are capped at ten per group", () => {
     content: `guide content ${index}`,
   })))
   const results = engine.search("guide")
-  assert.equal(results.pathResults.length, 10)
+  assert.equal(results.pathResults.length, 0)
   assert.equal(results.contentResults.length, 10)
 })
 

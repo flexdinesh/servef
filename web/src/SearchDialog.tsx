@@ -71,7 +71,7 @@ export function SearchDialog({ navigate, registerOpen }: SearchDialogProps) {
       onClick={(event) => { if (event.target === dialog.current) handlers.current?.onClose() }}
     >
       <div className="search-shell">
-        <h2 id="search-title" className="visually-hidden">Search Markdown files</h2>
+        <h2 id="search-title" className="visually-hidden">Search document content</h2>
         <div className="search-field">
           <svg aria-hidden="true" viewBox="0 0 20 20">
             <circle cx="8.5" cy="8.5" r="5.5" />
@@ -84,7 +84,7 @@ export function SearchDialog({ navigate, registerOpen }: SearchDialogProps) {
             type="search"
             autoComplete="off"
             spellCheck={false}
-            placeholder="Search files and content…"
+            placeholder="Search document content…"
             role="combobox"
             aria-controls="search-results"
             aria-expanded={expanded}
@@ -118,8 +118,7 @@ export function SearchDialog({ navigate, registerOpen }: SearchDialogProps) {
         <div id="search-results" className="search-results" role="listbox" aria-label="Search results">
           {groups && (
             <>
-              <ResultGroup activeIndex={activeIndex} kind="path" offset={0} onActivate={(index) => handlers.current?.onResultClick(index)} results={groups.pathResults} title="File paths" />
-              <ResultGroup activeIndex={activeIndex} kind="content" offset={groups.pathResults.length} onActivate={(index) => handlers.current?.onResultClick(index)} results={groups.contentResults} title="Content" />
+              <ResultGroup activeIndex={activeIndex} kind="content" offset={0} onActivate={(index) => handlers.current?.onResultClick(index)} results={groups.contentResults} title="Content" />
             </>
           )}
         </div>

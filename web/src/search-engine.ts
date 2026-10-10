@@ -127,27 +127,16 @@ function resultIdentity(result: MiniSearchResult): Pick<SearchResult, "name" | "
 }
 
 export function createSearchEngine() {
-  let pathIndex: MiniSearch<SearchDocument> | undefined
   let contentIndex: MiniSearch<SearchDocument> | undefined
 
   function initialize(documents: readonly SearchDocument[]): void {
-    pathIndex = new MiniSearch<SearchDocument>({ fields: ["path"], storeFields: ["path", "name"], idField: "path" })
     contentIndex = new MiniSearch<SearchDocument>({ fields: ["content"], storeFields: ["path", "name", "content"], idField: "path" })
     const uniqueDocuments = [...new Map(documents.map((document) => [document.path, document])).values()]
-    pathIndex.addAll(uniqueDocuments)
     contentIndex.addAll(uniqueDocuments)
   }
 
   function search(query: string): SearchGroups {
-    if (!pathIndex || !contentIndex) throw new Error("Search index has not been initialized")
-    const pathResults = pathIndex.search(query, {
-      combineWith: "AND",
-      prefix: true,
-      fuzzy: (term) => term.length >= 4 ? 0.2 : false,
-    }).slice(0, maximumResults).flatMap((result) => {
-      const identity = resultIdentity(result)
-      return identity ? [identity] : []
-    })
+    if (!contentIndex) throw new Error("Search index has not been initialized")
     const contentResults = contentIndex.search(query, {
       combineWith: "AND",
       prefix: true,
@@ -159,7 +148,7 @@ export function createSearchEngine() {
         ? [{ ...identity, snippet: bestSnippet(content, query) }]
         : []
     })
-    return { pathResults, contentResults }
+    return { pathResults: [], contentResults }
   }
 
   return { initialize, search }

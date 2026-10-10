@@ -1,250 +1,278 @@
-# servef design system
+---
+name: servef
+description: Compact VS Code-style workspace for local Markdown.
+colors:
+  bg: "#f8f8f8"
+  surface: "#ffffff"
+  surface-secondary: "#f3f3f3"
+  surface-raised: "#ffffff"
+  text-primary: "#333333"
+  text-secondary: "#515866"
+  text-muted: "#6d7685"
+  border: "#e5e5e5"
+  border-strong: "#c5cbd4"
+  accent: "#2563eb"
+  accent-hover: "#1d4ed8"
+  accent-subtle: "#e8efff"
+  on-accent: "#ffffff"
+  success: "#16794b"
+  warning: "#9a5800"
+  warning-subtle: "#fff1cf"
+  destructive: "#bd3029"
+  destructive-subtle: "#fff0ef"
+  overlay: "rgb(15 18 23 / 48%)"
+  syntax-comment: "#57606a"
+  syntax-keyword: "#cf222e"
+  syntax-type: "#0550ae"
+  syntax-function: "#6639ba"
+  syntax-variable: "#953800"
+  syntax-string: "#0a3069"
+  syntax-number: "#0550ae"
+  syntax-operator: "#0550ae"
+typography:
+  headline:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.75rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.02em"
+  section:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.375rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.02em"
+  subsection:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.125rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.02em"
+  minor-heading:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.02em"
+  body:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: 1.6
+  body-mobile:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.6
+  label:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.8125rem"
+    fontWeight: 400
+  supporting:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    lineHeight: "1.25rem"
+  metadata:
+    fontFamily: "\"Inter Variable\", Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    lineHeight: "1rem"
+  code:
+    fontFamily: "ui-monospace, \"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace"
+    fontSize: "13.5px"
+  source:
+    fontFamily: "ui-monospace, \"SFMono-Regular\", Consolas, \"Liberation Mono\", monospace"
+    fontSize: "13.5px"
+    lineHeight: "21px"
+rounded:
+  sm: "0.125rem"
+  md: "0.25rem"
+  lg: "0.375rem"
+spacing:
+  space-1: "0.25rem"
+  space-2: "0.5rem"
+  space-3: "0.75rem"
+  space-4: "1rem"
+  space-5: "1.5rem"
+  space-6: "2rem"
+  space-7: "3rem"
+  space-8: "4rem"
+components:
+  button-primary:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.md}"
+    height: "2.5rem"
+    padding: "0 0.75rem"
+    typography: "{typography.supporting}"
+  button-outline:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.md}"
+    height: "2.5rem"
+    padding: "0 0.75rem"
+    typography: "{typography.supporting}"
+  button-ghost:
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.md}"
+    height: "2.5rem"
+    padding: "0 0.75rem"
+    typography: "{typography.supporting}"
+  button-destructive:
+    backgroundColor: "{colors.destructive-subtle}"
+    textColor: "{colors.destructive}"
+    rounded: "{rounded.md}"
+    height: "2.5rem"
+    padding: "0 0.75rem"
+    typography: "{typography.supporting}"
+  button-link:
+    textColor: "{colors.accent}"
+    rounded: "{rounded.md}"
+    height: "2.5rem"
+    padding: "0 0.75rem"
+    typography: "{typography.supporting}"
+  footer-action:
+    textColor: "{colors.text-secondary}"
+    height: "1.75rem"
+    padding: "0 0.5rem"
+    typography: "{typography.metadata}"
+  search-field:
+    textColor: "{colors.text-primary}"
+    backgroundColor: "{colors.surface-raised}"
+    padding: "0.5rem"
+  explorer-row:
+    backgroundColor: "{colors.surface-secondary}"
+    textColor: "{colors.text-secondary}"
+    height: "24px"
+    typography: "{typography.label}"
+  document-tab:
+    backgroundColor: "{colors.surface-secondary}"
+    textColor: "{colors.text-secondary}"
+    height: "2rem"
+    typography: "{typography.label}"
+  code-block:
+    backgroundColor: "{colors.surface-secondary}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.md}"
+    padding: "1rem"
+    typography: "{typography.code}"
+---
+# Design System: servef
 
-This document is the visual constitution for `servef`. The interface exists to make a local Markdown tree easy to scan and a selected document comfortable to read. Product behavior and document content lead; the interface stays quiet.
+## Overview
 
-Implementation source of truth: `web/src/style.css`. Tailwind theme variables define the shared visual primitives. Semantic classes define recurring product patterns and rendered Markdown, where utility classes are not practical.
+**Creative North Star: "VS Code editor"**
 
-## Design direction
+servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local Markdown central.
 
-The interface should feel:
+Workspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
 
-- calm and content-first
-- compact in navigation, generous in reading areas
-- modern without chasing trends
-- precise, quiet, and dependable
-- native to a developer tool without looking unfinished
-- equally intentional in light and dark environments
+**Key Characteristics:**
 
-Avoid decorative gradients, ornamental color, heavy shadows, excessive cards, pill-shaped containers, novelty typography, dense toolbars, and visual detail that competes with the document.
+- Compact editor navigation.
+- Flat, subtle, neutral surfaces.
+- Left-aligned proportional prose and monospace code.
+- Shared semantic roles across named editor themes.
 
-## Existing UI audit
+Implementation authority: `web/src/style.css`, `web/src/FileTree.tsx`, shared primitives in `web/src/components/ui/`, and `web/src/theme.ts`. Frontmatter captures base Light tokens and effective component roles. Theme overrides remain in CSS; the sidecar adds metadata and examples.
 
-The original UI established the right product structure: one compact header, a persistent folder tree, a narrow reading column, a command-style search dialog, and a single mobile collapse point. Preserve that direction.
+## Colors
 
-Before consolidation, styling used:
+Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
-- system `Canvas`, `CanvasText`, and `LinkText`; neutral mixes at 8%, 10%, 14%, 16%, 18%, 20%, 22%, 58%, 60%, 62%, 65%, 66%, and 72%; standalone error, warning, highlight, and backdrop colors
-- `system-ui` for UI/body and `ui-monospace` for code
-- explicit text sizes at `.72rem`, `.8rem`, `.84rem`, `.85rem`, `.88rem`, `.9rem`, and `1.05rem`, plus browser-default headings and body text
-- weights of 650, 700, and 750 without named roles; global line-height `1.55`
-- recurring but irregular spacing from `.1em` through `3rem`, including `.15rem`, `.2rem`, `.35rem`, `.45rem`, `.55rem`, `.6rem`, `.65rem`, `.7rem`, and `1.1rem`
-- radii at `.15rem`, `.25rem`, `.3rem`, `.35rem`, `.4rem`, and `.7rem`
-- a small control shadow and a large dialog shadow, both derived independently
-- a 52rem reading width, 44rem dialog, 14–19rem fluid sidebar, 3.25rem header, 2rem diagram controls, and a 700px breakpoint
+- **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, active tabs, selected files, and primary actions.
+- **Neutral:** `bg` is canvas; `surface` is document; `surface-secondary` is explorer/tabs/footer/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
-The repeated neutral mixes, near-identical small type sizes, fractional spacing, and radii expressed incidental differences rather than useful hierarchy. They are consolidated below. The two-pane layout, constrained reading measure, restrained borders, native disclosure controls, search model, and responsive stacking remain.
+Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Choice persists under `servef-theme`. Keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with resolved polarity.
 
-## Design principles
-
-1. Content is the product. Navigation helps users reach it and then recedes.
-2. Consistency beats novelty. Reuse a token or shared pattern before inventing one.
-3. Hierarchy comes from type, spacing, and contrast before borders or decoration.
-4. Spacing communicates grouping. Tight spacing binds related items; larger spacing separates concepts.
-5. Use semantic color roles, never palette values in component rules.
-6. Keep fewer visual styles with clearer jobs. A meaningful difference must explain every variant.
-7. Preserve the tree-to-document relationship at every viewport.
-8. Responsive behavior preserves hierarchy and access; it does not merely shrink desktop UI.
-9. Motion is brief, functional, and optional.
-
-## Color
-
-Use only semantic tokens:
-
-- `--color-bg`: browser and application canvas
-- `--color-surface`: primary reading and header surface
-- `--color-surface-secondary`: navigation, code, table headers, and subtle interactive fills
-- `--color-surface-raised`: menus, dialogs, and controls that sit above another surface
-- `--color-text-primary`: headings, body text, and important controls
-- `--color-text-secondary`: supporting copy, tree labels, and descriptions
-- `--color-text-muted`: metadata, captions, placeholders, and de-emphasized labels
-- `--color-border`: ordinary separation
-- `--color-border-strong`: emphasized boundaries and elevated control edges
-- `--color-accent`, `--color-accent-hover`, `--color-accent-subtle`: links, focus, selection, and the current file
-- `--color-on-accent`: content placed directly on an accent fill
-- `--color-success`: successful status
-- `--color-warning`, `--color-warning-subtle`: recoverable warnings and search highlights
-- `--color-destructive`, `--color-destructive-subtle`: failures and destructive actions
-- `--color-overlay`: modal backdrop only
-- `--color-syntax-*`: fenced-code token roles; comments, keywords, types, functions, variables, strings, numbers, and operators
-
-All themes use the same roles. The control offers Light, Dark, System, and named editor palettes. Each palette declares light/dark polarity; System follows `prefers-color-scheme`. Persist the configured choice locally, default to System, and keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with resolved polarity. Never branch component styling into unrelated dark variants.
-
-Accent is functional, not decorative. Use it for navigation selection, links, focus, and primary action emphasis. Do not use it on large surfaces or routine headings.
-
-Primary text is the default. Secondary text supports it. Muted text is never the sole treatment for essential instructions. Borders separate adjacent regions or define interactive controls; do not outline every section.
-
-Status meaning must pair color with text, iconography, or another non-color cue. Introduce no additional neutral shade when an existing surface, text, or border role works.
+**The Functional Accent Rule.** Use accent for state and interaction; keep routine prose headings and large surfaces neutral.
 
 ## Typography
 
-Inter Variable is the UI and reading face. The system monospace stack is reserved for code. Load fonts locally so the viewer remains useful without internet access.
+Inter Variable is bundled locally for UI and prose; code/source use the system monospace stack. No runtime font service.
 
-The type scale uses 16px body copy and 14px interface text while retaining compact metadata and clear document headings:
-
-| Role | Token | Use |
+| Role | Effective size / line-height | Treatment |
 | --- | --- | --- |
-| Page/document title | `--text-3xl` | Markdown `h1`; one primary title per document |
-| Section heading | `--text-2xl` | Markdown `h2` |
-| Subsection heading | `--text-xl` | Markdown `h3` |
-| Minor heading | `--text-lg` | Markdown `h4`, prominent empty-state title, large search input |
-| Body | `--text-base` (16px/24px) | Markdown prose and default UI copy |
-| Small body/label | `--text-sm` (14px/20px) | navigation, result titles, alerts, supporting UI |
-| Metadata/caption | `--text-xs` (12px/16px) | paths, statuses, overlines, secondary search text |
+| Preview H1 / H2 / H3 / H4 | 28 / 22 / 18 / 16px; 1.25 | 600 weight, -0.02em tracking |
+| Preview prose | 15px / 1.6 desktop; 16px / 1.6 mobile | 400 weight, 75ch maximum |
+| Explorer / tabs / result names | 13px | Compact labels |
+| Supporting UI / search input / tables | 14px / 20px | Shared small text role |
+| Footer / metadata | 12px | Sans; footer line-height 1 |
+| Source | 13.5px / 21px | Monospace, fixed line rows |
+| Preview code | 13.5px | Monospace; block line-height 1.6 |
 
-Use weight 700 for document hierarchy, 600 for selected items and labels, and 400–500 for copy. Headings use tight letter spacing and compact line height. Prose uses a 1.75 line height. Labels may use uppercase only at `--text-xs`, with deliberate tracking.
-
-Do not create typography styles to compensate for poor spacing or color hierarchy. Add a new type role only when content has a distinct, recurring semantic level that the table cannot express.
-
-## Spacing
-
-Use the 4px-based scale:
-
-| Token | Size |
-| --- | --- |
-| `--space-1` | 4px |
-| `--space-2` | 8px |
-| `--space-3` | 12px |
-| `--space-4` | 16px |
-| `--space-5` | 24px |
-| `--space-6` | 32px |
-| `--space-7` | 48px |
-| `--space-8` | 64px |
-
-Use 4–12px inside compact controls, 12–24px inside larger components, 24–32px between related content groups, and 48–64px between document sections. Default desktop page padding scales from `--space-5` to `--space-7`; mobile uses `--space-4` horizontally.
-
-Keep label-to-control spacing at 8px, related action gaps at 8–12px, standard control padding at 8–12px, and alert/card-like inset spacing at 12–16px. Document block flow defaults to 16px; headings create the larger section rhythm.
-
-Custom spacing is acceptable only for optical alignment, intrinsic media sizing, or a layout calculation. Comment non-obvious exceptions. Do not approximate a scale value with a nearby one-off value.
+Workspace name uses 12px and 600 weight. The generic Tailwind scale serves primitives; preview uses `--preview-*` roles.
 
 ## Layout
 
-- App structure: 40px header above a full-height workspace with a resizable 13–30rem sidebar, 28px tab bar, flexible document pane, and 24px status line.
-- Reading measure: `--reading-width` (50rem) maximum, centered in the document pane.
-- Desktop gutters: fluid 24–48px around the reading column.
-- Mobile gutters: 16px.
-- Search overlay: maximum 42rem wide and 40rem tall; it never touches viewport edges.
-- The sidebar and document own independent scrolling on desktop.
-- Align document headings, prose, tables, diagrams, alerts, and empty states to the same reading column.
-- Do not independently center elements that belong to the reading grid.
+Desktop: full-height explorer beside the tabbed document workspace, above a 28px footer split at the sidebar boundary. Its two sections track the resizable explorer and document columns. No app header. Explorer defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The 1px separator has a wider pointer hit area and supports arrow keys. Explorer and document scroll independently.
 
-Use full-width application layout for navigation and document browsing. Use the narrow reading measure for prose. Add grids only when content has parallel, comparable items; do not turn document blocks into dashboards.
+Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-The single structural breakpoint is 48rem. Add another only when content demonstrably fails, not for a specific device model.
+At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger, close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and theme remain visible. Size/count, process details, and shortcut hints hide.
 
-## Borders, radii, and shadows
+Content palette: maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer.
 
-- `--radius-sm` (6px): compact tree rows, key hints, inline code
-- `--radius-md` (8px): controls, code blocks, diagrams, alerts
-- `--radius-lg` (12px): overlays and dialogs only
-- `--shadow-control`: subtly lifts bordered controls
-- `--shadow-overlay`: modal elevation only
+Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 
-Prefer whitespace or a surface change before adding a border. Prefer a border before adding a shadow. Use shadows only when an element is genuinely elevated. Sections of a Markdown document are not cards.
+## Elevation & Depth
 
-## Component density and sizing
+Workspace regions are flat. Surface contrast, 1px separators, and the active tab's 2px top accent establish structure. Shadows serve floating controls and overlays.
 
-- `--control-height-sm` (32px): compact desktop navigation and grouped diagram controls
-- `--control-height-md` (40px): primary controls and mobile navigation rows
-- Touch targets should reach 40px in dense navigation and 44px when controls stand alone.
-- Icons are 16px by default and inherit the current text color.
-- Text should truncate only when the complete value remains available through context, title, or another view. File names may wrap in the tree.
+- `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
+- `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; palettes, theme menus, process panels.
+- Dark and named themes override shadows in CSS. Drawer uses its boundary and backdrop.
+
+Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus use 100ms transitions. Honor reduced motion.
+
+## Shapes
+
+Explorer rows, tabs, and footer actions are square rectangles. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives.
+
+Icons: 16px generic, 14px footer/search, 12px tabs; inherit text color. Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
 
 ## Components
 
-Shared primitives live in `web/src/components/ui/`. Use shadcn as a local source-code registry, not as a separate visual system or runtime service. Review generated code before use: reduce variants to meaningful roles, map styles to this document's tokens, and enforce repository TypeScript rules.
-
 ### Buttons
 
-Use 40px height by default, 8px radius, label weight 500–600, and 8–12px horizontal padding. Neutral buttons use secondary/raised surfaces. Accent buttons are reserved for a true primary action. Icon-only buttons require an accessible name. Active state removes perceived elevation; disabled state reduces contrast and blocks interaction.
+Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height, 4px radius, 14px medium label, 12px horizontal padding; compact sizes 32px. Hover changes color/surface without layout shift. Disabled controls suppress interaction and reduce opacity. Icon-only actions require accessible names. Footer overrides use square transparent 28px controls, 44px on mobile.
 
-### Forms
+### Explorer
 
-Inputs use primary text, muted placeholders, a visible boundary, and accent focus treatment. Labels are explicit and persistent unless an accessible hidden label accompanies a self-explanatory search field. Validation messages sit next to the relevant field and use status tokens plus text.
+Pierre compact tree: minimal uncolored icons, square rows, semantic token overrides, 24px desktop / 40px mobile. Workspace name sits above. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
-### Cards
+### Tabs and view mode
 
-Cards are exceptional, not the default container. Use them only for a repeated, independently actionable object. A card uses the standard border, `--radius-md`, and no shadow unless it moves above the page.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source uses `aria-pressed`, subtle active fill, and 12px labels. URL/history remain authoritative.
 
-### Navigation
+### Footer and theme
 
-The file tree stays compact and visually secondary to the document. Folder disclosure uses native semantics. Hover changes surface and text contrast. The selected file uses a full-width rectangular row with square corners, accent text, subtle accent fill, a 2px leading indicator, weight 600, and `aria-current="page"`.
+Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, Find in files immediately after, then size and theme. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above. Theme opens upward as a single-choice menu, marks configured choice, and shows its label plus resolved light/dark icon.
 
-The sidebar width is keyboard- and pointer-adjustable on desktop and persists locally. Double-clicking its separator restores the default width. On mobile the separator disappears and the tree/document split remains fixed.
+### Content search
 
-### Document tabs
+Ctrl/Cmd+Shift+F or footer opens a separate dialog. Field: 14px text, accent bottom boundary on focus. Results: 13px names, 12px paths/snippets, 2px radius, hover surface, accent-subtle active fill; warning-subtle matches. Preserve focus, arrow navigation, Enter, Escape, and loading/error feedback.
 
-Visited documents remain in a 28px tab bar. Tabs show file names and expose full paths as titles. The active tab shares the document surface and has a 2px accent edge. Closing the active tab selects its nearest neighbour; closing the last returns to the empty state. The URL remains authoritative, preserving deep links and browser history.
+### Markdown, code, diagrams
 
-### Status line
+One prose system across documents. Tables: 14px, neutral headers, horizontal overflow. Quotes: 3px strong border. Code blocks: 16px padding, 4px radius, neutral fill, 1px border. Floating copy control shows recognized language until hover/focus and gives copy feedback; no extra header row. Diagrams retain local assets, resolved theme polarity, and compact floating controls. Errors pair destructive text/fill with alert semantics. Cards and chips are not current workspace patterns.
 
-The 24px monospace status line reports readiness, active path, file size, workspace file count, and supported process metrics. It removes path, size, and metric labels at the mobile breakpoint before values. Metrics polling pauses while the page is hidden.
+## Do's and Don'ts
 
-### Theme control
+### Do:
 
-Use a shadcn-style icon trigger in the header next to Search. Its dropdown presents system, base, and named editor themes as a single-choice group and marks the configured choice. The trigger reflects resolved polarity and has an accessible label naming the configured theme. The menu and trigger use shared control, surface, border, focus, and typography tokens.
+- Do reuse semantic CSS tokens and shared primitives across every theme.
+- Do retain 15px desktop / 16px mobile prose, 75ch measure, and left alignment.
+- Do keep file/path search separate from content search.
+- Do preserve keyboard focus, accessible labels, modal behavior, and reduced motion.
+- Do keep fonts, icons, and runtime assets local to the embedded Go distribution.
+- Do review shadcn-generated code against this system and strict TypeScript: no `any`, non-null assertions, or type assertions.
 
-### Overlays and modals
+### Don't:
 
-Use native dialog behavior, `--color-surface-raised`, `--radius-lg`, `--shadow-overlay`, and `--color-overlay`. Provide Escape and backdrop dismissal when safe. Focus enters the primary field and remains keyboard-operable.
-
-### Status indicators
-
-Success, warning, and error states use the corresponding semantic tokens. Pair color with plain language and appropriate ARIA semantics. Status treatments should not change layout unexpectedly.
-
-### Rendered Markdown
-
-Rendered content shares one prose system for headings, paragraphs, lists, quotes, code, tables, links, images, and diagrams. Do not style individual documents. Code and dense tables may scroll horizontally; prose must wrap. Mermaid controls follow the same control tokens as the application.
-
-Fenced code uses one floating control in the top-right corner. It shows a recognized language by default, replaces it with a copy icon when the block is hovered or the control receives keyboard focus, and uses a check or error icon for brief copy feedback. Unknown and unlabelled fences show the copy icon directly. The control overlays the block without adding a header row. Mermaid blocks keep their diagram-specific controls.
-
-## Interaction states
-
-- Hover: increase contrast or change to the nearest surface role; never move layout.
-- Focus: use a 2px `--color-accent` outline with 2px offset. Focus must remain visible in both themes.
-- Active/pressed: reduce elevation and retain clear affordance.
-- Selected: use accent text plus `--color-accent-subtle`; never rely on color alone.
-- Disabled: remove pointer interaction, reduce prominence, and keep labels readable.
-- Loading: preserve component dimensions and use concise status text. Avoid indefinite decorative animation.
-- Error: use destructive text and subtle surface with `role="alert"` for blocking failures.
-- Motion: keep state transitions near 120ms and honor `prefers-reduced-motion`.
-
-## Responsive design
-
-At 48rem and below, replace columns with a fixed viewport split: header, tree at 38%, then the tabbed document workspace at 62%. The sidebar resizer disappears.
-
-- Preserve file-tree order before document content.
-- Keep compact tree rows at least 40px.
-- Keep 16px mobile gutters and at least 40px controls.
-- Collapse secondary button labels and keyboard hints before hiding primary actions.
-- Let wide code, tables, and diagrams scroll inside their own bounds.
-- Do not scale body text down for mobile.
-- Reorder content only when the task sequence remains clear to keyboard and screen-reader users.
-- If the file tree later becomes a drawer, preserve its label, focus management, selected-file context, and a persistent way to reopen it.
-
-## Accessibility
-
-- Meet WCAG AA contrast: 4.5:1 for normal text and 3:1 for large text and meaningful control boundaries.
-- All navigation, disclosure, search, dialog, and diagram controls must work by keyboard.
-- Never remove focus indication without an equal or stronger replacement.
-- Keep body copy at least `--text-base` and avoid long prose wider than `--reading-width`.
-- Every input has an associated visible or visually hidden label.
-- Icon-only controls have accessible names; decorative icons are hidden from assistive technology.
-- Target 44px for isolated touch controls; 40px is the minimum for dense repeated navigation.
-- Communicate selection and status through text, shape, icon, or position as well as color.
-- Preserve reduced-motion preferences and logical DOM order.
-
-## Rules for future UI work
-
-Before introducing a visual style, ask:
-
-1. Does a semantic token already express this meaning?
-2. Does a shared component or pattern already solve it?
-3. Is the difference recurring and meaningful, or merely incidental?
-4. Does it preserve the tree-and-document hierarchy?
-5. Does it work in light and dark modes?
-6. Does it remain coherent on mobile and by keyboard?
-7. Does it follow this document?
-
-> Do not introduce a new color, font size, spacing value, radius, shadow, or component variant unless the existing system cannot express the required design meaning.
-
-When an addition is truly necessary, define its semantic role first, add it at the shared token or component layer, verify both themes and the 48rem breakpoint, and update this document in the same change.
+- Don't add a top app header or logo; keep workspace identity above the explorer and app identity in the footer.
+- Don't restore the mobile split; use the files drawer with 40px rows and 44px toolbar/footer.
+- Don't center preview prose or substitute generic heading/body tokens for the preview scale.
+- Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.
+- Don't rely on color alone for selection, focus, errors, or status.
+- Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `internal/web/dist/` directly.

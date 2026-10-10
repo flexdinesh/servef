@@ -40,14 +40,14 @@ export function ModeToggle() {
             className="theme-trigger"
             type="button"
             variant="outline"
-            size="icon-sm"
             aria-label={`Theme: ${themeLabel}`}
           >
             <ResolvedIcon aria-hidden="true" />
+            <span>{themeLabel}</span>
           </Button>
         )}
       />
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" side="top">
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(value) => {
