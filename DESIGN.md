@@ -153,7 +153,7 @@ components:
     backgroundColor: "{colors.surface-secondary}"
     textColor: "{colors.text-primary}"
     rounded: "{rounded.md}"
-    padding: "1rem"
+    padding: "0.5rem 0.75rem"
     typography: "{typography.code}"
 ---
 # Design System: servef
@@ -241,15 +241,21 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 Pierre compact tree: minimal uncolored icons, square rows, semantic token overrides, 24px desktop / 40px mobile. Workspace name sits above. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
-The type selector sits below the explorer header, uses existing neutral surfaces,
-and includes counts. It filters tree visibility without closing tabs or changing
+The type picker sits below the explorer header, matches the filename search field's
+width and appearance, and opens a checkbox menu with counts and a Show all types
+action. No selection shows all types; selecting one or more limits visibility to
+those families. It filters tree visibility without closing tabs or changing
 the active document. A single CLI-allowed type disables selection and shows
 “Set by CLI.” Filename search intersects the selected type; content search keeps
 its session-wide CLI scope.
 
+Beside Search files, a compact action toggles Collapse all/Expand all, including
+folders hidden by type filters. It is disabled during a nonempty filename search,
+which expands matching ancestors. Directory chevrons are 12px within existing row targets.
+
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source (Markdown) and Formatted/Source (JSON/YAML) use `aria-pressed`, subtle active fill, and 12px labels. URL/history remain authoritative. View labels/defaults come from file-type metadata; source-only types hide the toggle. Formatted code can use the available document width. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source (Markdown) and Formatted/Source (JSON/YAML) use `aria-pressed`, subtle active fill, and 12px labels. Buttons fill the toolbar height with 4px above and below: 24px desktop, 36px mobile. URL/history remain authoritative. View labels/defaults come from file-type metadata; source-only types hide the toggle. Formatted code shares Source's full-width, line-numbered viewer, displaying the handler's formatted output. Preview failures explain the problem and preserve access to Source.
 
 ### Footer and theme
 
@@ -261,7 +267,7 @@ Ctrl/Cmd+Shift+F or footer opens a separate dialog. Field: 14px text, accent bot
 
 ### Markdown, code, diagrams
 
-One prose system across documents. Tables: 14px, neutral headers, horizontal overflow. Quotes: 3px strong border. Code blocks: 16px padding, 4px radius, neutral fill, 1px border. Floating copy control shows recognized language until hover/focus and gives copy feedback; no extra header row. Diagrams retain local assets, resolved theme polarity, and compact floating controls. Errors pair destructive text/fill with alert semantics. Cards and chips are not current workspace patterns.
+One prose system across documents. Tables: 14px, neutral headers, horizontal overflow. Quotes: 3px strong border. Code blocks: 8px vertical/12px horizontal padding, 4px radius, neutral fill, 1px border. Floating copy control has the same 4px radius, 8px inset and language-label padding. It shows recognized language until hover/focus and gives copy feedback; no extra header row. Markdown Preview hides leading closed YAML/TOML frontmatter and HTML comments; Source retains them and code literals stay visible. Diagrams retain local assets, resolved theme polarity, and compact floating controls. Errors pair destructive text/fill with alert semantics. Cards and chips are not current workspace patterns.
 
 ## Do's and Don'ts
 

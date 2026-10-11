@@ -1,7 +1,7 @@
 import type { FileTree as FileTreeModel } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react"
-import { SearchIcon, XIcon } from "lucide-react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
+import { FoldVerticalIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { FileTypeFilter } from "./FileTypeFilter.tsx"
 import { filterFileTree } from "./file-type-filter.ts"
@@ -28,7 +28,7 @@ interface ExplorerState {
 }
 
 export function FileTree(props: FileTreeProps) {
-  const [fileType, setFileType] = useState("")
+  const [fileTypes, setFileTypes] = useState<readonly string[]>([])
   const dialog = useRef<HTMLDialogElement>(null)
   const page = useRef(props.page)
   const state = useRef<ExplorerState>({ model: null, expanded: null, search: null })
@@ -56,23 +56,28 @@ export function FileTree(props: FileTreeProps) {
     return () => query.removeEventListener("change", update)
   }, [])
 
-  const explorer = <Explorer {...props} key={mobile ? "mobile" : "desktop"} mobile={mobile} fileType={fileType} onFileTypeChange={setFileType} dialog={dialog} state={state} />
+  const explorer = <Explorer {...props} key={mobile ? "mobile" : "desktop"} mobile={mobile} fileTypes={fileTypes} onFileTypesChange={setFileTypes} dialog={dialog} state={state} />
   return mobile ? <dialog ref={dialog} className="explorer-drawer" aria-label="Files" onClick={(event) => {
     if (event.target === dialog.current) dialog.current.close()
   }}>{explorer}</dialog> : explorer
 }
 
-function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, state, fileType, onFileTypeChange }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, state, fileTypes, onFileTypesChange }: FileTreeProps & {
   mobile: boolean
-  fileType: string
-  onFileTypeChange(value: string): void
+  fileTypes: readonly string[]
+  onFileTypesChange(value: readonly string[]): void
   dialog: RefObject<HTMLDialogElement | null>
   state: RefObject<ExplorerState>
 }) {
-  const visibleTree = useMemo(() => filterFileTree(page.tree, fileType), [page.tree, fileType])
+  const visibleTree = useMemo(() => filterFileTree(page.tree, fileTypes), [page.tree, fileTypes])
   const paths = useMemo(() => treePaths(visibleTree), [visibleTree])
-  const expandedPaths = useRef(new Set(state.current.expanded ?? openDirectoryPaths(page.tree)))
+  const directoryPaths = useMemo(() => treePaths(page.tree).filter((path) => path.endsWith("/")), [page.tree])
+  const expandedPaths = useRef(new Set(state.current.expanded ?? openDirectoryPaths(page.tree).map((path) => `${path}/`)))
+  const [hasExpanded, setHasExpanded] = useState(expandedPaths.current.size > 0)
   const previousPaths = useRef(paths)
+  const previousSelected = useRef(page.selected)
+  const searchInput = useRef<HTMLInputElement>(null)
+  const searchButton = useRef<HTMLButtonElement>(null)
   const syncing = useRef(false)
   const current = useRef({ onNavigate, page })
   const { model } = useFileTree({
@@ -82,8 +87,8 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
     itemHeight: mobile ? 40 : 24,
     initialSelectedPaths: paths.includes(page.selected) ? [page.selected] : [],
     density: "compact",
-    search: true,
-    unsafeCSS: '[data-file-tree-search-container][data-open="false"] { display: none; }',
+    search: false,
+    unsafeCSS: '[data-icon-name="file-tree-icon-chevron"] { width: 12px; height: 12px; }',
     fileTreeSearchMode: "hide-non-matches",
     icons: { set: "minimal", colored: false },
     onSelectionChange(selected) {
@@ -96,6 +101,20 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
     },
   })
   const search = useFileTreeSearch(model)
+  useLayoutEffect(() => {
+    if (search.isOpen) searchInput.current?.focus()
+  }, [search.isOpen])
+  const syncExpandedPaths = useCallback(() => {
+    for (const path of directoryPaths) {
+      const item = model.getItem(path)
+      if (item && "isExpanded" in item) {
+        if (item.isExpanded()) expandedPaths.current.add(path)
+        else expandedPaths.current.delete(path)
+      }
+    }
+    state.current.expanded = [...expandedPaths.current]
+    setHasExpanded(directoryPaths.some((path) => expandedPaths.current.has(path)))
+  }, [directoryPaths, model, state])
 
   useLayoutEffect(() => { current.current = { onNavigate, page } }, [onNavigate, page])
 
@@ -114,27 +133,60 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
         }
       }
       state.current.expanded = [...expandedPaths.current]
+      const query = model.isSearchOpen() ? model.getSearchValue() : null
       model.resetPaths(paths, { initialExpandedPaths: state.current.expanded })
+      if (query) {
+        // Reset paths keeps the query but requires rebuilding its matches.
+        model.setSearch("")
+        model.setSearch(query)
+      }
       previousPaths.current = paths
     }
     for (const path of model.getSelectedPaths()) {
       if (path !== page.selected) model.getItem(path)?.deselect()
     }
     if (page.selected && model.getItem(page.selected)) {
-      const segments = page.selected.split("/")
-      for (let index = 1; index < segments.length; index++) {
-        const item = model.getItem(segments.slice(0, index).join("/"))
-        if (item && "expand" in item) item.expand()
+      if (page.selected !== previousSelected.current) {
+        const segments = page.selected.split("/")
+        for (let index = 1; index < segments.length; index++) {
+          const item = model.getItem(segments.slice(0, index).join("/"))
+          if (item && "expand" in item) item.expand()
+        }
+        model.scrollToPath(page.selected, { focus: false })
       }
       model.getItem(page.selected)?.select()
-      model.scrollToPath(page.selected, { focus: false })
     }
+    previousSelected.current = page.selected
     syncing.current = false
-  }, [model, page.selected, paths])
+    syncExpandedPaths()
+  }, [model, page.selected, paths, syncExpandedPaths])
+
+  useLayoutEffect(() => model.subscribe(() => {
+    if (syncing.current) return
+    syncExpandedPaths()
+  }), [model, syncExpandedPaths])
+
+  const toggleDirectories = () => {
+    const expand = !hasExpanded
+    syncing.current = true
+    for (const path of directoryPaths) {
+      if (expand) expandedPaths.current.add(path)
+      else expandedPaths.current.delete(path)
+      const item = model.getItem(path)
+      if (item && "expand" in item) {
+        if (expand) item.expand()
+        else item.collapse()
+      }
+    }
+    state.current.expanded = [...expandedPaths.current]
+    setHasExpanded(expand)
+    syncing.current = false
+  }
 
   useEffect(() => {
     const open = () => {
       if (mobile && !dialog.current?.open) dialog.current?.showModal()
+      if (model.isSearchOpen()) searchInput.current?.focus()
     }
     registerOpen(open)
     const shortcut = (event: KeyboardEvent) => {
@@ -143,6 +195,7 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
       event.preventDefault()
       open()
       model.openSearch()
+      searchInput.current?.focus()
     }
     document.addEventListener("keydown", shortcut)
     return () => {
@@ -155,17 +208,38 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
     <aside className="file-explorer" aria-label="Files">
       <div className="explorer-header">
         <span title={page.rootName}>{page.rootName || "Files"}</span>
-        <button type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
-          onPointerDown={(event) => {
-            // Pierre closes search on blur; preserve its state until the toggle click.
-            if (event.button === 0) event.preventDefault()
-          }}
+        <button ref={searchButton} type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
           onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }}>
           <SearchIcon aria-hidden="true" />
         </button>
+        <button type="button" aria-label={hasExpanded ? "Collapse all folders" : "Expand all folders"}
+          disabled={!hasData || directoryPaths.length === 0 || search.value.length > 0}
+          title={search.value.length > 0 ? "Clear filename search to collapse or expand folders" : hasExpanded ? "Collapse all folders" : "Expand all folders"}
+          onClick={toggleDirectories}>
+          {hasExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
+        </button>
         {mobile && <button type="button" aria-label="Close files" onClick={() => dialog.current?.close()}><XIcon aria-hidden="true" /></button>}
       </div>
-      {hasData && <FileTypeFilter fileTypes={page.fileTypes} tree={page.tree} value={fileType} onChange={onFileTypeChange} />}
+      {hasData && <FileTypeFilter fileTypes={page.fileTypes} tree={page.tree} value={fileTypes} onChange={onFileTypesChange} />}
+      <div className="file-search" hidden={!search.isOpen}>
+        <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
+          value={search.value} onChange={(event) => model.setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") model.focusNextSearchMatch()
+            else if (event.key === "ArrowUp") model.focusPreviousSearchMatch()
+            else if (event.key === "Escape") {
+              model.closeSearch()
+              searchButton.current?.focus()
+            } else if (event.key === "Enter") {
+              const focused = model.getFocusedPath()
+              if (focused) model.getItem(focused)?.select()
+              model.closeSearch()
+              searchButton.current?.focus()
+            } else return
+            event.preventDefault()
+            event.stopPropagation()
+          }} />
+      </div>
       {!hasData ? <p className="muted">Loading files…</p>
         : page.empty ? <p className="muted">No supported files found.</p>
         : paths.length === 0 ? <p className="muted">No files match this filter.</p>

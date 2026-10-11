@@ -81,15 +81,21 @@ Selectors accept family names or extensions, case-insensitively (`MD`, `.md`,
 selectors and empty list entries fail before starting the server. Use `all` alone.
 
 The CLI scope applies to discovery, direct document access, and content search.
-The explorer filter only changes tree visibility, preserving open documents.
+The explorer's checkbox picker filters multiple file types, preserving open documents.
+No selection shows all types; selected types limit tree visibility.
 A single allowed type disables the filter and shows “Set by CLI.” Global content
 search covers every CLI-allowed file, regardless of the tree filter. Markdown
 image dependencies remain available within the served root.
 
-JSON/YAML open in Formatted mode. Source retains original text. Invalid files
+JSON/YAML open in Formatted mode. Both views use the same line-numbered viewer;
+Formatted shows formatted output and Source retains original text. Invalid files
 remain searchable and readable in Source, with a formatting error in preview.
 YAML formatting retains comments, anchors/aliases, scalar styles, and all documents;
 spacing and comment placement can change in the formatted view.
+
+Markdown Preview hides leading frontmatter enclosed by matching `---` (YAML) or
+`+++` (TOML) lines, and HTML comments. Source preserves both. Unclosed frontmatter
+stays visible; comment syntax inside code stays literal.
 
 See all options:
 

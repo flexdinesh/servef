@@ -77,6 +77,7 @@ func (a *markdownHandler) SearchText(source []byte) (string, error) {
 }
 
 func (a *markdownHandler) renderMarkdown(source []byte, context Context, output *bytes.Buffer) error {
+	source = markdownPreviewSource(source)
 	document := a.markdown.Parser().Parse(text.NewReader(source))
 	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if entering {
@@ -93,6 +94,25 @@ func (a *markdownHandler) renderMarkdown(source []byte, context Context, output 
 		return err
 	}
 	return a.markdown.Renderer().Render(output, source, document)
+}
+
+// Frontmatter is only recognized at the start and with a closing delimiter.
+// Slice preview input so source viewing and search retain the original bytes.
+func markdownPreviewSource(source []byte) []byte {
+	input := bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
+	opening, rest, found := bytes.Cut(input, []byte("\n"))
+	opening = bytes.TrimSuffix(opening, []byte("\r"))
+	if !found || (!bytes.Equal(opening, []byte("---")) && !bytes.Equal(opening, []byte("+++"))) {
+		return source
+	}
+	for len(rest) > 0 {
+		line, next, _ := bytes.Cut(rest, []byte("\n"))
+		if bytes.Equal(bytes.TrimSuffix(line, []byte("\r")), opening) {
+			return next
+		}
+		rest = next
+	}
+	return source
 }
 
 func rewriteMarkdownImage(destination []byte, selected string) []byte {
@@ -152,14 +172,8 @@ func (*escapedHTMLRenderer) RegisterFuncs(register renderer.NodeRendererFuncRegi
 }
 
 func renderEscapedHTMLBlock(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	block := node.(*ast.HTMLBlock)
 	if entering {
-		for i := 0; i < block.Lines().Len(); i++ {
-			line := block.Lines().At(i)
-			_, _ = w.Write(util.EscapeHTML(line.Value(source)))
-		}
-	} else if block.HasClosure() {
-		_, _ = w.Write(util.EscapeHTML(block.ClosureLine.Value(source)))
+		_, _ = w.Write(util.EscapeHTML(withoutHTMLComments(node.(*ast.HTMLBlock).Text(source))))
 	}
 	return ast.WalkContinue, nil
 }
@@ -169,9 +183,41 @@ func renderEscapedRawHTML(w util.BufWriter, source []byte, node ast.Node, enteri
 		return ast.WalkSkipChildren, nil
 	}
 	raw := node.(*ast.RawHTML)
-	for i := 0; i < raw.Segments.Len(); i++ {
-		segment := raw.Segments.At(i)
-		_, _ = w.Write(util.EscapeHTML(segment.Value(source)))
-	}
+	_, _ = w.Write(util.EscapeHTML(withoutHTMLComments(raw.Text(source))))
 	return ast.WalkSkipChildren, nil
+}
+
+// Goldmark identifies HTML outside code. Respect tag quotes so comment-like
+// attribute values remain literal, while comments inside HTML blocks disappear.
+func withoutHTMLComments(source []byte) []byte {
+	var output bytes.Buffer
+	inTag := false
+	var quote byte
+	for i := 0; i < len(source); i++ {
+		if !inTag && bytes.HasPrefix(source[i:], []byte("<!--")) {
+			end := bytes.Index(source[i+4:], []byte("-->"))
+			if end < 0 {
+				break
+			}
+			i += end + 6
+			continue
+		}
+		value := source[i]
+		if inTag {
+			if quote != 0 {
+				if value == quote {
+					quote = 0
+				}
+			} else if value == '\'' || value == '"' {
+				quote = value
+			} else if value == '>' {
+				inTag = false
+			}
+		} else if value == '<' && i+1 < len(source) {
+			next := source[i+1]
+			inTag = next == '/' || next == '!' || next == '?' || (next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z')
+		}
+		output.WriteByte(value)
+	}
+	return output.Bytes()
 }

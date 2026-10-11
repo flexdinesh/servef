@@ -19,7 +19,6 @@ interface CodeBlockPortal {
 
 interface DocumentPreviewProps {
   html: string
-  kind?: "markdown" | "code"
   navigate(href: string): void
 }
 
@@ -42,7 +41,7 @@ function codeLanguage(code: HTMLElement): string | null {
   return languageClass?.slice("language-".length) || null
 }
 
-export function DocumentPreview({ html, navigate, kind = "markdown" }: DocumentPreviewProps) {
+export function DocumentPreview({ html, navigate }: DocumentPreviewProps) {
   const article = useRef<HTMLElement>(null)
   const [codeBlocks, setCodeBlocks] = useState<CodeBlockPortal[]>([])
   const [diagrams, setDiagrams] = useState<DiagramPortal[]>([])
@@ -51,7 +50,7 @@ export function DocumentPreview({ html, navigate, kind = "markdown" }: DocumentP
   useLayoutEffect(() => {
     if (!article.current) return
     const restoreBlocks: Array<() => void> = []
-    const nextDiagrams = (kind === "markdown" ? [...article.current.querySelectorAll("pre > code.language-mermaid")] : []).flatMap((code, index) => {
+    const nextDiagrams = [...article.current.querySelectorAll("pre > code.language-mermaid")].flatMap((code, index) => {
       const pre = code.parentElement
       if (!pre) return []
       const host = document.createElement("div")
@@ -75,12 +74,11 @@ export function DocumentPreview({ html, navigate, kind = "markdown" }: DocumentP
     setDiagrams(nextDiagrams)
     setCodeBlocks(nextCodeBlocks)
     return () => { for (const restore of restoreBlocks) restore() }
-  }, [html, kind])
+  }, [html])
 
   return (
     <>
       <article
-        className={kind === "code" ? "code-preview" : undefined}
         ref={article}
         dangerouslySetInnerHTML={renderedHTML}
         onClick={(event) => {
