@@ -90,7 +90,7 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
     search: false,
     unsafeCSS: '[data-icon-name="file-tree-icon-chevron"] { width: 12px; height: 12px; }',
     fileTreeSearchMode: "hide-non-matches",
-    icons: { set: "minimal", colored: false },
+    icons: { set: "complete", colored: true },
     onSelectionChange(selected) {
       if (syncing.current) return
       const focused = model.getFocusedPath()
