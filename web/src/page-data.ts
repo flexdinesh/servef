@@ -9,6 +9,10 @@ export { isPageData, isPageLoadResult } from "./page-contract.ts"
 export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
+  fileTypes: [],
+  documentType: null,
+  sourceLines: [],
+  previewError: "",
   content: "",
   empty: false,
   error: "",
@@ -60,7 +64,7 @@ export async function loadPage({ pathname, selected, signal }: LoadPageOptions):
       : { kind: "failure", message: "The server returned an invalid page response." }
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") throw error
-    return { kind: "failure", message: "Could not load Markdown files." }
+    return { kind: "failure", message: "Could not load files." }
   }
 }
 

@@ -20,6 +20,12 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: "go run . testdata/markdown --port 18082 --no-open --file-type md",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:18082/api/page",
+    },
+    {
       command: `go run . testdata/markdown --port ${apiPort} --no-open`,
       reuseExistingServer: false,
       timeout: 120_000,

@@ -246,3 +246,55 @@ func disableColor(t *testing.T) {
 	color.NoColor = true
 	t.Cleanup(func() { color.NoColor = previous })
 }
+
+func TestRootCommandFileTypeScope(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		families string
+	}{
+		{name: "implicit all", families: "markdown,json,yaml"},
+		{name: "explicit all", args: []string{"--file-type", "all"}, families: "markdown,json,yaml"},
+		{name: "normalized all", args: []string{"--file-type", " ALL "}, families: "markdown,json,yaml"},
+		{name: "one family", args: []string{"--file-type", "md"}, families: "markdown"},
+		{name: "multiple families", args: []string{"--file-type", "md,json,yaml"}, families: "markdown,json,yaml"},
+		{name: "restricted families", args: []string{"--file-type", "md,json"}, families: "markdown,json"},
+		{name: "normalized aliases", args: []string{"--file-type", " JSON, .YML "}, families: "json,yaml"},
+		{name: "duplicate aliases", args: []string{"--file-type=json,yml,yaml"}, families: "json,yaml"},
+	}
+	for _, entry := range tests {
+		t.Run(entry.name, func(t *testing.T) {
+			var got options
+			command := newRootCommand(func(_ context.Context, opts options, _ io.Reader, _, _ io.Writer) error { got = opts; return nil })
+			command.SetArgs(append([]string{"docs"}, entry.args...))
+			if err := command.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if got.types == nil {
+				t.Fatal("file type scope not composed")
+			}
+			families := make([]string, 0)
+			for _, definition := range got.types.Types() {
+				families = append(families, definition.ID)
+			}
+			if strings.Join(families, ",") != entry.families {
+				t.Fatalf("scope = %v, want %s", families, entry.families)
+			}
+		})
+	}
+}
+
+func TestRootCommandRejectsInvalidFileTypeLists(t *testing.T) {
+	for _, value := range []string{"go", "md,unknown", "", ",md", "md,", "md,,json", "all,md"} {
+		t.Run(value, func(t *testing.T) {
+			command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+				t.Fatal("runner called for invalid file type scope")
+				return nil
+			})
+			command.SetArgs([]string{"--file-type", value})
+			if err := command.Execute(); err == nil {
+				t.Fatal("invalid file type list accepted")
+			}
+		})
+	}
+}

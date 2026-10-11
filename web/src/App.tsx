@@ -62,7 +62,7 @@ export function App() {
   const hasData = result?.kind === "page" || lastPage !== null
   const loadError = result?.kind === "failure" ? result.message : ""
   const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
-  const documentMode = workspace.modes.get(page.selected) ?? "preview"
+  const documentMode = workspace.modes.get(page.selected) ?? page.documentType?.defaultMode ?? "source"
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(page, isLoading, loadError)
 
@@ -114,8 +114,8 @@ export function App() {
               onClose={closeTab}
               onSelect={navigateToDocument}
             />
-            {page.hasFile && (
-              <DocumentModeToggle mode={documentMode} onChange={changeDocumentMode} />
+            {page.hasFile && page.documentType && (
+              <DocumentModeToggle fileType={page.documentType} mode={documentMode} onChange={changeDocumentMode} />
             )}
           </div>
           <DocumentPane

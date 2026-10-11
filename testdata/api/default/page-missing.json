@@ -9,5 +9,22 @@
   "hasFile": false,
   "empty": false,
   "error": "That Markdown file is unavailable. Refresh the index and choose another file.",
-  "warnings": []
+  "warnings": [],
+  "fileTypes": [
+    {
+      "id": "markdown",
+      "label": "Markdown",
+      "extensions": [
+        ".md",
+        ".markdown"
+      ],
+      "language": "markdown",
+      "previewKind": "markdown",
+      "previewLabel": "Preview",
+      "defaultMode": "preview"
+    }
+  ],
+  "documentType": null,
+  "sourceLines": [],
+  "previewError": ""
 }

@@ -1,6 +1,6 @@
 ---
 name: servef
-description: Compact VS Code-style workspace for local Markdown.
+description: Compact VS Code-style workspace for local Markdown, JSON, and YAML.
 colors:
   bg: "#f8f8f8"
   surface: "#ffffff"
@@ -162,7 +162,7 @@ components:
 
 **Creative North Star: "VS Code editor"**
 
-servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local Markdown central.
+servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
 
 Workspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
 
@@ -241,9 +241,15 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 Pierre compact tree: minimal uncolored icons, square rows, semantic token overrides, 24px desktop / 40px mobile. Workspace name sits above. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
+The type selector sits below the explorer header, uses existing neutral surfaces,
+and includes counts. It filters tree visibility without closing tabs or changing
+the active document. A single CLI-allowed type disables selection and shows
+“Set by CLI.” Filename search intersects the selected type; content search keeps
+its session-wide CLI scope.
+
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source uses `aria-pressed`, subtle active fill, and 12px labels. URL/history remain authoritative.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source (Markdown) and Formatted/Source (JSON/YAML) use `aria-pressed`, subtle active fill, and 12px labels. URL/history remain authoritative. View labels/defaults come from file-type metadata; source-only types hide the toggle. Formatted code can use the available document width. Preview failures explain the problem and preserve access to Source.
 
 ### Footer and theme
 
