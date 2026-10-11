@@ -3,6 +3,7 @@ import type { RefObject } from "react"
 import { Button } from "@/components/ui/button"
 
 import { DocumentPreview } from "./DocumentPreview.tsx"
+import { FormattedDocument } from "./FormattedDocument.tsx"
 import { SourceDocument } from "./SourceDocument.tsx"
 import type { DocumentMode } from "./DocumentModeToggle.tsx"
 import type { PageData } from "./page-data.ts"
@@ -21,10 +22,11 @@ interface DocumentPaneProps {
 export function DocumentPane({ hasData, isLoading, loadError, main, mode, navigate, page, retry }: DocumentPaneProps) {
   const sourceOnly = !page.documentType?.previewKind
   const showSource = !loadError && !page.error && page.hasFile && (mode === "source" || sourceOnly)
+  const showFormatted = !loadError && !page.error && !page.previewError && page.hasFile && mode === "preview" && page.documentType?.previewKind === "code"
 
   return (
     <main
-      className={showSource ? "source-mode" : undefined}
+      className={showSource || showFormatted ? "source-mode" : undefined}
       id="document-pane"
       ref={main}
       tabIndex={-1}
@@ -44,7 +46,9 @@ export function DocumentPane({ hasData, isLoading, loadError, main, mode, naviga
           page.previewError ? <div className="error" role="alert">
             <p>Could not format this file: {page.previewError}</p>
             <p>Switch to Source to read the original file.</p>
-          </div> : <DocumentPreview key={page.selected} kind={page.documentType?.previewKind || "markdown"} html={page.content} navigate={navigate} />
+          </div> : page.documentType?.previewKind === "code" ? (
+            <FormattedDocument key={page.selected} html={page.content} label={`${page.documentType.label} formatted`} />
+          ) : <DocumentPreview key={page.selected} html={page.content} navigate={navigate} />
         )
       ) : hasData ? (
         <div className="empty">

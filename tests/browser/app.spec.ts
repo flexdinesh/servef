@@ -272,7 +272,8 @@ test("labels and copies fenced code", async ({ page }) => {
   const codeBlock = codeBlocks.first()
   const copy = codeBlock.getByRole("button")
   await expect(copy).toHaveAccessibleName("Copy json code")
-  await expect(copy).toHaveCSS("border-radius", "2px")
+  const blockRadius = await codeBlock.locator("pre").evaluate((element) => window.getComputedStyle(element).borderRadius)
+  await expect(copy).toHaveCSS("border-radius", blockRadius)
   await expect(copy.locator(".code-block-control-language")).toHaveText("json")
   const languageColor = await copy.locator(".code-block-control-language").evaluate(
     (element) => window.getComputedStyle(element).color,
