@@ -24,7 +24,7 @@ export function useDocumentWorkspace(page: PageData | null) {
 
   const setDocumentMode = useCallback((path: string, mode: DocumentMode) => {
     setWorkspace((current) => {
-      if ((current.modes.get(path) ?? "preview") === mode) return current
+      if (current.modes.get(path) === mode) return current
       const modes = new Map(current.modes)
       modes.set(path, mode)
       return { ...current, modes }

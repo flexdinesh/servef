@@ -2,8 +2,8 @@ import type { RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
 
-import { MarkdownDocument } from "./MarkdownDocument.tsx"
-import { MarkdownSource } from "./MarkdownSource.tsx"
+import { DocumentPreview } from "./DocumentPreview.tsx"
+import { SourceDocument } from "./SourceDocument.tsx"
 import type { DocumentMode } from "./DocumentModeToggle.tsx"
 import type { PageData } from "./page-data.ts"
 
@@ -19,7 +19,8 @@ interface DocumentPaneProps {
 }
 
 export function DocumentPane({ hasData, isLoading, loadError, main, mode, navigate, page, retry }: DocumentPaneProps) {
-  const showSource = !loadError && !page.error && page.hasFile && mode === "source"
+  const sourceOnly = !page.documentType?.previewKind
+  const showSource = !loadError && !page.error && page.hasFile && (mode === "source" || sourceOnly)
 
   return (
     <main
@@ -37,15 +38,18 @@ export function DocumentPane({ hasData, isLoading, loadError, main, mode, naviga
       ) : page.error ? (
         <div className="error" role="alert">{page.error}</div>
       ) : page.hasFile ? (
-        mode === "source" ? (
-          <MarkdownSource source={page.source} />
+        (mode === "source" || sourceOnly) ? (
+          <SourceDocument key={page.selected} source={page.source} highlightedLines={page.sourceLines} label={`${page.documentType?.label ?? "File"} source`} />
         ) : (
-          <MarkdownDocument key={page.selected} html={page.content} navigate={navigate} />
+          page.previewError ? <div className="error" role="alert">
+            <p>Could not format this file: {page.previewError}</p>
+            <p>Switch to Source to read the original file.</p>
+          </div> : <DocumentPreview key={page.selected} kind={page.documentType?.previewKind || "markdown"} html={page.content} navigate={navigate} />
         )
       ) : hasData ? (
         <div className="empty">
-          <h1>Choose a Markdown file</h1>
-          <p>Select a Markdown file from the folder tree.</p>
+          <h1>Choose a file</h1>
+          <p>Select a file from the folder tree.</p>
         </div>
       ) : null}
     </main>

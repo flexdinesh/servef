@@ -1,4 +1,4 @@
-// Package files discovers Markdown documents and safely resolves indexed paths.
+// Package files discovers supported files and safely resolves indexed paths.
 package files
 
 import (
@@ -19,7 +19,7 @@ var (
 	ErrPathEscape = errors.New("path escapes scan root")
 )
 
-// Entry is a directory or Markdown file in a scan tree. Path is slash-separated
+// Entry is a directory or supported file in a scan tree. Path is slash-separated
 // and relative to the scan root; the root entry has an empty Path.
 type Entry struct {
 	Name     string  `json:"name"`
@@ -43,7 +43,7 @@ func (w Warning) Error() string {
 }
 
 // Index is the deterministic result of a scan. Files contains the paths of all
-// Markdown files in tree traversal order. Warnings contains recoverable errors
+// supported files in tree traversal order. Warnings contains recoverable errors
 // encountered below the root and is intentionally omitted from JSON output.
 type Index struct {
 	Tree     Entry     `json:"tree"`
@@ -52,17 +52,21 @@ type Index struct {
 
 	root    string
 	fileSet map[string]struct{}
+	accepts func(string) bool
 }
 
 // Scan builds an index rooted at root. The root directory is depth zero, so a
-// maxDepth of zero includes Markdown files directly within root. Negative
+// maxDepth of zero includes supported files directly within root. Negative
 // maxDepth values scan without a depth limit. Directory names in excluded are
 // matched by base name at every scanned level.
 //
 // Symlinks are not included. Failure to open or inspect the root is fatal;
 // failures below it are recorded in Index.Warnings and the rest of the scan is
 // returned.
-func Scan(root string, maxDepth int, excluded []string) (*Index, error) {
+func Scan(root string, maxDepth int, excluded []string, accepts func(string) bool) (*Index, error) {
+	if accepts == nil {
+		return nil, errors.New("file matcher is required")
+	}
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("resolve scan root: %w", err)
@@ -85,6 +89,7 @@ func Scan(root string, maxDepth int, excluded []string) (*Index, error) {
 		Files:   make([]string, 0),
 		root:    canonicalRoot,
 		fileSet: make(map[string]struct{}),
+		accepts: accepts,
 	}
 	index.Tree = Entry{Name: filepath.Base(canonicalRoot), IsDir: true}
 
@@ -107,7 +112,7 @@ func (i *Index) RootPath() string {
 	return i.root
 }
 
-// Resolve returns an absolute path for an indexed Markdown file. It rejects
+// Resolve returns an absolute path for an indexed supported file. It rejects
 // unindexed paths and evaluates the current filesystem path to ensure it still
 // resides within the scan root.
 func (i *Index) Resolve(name string) (string, error) {
@@ -198,7 +203,7 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 			children = append(children, scannedEntry{name: dirEntry.Name(), path: rel, isDir: true})
 			continue
 		}
-		if info.Mode().IsRegular() && isMarkdown(dirEntry.Name()) {
+		if info.Mode().IsRegular() && i.accepts(dirEntry.Name()) {
 			children = append(children, scannedEntry{name: dirEntry.Name(), path: rel})
 		}
 	}
@@ -240,11 +245,6 @@ type scannedEntry struct {
 	name  string
 	path  string
 	isDir bool
-}
-
-func isMarkdown(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	return ext == ".md" || ext == ".markdown"
 }
 
 func joinSlash(parent, name string) string {

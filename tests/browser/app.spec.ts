@@ -47,7 +47,7 @@ test("renders SVG, PNG, and JPEG Markdown images", async ({ page }) => {
 test("browses nested Markdown without resetting the file tree", async ({ page }) => {
   await page.goto("/")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
   await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
   await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
@@ -73,7 +73,7 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
 
 test("modified tree clicks select files without creating browser tabs", async ({ context, page }) => {
   await page.goto("/")
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
   await tree.getByRole("treeitem", { name: "getting-started.md" }).click({ modifiers: ["Control"] })
   await expect(page).toHaveURL(/path=guides%2Fgetting-started.md/)
@@ -84,7 +84,7 @@ test("searches fixture content and opens the result", async ({ page }) => {
   await page.goto("/")
 
   const search = page.getByPlaceholder("Search document content…")
-  await expect(page.getByText("Select a Markdown file from the folder tree.")).toBeVisible()
+  await expect(page.getByText("Select a file from the folder tree.")).toBeVisible()
   await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
   await expect(search).toBeVisible()
   await search.fill("luminous-orchid")
@@ -104,7 +104,7 @@ test("searches fixture content and opens the result", async ({ page }) => {
 test("navigates Markdown links and history without losing tree state", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
   await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
   await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
@@ -181,7 +181,7 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   })
   await page.goto("/")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
   await tree.getByRole("treeitem", { name: "diagrams.md" }).dispatchEvent("click")
   await tree.getByRole("treeitem", { name: "getting-started.md" }).dispatchEvent("click")
@@ -237,7 +237,7 @@ test("system theme follows live OS changes", async ({ page }) => {
 test("uses readable body and navigation text sizes", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
   await expect(page.locator("article")).toHaveCSS("font-size", "15px")
   await expect(selected).toHaveCSS("font-size", "13px")
@@ -314,7 +314,7 @@ test("copies fenced code when the modern clipboard API is unavailable", async ({
 test("opens, switches, and closes document tabs", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
 
   const tabs = page.getByRole("tablist", { name: "Open documents" })
@@ -343,9 +343,9 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   const sourceView = page.getByRole("textbox", { name: "Markdown source" })
   await expect(sourceView).toContainText("# Getting started")
   await expect(sourceView).toHaveAttribute("aria-readonly", "true")
-  await expect(sourceView.locator(".markdown-source-line-number").first()).toHaveText("1")
-  await expect(sourceView.locator(".markdown-source-line-number").nth(1)).toHaveText("2")
-  const sourceLines = sourceView.locator(".markdown-source-line")
+  await expect(sourceView.locator(".source-document-line-number").first()).toHaveText("1")
+  await expect(sourceView.locator(".source-document-line-number").nth(1)).toHaveText("2")
+  const sourceLines = sourceView.locator(".source-document-line")
   await expect(sourceLines.first()).toHaveClass(/active/)
   await sourceLines.nth(2).click()
   await expect(sourceLines.nth(2)).toHaveClass(/active/)
@@ -357,7 +357,7 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   expect(sourceLeft).toBe(paneLeft)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(preview).toHaveAttribute("aria-pressed", "true")
 
@@ -389,7 +389,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("7 files")
+  await expect(status).toContainText("11 files")
   await status.locator("summary").click()
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")
@@ -403,7 +403,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
 test("resizes and persists the file tree", async ({ page }) => {
   await page.goto("/")
 
-  const tree = page.getByRole("complementary", { name: "Markdown files" })
+  const tree = page.getByRole("complementary", { name: "Files" })
   const resizer = page.getByRole("separator", { name: "Resize file tree" })
   const initialWidth = await tree.evaluate((element) => element.getBoundingClientRect().width)
   await resizer.press("ArrowRight")

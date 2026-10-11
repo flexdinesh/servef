@@ -1,28 +1,21 @@
-// Package web serves a live Markdown index and rendered documents.
+// Package web serves an indexed local file workspace and document views.
 package web
 
 import (
-	"bytes"
 	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
-	"github.com/yuin/goldmark/renderer"
-	"github.com/yuin/goldmark/text"
-	"github.com/yuin/goldmark/util"
 )
 
 //go:embed dist vendor/MINISEARCH-LICENSE.txt vendor/PX0-LICENSE.txt
@@ -39,32 +32,37 @@ type Config struct {
 	Depth      int
 	Exclusions []string
 	Features   features.Set
+	Types      *document.Registry
 }
 
-// App is an HTTP handler for the Markdown browser.
+// App composes discovery and document handlers into the HTTP API.
 type App struct {
 	config   Config
-	markdown goldmark.Markdown
 	metrics  metricsCollector
 	readFile func(string) ([]byte, error)
 	shell    string
 }
 
 type pageData struct {
-	RootName  string     `json:"rootName"`
-	Tree      []treeNode `json:"tree"`
-	Selected  string     `json:"selected"`
-	Content   string     `json:"content"`
-	Source    string     `json:"source"`
-	FileSize  int64      `json:"fileSize"`
-	FileCount int        `json:"fileCount"`
-	HasFile   bool       `json:"hasFile"`
-	Empty     bool       `json:"empty"`
-	Error     string     `json:"error"`
-	Warnings  []string   `json:"warnings"`
+	RootName     string          `json:"rootName"`
+	Tree         []treeNode      `json:"tree"`
+	Selected     string          `json:"selected"`
+	Content      string          `json:"content"`
+	Source       string          `json:"source"`
+	FileSize     int64           `json:"fileSize"`
+	FileCount    int             `json:"fileCount"`
+	HasFile      bool            `json:"hasFile"`
+	Empty        bool            `json:"empty"`
+	Error        string          `json:"error"`
+	Warnings     []string        `json:"warnings"`
+	FileTypes    []document.Type `json:"fileTypes"`
+	DocumentType *document.Type  `json:"documentType"`
+	SourceLines  []string        `json:"sourceLines"`
+	PreviewError string          `json:"previewError"`
 }
 
 type treeNode struct {
+	FileType string     `json:"fileType"`
 	Name     string     `json:"name"`
 	Path     string     `json:"path"`
 	IsDir    bool       `json:"isDir"`
@@ -95,14 +93,10 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 
-	md := goldmark.New(
-		goldmark.WithExtensions(extension.GFM),
-		goldmark.WithRendererOptions(renderer.WithNodeRenderers(
-			util.Prioritized(&escapedHTMLRenderer{}, 500),
-			util.Prioritized(newFencedCodeRenderer(), 500),
-		)),
-	)
-	return &App{config: config, markdown: md, readFile: os.ReadFile, shell: string(shell)}, nil
+	if config.Types == nil {
+		config.Types = document.Builtins()
+	}
+	return &App{config: config, readFile: os.ReadFile, shell: string(shell)}, nil
 }
 
 // ServeHTTP rescans the configured directory before rendering every response.
@@ -305,7 +299,7 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions)
+	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Types.Supports)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -326,7 +320,8 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
 			continue
 		}
-		content, err := a.searchText(source)
+		handler, _ := a.config.Types.Lookup(indexedPath)
+		content, err := handler.SearchText(source)
 		if err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
 			continue
@@ -345,41 +340,6 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func (a *App) searchText(source []byte) (string, error) {
-	document := a.markdown.Parser().Parse(text.NewReader(source))
-	parts := make([]string, 0)
-	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-		switch value := node.(type) {
-		case *ast.Text:
-			parts = append(parts, string(value.Value(source)))
-		case *ast.String:
-			parts = append(parts, string(value.Value))
-		case *ast.AutoLink:
-			parts = append(parts, string(value.Text(source)))
-		case *ast.CodeBlock:
-			parts = append(parts, string(value.Lines().Value(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.FencedCodeBlock:
-			parts = append(parts, string(value.Lines().Value(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.RawHTML:
-			parts = append(parts, string(value.Text(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.HTMLBlock:
-			parts = append(parts, string(value.Text(source)))
-			return ast.WalkSkipChildren, nil
-		}
-		return ast.WalkContinue, nil
-	})
-	if err != nil {
-		return "", err
-	}
-	return strings.Join(strings.Fields(strings.Join(parts, " ")), " "), nil
-}
-
 func (a *App) servePageData(w http.ResponseWriter, selected string, required bool) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -388,25 +348,29 @@ func (a *App) servePageData(w http.ResponseWriter, selected string, required boo
 }
 
 func (a *App) page(selected string, required bool) (pageData, int) {
-	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions)
+	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Types.Supports)
 	if err != nil {
 		return pageData{
-			RootName: filepath.Base(a.config.Root),
-			Tree:     []treeNode{},
-			Error:    err.Error(),
-			Warnings: []string{},
+			RootName:    filepath.Base(a.config.Root),
+			Tree:        []treeNode{},
+			FileTypes:   a.config.Types.Types(),
+			SourceLines: []string{},
+			Error:       err.Error(),
+			Warnings:    []string{},
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		RootName:  filepath.Base(index.RootPath()),
-		Selected:  selected,
-		FileCount: len(index.Files),
-		Empty:     len(index.Files) == 0,
-		Warnings:  warningStrings(index.Warnings),
+		RootName:    filepath.Base(index.RootPath()),
+		Selected:    selected,
+		FileCount:   len(index.Files),
+		Empty:       len(index.Files) == 0,
+		Warnings:    warningStrings(index.Warnings),
+		FileTypes:   a.config.Types.Types(),
+		SourceLines: []string{},
 	}
-	data.Tree = makeTree(index.Tree.Children, selected)
+	data.Tree = a.makeTree(index.Tree.Children, selected)
 	if required && selected == "" {
-		data.Error = "No Markdown file was selected."
+		data.Error = "No file was selected."
 		return data, http.StatusBadRequest
 	}
 
@@ -417,7 +381,7 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			if errors.Is(err, files.ErrPathEscape) {
 				status = http.StatusBadRequest
 			}
-			data.Error = "That Markdown file is unavailable. Refresh the index and choose another file."
+			data.Error = "That file is unavailable. Refresh the index and choose another file."
 			return data, status
 		}
 		source, err := a.readFile(resolved)
@@ -425,93 +389,29 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			return data, http.StatusInternalServerError
 		}
+		handler, _ := a.config.Types.Lookup(selected)
+		fileType := handler.Type()
+		data.DocumentType = &fileType
 		data.Source = string(source)
-		var rendered bytes.Buffer
-		if err := a.renderMarkdown(source, selected, &rendered); err != nil {
-			data.Error = fmt.Sprintf("Could not render %s: %v", selected, err)
-			return data, http.StatusInternalServerError
+		data.SourceLines = document.HighlightLines(source, fileType.Language)
+		data.Content, err = handler.Preview(source, document.Context{Path: selected, Supports: a.config.Types.Supports})
+		if err != nil {
+			data.PreviewError = err.Error()
 		}
-		data.Content = rendered.String() // Goldmark escapes raw HTML via escapedHTMLRenderer.
 		data.FileSize = int64(len(source))
 		data.HasFile = true
 	}
 	return data, http.StatusOK
 }
 
-func (a *App) renderMarkdown(source []byte, selected string, output *bytes.Buffer) error {
-	document := a.markdown.Parser().Parse(text.NewReader(source))
-	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if entering {
-			switch value := node.(type) {
-			case *ast.Link:
-				value.Destination = rewriteMarkdownLink(value.Destination, selected)
-			case *ast.Image:
-				value.Destination = rewriteMarkdownImage(value.Destination, selected)
-			}
-		}
-		return ast.WalkContinue, nil
-	})
-	if err != nil {
-		return err
-	}
-	return a.markdown.Renderer().Render(output, source, document)
-}
-
-func rewriteMarkdownImage(destination []byte, selected string) []byte {
-	target, err := url.Parse(string(destination))
-	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
-		return destination
-	}
-
-	imagePath := target.Path
-	if strings.HasPrefix(imagePath, "/") {
-		imagePath = strings.TrimPrefix(imagePath, "/")
-	} else {
-		imagePath = path.Join(path.Dir(selected), imagePath)
-	}
-	imagePath = path.Clean(imagePath)
-
-	query := target.Query()
-	query.Set("path", imagePath)
-	return []byte((&url.URL{
-		Path:     "/api/image",
-		RawQuery: query.Encode(),
-		Fragment: target.Fragment,
-	}).String())
-}
-
-func rewriteMarkdownLink(destination []byte, selected string) []byte {
-	target, err := url.Parse(string(destination))
-	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
-		return destination
-	}
-	extension := strings.ToLower(path.Ext(target.Path))
-	if extension != ".md" && extension != ".markdown" {
-		return destination
-	}
-
-	markdownPath := target.Path
-	if strings.HasPrefix(markdownPath, "/") {
-		markdownPath = strings.TrimPrefix(markdownPath, "/")
-	} else {
-		markdownPath = path.Join(path.Dir(selected), markdownPath)
-	}
-	markdownPath = path.Clean(markdownPath)
-
-	query := target.Query()
-	query.Set("path", markdownPath)
-	return []byte((&url.URL{
-		Path:     "/view",
-		RawQuery: query.Encode(),
-		Fragment: target.Fragment,
-	}).String())
-}
-
-func makeTree(entries []files.Entry, selected string) []treeNode {
+func (a *App) makeTree(entries []files.Entry, selected string) []treeNode {
 	nodes := make([]treeNode, 0, len(entries))
 	for _, entry := range entries {
 		node := treeNode{Name: entry.Name, Path: entry.Path, IsDir: entry.IsDir, Selected: entry.Path == selected}
-		node.Children = makeTree(entry.Children, selected)
+		node.Children = a.makeTree(entry.Children, selected)
+		if handler, ok := a.config.Types.Lookup(entry.Path); !entry.IsDir && ok {
+			node.FileType = handler.Type().ID
+		}
 		node.Open = entry.IsDir && (selected == entry.Path || strings.HasPrefix(selected, entry.Path+"/"))
 		nodes = append(nodes, node)
 	}
@@ -524,36 +424,4 @@ func warningStrings(warnings []files.Warning) []string {
 		result[i] = warning.Error()
 	}
 	return result
-}
-
-type escapedHTMLRenderer struct{}
-
-func (*escapedHTMLRenderer) RegisterFuncs(register renderer.NodeRendererFuncRegisterer) {
-	register.Register(ast.KindHTMLBlock, renderEscapedHTMLBlock)
-	register.Register(ast.KindRawHTML, renderEscapedRawHTML)
-}
-
-func renderEscapedHTMLBlock(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	block := node.(*ast.HTMLBlock)
-	if entering {
-		for i := 0; i < block.Lines().Len(); i++ {
-			line := block.Lines().At(i)
-			_, _ = w.Write(util.EscapeHTML(line.Value(source)))
-		}
-	} else if block.HasClosure() {
-		_, _ = w.Write(util.EscapeHTML(block.ClosureLine.Value(source)))
-	}
-	return ast.WalkContinue, nil
-}
-
-func renderEscapedRawHTML(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	if !entering {
-		return ast.WalkSkipChildren, nil
-	}
-	raw := node.(*ast.RawHTML)
-	for i := 0; i < raw.Segments.Len(); i++ {
-		segment := raw.Segments.At(i)
-		_, _ = w.Write(util.EscapeHTML(segment.Value(source)))
-	}
-	return ast.WalkSkipChildren, nil
 }

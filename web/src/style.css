@@ -744,7 +744,7 @@ article {
   overflow-wrap: anywhere;
 }
 
-.markdown-source {
+.source-document {
   width: 100%;
   min-height: 100%;
   overflow-x: auto;
@@ -758,7 +758,7 @@ article {
   tab-size: 4;
 }
 
-.markdown-source code {
+.source-document code {
   display: block;
   width: max-content;
   min-width: 100%;
@@ -767,20 +767,20 @@ article {
   line-height: 21px;
 }
 
-.markdown-source:focus-visible {
+.source-document:focus-visible {
   outline-offset: -2px;
 }
 
-.markdown-source-line {
+.source-document-line {
   display: flex;
   height: 21px;
 }
 
-.markdown-source-line.active {
+.source-document-line.active {
   background: var(--color-surface-secondary);
 }
 
-.markdown-source-line-number {
+.source-document-line-number {
   position: sticky;
   left: 0;
   z-index: 1;
@@ -795,12 +795,12 @@ article {
   user-select: none;
 }
 
-.markdown-source-line.active .markdown-source-line-number {
+.source-document-line.active .source-document-line-number {
   color: var(--color-text-primary);
   background: var(--color-surface-secondary);
 }
 
-.markdown-source-line-content {
+.source-document-line-content {
   min-width: max-content;
   flex: 1;
   padding-right: 40px;
@@ -1662,5 +1662,45 @@ article hr {
   .search-dialog {
     width: calc(100vw - var(--space-4));
     margin-top: var(--space-2);
+  }
+}
+
+.file-type-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.file-type-filter select {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.file-type-filter select:disabled {
+  color: var(--color-text-secondary);
+}
+
+.file-type-filter > span {
+  flex: none;
+}
+
+article.code-preview {
+  max-width: none;
+}
+
+@media (max-width: 48rem) {
+  .file-type-filter select {
+    height: 40px;
   }
 }

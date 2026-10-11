@@ -1,4 +1,17 @@
+export type DocumentMode = "preview" | "source"
+
+export interface FileType {
+  id: string
+  label: string
+  extensions: string[]
+  language: string
+  previewKind: "markdown" | "code" | ""
+  previewLabel: string
+  defaultMode: DocumentMode
+}
+
 export interface TreeNode {
+  fileType: string
   children: TreeNode[]
   isDir: boolean
   name: string
@@ -8,6 +21,10 @@ export interface TreeNode {
 }
 
 export interface PageData {
+  fileTypes: FileType[]
+  documentType: FileType | null
+  sourceLines: string[]
+  previewError: string
   content: string
   empty: boolean
   error: string
@@ -29,8 +46,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
+export function isFileType(value: unknown): value is FileType {
+  return isRecord(value)
+    && typeof value.id === "string"
+    && typeof value.label === "string"
+    && Array.isArray(value.extensions)
+    && value.extensions.every((extension: unknown) => typeof extension === "string")
+    && typeof value.language === "string"
+    && (value.previewKind === "markdown" || value.previewKind === "code" || value.previewKind === "")
+    && typeof value.previewLabel === "string"
+    && (value.defaultMode === "preview" || value.defaultMode === "source")
+    && (value.previewKind !== "" || value.defaultMode === "source")
+}
+
 function isTreeNode(value: unknown): value is TreeNode {
   return isRecord(value)
+    && typeof value.fileType === "string"
     && Array.isArray(value.children)
     && value.children.every(isTreeNode)
     && typeof value.isDir === "boolean"
@@ -42,6 +73,13 @@ function isTreeNode(value: unknown): value is TreeNode {
 
 export function isPageData(value: unknown): value is PageData {
   return isRecord(value)
+    && Array.isArray(value.fileTypes)
+    && value.fileTypes.every(isFileType)
+    && (value.documentType === null || isFileType(value.documentType))
+    && Array.isArray(value.sourceLines)
+    && value.sourceLines.every((line: unknown) => typeof line === "string")
+    && typeof value.previewError === "string"
+    && (!value.hasFile || isFileType(value.documentType))
     && typeof value.content === "string"
     && typeof value.empty === "boolean"
     && typeof value.error === "string"

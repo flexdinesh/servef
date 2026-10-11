@@ -14,9 +14,11 @@
           "isDir": false,
           "open": false,
           "selected": false,
-          "children": []
+          "children": [],
+          "fileType": "markdown"
         }
-      ]
+      ],
+      "fileType": ""
     }
   ],
   "selected": "",
@@ -27,5 +29,22 @@
   "hasFile": false,
   "empty": false,
   "error": "",
-  "warnings": []
+  "warnings": [],
+  "fileTypes": [
+    {
+      "id": "markdown",
+      "label": "Markdown",
+      "extensions": [
+        ".md",
+        ".markdown"
+      ],
+      "language": "markdown",
+      "previewKind": "markdown",
+      "previewLabel": "Preview",
+      "defaultMode": "preview"
+    }
+  ],
+  "documentType": null,
+  "sourceLines": [],
+  "previewError": ""
 }

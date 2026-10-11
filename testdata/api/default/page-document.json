@@ -14,9 +14,11 @@
           "isDir": false,
           "open": false,
           "selected": true,
-          "children": []
+          "children": [],
+          "fileType": "markdown"
         }
-      ]
+      ],
+      "fileType": ""
     }
   ],
   "selected": "guides/getting-started.md",
@@ -27,5 +29,37 @@
   "hasFile": true,
   "empty": false,
   "error": "",
-  "warnings": []
+  "warnings": [],
+  "fileTypes": [
+    {
+      "id": "markdown",
+      "label": "Markdown",
+      "extensions": [
+        ".md",
+        ".markdown"
+      ],
+      "language": "markdown",
+      "previewKind": "markdown",
+      "previewLabel": "Preview",
+      "defaultMode": "preview"
+    }
+  ],
+  "documentType": {
+    "id": "markdown",
+    "label": "Markdown",
+    "extensions": [
+      ".md",
+      ".markdown"
+    ],
+    "language": "markdown",
+    "previewKind": "markdown",
+    "previewLabel": "Preview",
+    "defaultMode": "preview"
+  },
+  "sourceLines": [
+    "# Getting started",
+    "",
+    "This page is served by the frontend-only fixture API."
+  ],
+  "previewError": ""
 }

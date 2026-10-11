@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client"
 
 import { FeatureProvider } from "../src/components/FeatureProvider.tsx"
 import { ThemeProvider } from "../src/components/ThemeProvider.tsx"
-import { MarkdownDocument } from "../src/MarkdownDocument.tsx"
+import { DocumentPreview } from "../src/DocumentPreview.tsx"
 import { SearchDialog } from "../src/SearchDialog.tsx"
 import { StatusBar } from "../src/StatusBar.tsx"
 import { emptyPage } from "../src/page-data.ts"
@@ -27,7 +27,7 @@ function LifecycleFixture() {
       <button type="button" onClick={() => setNavigationPrefix("updated")}>Update navigation</button>
       <button type="button" onClick={() => openSearch.current?.()}>Open search</button>
       <output aria-label="Navigation">{navigation}</output>
-      {visible && <MarkdownDocument html={html} navigate={() => {}} />}
+      {visible && <DocumentPreview html={html} navigate={() => {}} />}
       {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} />}
       <SearchDialog
         navigate={(path) => setNavigation(`${navigationPrefix}:${path}`)}

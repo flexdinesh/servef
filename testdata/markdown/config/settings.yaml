@@ -1,0 +1,6 @@
+# Shared configuration
+base: &base
+    name: 'servef-yaml-fixture' # keep this comment
+    script: |
+      echo hello
+copy: *base

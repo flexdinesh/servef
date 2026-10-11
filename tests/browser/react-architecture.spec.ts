@@ -63,7 +63,7 @@ test("search survives unavailable Worker and recovers when support returns", asy
   await page.evaluate(() => { document.documentElement.dataset.restoreWorker = "true" })
   await page.getByPlaceholder("Search document content…").fill("getting-started")
   await page.getByRole("button", { name: "Retry search" }).click()
-  await expect(page.getByRole("option").first()).toBeVisible()
+  await expect(page.getByRole("listbox", { name: "Search results" }).getByRole("option").first()).toBeVisible()
 })
 
 for (const entry of [
@@ -80,7 +80,7 @@ for (const entry of [
       return element.scrollTop
     })
     expect(firstScroll).toBeGreaterThan(0)
-    const tree = page.getByRole("complementary", { name: "Markdown files" })
+    const tree = page.getByRole("complementary", { name: "Files" })
     await tree.getByRole("treeitem", { name: "code-blocks.md" }).click()
     await expect(page.getByRole("tab", { name: "code-blocks.md" })).toHaveAttribute("aria-selected", "true")
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(0)
@@ -99,7 +99,7 @@ for (const entry of [
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 
     await page.getByRole("link", { name: "servef home" }).click()
-    await expect(page.getByRole("heading", { name: "Choose a Markdown file" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Choose a file" })).toBeVisible()
     await page.goBack()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 

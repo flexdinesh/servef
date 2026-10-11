@@ -29,7 +29,7 @@ test("file search filters paths and opens results without loading content index"
     if (new URL(request.url()).pathname === "/api/search-documents") indexRequests++
   })
   await page.goto("/")
-  const explorer = page.getByRole("complementary", { name: "Markdown files" })
+  const explorer = page.getByRole("complementary", { name: "Files" })
   const search = explorer.getByRole("textbox", { name: "Search…" })
   const trigger = page.getByRole("button", { name: "Search files" })
   await expect(search).toBeHidden()
@@ -60,7 +60,7 @@ test("file search filters paths and opens results without loading content index"
 
 test("file tree supports arrow navigation and Enter activation", async ({ page }) => {
   await page.goto("/")
-  const explorer = page.getByRole("complementary", { name: "Markdown files" })
+  const explorer = page.getByRole("complementary", { name: "Files" })
   const directory = explorer.getByRole("treeitem", { name: "guides", exact: true })
   await directory.focus()
   await directory.press("ArrowRight")
@@ -133,11 +133,11 @@ test("mobile file search closes the drawer when a result opens", async ({ page }
 
 test("responsive explorer preserves expansion and keeps virtualized row heights aligned", async ({ page }) => {
   await page.goto("/")
-  let explorer = page.getByRole("complementary", { name: "Markdown files" })
+  let explorer = page.getByRole("complementary", { name: "Files" })
   await explorer.getByRole("treeitem", { name: "guides", exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: "Open files" }).click()
-  explorer = page.getByRole("complementary", { name: "Markdown files" })
+  explorer = page.getByRole("complementary", { name: "Files" })
   const guides = explorer.getByRole("treeitem", { name: "guides", exact: true })
   await expect(guides).toHaveAttribute("aria-expanded", "true")
   const code = explorer.getByRole("treeitem", { name: "code-blocks.md" })
