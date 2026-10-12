@@ -13,7 +13,7 @@ function sourceLines(source: string): string[] {
 
 export function SourceDocument({ source, highlightedLines, label }: SourceDocumentProps) {
   const lines = sourceLines(source)
-  const [activeLine, setActiveLine] = useState(1)
+  const [activeLine, setActiveLine] = useState<number | null>(null)
   const gutterWidth = `calc(${String(lines.length).length}ch + 30px)`
 
   return (
