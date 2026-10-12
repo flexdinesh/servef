@@ -1,4 +1,4 @@
-// Package files discovers supported files and safely resolves indexed paths.
+// Package files discovers in-scope files and safely resolves indexed paths.
 package files
 
 import (

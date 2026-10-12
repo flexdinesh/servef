@@ -1,6 +1,6 @@
 ---
 name: servef
-description: Compact VS Code-style workspace for local Markdown, JSON, and YAML.
+description: Compact VS Code-style workspace for browsing local files.
 colors:
   bg: "#f8f8f8"
   surface: "#ffffff"
@@ -209,7 +209,7 @@ Desktop: full-height explorer beside the tabbed document workspace, above a 28px
 
 Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger, close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and theme remain visible. Size/count, process details, and shortcut hints hide.
+At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger, close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and theme remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
 
 Content palette: maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer.
 
@@ -229,7 +229,7 @@ Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus
 
 Explorer rows, tabs, and footer actions are square rectangles. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives.
 
-Icons: 16px generic, 14px footer/search, 12px tabs; inherit text color. Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
+Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family (unmapped icons inherit; unresolved files fall back to a generic file icon). Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
 
 ## Components
 
@@ -241,25 +241,44 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 40px mobile. Workspace name sits above. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
-The type picker sits below the explorer header, matches the filename search field's
-width and appearance, and opens a checkbox menu with counts and a Show all types
-action. No selection shows all types; selecting one or more limits visibility to
-those families. It filters tree visibility without closing tabs or changing
-the active document. A single CLI-allowed type disables selection and shows
-“Set by CLI.” Filename search intersects the selected type; content search keeps
-its session-wide CLI scope.
+The filename filter sits below the explorer header, always visible, matching the
+filename search field's width and appearance: funnel icon, placeholder
+“Filter: *.md, *.go”, and, when active, a muted 12px “visible / total” count in a
+polite live region plus a clear action. It accepts comma-separated,
+case-insensitive base-name globs with the CLI's `--filename` semantics (`*`, `?`,
+`[...]`); empty shows all. Input applies after 150ms. An invalid glob marks the
+field `aria-invalid`, adds a destructive bottom boundary and “Invalid pattern”
+helper, and keeps the last valid filter. No matches show “No files match …” with
+a Clear filter action. When the CLI narrows `--filename`, a muted “Serving …” line
+sits under the field. Escape clears a value, otherwise blurs; Enter or ArrowDown
+focuses the first visible row. The filter is not persisted and changes tree
+visibility only: tabs, the active document, and expansion are preserved.
+Filename search intersects the filter; content search keeps its session-wide CLI
+scope.
 
 Beside Search files, a compact action toggles Collapse all/Expand all, including
-folders hidden by type filters. It is disabled during a nonempty filename search,
+folders hidden by the filename filter. It is disabled during a nonempty filename search,
 which expands matching ancestors. Directory chevrons are 12px within existing row targets.
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Preview/Source (Markdown) and Formatted/Source (JSON/YAML) use `aria-pressed`, subtle active fill, and 12px labels. Buttons fill the toolbar height with 4px above and below: 24px desktop, 36px mobile. URL/history remain authoritative. View labels/defaults come from file-type metadata; source-only types hide the toggle. Formatted code shares Source's full-width, line-numbered viewer, displaying the handler's formatted output. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons use `aria-pressed`, subtle active fill, and 12px labels, filling the toolbar height with 4px above and below: 24px desktop, 36px mobile. View labels/defaults come from file-type metadata. Mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+
+Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
+
+Unregistered text files open as Source and the footer names the type (“Plain text”). Files over 4 MiB show a slim warning-subtle bar above Source, “Large file (6.2 MB): preview and formatting are off.”, adding “Not included in search.” past 8 MiB; Preview/Format stay visible but `aria-disabled` with the reason as a tooltip.
+
+### Images and binary files
+
+Images open in a fit-by-default viewer: centered, never upscaled, on a subtle surface/surface-secondary checkerboard with a 1px border; zoomed images scroll within the pane. The toggle slot holds [Fit][−][100%][+] (SVG adds [Preview][Source] first; zoom hides in Source). The middle button shows the current zoom and resets to 100%. Steps are ×1.25 within 10%–800%. With the viewer focused, `+`/`-` zoom, `0` fits, `1` shows actual size. Zoom changes are announced politely; the footer shows `1920 × 1080 · 64%` beside the size. Loading shows a neutral placeholder; decode failures read “Can't display this image.” Alt text is the filename.
+
+Other binaries open to the centered empty-state layout: “Binary file”, `name · size`, and “servef shows text and images only.” No toggle.
+
+Non-image files over 32 MiB use the same layout: “Too large to display”, `name · size`, and “servef shows text files up to 32 MB.” No toggle; the footer keeps the type label.
 
 ### Footer and theme
 
-Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, Find in files immediately after, then size and theme. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above. Theme opens upward as a single-choice menu, marks configured choice, and shows its label plus resolved light/dark icon.
+Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, Find in files immediately after, then image dimensions/zoom (images only), size, file-type label, and theme. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above. Theme opens upward as a single-choice menu, marks configured choice, and shows its label plus resolved light/dark icon.
 
 ### Content search
 

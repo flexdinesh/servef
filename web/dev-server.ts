@@ -18,7 +18,30 @@ export interface DevServerUrl {
 export interface MockFixture {
   name: string
   status: number
+  contentType?: string
 }
+
+// Maps keep request paths such as "constructor" from hitting prototype keys.
+const mockPages: ReadonlyMap<string, string> = new Map([
+  ["assets/preview.png", "page-image.json"],
+  ["assets/sample.bin", "page-binary.json"],
+  ["config/broken.json", "page-json-broken.json"],
+  ["config/settings.json", "page-json.json"],
+  ["guides/getting-started.md", "page-document.json"],
+  ["logs/enormous.log", "page-too-large.json"],
+  ["logs/huge.log", "page-large.json"],
+])
+
+const mockFormats: ReadonlyMap<string, MockFixture> = new Map([
+  ["config/broken.json", { name: "format-error.json", status: 422 }],
+  ["config/settings.json", { name: "format-settings.json", status: 200 }],
+])
+
+const mockRaw: ReadonlyMap<string, MockFixture> = new Map([
+  ["assets/preview.png", { name: "raw-preview.png", status: 200, contentType: "image/png" }],
+])
+
+const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
 export function primaryLanIpv4(
   interfaces: NetworkInterfaces,
@@ -75,11 +98,16 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return { name: "metrics.json", status: 200 }
     case "/search-documents":
       return { name: "search-documents.json", status: 200 }
-    case "/page":
-      if (!url.searchParams.has("path")) return { name: "page-index.json", status: 200 }
-      return url.searchParams.get("path") === "guides/getting-started.md"
-        ? { name: "page-document.json", status: 200 }
-        : { name: "page-missing.json", status: 404 }
+    case "/page": {
+      const path = url.searchParams.get("path")
+      if (path === null) return { name: "page-index.json", status: 200 }
+      const page = mockPages.get(path)
+      return page ? { name: page, status: 200 } : { name: "page-missing.json", status: 404 }
+    }
+    case "/format":
+      return mockFormats.get(url.searchParams.get("path") ?? "") ?? notFound
+    case "/raw":
+      return mockRaw.get(url.searchParams.get("path") ?? "") ?? notFound
     default:
       return undefined
   }

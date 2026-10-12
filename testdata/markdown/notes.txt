@@ -1,2 +1,1 @@
-This non-Markdown file must not appear in the index.
-
+Plain text sample: opens as source and is included in content search (notes-search-token).

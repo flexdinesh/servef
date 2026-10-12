@@ -1,6 +1,16 @@
 {
   "documents": [
     {
+      "path": "config/broken.json",
+      "name": "broken.json",
+      "content": "{\"name\": \"malformed-search-marker\",\n"
+    },
+    {
+      "path": "config/settings.json",
+      "name": "settings.json",
+      "content": "{\"name\":\"servef-json-fixture\",\"large\":900719925474099312345,\"enabled\":true,\"nested\":{\"message\":\"config-search-marker\"}}\n"
+    },
+    {
       "path": "guides/getting-started.md",
       "name": "getting-started.md",
       "content": "Getting started frontend-only fixture API"

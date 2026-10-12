@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -32,33 +33,39 @@ type Config struct {
 	Depth      int
 	Exclusions []string
 	Features   features.Set
-	Types      *document.Registry
+	// Types decides presentation; Filenames decides which files are in scope.
+	Types     *document.Registry
+	Filenames files.NameFilter
 }
 
 // App composes discovery and document handlers into the HTTP API.
 type App struct {
 	config   Config
 	metrics  metricsCollector
-	readFile func(string) ([]byte, error)
+	openFile func(string) (fs.File, error)
 	shell    string
 }
 
 type pageData struct {
-	RootName     string          `json:"rootName"`
-	Tree         []treeNode      `json:"tree"`
-	Selected     string          `json:"selected"`
-	Content      string          `json:"content"`
-	Source       string          `json:"source"`
-	FileSize     int64           `json:"fileSize"`
-	FileCount    int             `json:"fileCount"`
-	HasFile      bool            `json:"hasFile"`
-	Empty        bool            `json:"empty"`
-	Error        string          `json:"error"`
-	Warnings     []string        `json:"warnings"`
-	FileTypes    []document.Type `json:"fileTypes"`
-	DocumentType *document.Type  `json:"documentType"`
-	SourceLines  []string        `json:"sourceLines"`
-	PreviewError string          `json:"previewError"`
+	RootName         string         `json:"rootName"`
+	Tree             []treeNode     `json:"tree"`
+	Selected         string         `json:"selected"`
+	Content          string         `json:"content"`
+	Source           string         `json:"source"`
+	FileSize         int64          `json:"fileSize"`
+	FileCount        int            `json:"fileCount"`
+	HasFile          bool           `json:"hasFile"`
+	Empty            bool           `json:"empty"`
+	Error            string         `json:"error"`
+	Warnings         []string       `json:"warnings"`
+	FilenamePatterns []string       `json:"filenamePatterns"`
+	DocumentType     *document.Type `json:"documentType"`
+	Binary           bool           `json:"binary"`
+	TooLarge         bool           `json:"tooLarge"`
+	PreviewDisabled  bool           `json:"previewDisabled"`
+	SearchExcluded   bool           `json:"searchExcluded"`
+	SourceLines      []string       `json:"sourceLines"`
+	PreviewError     string         `json:"previewError"`
 }
 
 type treeNode struct {
@@ -82,8 +89,21 @@ type searchDocumentsResponse struct {
 	Warnings  []string         `json:"warnings"`
 }
 
+type formatResponse struct {
+	FormattedLines []string `json:"formattedLines"`
+}
+
 type errorResponse struct {
 	Error string `json:"error"`
+}
+
+// indexedFile is a read of an indexed file. Binary files keep only the sniffed
+// prefix; files over the read limit are not read.
+type indexedFile struct {
+	source   []byte
+	size     int64
+	binary   bool
+	tooLarge bool
 }
 
 // New constructs a request-time scanning web interface.
@@ -96,7 +116,52 @@ func New(config Config) (*App, error) {
 	if config.Types == nil {
 		config.Types = document.Builtins()
 	}
-	return &App{config: config, readFile: os.ReadFile, shell: string(shell)}, nil
+	if len(config.Filenames.Patterns()) == 0 {
+		config.Filenames = files.AllNames()
+	}
+	return &App{config: config, openFile: openFile, shell: string(shell)}, nil
+}
+
+func openFile(name string) (fs.File, error) { return os.Open(name) }
+
+// readIndexed reads a resolved file unless it is larger than limit (when
+// limit >= 0). Binary files stop after the sniffed prefix; types without a text
+// source are binary without reading content.
+func (a *App) readIndexed(resolved string, fileType document.Type, limit int64) (indexedFile, error) {
+	file, err := a.openFile(resolved)
+	if err != nil {
+		return indexedFile{}, err
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return indexedFile{}, err
+	}
+	result := indexedFile{size: info.Size()}
+	if limit >= 0 && result.size > limit {
+		result.tooLarge = true
+		return result, nil
+	}
+	if !fileType.HasTextSource() {
+		result.binary = true
+		return result, nil
+	}
+	prefix := make([]byte, document.SniffLength)
+	read, err := io.ReadFull(file, prefix)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return indexedFile{}, err
+	}
+	prefix = prefix[:read]
+	if document.IsBinary(prefix) {
+		result.binary = true
+		return result, nil
+	}
+	rest, err := io.ReadAll(file)
+	if err != nil {
+		return indexedFile{}, err
+	}
+	result.source = append(prefix, rest...)
+	return result, nil
 }
 
 // ServeHTTP rescans the configured directory before rendering every response.
@@ -131,6 +196,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/image" {
 		a.serveImage(w, r.URL.Query().Get("path"))
+		return
+	}
+	if r.URL.Path == "/api/raw" {
+		a.serveRaw(w, r.URL.Query().Get("path"))
+		return
+	}
+	if r.URL.Path == "/api/format" {
+		a.serveFormat(w, r.URL.Query().Get("path"))
 		return
 	}
 	if r.URL.Path == "/api/page" {
@@ -256,6 +329,10 @@ func imageContentType(name string) (string, bool) {
 		return "image/avif", true
 	case ".svg":
 		return "image/svg+xml", true
+	case ".ico":
+		return "image/x-icon", true
+	case ".bmp":
+		return "image/bmp", true
 	default:
 		return "", false
 	}
@@ -299,7 +376,7 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Types.Supports)
+	index, err := a.scan()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -315,13 +392,16 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
 			continue
 		}
-		source, err := a.readFile(resolved)
+		family := a.config.Types.Lookup(indexedPath)
+		file, err := a.readIndexed(resolved, family.Type(), document.SearchLimit)
 		if err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
 			continue
 		}
-		handler, _ := a.config.Types.Lookup(indexedPath)
-		content, err := handler.SearchText(source)
+		if file.tooLarge || file.binary {
+			continue
+		}
+		content, err := family.SearchText(file.source)
 		if err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
 			continue
@@ -333,6 +413,81 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// serveFormat returns the on-demand formatted view of a formattable file.
+func (a *App) serveFormat(w http.ResponseWriter, name string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	index, err := a.scan()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	resolved, err := index.Resolve(name)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "That file is unavailable."})
+		return
+	}
+	family := a.config.Types.Lookup(name)
+	fileType := family.Type()
+	if !fileType.Formattable {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: fileType.Label + " files cannot be formatted."})
+		return
+	}
+	file, err := a.readIndexed(resolved, fileType, document.PreviewLimit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if file.tooLarge {
+		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{Error: "File is too large to format."})
+		return
+	}
+	if file.binary {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "binary files cannot be formatted"})
+		return
+	}
+	lines, err := family.FormatLines(file.source)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, formatResponse{FormattedLines: lines})
+}
+
+// serveRaw returns the bytes of an indexed image-preview file in a sandbox.
+func (a *App) serveRaw(w http.ResponseWriter, name string) {
+	index, err := a.scan()
+	if err != nil {
+		http.Error(w, "could not scan files", http.StatusInternalServerError)
+		return
+	}
+	resolved, err := index.Resolve(name)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	contentType, ok := imageContentType(name)
+	if !ok || a.config.Types.Lookup(name).Type().PreviewKind != document.PreviewImage {
+		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
+		return
+	}
+	file, err := a.openFile(resolved)
+	if err != nil {
+		http.NotFound(w, nil)
+		return
+	}
+	defer func() { _ = file.Close() }()
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = io.Copy(w, file)
+}
+
+func (a *App) scan() (*files.Index, error) {
+	return files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Filenames.Match)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -348,25 +503,25 @@ func (a *App) servePageData(w http.ResponseWriter, selected string, required boo
 }
 
 func (a *App) page(selected string, required bool) (pageData, int) {
-	index, err := files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Types.Supports)
+	index, err := a.scan()
 	if err != nil {
 		return pageData{
-			RootName:    filepath.Base(a.config.Root),
-			Tree:        []treeNode{},
-			FileTypes:   a.config.Types.Types(),
-			SourceLines: []string{},
-			Error:       err.Error(),
-			Warnings:    []string{},
+			RootName:         filepath.Base(a.config.Root),
+			Tree:             []treeNode{},
+			FilenamePatterns: a.config.Filenames.Patterns(),
+			SourceLines:      []string{},
+			Error:            err.Error(),
+			Warnings:         []string{},
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		RootName:    filepath.Base(index.RootPath()),
-		Selected:    selected,
-		FileCount:   len(index.Files),
-		Empty:       len(index.Files) == 0,
-		Warnings:    warningStrings(index.Warnings),
-		FileTypes:   a.config.Types.Types(),
-		SourceLines: []string{},
+		RootName:         filepath.Base(index.RootPath()),
+		Selected:         selected,
+		FileCount:        len(index.Files),
+		Empty:            len(index.Files) == 0,
+		Warnings:         warningStrings(index.Warnings),
+		FilenamePatterns: a.config.Filenames.Patterns(),
+		SourceLines:      []string{},
 	}
 	data.Tree = a.makeTree(index.Tree.Children, selected)
 	if required && selected == "" {
@@ -384,22 +539,46 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			data.Error = "That file is unavailable. Refresh the index and choose another file."
 			return data, status
 		}
-		source, err := a.readFile(resolved)
+		family := a.config.Types.Lookup(selected)
+		fileType := family.Type()
+		// Images are served from /api/raw, so only text display is capped.
+		limit := int64(document.DisplayLimit)
+		if fileType.PreviewKind == document.PreviewImage {
+			limit = -1
+		}
+		file, err := a.readIndexed(resolved, fileType, limit)
 		if err != nil {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			return data, http.StatusInternalServerError
 		}
-		handler, _ := a.config.Types.Lookup(selected)
-		fileType := handler.Type()
 		data.DocumentType = &fileType
-		data.Source = string(source)
-		data.SourceLines = document.HighlightLines(source, fileType.Language)
-		data.Content, err = handler.Preview(source, document.Context{Path: selected, Supports: a.config.Types.Supports})
+		data.FileSize = file.size
+		data.HasFile = true
+		data.Binary = file.binary
+		if file.tooLarge {
+			data.TooLarge = true
+			data.PreviewDisabled = true
+			data.SearchExcluded = true
+			return data, http.StatusOK
+		}
+		// Image previews use raw bytes and no server work, so stay enabled at any
+		// size; large SVG source is still shown as plain lines.
+		large := file.size > document.PreviewLimit
+		data.PreviewDisabled = large && fileType.PreviewKind != document.PreviewImage
+		data.SearchExcluded = file.binary || file.size > document.SearchLimit
+		if file.binary {
+			return data, http.StatusOK
+		}
+		data.Source = string(file.source)
+		if large {
+			data.SourceLines = document.PlainLines(file.source)
+			return data, http.StatusOK
+		}
+		data.SourceLines = document.HighlightLines(file.source, fileType.Language)
+		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Supports: a.config.Filenames.Match})
 		if err != nil {
 			data.PreviewError = err.Error()
 		}
-		data.FileSize = int64(len(source))
-		data.HasFile = true
 	}
 	return data, http.StatusOK
 }
@@ -409,8 +588,8 @@ func (a *App) makeTree(entries []files.Entry, selected string) []treeNode {
 	for _, entry := range entries {
 		node := treeNode{Name: entry.Name, Path: entry.Path, IsDir: entry.IsDir, Selected: entry.Path == selected}
 		node.Children = a.makeTree(entry.Children, selected)
-		if handler, ok := a.config.Types.Lookup(entry.Path); !entry.IsDir && ok {
-			node.FileType = handler.Type().ID
+		if !entry.IsDir {
+			node.FileType = a.config.Types.Lookup(entry.Path).Type().ID
 		}
 		node.Open = entry.IsDir && (selected == entry.Path || strings.HasPrefix(selected, entry.Path+"/"))
 		nodes = append(nodes, node)

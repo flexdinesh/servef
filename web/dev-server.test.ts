@@ -90,6 +90,36 @@ test("mockFixtureName maps supported API scenarios", () => {
     name: "page-missing.json",
     status: 404,
   })
+  assert.deepEqual(mockFixtureName("GET", "/page?path=assets%2Fsample.bin"), {
+    name: "page-binary.json",
+    status: 200,
+  })
+  assert.deepEqual(mockFixtureName("GET", "/page?path=logs%2Fenormous.log"), {
+    name: "page-too-large.json",
+    status: 200,
+  })
+  assert.deepEqual(mockFixtureName("GET", "/format?path=config%2Fsettings.json"), {
+    name: "format-settings.json",
+    status: 200,
+  })
+  assert.deepEqual(mockFixtureName("GET", "/format?path=config%2Fbroken.json"), {
+    name: "format-error.json",
+    status: 422,
+  })
+  assert.deepEqual(mockFixtureName("GET", "/raw?path=assets%2Fpreview.png"), {
+    name: "raw-preview.png",
+    status: 200,
+    contentType: "image/png",
+  })
+  assert.deepEqual(mockFixtureName("GET", "/raw?path=guides%2Fgetting-started.md"), {
+    name: "error-not-found.json",
+    status: 404,
+  })
+  for (const endpoint of ["page", "format", "raw"]) {
+    for (const key of ["constructor", "__proto__", "toString"]) {
+      assert.equal(mockFixtureName("GET", `/${endpoint}?path=${key}`)?.status, 404, `${endpoint} ${key}`)
+    }
+  }
   assert.equal(mockFixtureName("POST", "/page"), undefined)
   assert.equal(mockFixtureName("GET", "/unknown"), undefined)
 })

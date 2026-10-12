@@ -9,8 +9,12 @@ export { isPageData, isPageLoadResult } from "./page-contract.ts"
 export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
-  fileTypes: [],
+  filenamePatterns: [],
   documentType: null,
+  binary: false,
+  tooLarge: false,
+  previewDisabled: false,
+  searchExcluded: false,
   sourceLines: [],
   previewError: "",
   content: "",

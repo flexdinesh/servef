@@ -1,0 +1,137 @@
+{
+  "rootName": "markdown",
+  "tree": [
+    {
+      "name": "assets",
+      "path": "assets",
+      "isDir": true,
+      "open": true,
+      "selected": false,
+      "children": [
+        {
+          "name": "preview.png",
+          "path": "assets/preview.png",
+          "isDir": false,
+          "open": false,
+          "selected": true,
+          "children": [],
+          "fileType": "image"
+        },
+        {
+          "name": "sample.bin",
+          "path": "assets/sample.bin",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "config",
+      "path": "config",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "broken.json",
+          "path": "config/broken.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        },
+        {
+          "name": "settings.json",
+          "path": "config/settings.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "guides",
+      "path": "guides",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "getting-started.md",
+          "path": "guides/getting-started.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "logs",
+      "path": "logs",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "huge.log",
+          "path": "logs/huge.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    }
+  ],
+  "selected": "assets/preview.png",
+  "content": "",
+  "source": "",
+  "fileSize": 16028,
+  "fileCount": 6,
+  "hasFile": true,
+  "empty": false,
+  "error": "",
+  "warnings": [],
+  "filenamePatterns": [
+    "*"
+  ],
+  "documentType": {
+    "id": "image",
+    "label": "Image",
+    "extensions": [
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".webp",
+      ".avif",
+      ".ico",
+      ".bmp"
+    ],
+    "filenames": [],
+    "language": "",
+    "previewKind": "image",
+    "previewLabel": "Preview",
+    "defaultMode": "preview",
+    "formattable": false
+  },
+  "binary": true,
+  "tooLarge": false,
+  "previewDisabled": false,
+  "searchExcluded": true,
+  "sourceLines": [],
+  "previewError": ""
+}

@@ -1,0 +1,138 @@
+{
+  "rootName": "markdown",
+  "tree": [
+    {
+      "name": "assets",
+      "path": "assets",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "preview.png",
+          "path": "assets/preview.png",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "image"
+        },
+        {
+          "name": "sample.bin",
+          "path": "assets/sample.bin",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "config",
+      "path": "config",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "broken.json",
+          "path": "config/broken.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        },
+        {
+          "name": "settings.json",
+          "path": "config/settings.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "guides",
+      "path": "guides",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "getting-started.md",
+          "path": "guides/getting-started.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "logs",
+      "path": "logs",
+      "isDir": true,
+      "open": true,
+      "selected": false,
+      "children": [
+        {
+          "name": "huge.log",
+          "path": "logs/huge.log",
+          "isDir": false,
+          "open": false,
+          "selected": true,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    }
+  ],
+  "selected": "logs/huge.log",
+  "content": "",
+  "source": "2026-10-12T09:00:00Z info server started\n2026-10-12T09:00:01Z info indexed 42 files\n",
+  "fileSize": 9437184,
+  "fileCount": 6,
+  "hasFile": true,
+  "empty": false,
+  "error": "",
+  "warnings": [],
+  "filenamePatterns": [
+    "*"
+  ],
+  "documentType": {
+    "id": "text",
+    "label": "Plain text",
+    "extensions": [
+      ".txt",
+      ".log",
+      ".adoc"
+    ],
+    "filenames": [
+      ".gitignore",
+      ".dockerignore"
+    ],
+    "language": "plaintext",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "binary": false,
+  "tooLarge": false,
+  "previewDisabled": true,
+  "searchExcluded": true,
+  "sourceLines": [
+    "2026-10-12T09:00:00Z info server started",
+    "2026-10-12T09:00:01Z info indexed 42 files"
+  ],
+  "previewError": ""
+}
