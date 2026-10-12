@@ -6,17 +6,19 @@ as one Go binary.
 ## System boundaries
 
 - `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
-- `internal/files/`: Markdown discovery and safe path resolution.
+- `internal/files/`: file discovery, filename-glob scope, and safe path resolution.
+- `internal/document/`: file families, highlighting, previews, formatting, binary/size policy.
 - `internal/control/`: authenticated discovery and shutdown of local servef processes.
 - `internal/features/`: startup feature configuration.
-- `internal/web/`: HTTP API, Markdown rendering, shell/static delivery, embedded assets.
+- `internal/web/`: HTTP API, indexed reads, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
+- `docs/decisions/`: decision records for scope, file types, views, and limits.
 - `tests/browser/`: browser tests across the Go/React boundary.
 
 The filesystem root passed to the CLI is the primary runtime trust boundary.
-The server indexes permitted Markdown paths and resolves requests only through
+The server indexes paths matching `--filename` and resolves requests only through
 that index. It binds localhost by default and selects the first free port from
 7971 through 7980; exposing it requires an explicit `--host` IP address.
 
