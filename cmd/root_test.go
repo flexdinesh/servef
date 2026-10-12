@@ -247,20 +247,20 @@ func disableColor(t *testing.T) {
 	t.Cleanup(func() { color.NoColor = previous })
 }
 
-func TestRootCommandFileTypeScope(t *testing.T) {
+func TestRootCommandFilenameScope(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     []string
-		families string
+		patterns []string
+		included []string
+		excluded []string
 	}{
-		{name: "implicit all", families: "markdown,json,yaml"},
-		{name: "explicit all", args: []string{"--file-type", "all"}, families: "markdown,json,yaml"},
-		{name: "normalized all", args: []string{"--file-type", " ALL "}, families: "markdown,json,yaml"},
-		{name: "one family", args: []string{"--file-type", "md"}, families: "markdown"},
-		{name: "multiple families", args: []string{"--file-type", "md,json,yaml"}, families: "markdown,json,yaml"},
-		{name: "restricted families", args: []string{"--file-type", "md,json"}, families: "markdown,json"},
-		{name: "normalized aliases", args: []string{"--file-type", " JSON, .YML "}, families: "json,yaml"},
-		{name: "duplicate aliases", args: []string{"--file-type=json,yml,yaml"}, families: "json,yaml"},
+		{name: "implicit all", patterns: []string{"*"}, included: []string{"README.md", "main.go", ".env", "Dockerfile", "data.bin"}},
+		{name: "explicit all", args: []string{"--filename", "*"}, patterns: []string{"*"}, included: []string{"notes.txt"}},
+		{name: "one glob", args: []string{"--filename", "*.md"}, patterns: []string{"*.md"}, included: []string{"README.md", "docs/guide.MD"}, excluded: []string{"main.go", "README.markdown"}},
+		{name: "multiple globs and names", args: []string{"--filename", "*.md,*.go,Dockerfile"}, patterns: []string{"*.md", "*.go", "Dockerfile"}, included: []string{"a.md", "b.go", "deploy/Dockerfile"}, excluded: []string{"Makefile", "c.ts"}},
+		{name: "case-insensitive and trimmed", args: []string{"--filename= *.GO , dockerFILE "}, patterns: []string{"*.GO", "dockerFILE"}, included: []string{"main.go", "Dockerfile"}, excluded: []string{"README.md"}},
+		{name: "character class", args: []string{"--filename", "[mn]*.txt"}, patterns: []string{"[mn]*.txt"}, included: []string{"notes.txt"}, excluded: []string{"other.txt"}},
 	}
 	for _, entry := range tests {
 		t.Run(entry.name, func(t *testing.T) {
@@ -270,31 +270,69 @@ func TestRootCommandFileTypeScope(t *testing.T) {
 			if err := command.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if got.types == nil {
-				t.Fatal("file type scope not composed")
+			if strings.Join(got.filenames.Patterns(), "|") != strings.Join(entry.patterns, "|") {
+				t.Fatalf("patterns = %v, want %v", got.filenames.Patterns(), entry.patterns)
 			}
-			families := make([]string, 0)
-			for _, definition := range got.types.Types() {
-				families = append(families, definition.ID)
+			for _, name := range entry.included {
+				if !got.filenames.Match(name) {
+					t.Errorf("%s excluded", name)
+				}
 			}
-			if strings.Join(families, ",") != entry.families {
-				t.Fatalf("scope = %v, want %s", families, entry.families)
+			for _, name := range entry.excluded {
+				if got.filenames.Match(name) {
+					t.Errorf("%s included", name)
+				}
 			}
 		})
 	}
 }
 
-func TestRootCommandRejectsInvalidFileTypeLists(t *testing.T) {
-	for _, value := range []string{"go", "md,unknown", "", ",md", "md,", "md,,json", "all,md"} {
+func TestRootCommandRejectsInvalidFilenameLists(t *testing.T) {
+	for _, value := range []string{"", " ", ",*.md", "*.md,", "*.md,,*.go", "[a-", "*.md,[", "docs/*.md"} {
 		t.Run(value, func(t *testing.T) {
 			command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
-				t.Fatal("runner called for invalid file type scope")
+				t.Fatal("runner called for invalid filename scope")
 				return nil
 			})
-			command.SetArgs([]string{"--file-type", value})
-			if err := command.Execute(); err == nil {
-				t.Fatal("invalid file type list accepted")
+			command.SetArgs([]string{"--filename", value})
+			err := command.Execute()
+			if err == nil || !strings.Contains(err.Error(), "--filename") {
+				t.Fatalf("Execute() error = %v", err)
 			}
 		})
+	}
+}
+
+func TestRootCommandRemovesFileTypeFlag(t *testing.T) {
+	command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+		t.Fatal("runner called for removed flag")
+		return nil
+	})
+	command.SetArgs([]string{"--file-type", "md"})
+	if err := command.Execute(); err == nil {
+		t.Fatal("--file-type accepted")
+	}
+}
+
+func TestRunScopesDiscoveryByFilename(t *testing.T) {
+	disableColor(t)
+	root := t.TempDir()
+	for _, name := range []string{"README.md", "main.go", "Dockerfile"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	filter, err := parseFilenames("*.go,dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var stdout bytes.Buffer
+	if err := run(ctx, options{path: root, depth: 5, noOpen: true, filenames: filter, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "  files discovered: 2  (") {
+		t.Fatalf("stdout = %q", stdout.String())
 	}
 }

@@ -1,13 +1,16 @@
-export type DocumentMode = "preview" | "source"
+export type DocumentMode = "preview" | "source" | "format"
+export type DefaultDocumentMode = "preview" | "source"
 
 export interface FileType {
   id: string
   label: string
   extensions: string[]
+  filenames: string[]
   language: string
-  previewKind: "markdown" | "code" | ""
+  previewKind: "markdown" | "image" | ""
   previewLabel: string
-  defaultMode: DocumentMode
+  defaultMode: DefaultDocumentMode
+  formattable: boolean
 }
 
 export interface TreeNode {
@@ -21,8 +24,12 @@ export interface TreeNode {
 }
 
 export interface PageData {
-  fileTypes: FileType[]
+  filenamePatterns: string[]
   documentType: FileType | null
+  binary: boolean
+  tooLarge: boolean
+  previewDisabled: boolean
+  searchExcluded: boolean
   sourceLines: string[]
   previewError: string
   content: string
@@ -42,6 +49,10 @@ export type PageLoadResult =
   | { kind: "page"; page: PageData }
   | { kind: "failure"; message: string }
 
+export interface FormatResult {
+  formattedLines: string[]
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -50,13 +61,23 @@ export function isFileType(value: unknown): value is FileType {
   return isRecord(value)
     && typeof value.id === "string"
     && typeof value.label === "string"
-    && Array.isArray(value.extensions)
-    && value.extensions.every((extension: unknown) => typeof extension === "string")
+    && isStringArray(value.extensions)
+    && isStringArray(value.filenames)
     && typeof value.language === "string"
-    && (value.previewKind === "markdown" || value.previewKind === "code" || value.previewKind === "")
+    && (value.previewKind === "markdown" || value.previewKind === "image" || value.previewKind === "")
     && typeof value.previewLabel === "string"
     && (value.defaultMode === "preview" || value.defaultMode === "source")
     && (value.previewKind !== "" || value.defaultMode === "source")
+    && (value.previewKind === "" || value.previewLabel !== "")
+    && typeof value.formattable === "boolean"
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry: unknown) => typeof entry === "string")
+}
+
+export function isFormatResult(value: unknown): value is FormatResult {
+  return isRecord(value) && isStringArray(value.formattedLines)
 }
 
 function isTreeNode(value: unknown): value is TreeNode {
@@ -73,8 +94,11 @@ function isTreeNode(value: unknown): value is TreeNode {
 
 export function isPageData(value: unknown): value is PageData {
   return isRecord(value)
-    && Array.isArray(value.fileTypes)
-    && value.fileTypes.every(isFileType)
+    && isStringArray(value.filenamePatterns)
+    && typeof value.binary === "boolean"
+    && typeof value.tooLarge === "boolean"
+    && typeof value.previewDisabled === "boolean"
+    && typeof value.searchExcluded === "boolean"
     && (value.documentType === null || isFileType(value.documentType))
     && Array.isArray(value.sourceLines)
     && value.sourceLines.every((line: unknown) => typeof line === "string")

@@ -1,13 +1,16 @@
 # servef
 
-Browse Markdown, JSON, and YAML files from a local directory.
+Browse any file in a local directory: rendered Markdown, image previews,
+formatted JSON/YAML, and highlighted source for everything else.
 
 ## Features
 
 - Render Markdown content and local images
+- Preview PNG, JPEG, GIF, WebP, AVIF, ICO, BMP, and SVG images
 - Switch each open document between preview and highlighted, read-only source
-- Format JSON and YAML for reading; original files stay unchanged
-- Filter the tree by file type; restrict available types through the CLI
+- Format JSON and YAML on demand for reading; original files stay unchanged
+- Highlight common languages and config files; show other text as plain text
+- Filter the tree by filename glob; restrict served files through the CLI
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
@@ -60,38 +63,41 @@ Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.
 If the range is full, servef can stop all verified instances after confirmation.
 
-By default (`--file-type "all"`, implicit), all explicitly supported types are available: Markdown (`.md`,
-`.markdown`), JSON (`.json`), and YAML (`.yaml`, `.yml`). Other file types are
-excluded.
-
-Restrict the session to Markdown:
+By default (`--filename "*"`, implicit), every file is served, whatever its
+type. Restrict the session with one comma-separated list of glob patterns:
 
 ```sh
-servef . --file-type "md"
+servef . --filename '*.md'
+servef . --filename '*.md,*.go,Dockerfile'
 ```
 
-Include multiple families in one comma-separated argument:
+Patterns use Go `path.Match` syntax (`*`, `?`, `[...]`) and match each file's
+base name case-insensitively. Empty entries and malformed patterns fail before
+starting the server. Directory exclusions (`.git`, `node_modules`, `vendor`, and
+`--exclude`) still apply.
 
-```sh
-servef . --file-type "md,json,yaml"
-```
+The CLI scope applies to discovery, direct document access, Markdown link
+navigation, and content search. The explorer's filename filter accepts the same
+patterns and only changes tree visibility, preserving open documents. Global
+content search covers every in-scope text file regardless of the tree filter.
+Markdown image dependencies remain available within the served root.
 
-Selectors accept family names or extensions, case-insensitively (`MD`, `.md`,
-`markdown`, `yml`). Selecting an extension includes its whole family. Unknown
-selectors and empty list entries fail before starting the server. Use `all` alone.
+How a file is shown depends on its type, not on the scope:
 
-The CLI scope applies to discovery, direct document access, and content search.
-The explorer's checkbox picker filters multiple file types, preserving open documents.
-No selection shows all types; selected types limit tree visibility.
-A single allowed type disables the filter and shows “Set by CLI.” Global content
-search covers every CLI-allowed file, regardless of the tree filter. Markdown
-image dependencies remain available within the served root.
-
-JSON/YAML open in Formatted mode. Both views use the same line-numbered viewer;
-Formatted shows formatted output and Source retains original text. Invalid files
-remain searchable and readable in Source, with a formatting error in preview.
-YAML formatting retains comments, anchors/aliases, scalar styles, and all documents;
-spacing and comment placement can change in the formatted view.
+- Markdown and images open in Preview; SVG also has Source.
+- JSON/YAML open in Source; Format shows a formatted, highlighted view on
+  demand. Invalid files stay readable and searchable in Source.
+  YAML formatting retains comments, anchors/aliases, scalar styles, and all
+  documents; spacing and comment placement can change in the formatted view.
+- Known languages and config files show highlighted source. Unknown text files
+  show plain text.
+- Binary files (a NUL byte in the first 8000 bytes) other than images show a
+  "Binary file" note and are excluded from content search.
+- Files over 4 MiB show plain, unhighlighted source without preview or
+  formatting; image previews stay available. Files over 8 MiB are also
+  excluded from content search.
+- Non-image files over 32 MiB are not read; they show a "Too large to display"
+  note.
 
 Markdown Preview hides leading frontmatter enclosed by matching `---` (YAML) or
 `+++` (TOML) lines, and HTML comments. Source preserves both. Unclosed frontmatter
@@ -105,41 +111,54 @@ servef --help
 
 ## Adding a file type
 
-File support is composed in `internal/document.Builtins()`:
+Every in-scope file is browsable; registration only decides how it is shown.
+Families are composed in `internal/document.Builtins()`:
 
-- `internal/files` owns directory traversal, exclusions, depth, and safe path
-  resolution. It receives an explicit matcher and knows no file formats.
+- `internal/files` owns directory traversal, exclusions, depth, the filename
+  glob filter, and safe path resolution. It knows no file formats.
 - `internal/document` owns the registry, type metadata, escaped highlighting,
-  previews, and searchable text. Handlers receive bytes and navigation context;
-  they never read the filesystem. Markdown's parser and link/image rewriting
-  live here, separate from HTTP.
+  previews, formatting, binary/size policy, and searchable text. Handlers
+  receive bytes and navigation context; they never read the filesystem.
+  Markdown's parser and link/image rewriting live here, separate from HTTP.
 - `internal/web` reads indexed files and transports results. React uses the
-  server's type IDs and view capabilities for filters, labels, and default modes.
-  No frontend extension list is needed.
+  server's type IDs and view capabilities for labels, toggles, and default
+  modes. No frontend extension list is needed.
 
-Implement `document.Handler` for a new specialized preview, then register it in
-`Builtins()`. Preview errors must preserve source access; `SearchText` should work
-on malformed input. Return escaped HTML using the existing preview conventions.
-The built-in renderers use locally embedded assets.
+`Registry.Lookup` resolves an exact base name (`Filenames`), then the extension
+(`Extensions`), then the source-only fallback family (`text`, plain text). Names
+are case-insensitive, and IDs, extensions, and filenames must each belong to
+one family. `Language` must name a bundled Chroma lexer (`plaintext` for plain
+text); only raster image families may leave it empty. Chroma only highlights;
+it never guesses a file's type.
 
-For future source-only languages, register a `CodeHandler` with no formatter:
+For a source-only language, register a `CodeHandler`:
 
 ```go
 document.CodeHandler{
     Definition: document.Type{
-        ID: "go", Label: "Go", Extensions: []string{".go"},
-        Language: "go", DefaultMode: "source",
+        ID: "zig", Label: "Zig", Extensions: []string{".zig"},
+        Language: "zig", DefaultMode: "source",
     },
 }
 ```
 
-That registration enables discovery, CLI selection, filtering, highlighted source,
-and raw-text search. An empty `PreviewKind` hides the view toggle. For formatted
-text previews, use `CodeHandler.Format` and declare `PreviewKind: "code"`,
-`PreviewLabel: "Formatted"`, and the desired default mode. Highlighting uses the
-bundled Chroma lexer named by `Language`, with escaped plain-text fallback.
+Use `Filenames: []string{"Dockerfile"}` for files identified by name. That
+registration enables highlighted source, tree labels, and raw-text search. An
+empty `PreviewKind` hides the view toggle.
 
-Add behavior tests for family detection/aliases, source preservation, preview
-failure, search, and the API contract. JSON/YAML fixtures under
-`testdata/markdown/config` exercise the same development and browser workflows
-as Markdown.
+For a read-only formatted view, register a `FormattedCodeHandler` with a
+`FormatSource` function. Handlers implementing `document.Formatter` are
+reported as `formattable`; the UI offers Format beside Source and fetches
+`/api/format` on demand. Formatters receive a copy of the bytes and must
+preserve meaningful values.
+
+Implement `document.Handler` for a new specialized preview (`PreviewKind`
+`markdown` or `image`), then register it in `Builtins()`. Preview errors must
+preserve source access; `SearchText` should work on malformed input. Return
+escaped HTML using the existing preview conventions. The built-in renderers use
+locally embedded assets.
+
+Add behavior tests for lookup (filenames, extensions, fallback), source
+preservation, preview/format failure, search, and the API contract. Samples
+under `testdata/markdown` (Markdown, JSON/YAML, images, code, a binary file)
+exercise the same development and browser workflows.

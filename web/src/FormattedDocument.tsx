@@ -3,23 +3,18 @@ import { useMemo } from "react"
 import { SourceDocument } from "./SourceDocument.tsx"
 
 interface FormattedDocumentProps {
-  html: string
+  lines: readonly string[]
   label: string
 }
 
-export function FormattedDocument({ html, label }: FormattedDocumentProps) {
-  const formatted = useMemo(() => {
-    // Code previews contain trusted, escaped backend HTML with complete syntax
-    // spans per line. Reuse those rows without formatting or detecting languages.
-    const preview = new DOMParser().parseFromString(html, "text/html")
-    const code = preview.querySelector("pre > code")
-    return {
-      // HighlightLines already omits the terminal newline. Restore it so the
-      // source viewer's newline normalization retains trailing blank rows.
-      source: code ? `${code.textContent ?? ""}\n` : "",
-      highlightedLines: code?.innerHTML.split("\n") ?? [],
-    }
-  }, [html])
+export function FormattedDocument({ lines, label }: FormattedDocumentProps) {
+  const source = useMemo(() => {
+    // Formatted rows are escaped backend HTML with complete syntax spans per
+    // line. Parse them inertly to recover plain text for line numbering; the
+    // trailing newline keeps final blank rows in the source viewer.
+    const parsed = new DOMParser().parseFromString(`<pre>${lines.join("\n")}</pre>`, "text/html")
+    return `${parsed.querySelector("pre")?.textContent ?? ""}\n`
+  }, [lines])
 
-  return <SourceDocument source={formatted.source} highlightedLines={formatted.highlightedLines} label={label} />
+  return <SourceDocument source={source} highlightedLines={lines} label={label} />
 }

@@ -2,35 +2,44 @@ import type { RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
 
+import { BinaryDocument, TooLargeDocument } from "./BinaryDocument.tsx"
+import { FormatErrorNotice, LargeFileNotice } from "./DocumentNotice.tsx"
 import { DocumentPreview } from "./DocumentPreview.tsx"
+import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
+import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
 import { SourceDocument } from "./SourceDocument.tsx"
-import type { DocumentMode } from "./DocumentModeToggle.tsx"
 import type { PageData } from "./page-data.ts"
+import type { ImageViewer } from "./use-image-viewer.ts"
 
 interface DocumentPaneProps {
   hasData: boolean
+  image: ImageViewer
   isLoading: boolean
   loadError: string
   main: RefObject<HTMLElement | null>
-  mode: DocumentMode
   navigate(href: string): void
   page: PageData
   retry(): void
+  view: DocumentView
 }
 
-export function DocumentPane({ hasData, isLoading, loadError, main, mode, navigate, page, retry }: DocumentPaneProps) {
-  const sourceOnly = !page.documentType?.previewKind
-  const showSource = !loadError && !page.error && page.hasFile && (mode === "source" || sourceOnly)
-  const showFormatted = !loadError && !page.error && !page.previewError && page.hasFile && mode === "preview" && page.documentType?.previewKind === "code"
+function fileName(path: string): string {
+  return path.split("/").at(-1) || path
+}
+
+export function DocumentPane({ hasData, image, isLoading, loadError, main, navigate, page, retry, view }: DocumentPaneProps) {
+  const viewKind = loadError || page.error ? "none" : view.kind
+  const label = page.documentType?.label ?? "File"
 
   return (
     <main
-      className={showSource || showFormatted ? "source-mode" : undefined}
+      className={viewKind === "source" || viewKind === "format" ? "source-mode" : viewKind === "image" ? "image-mode" : undefined}
       id="document-pane"
       ref={main}
       tabIndex={-1}
       aria-busy={isLoading}
+      onKeyDown={viewKind === "image" ? (event) => handleImageKey(event, image) : undefined}
     >
       {loadError ? (
         <div className="error" role="alert">
@@ -39,17 +48,32 @@ export function DocumentPane({ hasData, isLoading, loadError, main, mode, naviga
         </div>
       ) : page.error ? (
         <div className="error" role="alert">{page.error}</div>
-      ) : page.hasFile ? (
-        (mode === "source" || sourceOnly) ? (
-          <SourceDocument key={page.selected} source={page.source} highlightedLines={page.sourceLines} label={`${page.documentType?.label ?? "File"} source`} />
-        ) : (
-          page.previewError ? <div className="error" role="alert">
-            <p>Could not format this file: {page.previewError}</p>
+      ) : view.kind === "binary" ? (
+        <BinaryDocument name={fileName(page.selected)} size={page.fileSize} />
+      ) : view.kind === "tooLarge" ? (
+        <TooLargeDocument name={fileName(page.selected)} size={page.fileSize} />
+      ) : view.kind === "image" ? (
+        <ImageDocument
+          key={page.selected}
+          name={fileName(page.selected)}
+          src={`/api/raw?path=${encodeURIComponent(page.selected)}`}
+          viewer={image}
+        />
+      ) : view.kind === "preview" ? (
+        page.previewError ? (
+          <div className="error" role="alert">
+            <p>Could not render this preview: {page.previewError}</p>
             <p>Switch to Source to read the original file.</p>
-          </div> : page.documentType?.previewKind === "code" ? (
-            <FormattedDocument key={page.selected} html={page.content} label={`${page.documentType.label} formatted`} />
-          ) : <DocumentPreview key={page.selected} html={page.content} navigate={navigate} />
-        )
+          </div>
+        ) : <DocumentPreview key={page.selected} html={page.content} navigate={navigate} />
+      ) : view.kind === "format" ? (
+        <FormattedDocument key={page.selected} lines={view.lines} label={`${label} formatted`} />
+      ) : view.kind === "source" ? (
+        <div className="source-stack">
+          {page.previewDisabled && <LargeFileNotice size={page.fileSize} searchExcluded={page.searchExcluded} />}
+          {view.formatError && <FormatErrorNotice reason={view.formatError} />}
+          <SourceDocument key={page.selected} source={page.source} highlightedLines={page.sourceLines} label={`${label} source`} />
+        </div>
       ) : hasData ? (
         <div className="empty">
           <h1>Choose a file</h1>

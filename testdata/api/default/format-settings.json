@@ -1,0 +1,12 @@
+{
+  "formattedLines": [
+    "<span class=\"syntax-p\">{</span>",
+    "  <span class=\"syntax-nt\">&#34;name&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-s2\">&#34;servef-json-fixture&#34;</span><span class=\"syntax-p\">,</span>",
+    "  <span class=\"syntax-nt\">&#34;large&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-mi\">900719925474099312345</span><span class=\"syntax-p\">,</span>",
+    "  <span class=\"syntax-nt\">&#34;enabled&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-kc\">true</span><span class=\"syntax-p\">,</span>",
+    "  <span class=\"syntax-nt\">&#34;nested&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-p\">{</span>",
+    "    <span class=\"syntax-nt\">&#34;message&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-s2\">&#34;config-search-marker&#34;</span>",
+    "  <span class=\"syntax-p\">}</span>",
+    "<span class=\"syntax-p\">}</span>"
+  ]
+}

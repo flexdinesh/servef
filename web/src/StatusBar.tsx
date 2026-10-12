@@ -1,9 +1,11 @@
+import { formatBytes } from "./format-bytes.ts"
 import type { PageData } from "./page-data.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { SearchIcon } from "lucide-react"
 import { ModeToggle } from "./components/ModeToggle.tsx"
 
 interface StatusBarProps {
+  detail?: string
   isLoading: boolean
   page: PageData
   error: string
@@ -11,14 +13,7 @@ interface StatusBarProps {
   onHome?(): void
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1_024) return `${bytes} B`
-  if (bytes < 1_048_576) return `${(bytes / 1_024).toFixed(1)} KB`
-  if (bytes < 1_073_741_824) return `${(bytes / 1_048_576).toFixed(1)} MB`
-  return `${(bytes / 1_073_741_824).toFixed(1)} GB`
-}
-
-export function StatusBar({ isLoading, error, onSearch, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, isLoading, error, onSearch, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
   const processTitle = metrics
     ? [
@@ -65,7 +60,13 @@ export function StatusBar({ isLoading, error, onSearch, onHome, page }: StatusBa
           <kbd>{navigator.platform.includes("Mac") ? "⌘⇧F" : "Ctrl+Shift+F"}</kbd>
         </button>
         <span className="status-grow" />
+        {page.hasFile && detail && <span className="status-document-detail">{detail}</span>}
         {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
+        {page.hasFile && page.documentType && (
+          <span className="status-file-type">
+            {page.binary && !page.documentType.previewKind ? "Binary" : page.documentType.label}
+          </span>
+        )}
         <ModeToggle />
       </div>
     </footer>

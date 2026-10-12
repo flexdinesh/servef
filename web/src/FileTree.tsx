@@ -3,8 +3,8 @@ import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pie
 import { FoldVerticalIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
-import { FileTypeFilter } from "./FileTypeFilter.tsx"
-import { filterFileTree } from "./file-type-filter.ts"
+import { FilenameFilter, useFilenameFilter, type FilenameFilterState } from "./FilenameFilter.tsx"
+import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "./page-data.ts"
 
@@ -28,7 +28,7 @@ interface ExplorerState {
 }
 
 export function FileTree(props: FileTreeProps) {
-  const [fileTypes, setFileTypes] = useState<readonly string[]>([])
+  const filter = useFilenameFilter()
   const dialog = useRef<HTMLDialogElement>(null)
   const page = useRef(props.page)
   const state = useRef<ExplorerState>({ model: null, expanded: null, search: null })
@@ -56,20 +56,21 @@ export function FileTree(props: FileTreeProps) {
     return () => query.removeEventListener("change", update)
   }, [])
 
-  const explorer = <Explorer {...props} key={mobile ? "mobile" : "desktop"} mobile={mobile} fileTypes={fileTypes} onFileTypesChange={setFileTypes} dialog={dialog} state={state} />
+  const explorer = <Explorer {...props} key={mobile ? "mobile" : "desktop"} mobile={mobile} filter={filter} dialog={dialog} state={state} />
   return mobile ? <dialog ref={dialog} className="explorer-drawer" aria-label="Files" onClick={(event) => {
     if (event.target === dialog.current) dialog.current.close()
   }}>{explorer}</dialog> : explorer
 }
 
-function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, state, fileTypes, onFileTypesChange }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
   mobile: boolean
-  fileTypes: readonly string[]
-  onFileTypesChange(value: readonly string[]): void
+  filter: FilenameFilterState
   dialog: RefObject<HTMLDialogElement | null>
   state: RefObject<ExplorerState>
 }) {
-  const visibleTree = useMemo(() => filterFileTree(page.tree, fileTypes), [page.tree, fileTypes])
+  const visibleTree = useMemo(() => filterTreeByFilename(page.tree, filter.matcher), [page.tree, filter.matcher])
+  const totalCount = useMemo(() => countFiles(page.tree), [page.tree])
+  const visibleCount = useMemo(() => countFiles(visibleTree), [visibleTree])
   const paths = useMemo(() => treePaths(visibleTree), [visibleTree])
   const directoryPaths = useMemo(() => treePaths(page.tree).filter((path) => path.endsWith("/")), [page.tree])
   const expandedPaths = useRef(new Set(state.current.expanded ?? openDirectoryPaths(page.tree).map((path) => `${path}/`)))
@@ -183,6 +184,17 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
     syncing.current = false
   }
 
+  const focusFirstRow = () => {
+    const first = model.getVisibleRows(0, 0)[0]
+    if (!first) return
+    model.scrollToPath(first.path)
+    requestAnimationFrame(() => {
+      const row = model.getFileTreeContainer()?.shadowRoot
+        ?.querySelector(`[role="treeitem"][data-item-path="${CSS.escape(first.path)}"]`)
+      if (row instanceof HTMLElement) row.focus()
+    })
+  }
+
   useEffect(() => {
     const open = () => {
       if (mobile && !dialog.current?.open) dialog.current?.showModal()
@@ -220,7 +232,8 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
         </button>
         {mobile && <button type="button" aria-label="Close files" onClick={() => dialog.current?.close()}><XIcon aria-hidden="true" /></button>}
       </div>
-      {hasData && <FileTypeFilter fileTypes={page.fileTypes} tree={page.tree} value={fileTypes} onChange={onFileTypesChange} />}
+      {hasData && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
+        totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
       <div className="file-search" hidden={!search.isOpen}>
         <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
           value={search.value} onChange={(event) => model.setSearch(event.target.value)}
@@ -241,8 +254,11 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
           }} />
       </div>
       {!hasData ? <p className="muted">Loading files…</p>
-        : page.empty ? <p className="muted">No supported files found.</p>
-        : paths.length === 0 ? <p className="muted">No files match this filter.</p>
+        : page.empty ? <p className="muted">No files found.</p>
+        : paths.length === 0 ? <p className="muted explorer-empty">
+          No files match <code>{filter.applied}</code>
+          <button type="button" className="explorer-empty-action" onClick={filter.clear}>Clear filter</button>
+        </p>
         : <PierreFileTree model={model} className="file-tree-host" aria-label="Files" onClick={() => {
           const focused = model.getFocusedPath()
           if (focused && !model.getItem(focused)?.isDirectory() && model.getSelectedPaths().includes(focused)) dialog.current?.close()

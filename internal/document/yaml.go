@@ -9,9 +9,9 @@ import (
 )
 
 func NewYAML() Handler {
-	return CodeHandler{
-		Definition: Type{ID: "yaml", Label: "YAML", Extensions: []string{".yaml", ".yml"}, Language: "yaml", PreviewKind: "code", PreviewLabel: "Formatted", DefaultMode: "preview"},
-		Format:     formatYAML,
+	return FormattedCodeHandler{
+		CodeHandler:  CodeHandler{Definition: Type{ID: "yaml", Label: "YAML", Extensions: []string{".yaml", ".yml"}, Language: "yaml", DefaultMode: "source"}},
+		FormatSource: formatYAML,
 	}
 }
 

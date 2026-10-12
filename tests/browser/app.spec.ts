@@ -54,7 +54,7 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
   await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "api.markdown" })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
-  await expect(tree.getByText("notes.txt")).toHaveCount(0)
+  await expect(tree.getByRole("treeitem", { name: "notes.txt" })).toBeVisible()
   await expect(tree.getByText("ignored.md")).toHaveCount(0)
 
   await page.evaluate(() => {
@@ -390,7 +390,8 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("11 files")
+  await expect(status).toContainText("19 files")
+  await expect(status.locator(".status-file-type")).toHaveText("Markdown")
   await status.locator("summary").click()
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")

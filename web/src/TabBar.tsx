@@ -1,5 +1,7 @@
-import { FileTextIcon, XIcon } from "lucide-react"
+import { XIcon } from "lucide-react"
 import type { KeyboardEvent } from "react"
+
+import { FileIcon } from "./FileIcon.tsx"
 
 interface TabBarProps {
   activePath: string
@@ -43,7 +45,7 @@ export function TabBar({ activePath, onClose, onSelect, tabs }: TabBarProps) {
               onClick={() => onSelect(path)}
               onKeyDown={(event) => handleKeyDown(event, index)}
             >
-              <FileTextIcon aria-hidden="true" />
+              <FileIcon path={path} />
               <span>{fileName(path)}</span>
             </button>
             <button

@@ -28,11 +28,11 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
-	if got, want := landingData.FileCount, 11; got != want {
+	if got, want := landingData.FileCount, 19; got != want {
 		t.Fatalf("file count = %d, want %d", got, want)
 	}
-	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "images.md", "api.markdown", "search.md")
-	for _, excluded := range []string{"notes.txt", "vendor", "ignored.md"} {
+	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "images.md", "api.markdown", "search.md", "notes.txt", "main.go", "Dockerfile", "servef.toml", "sample.bin", "preview.png")
+	for _, excluded := range []string{"vendor", "ignored.md"} {
 		if strings.Contains(landing.Body.String(), excluded) {
 			t.Errorf("landing includes excluded fixture %q", excluded)
 		}
@@ -90,14 +90,22 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if err := json.Unmarshal(search.Body.Bytes(), &searchData); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := len(searchData.Documents), 11; got != want {
+	// Raster images and sample.bin are binary and excluded from search.
+	if got, want := len(searchData.Documents), 16; got != want {
 		t.Fatalf("search documents = %d, want %d", got, want)
 	}
 	foundSearchFixture := false
 	for _, document := range searchData.Documents {
-		if document.Path == "reference/topics/search.md" {
+		switch document.Path {
+		case "reference/topics/search.md":
 			foundSearchFixture = true
 			assertContains(t, document.Content, "luminous-orchid")
+		case "notes.txt":
+			assertContains(t, document.Content, "notes-search-token")
+		case "code/main.go":
+			assertContains(t, document.Content, "go-search-token")
+		case "assets/sample.bin", "assets/preview.png", "assets/preview.jpg":
+			t.Errorf("binary %s included in search", document.Path)
 		}
 	}
 	if !foundSearchFixture {
@@ -352,12 +360,12 @@ func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
 	second := request(t, app, "/api/search-documents")
 	assertContains(t, second.Body.String(), "first.md", "second.md")
 
-	originalReadFile := app.readFile
-	app.readFile = func(name string) ([]byte, error) {
+	originalOpenFile := app.openFile
+	app.openFile = func(name string) (fs.File, error) {
 		if filepath.Base(name) == "second.md" {
 			return nil, errors.New("test read failure")
 		}
-		return originalReadFile(name)
+		return originalOpenFile(name)
 	}
 	partial := request(t, app, "/api/search-documents")
 	if partial.Code != http.StatusOK {
@@ -483,6 +491,7 @@ func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
 		"[external](https://example.com/README.md)",
 		"[anchor](#section)",
 		"[other file](notes.txt)",
+		"[directory](sub/)",
 	}, "\n\n"))
 	writeMarkdown(t, filepath.Join(root, "docs", "Other.markdown"), "# Other\n")
 
@@ -497,7 +506,8 @@ func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
 		`href="/view?path=README.md"`,
 		`href="https://example.com/README.md"`,
 		`href="#section"`,
-		`href="notes.txt"`,
+		`href="sub/"`,
+		`href="/view?path=docs%2Fnotes.txt"`,
 	)
 }
 

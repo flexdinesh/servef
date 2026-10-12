@@ -1,4 +1,4 @@
-// Package document owns explicitly supported file types and their viewing behavior.
+// Package document owns file families and their viewing behavior.
 package document
 
 import (
@@ -140,7 +140,8 @@ func rewriteMarkdownImage(destination []byte, selected string) []byte {
 
 func rewriteDocumentLink(destination []byte, context Context) []byte {
 	target, err := url.Parse(string(destination))
-	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
+	// Directory links (trailing slash) never name a file.
+	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" || strings.HasSuffix(target.Path, "/") {
 		return destination
 	}
 	if context.Supports == nil || !context.Supports(target.Path) {

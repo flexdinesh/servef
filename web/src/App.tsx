@@ -13,7 +13,9 @@ import {
 import { PanelLeftIcon } from "lucide-react"
 import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
+import { documentView, resolveDocumentMode } from "./document-view.ts"
 import { FileTree } from "./FileTree.tsx"
+import { ImageZoomControls } from "./ImageZoomControls.tsx"
 import {
   emptyPage,
   isPageLoadResult,
@@ -24,8 +26,10 @@ import { SearchDialog } from "./SearchDialog.tsx"
 import { SidebarResizer } from "./SidebarResizer.tsx"
 import { StatusBar } from "./StatusBar.tsx"
 import { TabBar } from "./TabBar.tsx"
+import { useDelayedFlag, useDocumentFormats } from "./use-document-format.ts"
 import { useDocumentNavigation } from "./use-document-navigation.ts"
 import { useDocumentWorkspace } from "./use-document-workspace.ts"
+import { useImageViewer } from "./use-image-viewer.ts"
 
 function initialPage(result: PageLoadResult): PageData | null {
   return result.kind === "page" ? result.page : null
@@ -62,13 +66,27 @@ export function App() {
   const hasData = result?.kind === "page" || lastPage !== null
   const loadError = result?.kind === "failure" ? result.message : ""
   const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
-  const documentMode = workspace.modes.get(page.selected) ?? page.documentType?.defaultMode ?? "source"
+  const { setDocumentMode } = workspace
+  const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
+  const { get: formatResult, request: requestFormat } = useDocumentFormats(showSourceAfterFormatFailure)
+  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected))
+  const formatState = formatResult(page.selected, page.source)
+  const view = documentView(page, documentMode, formatState)
+  const formatPending = view.kind === "source" && view.formatPending
+  const formatSlow = useDelayedFlag(formatPending, 150)
+  const image = useImageViewer(page.selected)
+  const showImage = view.kind === "image" && !loadError && !page.error
+  const needsFormat = documentMode === "format" && formatState === undefined
+  useEffect(() => {
+    if (needsFormat) requestFormat(page.selected, page.source)
+  }, [needsFormat, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(page, isLoading, loadError)
 
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
-    workspace.setDocumentMode(page.selected, mode)
+    if (mode === "format") requestFormat(page.selected, page.source)
+    setDocumentMode(page.selected, mode)
     resetDocumentScroll(page.selected)
   }
 
@@ -114,23 +132,27 @@ export function App() {
               onClose={closeTab}
               onSelect={navigateToDocument}
             />
-            {page.hasFile && page.documentType && (
-              <DocumentModeToggle fileType={page.documentType} mode={documentMode} onChange={changeDocumentMode} />
-            )}
+            <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
+              onChange={changeDocumentMode} />
+            {showImage && <ImageZoomControls viewer={image} />}
           </div>
           <DocumentPane
             hasData={hasData}
+            image={image}
             isLoading={isLoading}
             loadError={loadError}
             main={main}
             navigate={navigateToHref}
             page={page}
-            mode={documentMode}
             retry={() => { void router.invalidate() }}
+            view={view}
           />
         </section>
       </div>
-      <StatusBar isLoading={isLoading} error={loadError || page.error} page={page}
+      <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page}
+        detail={showImage && image.status === "ready" && image.width > 0
+          ? `${image.width} × ${image.height} · ${image.percent}%`
+          : undefined}
         onSearch={() => openSearch.current()}
         onHome={() => {
           prepareDocumentNavigation()

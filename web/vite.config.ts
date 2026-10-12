@@ -119,7 +119,7 @@ function mockApi(enabled: boolean): Plugin {
         try {
           response.statusCode = fixture.status
           response.setHeader("Cache-Control", "no-store")
-          response.setHeader("Content-Type", "application/json; charset=utf-8")
+          response.setHeader("Content-Type", fixture.contentType ?? "application/json; charset=utf-8")
           response.end(await readFile(join(mockFixturesDirectory, fixture.name)))
         } catch {
           response.statusCode = 500

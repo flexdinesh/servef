@@ -6,9 +6,9 @@ import (
 )
 
 func NewJSON() Handler {
-	return CodeHandler{
-		Definition: Type{ID: "json", Label: "JSON", Extensions: []string{".json"}, Language: "json", PreviewKind: "code", PreviewLabel: "Formatted", DefaultMode: "preview"},
-		Format:     formatJSON,
+	return FormattedCodeHandler{
+		CodeHandler:  CodeHandler{Definition: Type{ID: "json", Label: "JSON", Extensions: []string{".json"}, Language: "json", DefaultMode: "source"}},
+		FormatSource: formatJSON,
 	}
 }
 

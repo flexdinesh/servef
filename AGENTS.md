@@ -2,14 +2,14 @@
 
 ## Purpose
 
-`servef` is a Go CLI and local server for browsing supported local files through an embedded Vite/React UI.
+`servef` is a Go CLI and local server for browsing local files through an embedded Vite/React UI.
 
 ## Boundaries
 
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
 - `cmd/` owns CLI validation, session configuration, and application startup.
-- `internal/files/` owns traversal, exclusions, depth, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
-- `internal/document/` owns file-type metadata, highlighting, previews, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
+- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
 - React owns interaction and presentation. Use server metadata for file families and view capabilities; never duplicate extension detection in the UI.
@@ -17,18 +17,18 @@
 
 ## Contracts
 
-- Define supported families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`.
-- Declare extensions, language, preview kind/label, and default mode explicitly. Source-only types use an empty `PreviewKind` and default to Source.
-- Validate composition with `NewRegistry`; reject duplicate/ambiguous selectors and invalid view policies.
+- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it.
+- Declare extensions/filenames, language, preview kind/label, and default mode explicitly. Preview kinds are `markdown` and `image`; types without one default to Source.
+- Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, unknown Chroma languages, and invalid view policies.
 - Treat handler output as a contract: escape file text in preview/highlight HTML; leave input bytes unchanged; preserve source and search access on preview errors.
 - Keep Go response shapes, TypeScript runtime validators in `web/src/page-contract.ts`, and `testdata/api` fixtures aligned. Validate unknown transport data before use; preserve strict TypeScript safety.
 
 ## System Design
 
-- Compose supported formats explicitly in `internal/document.Builtins()`. Add support iteratively through a handler and registration; unsupported formats stay excluded.
-- Reuse `CodeHandler` for highlighted source and formatted text. Implement a specialized handler only when behavior requires it. Source-only additions should need no discovery, HTTP, or frontend format branches.
-- `--file-type` is one comma-separated string, defaulting to `all`; do not make it a repeatable flag. `all` means every registered family, not arbitrary files.
-- Select CLI scope once and pass the selected registry through discovery, document access, link navigation, and content search.
+- Compose families explicitly in `internal/document.Builtins()`. Registration decides presentation only; every in-scope file is browsable. Lookup: exact base name, then extension, then the plain-text fallback. Chroma highlights; never guess types with it.
+- Reuse `CodeHandler` for highlighted source and `FormattedCodeHandler` for formatted text. Implement a specialized handler only when behavior requires it. Source-only additions should need no discovery, HTTP, or frontend format branches.
+- `--filename` is one comma-separated string of case-insensitive base-name globs, defaulting to `*`; do not make it a repeatable flag.
+- Build the filename filter once in `cmd` and pass it through discovery, document access, link navigation, and content search.
 - Prefer cohesive packages, small semantic interfaces, and explicit dependencies. Avoid global registries, scattered file-type switches, and speculative plugin frameworks.
 - Follow the file-type extension guide in `README.md`; preserve the single-binary distribution.
 
@@ -42,10 +42,11 @@
 ## Behavior
 
 - Source shows original text. Formatting is read-only; preserve meaningful values and presentation, including JSON number precision/key order and YAML comments, scalar styles, anchors/aliases, and multiple documents.
-- Malformed files remain readable and searchable. Highlighting falls back to escaped text when a language is unknown or tokenization fails.
-- CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the type filter; global content search retains CLI scope.
-- Disable the type selector for a single CLI-allowed family. Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement.
-- Test semantic behavior across boundaries: aliases/scope, direct access, source preservation, preview failures, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
+- Malformed files remain readable and searchable. Highlighting falls back to escaped text when a language is unknown or tokenization fails or panics.
+- Binary files (NUL in the first 8000 bytes) send no source and skip search. Over 4 MiB: no highlighting, format, or non-image preview. Over 8 MiB: also skip search. Over 32 MiB (non-image): not read; `tooLarge` note only.
+- CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
+- Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
+- Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 
 ## Distribution
 

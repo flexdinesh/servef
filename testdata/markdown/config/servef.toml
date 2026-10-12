@@ -1,0 +1,8 @@
+# Sample TOML highlighted as source.
+[server]
+host = "localhost"
+port = 7971
+
+[scan]
+depth = 5
+exclude = ["node_modules", "vendor"]

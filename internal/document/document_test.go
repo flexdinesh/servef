@@ -1,106 +1,205 @@
 package document
 
 import (
+	"encoding/json"
+	"errors"
 	"html"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
 )
 
 var htmlTags = regexp.MustCompile(`<[^>]*>`)
 
 func plainHTML(value string) string { return html.UnescapeString(htmlTags.ReplaceAllString(value, "")) }
 
-func TestRegistryExplicitFamiliesAndAliases(t *testing.T) {
+func plainText() Handler {
+	return CodeHandler{Definition: Type{ID: "text", Label: "Plain text", Language: "plaintext", DefaultMode: "source"}}
+}
+
+func TestRegistryLookupPrefersFilenameThenExtensionThenFallback(t *testing.T) {
 	registry := Builtins()
-	for _, name := range []string{"README.MD", "api.markdown", "config.JSON", "compose.YML", "config.yaml"} {
-		if !registry.Supports(name) {
-			t.Errorf("unsupported %s", name)
+	for name, want := range map[string]string{
+		"README.MD":            "markdown",
+		"docs/api.markdown":    "markdown",
+		"config.JSON":          "json",
+		"compose.YML":          "yaml",
+		"config.yaml":          "yaml",
+		"logo.svg":             "svg",
+		"photo.JPEG":           "image",
+		"favicon.ico":          "image",
+		"main.go":              "go",
+		"app.tsx":              "typescript",
+		"deploy/Dockerfile":    "dockerfile",
+		"dockerfile":           "dockerfile",
+		"GNUmakefile":          "makefile",
+		"makefile":             "makefile",
+		".env":                 "shell",
+		".gitignore":           "text",
+		"notes.txt":            "text",
+		"README":               "text",
+		"archive.tar.gz":       "text",
+		"config.jsonc":         "text",
+		"Dockerfile.dev":       "text",
+		"src/servef.go.backup": "text",
+	} {
+		if got := registry.Lookup(name).Type().ID; got != want {
+			t.Errorf("Lookup(%q) = %s, want %s", name, got, want)
 		}
 	}
-	for _, name := range []string{"main.go", "app.ts", "notes.txt", "config.jsonc", "README"} {
-		if registry.Supports(name) {
-			t.Errorf("unexpected support for %s", name)
-		}
-	}
-	for _, selector := range []string{"md", ".MD", "markdown"} {
-		selected, err := registry.Select([]string{selector})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !selected.Supports("readme.markdown") || selected.Supports("config.json") || len(selected.Types()) != 1 {
-			t.Fatalf("selection %s = %+v", selector, selected.Types())
-		}
-	}
-	selected, err := registry.Select([]string{"YML", "json", "yaml"})
+	filename := CodeHandler{Definition: Type{ID: "package", Label: "npm package", Filenames: []string{"package.json"}, Language: "json", DefaultMode: "source"}}
+	custom, err := NewRegistry(plainText(), NewJSON(), filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(selected.Types()) != 2 || !selected.Supports("config.yaml") || !selected.Supports("config.yml") || selected.Supports("readme.md") {
-		t.Fatalf("selection = %+v", selected.Types())
+	if got := custom.Lookup("app/Package.JSON").Type().ID; got != "package" {
+		t.Fatalf("base name did not take precedence over extension: %s", got)
 	}
-	if _, err := registry.Select([]string{"go"}); err == nil {
-		t.Fatal("unknown selector accepted")
-	}
-}
-
-func TestRegistryRejectsAmbiguousSupport(t *testing.T) {
-	if _, err := NewRegistry(nil); err == nil {
-		t.Fatal("missing handler accepted")
-	}
-	ambiguous := CodeHandler{Definition: Type{ID: "md", Label: "Other", Extensions: []string{".other"}, DefaultMode: "source"}}
-	if _, err := NewRegistry(newMarkdown(), ambiguous); err == nil {
-		t.Fatal("ambiguous selector accepted")
-	}
-	json := NewJSON()
-	if _, err := NewRegistry(json, json); err == nil {
-		t.Fatal("duplicate family accepted")
-	}
-	conflicting := CodeHandler{Definition: Type{ID: "other", Label: "Other", Extensions: []string{".json"}, DefaultMode: "source"}}
-	if _, err := NewRegistry(json, conflicting); err == nil {
-		t.Fatal("ambiguous extension accepted")
-	}
-	conflicting.Definition.Extensions = []string{".other"}
-	conflicting.Definition.DefaultMode = "preview"
-	if _, err := NewRegistry(conflicting); err == nil {
-		t.Fatal("source-only handler defaulted to preview")
+	if got := custom.Lookup("app/other.json").Type().ID; got != "json" {
+		t.Fatalf("extension lookup = %s", got)
 	}
 }
 
-func TestJSONPreviewPreservesValuesAndOriginalSource(t *testing.T) {
+func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
+	registry := Builtins()
+	types := registry.Types()
+	if types[0].ID != "text" || types[0].Label != "Plain text" || types[0].Language != "plaintext" || types[0].PreviewKind != "" || types[0].DefaultMode != "source" || types[0].Formattable {
+		t.Fatalf("fallback = %+v", types[0])
+	}
+	for _, definition := range types {
+		formattable := definition.ID == "json" || definition.ID == "yaml"
+		if definition.Formattable != formattable {
+			t.Errorf("%s formattable = %t", definition.ID, definition.Formattable)
+		}
+		if definition.Language != "" && lexers.Get(definition.Language) == nil {
+			t.Errorf("%s language %q does not resolve", definition.ID, definition.Language)
+		}
+		switch definition.ID {
+		case "markdown":
+			if definition.PreviewKind != PreviewMarkdown || definition.DefaultMode != "preview" {
+				t.Errorf("markdown = %+v", definition)
+			}
+		case "svg", "image":
+			if definition.PreviewKind != PreviewImage || definition.PreviewLabel != "Preview" || definition.DefaultMode != "preview" {
+				t.Errorf("%s = %+v", definition.ID, definition)
+			}
+		default:
+			if definition.PreviewKind != "" || definition.DefaultMode != "source" {
+				t.Errorf("%s should be source-only: %+v", definition.ID, definition)
+			}
+		}
+	}
+	encoded, err := json.Marshal(registry.Lookup("Dockerfile").Type())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"id":"dockerfile","label":"Dockerfile","extensions":[],"filenames":["Dockerfile"],"language":"docker","previewKind":"","previewLabel":"","defaultMode":"source","formattable":false}`
+	if string(encoded) != want {
+		t.Fatalf("type JSON = %s, want %s", encoded, want)
+	}
+}
+
+func TestRegistryRejectsInvalidComposition(t *testing.T) {
+	source := func(definition Type) Handler {
+		if definition.Label == "" {
+			definition.Label = "Other"
+		}
+		if definition.Language == "" {
+			definition.Language = "plaintext"
+		}
+		if definition.DefaultMode == "" {
+			definition.DefaultMode = "source"
+		}
+		return CodeHandler{Definition: definition}
+	}
+	formattable := FormattedCodeHandler{CodeHandler: CodeHandler{Definition: Type{ID: "fmt", Label: "Formatted", Extensions: []string{".fmt"}, Language: "plaintext", PreviewKind: PreviewMarkdown, PreviewLabel: "Preview", DefaultMode: "preview"}}, FormatSource: formatJSON}
+	tests := map[string][]Handler{
+		"missing fallback":                {nil},
+		"missing handler":                 {plainText(), nil},
+		"duplicate family":                {plainText(), NewJSON(), NewJSON()},
+		"ambiguous id":                    {plainText(), newMarkdown(), source(Type{ID: "md", Extensions: []string{".other"}})},
+		"duplicate extension":             {plainText(), NewJSON(), source(Type{ID: "other", Extensions: []string{".json"}})},
+		"uppercase extension":             {plainText(), source(Type{ID: "other", Extensions: []string{".OTHER"}})},
+		"multi-dot extension":             {plainText(), source(Type{ID: "other", Extensions: []string{".d.ts"}})},
+		"no selectors":                    {plainText(), source(Type{ID: "other"})},
+		"duplicate filename":              {plainText(), source(Type{ID: "a", Filenames: []string{"Makefile"}}), source(Type{ID: "b", Filenames: []string{"makefile"}})},
+		"filename clashes with id":        {plainText(), source(Type{ID: "make", Extensions: []string{".mk"}}), source(Type{ID: "b", Filenames: []string{"Make"}})},
+		"filename clashes with extension": {plainText(), source(Type{ID: "dotenv", Extensions: []string{".env"}}), source(Type{ID: "b", Filenames: []string{".env"}})},
+		"filename with path":              {plainText(), source(Type{ID: "other", Filenames: []string{"docker/Dockerfile"}})},
+		"source-only preview":             {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, DefaultMode: "preview"})},
+		"unknown preview kind":            {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, PreviewKind: "code", PreviewLabel: "Formatted"})},
+		"missing preview label":           {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, PreviewKind: PreviewImage})},
+		"unknown language":                {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Language: "not-a-real-language"})},
+		"missing text language":           {plainText(), CodeHandler{Definition: Type{ID: "other", Label: "Other", Extensions: []string{".other"}, DefaultMode: "source"}}},
+		"declared formattable":            {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Formattable: true})},
+		"format with preview":             {plainText(), formattable},
+		"previewing fallback":             {newMarkdown()},
+		"formattable fallback":            {NewJSON()},
+	}
+	for name, handlers := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewRegistry(handlers[0], handlers[1:]...); err == nil {
+				t.Fatal("invalid composition accepted")
+			}
+		})
+	}
+	image := CodeHandler{Definition: Type{ID: "image", Label: "Image", Extensions: []string{".png"}, PreviewKind: PreviewImage, PreviewLabel: "Preview", DefaultMode: "preview"}}
+	if _, err := NewRegistry(plainText(), image); err != nil {
+		t.Fatalf("image type without language rejected: %v", err)
+	}
+}
+
+func TestFormattingIsAnOnDemandCapability(t *testing.T) {
+	registry := Builtins()
+	for _, name := range []string{"config.json", "config.yaml"} {
+		family := registry.Lookup(name)
+		preview, err := family.Preview([]byte(`{"a":1}`), Context{})
+		if err != nil || preview != "" {
+			t.Fatalf("%s eagerly previewed: %q, %v", name, preview, err)
+		}
+	}
+	if _, err := registry.Lookup("main.go").FormatLines([]byte("package main")); !errors.Is(err, ErrNotFormattable) {
+		t.Fatalf("source-only format error = %v", err)
+	}
+}
+
+func TestJSONFormatPreservesValuesAndOriginalSource(t *testing.T) {
 	source := []byte(`{"z":900719925474099312345,"small":1e-400,"z":2,"html":"<script>alert(1)</script>"}`)
 	original := string(source)
-	handler := NewJSON()
-	rendered, err := handler.Preview(source, Context{})
+	lines, err := Builtins().Lookup("data.json").FormatLines(source)
 	if err != nil {
 		t.Fatal(err)
 	}
+	rendered := strings.Join(lines, "\n")
 	plain := plainHTML(rendered)
 	for _, fragment := range []string{"\n  \"z\": 900719925474099312345", `"small": 1e-400`, `"z": 2`, `<script>alert(1)</script>`} {
 		if !strings.Contains(plain, fragment) {
-			t.Errorf("preview lost %q: %s", fragment, plain)
+			t.Errorf("format lost %q: %s", fragment, plain)
 		}
 	}
 	if strings.Contains(rendered, "<script>") || !strings.Contains(rendered, "syntax-") {
-		t.Fatalf("unsafe/unhighlighted preview: %s", rendered)
+		t.Fatalf("unsafe/unhighlighted format: %s", rendered)
 	}
 	if string(source) != original {
 		t.Fatal("formatting mutated source")
 	}
 }
 
-func TestYAMLPreviewRetainsPresentationAndMultipleDocuments(t *testing.T) {
+func TestYAMLFormatRetainsPresentationAndMultipleDocuments(t *testing.T) {
 	source := []byte("# configuration\ndefaults: &defaults\n    name: 'yes' # keep string\n    script: |\n      echo hello\ncopy: *defaults\n---\nsecond: 900719925474099312345\n")
 	original := string(source)
-	rendered, err := NewYAML().Preview(source, Context{})
+	lines, err := Builtins().Lookup("data.yml").FormatLines(source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain := plainHTML(rendered)
+	plain := plainHTML(strings.Join(lines, "\n"))
 	for _, fragment := range []string{"# configuration", "&defaults", "*defaults", "'yes'", "# keep string", "script: |", "echo hello", "---", "second: 900719925474099312345", "\n  name:"} {
 		if !strings.Contains(plain, fragment) {
-			t.Errorf("preview lost %q: %s", fragment, plain)
+			t.Errorf("format lost %q: %s", fragment, plain)
 		}
 	}
 	if string(source) != original {
@@ -109,25 +208,24 @@ func TestYAMLPreviewRetainsPresentationAndMultipleDocuments(t *testing.T) {
 }
 
 func TestMalformedFilesRemainSearchable(t *testing.T) {
-	for _, entry := range []struct {
-		handler Handler
-		source  string
-	}{
-		{NewJSON(), `{"missing": searchable-json`},
-		{NewYAML(), "first: searchable-yaml\nsecond: ["},
+	registry := Builtins()
+	for name, source := range map[string]string{
+		"broken.json": `{"missing": searchable-json`,
+		"broken.yaml": "first: searchable-yaml\nsecond: [",
 	} {
-		if _, err := entry.handler.Preview([]byte(entry.source), Context{}); err == nil {
-			t.Fatal("malformed preview succeeded")
+		family := registry.Lookup(name)
+		if _, err := family.FormatLines([]byte(source)); err == nil {
+			t.Fatal("malformed format succeeded")
 		}
-		text, err := entry.handler.SearchText([]byte(entry.source))
-		if err != nil || text != entry.source {
+		text, err := family.SearchText([]byte(source))
+		if err != nil || text != source {
 			t.Fatalf("search = %q, %v", text, err)
 		}
 	}
 	for _, source := range []string{"", "# comment only\n"} {
-		rendered, err := NewYAML().Preview([]byte(source), Context{})
-		if err != nil || strings.TrimSpace(plainHTML(rendered)) != strings.TrimSpace(source) {
-			t.Fatalf("empty/comment YAML = %q, %v", rendered, err)
+		lines, err := registry.Lookup("empty.yaml").FormatLines([]byte(source))
+		if err != nil || strings.TrimSpace(plainHTML(strings.Join(lines, "\n"))) != strings.TrimSpace(source) {
+			t.Fatalf("empty/comment YAML = %q, %v", lines, err)
 		}
 	}
 }
@@ -139,7 +237,7 @@ func TestHighlightLinesRetainTextAndMultilineState(t *testing.T) {
 		if len(want) > 1 && want[len(want)-1] == "" {
 			want = want[:len(want)-1]
 		}
-		for _, language := range []string{"markdown", "yaml", "unknown-language"} {
+		for _, language := range []string{"markdown", "yaml", "plaintext", "unknown-language"} {
 			lines := HighlightLines([]byte(source), language)
 			plain := make([]string, len(lines))
 			for i, line := range lines {
@@ -149,56 +247,118 @@ func TestHighlightLinesRetainTextAndMultilineState(t *testing.T) {
 				t.Errorf("%s source %q: got %#v, want %#v", language, source, plain, want)
 			}
 		}
+		if plain := PlainLines([]byte(source)); len(plain) != len(want) {
+			t.Errorf("plain lines %q = %#v", source, plain)
+		}
 	}
 	lines := HighlightLines([]byte("key: |\n  <script>\n  second\n"), "yaml")
 	if len(lines) != 3 || !strings.Contains(lines[1], "syntax-") || strings.Contains(lines[1], "<script>") {
 		t.Fatalf("multiline highlight = %#v", lines)
 	}
+	if plain := PlainLines([]byte("<b>&\n")); len(plain) != 1 || plain[0] != "&lt;b&gt;&amp;" {
+		t.Fatalf("plain lines = %#v", plain)
+	}
+}
+
+type panickingLexer struct{ config *chroma.Config }
+
+func (l panickingLexer) Config() *chroma.Config { return l.config }
+func (panickingLexer) Tokenise(*chroma.TokeniseOptions, string) (chroma.Iterator, error) {
+	panic("lexer bug")
+}
+func (l panickingLexer) SetRegistry(*chroma.LexerRegistry) chroma.Lexer { return l }
+func (l panickingLexer) SetAnalyser(func(string) float32) chroma.Lexer  { return l }
+func (panickingLexer) AnalyseText(string) float32                       { return 0 }
+
+func TestHighlightLinesRecoversFromLexerPanics(t *testing.T) {
+	lexers.Register(panickingLexer{config: &chroma.Config{Name: "servef-panic-test"}})
+	if lexers.Get("servef-panic-test") == nil {
+		t.Fatal("test lexer not registered")
+	}
+	lines := HighlightLines([]byte("<a>\nb\n"), "servef-panic-test")
+	if !reflect.DeepEqual(lines, []string{"&lt;a&gt;", "b"}) {
+		t.Fatalf("panic fallback = %#v", lines)
+	}
+}
+
+func TestBinarySniffing(t *testing.T) {
+	if IsBinary([]byte("plain text\n")) || IsBinary(nil) {
+		t.Fatal("text detected as binary")
+	}
+	if !IsBinary([]byte("PNG\x00data")) {
+		t.Fatal("NUL byte not detected")
+	}
+	late := append([]byte(strings.Repeat("a", SniffLength)), 0)
+	if IsBinary(late) {
+		t.Fatal("NUL beyond sniff window detected")
+	}
 }
 
 func TestSourceLanguageCanBeComposedWithoutPreview(t *testing.T) {
-	handler := CodeHandler{Definition: Type{ID: "go", Label: "Go", Extensions: []string{".go"}, Language: "go", DefaultMode: "source"}}
-	registry, err := NewRegistry(handler)
+	handler := CodeHandler{Definition: Type{ID: "zig", Label: "Zig", Extensions: []string{".zig"}, Language: "zig", DefaultMode: "source"}}
+	registry, err := NewRegistry(plainText(), handler)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolved, ok := registry.Lookup("MAIN.GO")
-	if !ok {
-		t.Fatal("Go handler was not composed")
+	resolved := registry.Lookup("MAIN.ZIG")
+	if resolved.Type().ID != "zig" {
+		t.Fatal("Zig handler was not composed")
 	}
-	preview, err := resolved.Preview([]byte("package main\n"), Context{})
-	if err != nil || preview != "" || resolved.Type().PreviewKind != "" {
+	preview, err := resolved.Preview([]byte("const std = @import(\"std\");\n"), Context{})
+	if err != nil || preview != "" || resolved.Type().PreviewKind != "" || resolved.Type().Formattable {
 		t.Fatalf("source-only contract = %q, %v", preview, err)
 	}
-	if !strings.Contains(strings.Join(HighlightLines([]byte("package main\n"), resolved.Type().Language), ""), "syntax-") {
+	if !strings.Contains(strings.Join(HighlightLines([]byte("const std = @import(\"std\");\n"), resolved.Type().Language), ""), "syntax-") {
 		t.Fatal("source-only handler has no highlighting")
+	}
+	if registry.Lookup("main.go").Type().ID != "text" {
+		t.Fatal("unregistered file did not use fallback")
 	}
 }
 
-func TestMarkdownLinksRespectSelectedScope(t *testing.T) {
-	for _, selectors := range [][]string{nil, {"md"}} {
-		registry, err := Builtins().Select(selectors)
-		if err != nil {
-			t.Fatal(err)
-		}
-		handler, _ := registry.Lookup("docs/readme.md")
-		rendered, err := handler.Preview([]byte("[config](../config.json) ![image](image.png)"), Context{Path: "docs/readme.md", Supports: registry.Supports})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if (len(selectors) == 0) != strings.Contains(rendered, `href="/view?path=config.json"`) {
-			t.Fatalf("link policy = %s", rendered)
-		}
-		if !strings.Contains(rendered, `/api/image?path=docs%2Fimage.png`) {
-			t.Fatalf("image lost: %s", rendered)
-		}
+func TestMarkdownLinksTargetInScopeFiles(t *testing.T) {
+	handler := Builtins().Lookup("docs/readme.md")
+	source := []byte("[config](../config.json) [code](main.go) [dir](guides/) ![image](image.png)")
+	for _, entry := range []struct {
+		name     string
+		supports func(string) bool
+		code     bool
+	}{
+		{name: "all files", supports: func(string) bool { return true }, code: true},
+		{name: "markdown only", supports: func(name string) bool { return strings.HasSuffix(name, ".md") }},
+	} {
+		t.Run(entry.name, func(t *testing.T) {
+			rendered, err := handler.Preview(source, Context{Path: "docs/readme.md", Supports: entry.supports})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if entry.code != strings.Contains(rendered, `href="/view?path=docs%2Fmain.go"`) || entry.code != strings.Contains(rendered, `href="/view?path=config.json"`) {
+				t.Fatalf("link policy = %s", rendered)
+			}
+			if !strings.Contains(rendered, `href="guides/"`) {
+				t.Fatalf("directory link rewritten: %s", rendered)
+			}
+			if !strings.Contains(rendered, `/api/image?path=docs%2Fimage.png`) {
+				t.Fatalf("image lost: %s", rendered)
+			}
+		})
 	}
 }
 
 func TestFormatterCannotMutateOriginalBytes(t *testing.T) {
 	source := []byte("original")
-	handler := CodeHandler{Definition: Type{Language: "text"}, Format: func(value []byte) ([]byte, error) { value[0] = 'X'; return value, nil }}
-	if _, err := handler.Preview(source, Context{}); err != nil {
+	handler := FormattedCodeHandler{
+		CodeHandler:  CodeHandler{Definition: Type{ID: "mutating", Label: "Mutating", Extensions: []string{".mut"}, Language: "plaintext", DefaultMode: "source"}},
+		FormatSource: func(value []byte) ([]byte, error) { value[0] = 'X'; return value, nil },
+	}
+	registry, err := NewRegistry(plainText(), handler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Lookup("a.mut").FormatLines(source); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := handler.Format(source); err != nil {
 		t.Fatal(err)
 	}
 	if string(source) != "original" {

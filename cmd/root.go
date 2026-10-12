@@ -39,7 +39,7 @@ type options struct {
 	noOpen     bool
 	exclusions []string
 	features   features.Set
-	types      *document.Registry
+	filenames  files.NameFilter
 	controlDir string
 }
 
@@ -55,15 +55,10 @@ func Execute() error {
 func newRootCommand(runCommand runner) *cobra.Command {
 	var opts options
 	var featureNames []string
-	var fileTypes string
-	supportedTypes := document.Builtins()
-	typeNames := make([]string, 0)
-	for _, definition := range supportedTypes.Types() {
-		typeNames = append(typeNames, definition.ID)
-	}
+	var filenames string
 	command := &cobra.Command{
 		Use:           "servef [path]",
-		Short:         "Browse supported local files in a web browser",
+		Short:         "Browse local files in a web browser",
 		Version:       version.String(),
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
@@ -88,21 +83,16 @@ func newRootCommand(runCommand runner) *cobra.Command {
 				return err
 			}
 			opts.features = parsedFeatures
-			selectors := strings.Split(fileTypes, ",")
-			if strings.EqualFold(strings.TrimSpace(fileTypes), "all") {
-				selectors = nil
-			}
-			selectedTypes, err := supportedTypes.Select(selectors)
+			opts.filenames, err = parseFilenames(filenames)
 			if err != nil {
 				return err
 			}
-			opts.types = selectedTypes
 			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
 	command.SetVersionTemplate("{{.Version}}\n")
 
-	command.Flags().StringVar(&fileTypes, "file-type", "all", "comma-separated file families or extensions to include (supported: all, "+strings.Join(typeNames, ", ")+")")
+	command.Flags().StringVar(&filenames, "filename", "*", "comma-separated, case-insensitive base-name globs to include (e.g. '*.md,*.go,Dockerfile')")
 	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan")
 	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
 	command.Flags().IntVar(&opts.port, "port", 0, "port; defaults to the first free port from 7971 to 7980")
@@ -121,17 +111,17 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 
 	// Validate the root before binding a port or opening a browser.
 	discoveryStarted := time.Now()
-	types := opts.types
-	if types == nil {
-		types = document.Builtins()
+	filenames := opts.filenames
+	if len(filenames.Patterns()) == 0 {
+		filenames = files.AllNames()
 	}
-	index, err := files.Scan(root, opts.depth, exclusions, types.Supports)
+	index, err := files.Scan(root, opts.depth, exclusions, filenames.Match)
 	discoveryDuration := time.Since(discoveryStarted)
 	if err != nil {
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Root: root, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: types})
+	app, err := webui.New(webui.Config{Root: root, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
@@ -223,6 +213,22 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return fmt.Errorf("stop local server: %w", err)
 	}
 	return nil
+}
+
+// parseFilenames reads one comma-separated list of base-name globs.
+func parseFilenames(value string) (files.NameFilter, error) {
+	patterns := strings.Split(value, ",")
+	for i, pattern := range patterns {
+		patterns[i] = strings.TrimSpace(pattern)
+		if patterns[i] == "" {
+			return files.NameFilter{}, fmt.Errorf("--filename has an empty pattern in %q", value)
+		}
+	}
+	filter, err := files.NewNameFilter(patterns)
+	if err != nil {
+		return files.NameFilter{}, fmt.Errorf("--filename: %w", err)
+	}
+	return filter, nil
 }
 
 func listen(host string, port int) (net.Listener, error) {
