@@ -29,3 +29,25 @@ test("an unavailable project explains itself", async ({ page }) => {
   await page.goto("/?project=missing")
   await expect(page.getByRole("alert")).toContainText("Project unavailable.")
 })
+
+test("projects remember their tabs and the last project reopens", async ({ page }) => {
+  const tree = page.getByRole("complementary", { name: "Files" })
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  await tree.getByRole("treeitem", { name: "README.md" }).click()
+  await expect(tabs.getByRole("tab")).toHaveCount(2)
+
+  await page.goto("/?project=guides")
+  await expect(tabs.getByRole("tab")).toHaveCount(0)
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
+
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/view\?project=guides&path=diagrams\.md$/)
+  await expect(tabs.getByRole("tab")).toHaveCount(1)
+
+  await page.goto("/?project=.")
+  await expect(page).toHaveURL(/\/view\?project=\.&path=README\.md$/)
+  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
+  await expect(tabs.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
+})

@@ -11,6 +11,7 @@ export { isPageData, isPageLoadResult } from "./page-contract.ts"
 export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
+  servedRoot: "",
   project: "",
   filenamePatterns: [],
   documentType: null,
@@ -72,6 +73,10 @@ export async function loadPage({ pathname, project, selected, signal }: LoadPage
     if (error instanceof Error && error.name === "AbortError") throw error
     return { kind: "failure", message: "Could not load files." }
   }
+}
+
+export function filePaths(nodes: readonly TreeNode[]): string[] {
+  return nodes.flatMap((node) => node.isDir ? filePaths(node.children) : [node.path])
 }
 
 export function openDirectoryPaths(nodes: readonly TreeNode[]): string[] {

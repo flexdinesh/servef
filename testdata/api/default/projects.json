@@ -1,4 +1,5 @@
 {
+  "servedRoot": "/home/user/workspace",
   "rootName": "workspace",
   "projects": [
     { "id": ".", "name": "workspace", "path": ".", "kind": "folder", "group": "", "available": true },

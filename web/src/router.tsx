@@ -8,14 +8,14 @@ import {
 
 import { App } from "./App.tsx"
 import { loadPage } from "./page-data.ts"
+import { fetchDirectories, fetchProjects, landingProject, rootProject } from "./projects-data.ts"
+import { readMemory } from "./workspace-memory.ts"
 
 interface PageSearch {
   [key: string]: unknown
   path?: string
   project?: string
 }
-
-const rootProject = "."
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
   return {
@@ -46,8 +46,19 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   validateSearch,
-  beforeLoad: ({ search }) => {
-    if (!search.project) throw redirect({ to: "/", search: withProject(search, rootProject), replace: true })
+  // Without a project, reopen the last one; /view links stay root-relative.
+  beforeLoad: async ({ search, abortController }) => {
+    if (search.project) return
+    let project = rootProject
+    try {
+      const landing = landingProject(await fetchProjects(abortController.signal), readMemory())
+      // An unlisted folder (opened by hand) reopens only while it still exists.
+      if (!landing.listed) await fetchDirectories(landing.project, abortController.signal)
+      project = landing.project
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") throw error
+    }
+    throw redirect({ to: "/", search: withProject(search, project), replace: true })
   },
   loaderDeps: ({ search }) => ({ project: search.project ?? rootProject }),
   loader: ({ abortController, deps }) => loadPage({

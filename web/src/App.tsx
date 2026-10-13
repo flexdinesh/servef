@@ -30,6 +30,7 @@ import { useDelayedFlag, useDocumentFormats } from "./use-document-format.ts"
 import { useDocumentNavigation } from "./use-document-navigation.ts"
 import { useDocumentWorkspace } from "./use-document-workspace.ts"
 import { useImageViewer } from "./use-image-viewer.ts"
+import { useProjectMemory } from "./use-project-memory.ts"
 
 function initialPage(result: PageLoadResult): PageData | null {
   return result.kind === "page" ? result.page : null
@@ -74,6 +75,16 @@ export function App({ project }: AppProps) {
   const loadError = result?.kind === "failure" ? result.message : ""
   const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
   const { setDocumentMode } = workspace
+  const openRemembered = useCallback((path: string) => {
+    void navigate({ to: "/view", search: { project, path }, hash: "", replace: true })
+  }, [navigate, project])
+  useProjectMemory({
+    project,
+    page: result?.kind === "page" ? result.page : null,
+    tabs: workspace.tabs,
+    restore: workspace.restore,
+    openRemembered,
+  })
   const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
   const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
   const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected))
