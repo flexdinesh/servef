@@ -11,6 +11,9 @@ formatted JSON/YAML, and highlighted source for everything else.
 - Format JSON and YAML on demand for reading; original files stay unchanged
 - Highlight common languages and config files; show other text as plain text
 - Filter the tree by filename glob; restrict served files through the CLI
+- Switch between git repositories and worktrees found under the served
+  directory, or open any folder in it, with Cmd/Ctrl+O; each switch reads the
+  file system afresh and restores that project's tabs
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
@@ -58,6 +61,14 @@ Or serve another directory:
 ```sh
 servef path/to/markdown
 ```
+
+servef looks for git repositories (including linked worktrees) up to
+`--scan-depth` folders deep (default `10`; `0` checks only the served directory)
+and lists them in the project picker. It stops descending at a repository and
+skips hidden and excluded folders. Only one project is read at a time, and every
+switch reads it from disk. `--depth` limits the file tree within a project.
+Worktrees outside the served directory are listed but cannot be opened; serve a
+common parent directory to browse them.
 
 Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.

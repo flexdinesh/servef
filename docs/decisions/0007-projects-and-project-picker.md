@@ -1,6 +1,6 @@
 # 0007: Projects and project picker
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-13
 
 ## Context
@@ -47,14 +47,15 @@ request and holds no file state.
 
 ### Contracts
 
-- `GET /api/projects` → `{ rootName, projects: [{ id, name, path, group, available }], warnings }`;
+- `GET /api/projects` → `{ servedRoot, rootName, projects: [{ id, name, path, kind, group, available }], warnings }`;
   unavailable entries have an empty `id` and an absolute `path`.
 - `GET /api/directories?path=` → child directories of a root-relative path with
   `isProject`; confined to root; excluded names hidden, hidden directories
   shown.
 - `/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`
   require `project`. Missing → 400; unresolvable → 404 "Project unavailable".
-- `pageData` gains `project`; it does not carry the project list.
+- `pageData` gains `servedRoot`, `project`, and `projectUnavailable`; it does
+  not carry the project list. Rewritten Markdown links carry the project.
 
 ### UI
 
@@ -62,17 +63,22 @@ request and holds no file state.
   name or Ctrl/Cmd+O. File search shortcuts are unchanged.
 - **Projects mode**: fuzzy filter over name and path; worktrees nested under
   their repo; out-of-root worktrees shown disabled with an "Outside <root>"
-  note; opened folders listed in their own group with a remove action;
-  current project marked. `/` or **Open folder…** enters Browse.
+  note; remembered projects that discovery does not list appear as opened
+  folders with a Forget action; current project marked. `/` or
+  **Open folder…** enters Browse.
 - **Browse mode**: path input with the root as a fixed prefix; Tab completes,
   Enter descends, first row opens the typed folder, Backspace on an empty
   segment goes up.
-- Switching closes the picker, clears the explorer to a loading state, resets
-  the tree filter, discards the search index, and restores the project's tabs
-  after checking them against the fresh tree.
-- Browser storage, keyed by root and project ID: tabs and active tab per
-  project, the last project, and opened folders. Landing without `project`
-  reopens the last project, else shows the picker.
+- Switching closes the picker and keeps the current workspace until the new
+  project's page loads, then remounts the workspace: the tree filter, search
+  index, and format cache reset, and the project's tabs are restored after
+  checking them against the fresh tree.
+- Browser storage (`servef-workspaces`), keyed by served root and project ID,
+  keeps each project's tabs and active document and the last project. Opened
+  folders are the remembered projects discovery does not list; Forget drops
+  one. Landing on `/` without `project` reopens the last project (an unlisted
+  folder only while it still exists), else the root, opening the picker when
+  there is a choice. `/view` without `project` stays root-relative.
 - No native OS folder dialog: browsers cannot return server paths.
 
 ## Consequences

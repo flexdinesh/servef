@@ -54,7 +54,7 @@ func TestPageIsScopedToProject(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", response.Code, response.Body.String())
 	}
-	if data.Project != "api" || data.RootName != "api" || data.FileCount != 3 {
+	if data.Project != "api" || data.ProjectUnavailable || data.RootName != "api" || data.FileCount != 3 {
 		t.Fatalf("page = project %q root %q files %d", data.Project, data.RootName, data.FileCount)
 	}
 	if strings.Contains(response.Body.String(), "secret.md") || strings.Contains(response.Body.String(), "notes.md") {
@@ -85,7 +85,7 @@ func TestPageIsScopedToProject(t *testing.T) {
 	}
 
 	_, missing := requestPageData(t, app, "/api/page?project=missing&path=README.md")
-	if missing.Error != projectUnavailableMessage || missing.Project != "missing" || missing.Selected != "README.md" {
+	if missing.Error != projectUnavailableMessage || !missing.ProjectUnavailable || missing.Project != "missing" || missing.Selected != "README.md" {
 		t.Fatalf("missing project page = %+v", missing)
 	}
 }

@@ -1,6 +1,7 @@
 {
   "servedRoot": "/home/user/markdown",
   "project": ".",
+  "projectUnavailable": false,
   "rootName": "markdown",
   "tree": [
     {

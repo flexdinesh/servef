@@ -23,11 +23,35 @@ export async function fetchDirectories(path: string, signal?: AbortSignal): Prom
   throw new Error(message)
 }
 
+export interface Landing {
+  project: string
+  // listed is false for a folder discovery does not vouch for; check it exists.
+  listed: boolean
+  // pick opens the picker: nothing is remembered and there is a choice.
+  pick: boolean
+}
+
 // landingProject picks the project for a URL without one: the last project
-// remembered for this served root, or the root. Listed tells whether discovery
-// vouches for it; an unlisted folder must be checked before reopening.
-export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory): { project: string; listed: boolean } {
+// remembered for this served root, or the root.
+export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory): Landing {
   const last = rootMemory(memory, projects.servedRoot).last
-  if (!last || last === rootProject) return { project: rootProject, listed: true }
-  return { project: last, listed: projects.projects.some((project) => project.available && project.id === last) }
+  if (!last) {
+    const choices = projects.projects.filter((project) => project.available).length
+    return { project: rootProject, listed: true, pick: choices > 1 }
+  }
+  if (last === rootProject) return { project: rootProject, listed: true, pick: false }
+  return { project: last, listed: projects.projects.some((project) => project.available && project.id === last), pick: false }
+}
+
+let landingPick = false
+
+// requestLandingPick asks the next mounted picker to open once.
+export function requestLandingPick() {
+  landingPick = true
+}
+
+export function takeLandingPick(): boolean {
+  const pick = landingPick
+  landingPick = false
+  return pick
 }

@@ -1,12 +1,13 @@
 import type { FileTree as FileTreeModel } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react"
-import { FoldVerticalIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
+import { ChevronDownIcon, FoldVerticalIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { FilenameFilter, useFilenameFilter, type FilenameFilterState } from "./FilenameFilter.tsx"
 import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "./page-data.ts"
+import { projectShortcutLabel } from "./ProjectPicker.tsx"
 
 function treePaths(nodes: readonly TreeNode[]): string[] {
   return nodes.flatMap((node) => node.isDir
@@ -17,6 +18,7 @@ function treePaths(nodes: readonly TreeNode[]): string[] {
 interface FileTreeProps {
   hasData: boolean
   onNavigate(path: string): void
+  onOpenProjects(): void
   page: PageData
   registerOpen(open: (() => void) | null): void
 }
@@ -62,7 +64,7 @@ export function FileTree(props: FileTreeProps) {
   }}>{explorer}</dialog> : explorer
 }
 
-function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, onOpenProjects, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
   mobile: boolean
   filter: FilenameFilterState
   dialog: RefObject<HTMLDialogElement | null>
@@ -219,7 +221,12 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
   return (
     <aside className="file-explorer" aria-label="Files">
       <div className="explorer-header">
-        <span title={page.rootName}>{page.rootName || "Files"}</span>
+        <button type="button" className="project-trigger" aria-haspopup="dialog"
+          aria-label={`Switch project (${page.rootName || page.project || "none"})`}
+          aria-keyshortcuts="Control+O Meta+O" title={`Switch project (${projectShortcutLabel})`} onClick={onOpenProjects}>
+          <span>{page.rootName || page.project || "Files"}</span>
+          <ChevronDownIcon aria-hidden="true" />
+        </button>
         <button ref={searchButton} type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
           onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }}>
           <SearchIcon aria-hidden="true" />
@@ -232,7 +239,7 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
         </button>
         {mobile && <button type="button" aria-label="Close files" onClick={() => dialog.current?.close()}><XIcon aria-hidden="true" /></button>}
       </div>
-      {hasData && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
+      {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
         totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
       <div className="file-search" hidden={!search.isOpen}>
         <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
@@ -254,6 +261,7 @@ function Explorer({ hasData, onNavigate, page, registerOpen, mobile, dialog, sta
           }} />
       </div>
       {!hasData ? <p className="muted">Loading files…</p>
+        : page.projectUnavailable ? <p className="muted">Project unavailable.</p>
         : page.empty ? <p className="muted">No files found.</p>
         : paths.length === 0 ? <p className="muted explorer-empty">
           No files match <code>{filter.applied}</code>

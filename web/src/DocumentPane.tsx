@@ -20,6 +20,7 @@ interface DocumentPaneProps {
   loadError: string
   main: RefObject<HTMLElement | null>
   navigate(href: string): void
+  onChooseProject(): void
   page: PageData
   retry(): void
   view: DocumentView
@@ -29,7 +30,7 @@ function fileName(path: string): string {
   return path.split("/").at(-1) || path
 }
 
-export function DocumentPane({ hasData, image, isLoading, loadError, main, navigate, page, retry, view }: DocumentPaneProps) {
+export function DocumentPane({ hasData, image, isLoading, loadError, main, navigate, onChooseProject, page, retry, view }: DocumentPaneProps) {
   const viewKind = loadError || page.error ? "none" : view.kind
   const label = page.documentType?.label ?? "File"
 
@@ -46,6 +47,11 @@ export function DocumentPane({ hasData, image, isLoading, loadError, main, navig
         <div className="error" role="alert">
           <p>{loadError}</p>
           <Button type="button" variant="outline" onClick={retry}>Try again</Button>
+        </div>
+      ) : page.projectUnavailable ? (
+        <div className="error project-unavailable" role="alert">
+          <p>The project <code>{page.project}</code> is unavailable. It may have been moved or deleted.</p>
+          <Button type="button" variant="outline" onClick={onChooseProject}>Choose another project</Button>
         </div>
       ) : page.error ? (
         <div className="error" role="alert">{page.error}</div>

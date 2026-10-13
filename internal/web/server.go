@@ -53,27 +53,30 @@ type App struct {
 }
 
 type pageData struct {
-	ServedRoot       string         `json:"servedRoot"`
-	Project          string         `json:"project"`
-	RootName         string         `json:"rootName"`
-	Tree             []treeNode     `json:"tree"`
-	Selected         string         `json:"selected"`
-	Content          string         `json:"content"`
-	Source           string         `json:"source"`
-	FileSize         int64          `json:"fileSize"`
-	FileCount        int            `json:"fileCount"`
-	HasFile          bool           `json:"hasFile"`
-	Empty            bool           `json:"empty"`
-	Error            string         `json:"error"`
-	Warnings         []string       `json:"warnings"`
-	FilenamePatterns []string       `json:"filenamePatterns"`
-	DocumentType     *document.Type `json:"documentType"`
-	Binary           bool           `json:"binary"`
-	TooLarge         bool           `json:"tooLarge"`
-	PreviewDisabled  bool           `json:"previewDisabled"`
-	SearchExcluded   bool           `json:"searchExcluded"`
-	SourceLines      []string       `json:"sourceLines"`
-	PreviewError     string         `json:"previewError"`
+	ServedRoot string `json:"servedRoot"`
+	Project    string `json:"project"`
+	// ProjectUnavailable reports that the project itself could not be
+	// resolved, as opposed to a file within it.
+	ProjectUnavailable bool           `json:"projectUnavailable"`
+	RootName           string         `json:"rootName"`
+	Tree               []treeNode     `json:"tree"`
+	Selected           string         `json:"selected"`
+	Content            string         `json:"content"`
+	Source             string         `json:"source"`
+	FileSize           int64          `json:"fileSize"`
+	FileCount          int            `json:"fileCount"`
+	HasFile            bool           `json:"hasFile"`
+	Empty              bool           `json:"empty"`
+	Error              string         `json:"error"`
+	Warnings           []string       `json:"warnings"`
+	FilenamePatterns   []string       `json:"filenamePatterns"`
+	DocumentType       *document.Type `json:"documentType"`
+	Binary             bool           `json:"binary"`
+	TooLarge           bool           `json:"tooLarge"`
+	PreviewDisabled    bool           `json:"previewDisabled"`
+	SearchExcluded     bool           `json:"searchExcluded"`
+	SourceLines        []string       `json:"sourceLines"`
+	PreviewError       string         `json:"previewError"`
 }
 
 type treeNode struct {
@@ -629,14 +632,15 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		return pageData{
-			ServedRoot:       a.servedRoot,
-			Project:          projectID,
-			Selected:         selected,
-			Tree:             []treeNode{},
-			FilenamePatterns: a.config.Filenames.Patterns(),
-			SourceLines:      []string{},
-			Error:            message,
-			Warnings:         []string{},
+			ServedRoot:         a.servedRoot,
+			Project:            projectID,
+			ProjectUnavailable: true,
+			Selected:           selected,
+			Tree:               []treeNode{},
+			FilenamePatterns:   a.config.Filenames.Patterns(),
+			SourceLines:        []string{},
+			Error:              message,
+			Warnings:           []string{},
 		}, status
 	}
 	index, err := a.scan(project.root)

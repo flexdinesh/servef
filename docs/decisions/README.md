@@ -12,4 +12,4 @@ rewriting history; update `Status` on the old record.
 | [0004](0004-binary-and-size-limits.md) | Binary detection and size limits | Accepted |
 | [0005](0005-images-as-documents.md) | Images are browsable documents | Accepted |
 | [0006](0006-explorer-filename-filter.md) | Explorer filename filter and tab icons | Accepted |
-| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Proposed |
+| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Accepted |

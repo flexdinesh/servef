@@ -27,7 +27,9 @@ test("a project scopes the tree to its directory", async ({ page }) => {
 
 test("an unavailable project explains itself", async ({ page }) => {
   await page.goto("/?project=missing")
-  await expect(page.getByRole("alert")).toContainText("Project unavailable.")
+  await expect(page.getByRole("alert")).toContainText("The project missing is unavailable.")
+  await page.getByRole("button", { name: "Choose another project" }).click()
+  await expect(page.getByRole("dialog", { name: "Switch project" })).toBeVisible()
 })
 
 test("projects remember their tabs and the last project reopens", async ({ page }) => {
