@@ -43,10 +43,17 @@ function activePageResult(matches: readonly { loaderData?: unknown }[]): PageLoa
   return null
 }
 
-export function App() {
+interface AppProps {
+  project: string
+}
+
+// App is one project's workspace. Mount it keyed by project so switching
+// projects discards tabs, scroll, explorer, format, and search state.
+export function App({ project }: AppProps) {
   const navigate = useNavigate()
   const router = useRouter()
-  const result = useRouterState({ select: (state) => activePageResult(state.matches) })
+  const routed = useRouterState({ select: (state) => activePageResult(state.matches) })
+  const result = routed?.kind === "page" && routed.page.project !== project ? null : routed
   const isLoading = useRouterState({ select: (state) => state.isLoading })
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
@@ -68,7 +75,7 @@ export function App() {
   const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
   const { setDocumentMode } = workspace
   const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
-  const { get: formatResult, request: requestFormat } = useDocumentFormats(showSourceAfterFormatFailure)
+  const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
   const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected))
   const formatState = formatResult(page.selected, page.source)
   const view = documentView(page, documentMode, formatState)
@@ -81,7 +88,7 @@ export function App() {
     if (needsFormat) requestFormat(page.selected, page.source)
   }, [needsFormat, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
-    forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(page, isLoading, loadError)
+    forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
 
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
@@ -99,7 +106,7 @@ export function App() {
       navigateToDocument(closed.replacement)
     } else {
       prepareDocumentNavigation()
-      void navigate({ to: "/", search: {}, hash: "" })
+      void navigate({ to: "/", search: { project }, hash: "" })
     }
   }
 
@@ -156,9 +163,9 @@ export function App() {
         onSearch={() => openSearch.current()}
         onHome={() => {
           prepareDocumentNavigation()
-          void navigate({ to: "/", search: {}, hash: "" })
+          void navigate({ to: "/", search: { project }, hash: "" })
         }} />
-      <SearchDialog navigate={navigateToDocument} registerOpen={registerSearch} />
+      <SearchDialog project={project} navigate={navigateToDocument} registerOpen={registerSearch} />
     </>
   )
 }

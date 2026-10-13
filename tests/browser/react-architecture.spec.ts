@@ -30,7 +30,7 @@ for (const entry of [
 
 test("search retries transient failure without losing the query", async ({ page }) => {
   let requests = 0
-  await page.route("**/api/search-documents", async (route) => {
+  await page.route("**/api/search-documents?project=.", async (route) => {
     if (++requests === 1) {
       await route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
     } else {

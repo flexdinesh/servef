@@ -8,7 +8,7 @@ const customType = {
 function customPage(source: string) {
   return {
     content: "", source, sourceLines: [source.trimEnd()],
-    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, rootName: "example", selected: "sample.custom",
+    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, project: ".", rootName: "example", selected: "sample.custom",
     warnings: [], previewError: "", filenamePatterns: ["*"], documentType: customType,
     binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name: "sample.custom", path: "sample.custom", fileType: "custom", isDir: false, open: false, selected: true, children: [] }],
@@ -16,8 +16,8 @@ function customPage(source: string) {
 }
 
 test("formatted rows come from the format endpoint and keep blank rows and escaped syntax", async ({ page }) => {
-  await page.route("**/api/page?path=sample.custom", (route) => route.fulfill({ json: customPage("unformatted original\n") }))
-  await page.route("**/api/format?path=sample.custom", (route) => route.fulfill({ json: {
+  await page.route("**/api/page?project=.&path=sample.custom", (route) => route.fulfill({ json: customPage("unformatted original\n") }))
+  await page.route("**/api/format?project=.&path=sample.custom", (route) => route.fulfill({ json: {
     formattedLines: [
       '<span class="syntax-s">first</span>',
       "",
@@ -46,8 +46,8 @@ test("formatted rows come from the format endpoint and keep blank rows and escap
 test("slow formatting keeps Source visible, marks Format busy, and reports Loading", async ({ page }) => {
   let release = () => {}
   const released = new Promise<void>((resolve) => { release = resolve })
-  await page.route("**/api/page?path=sample.custom", (route) => route.fulfill({ json: customPage("slow original\n") }))
-  await page.route("**/api/format?path=sample.custom", async (route) => {
+  await page.route("**/api/page?project=.&path=sample.custom", (route) => route.fulfill({ json: customPage("slow original\n") }))
+  await page.route("**/api/format?project=.&path=sample.custom", async (route) => {
     await released
     await route.fulfill({ json: { formattedLines: ['<span class="syntax-s">slow formatted</span>'] } })
   })
@@ -67,8 +67,8 @@ test("slow formatting keeps Source visible, marks Format busy, and reports Loadi
 
 test("format failures keep Source and allow a retry", async ({ page }) => {
   let attempts = 0
-  await page.route("**/api/page?path=sample.custom", (route) => route.fulfill({ json: customPage("retry original\n") }))
-  await page.route("**/api/format?path=sample.custom", (route) => {
+  await page.route("**/api/page?project=.&path=sample.custom", (route) => route.fulfill({ json: customPage("retry original\n") }))
+  await page.route("**/api/format?project=.&path=sample.custom", (route) => {
     attempts++
     return attempts === 1
       ? route.fulfill({ status: 422, json: { error: "unexpected token at line 2." } })

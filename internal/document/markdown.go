@@ -85,7 +85,7 @@ func (a *markdownHandler) renderMarkdown(source []byte, context Context, output 
 			case *ast.Link:
 				value.Destination = rewriteDocumentLink(value.Destination, context)
 			case *ast.Image:
-				value.Destination = rewriteMarkdownImage(value.Destination, context.Path)
+				value.Destination = rewriteMarkdownImage(value.Destination, context)
 			}
 		}
 		return ast.WalkContinue, nil
@@ -115,7 +115,7 @@ func markdownPreviewSource(source []byte) []byte {
 	return source
 }
 
-func rewriteMarkdownImage(destination []byte, selected string) []byte {
+func rewriteMarkdownImage(destination []byte, context Context) []byte {
 	target, err := url.Parse(string(destination))
 	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" {
 		return destination
@@ -125,7 +125,7 @@ func rewriteMarkdownImage(destination []byte, selected string) []byte {
 	if strings.HasPrefix(imagePath, "/") {
 		imagePath = strings.TrimPrefix(imagePath, "/")
 	} else {
-		imagePath = path.Join(path.Dir(selected), imagePath)
+		imagePath = path.Join(path.Dir(context.Path), imagePath)
 	}
 	imagePath = path.Clean(imagePath)
 
@@ -133,7 +133,7 @@ func rewriteMarkdownImage(destination []byte, selected string) []byte {
 	query.Set("path", imagePath)
 	return []byte((&url.URL{
 		Path:     "/api/image",
-		RawQuery: query.Encode(),
+		RawQuery: projectQuery(query, context.Project),
 		Fragment: target.Fragment,
 	}).String())
 }
@@ -160,9 +160,19 @@ func rewriteDocumentLink(destination []byte, context Context) []byte {
 	query.Set("path", markdownPath)
 	return []byte((&url.URL{
 		Path:     "/view",
-		RawQuery: query.Encode(),
+		RawQuery: projectQuery(query, context.Project),
 		Fragment: target.Fragment,
 	}).String())
+}
+
+// projectQuery encodes a rewritten link's query with the current project
+// first, matching client URLs; links cannot name another project.
+func projectQuery(query url.Values, project string) string {
+	query.Del("project")
+	if project == "" {
+		return query.Encode()
+	}
+	return url.Values{"project": {project}}.Encode() + "&" + query.Encode()
 }
 
 type escapedHTMLRenderer struct{}

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
 import type { PageData } from "./page-data.ts"
 
-export function useDocumentNavigation(page: PageData, isLoading: boolean, loadError: string) {
+export function useDocumentNavigation(project: string, page: PageData, isLoading: boolean, loadError: string) {
   const navigate = useNavigate()
   const router = useRouter()
   const location = useRouterState({ select: (state) => state.location })
@@ -52,8 +52,8 @@ export function useDocumentNavigation(page: PageData, isLoading: boolean, loadEr
 
   const navigateToDocument = useCallback((path: string) => {
     prepareDocumentNavigation()
-    void navigate({ to: "/view", search: { path }, hash: "" })
-  }, [navigate, prepareDocumentNavigation])
+    void navigate({ to: "/view", search: { project, path }, hash: "" })
+  }, [navigate, prepareDocumentNavigation, project])
 
   const navigateToHref = useCallback((href: string) => {
     prepareDocumentNavigation()

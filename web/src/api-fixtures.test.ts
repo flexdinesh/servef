@@ -5,6 +5,7 @@ import test from "node:test"
 import { parseFeatureValue } from "./features.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
+import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
 import { isSearchDocumentsResponse } from "./search-documents.ts"
 
 async function fixture(name: string): Promise<unknown> {
@@ -21,6 +22,8 @@ test("frontend API fixtures satisfy runtime contracts", async () => {
   assert.equal(isProcessMetrics(await fixture("metrics.json")), true)
   assert.equal(isProcessMetrics(await fixture("metrics-go.json")), true)
   assert.equal(isSearchDocumentsResponse(await fixture("search-documents.json")), true)
+  assert.equal(isProjectsResponse(await fixture("projects.json")), true)
+  assert.equal(isDirectoriesResponse(await fixture("directories.json")), true)
   for (const name of [
     "page-index.json", "page-document.json", "page-missing.json", "page-json.json",
     "page-json-broken.json", "page-image.json", "page-binary.json", "page-large.json", "page-too-large.json",
@@ -83,4 +86,17 @@ test("contract validators reject removed and malformed fields", async () => {
   assert.equal(isPageData({ ...value, documentType: null }), false)
   assert.equal(isPageData({ ...value, documentType: { ...value.documentType, previewLabel: "" } }), false)
   assert.equal(isFormatResult({ formattedLines: ["ok", 1] }), false)
+})
+
+test("project contract validators reject inconsistent availability", async () => {
+  const value = await fixture("projects.json")
+  assert.ok(isProjectsResponse(value))
+  const [first] = value.projects
+  assert.ok(first)
+  assert.equal(isProjectsResponse({ ...value, projects: [{ ...first, id: "" }] }), false)
+  assert.equal(isProjectsResponse({ ...value, projects: [{ ...first, kind: "submodule" }] }), false)
+  const page = await fixture("page-document.json")
+  assert.ok(isPageData(page))
+  const { project: _project, ...withoutProject } = page
+  assert.equal(isPageData(withoutProject), false)
 })

@@ -7,9 +7,10 @@ interface FormatEntry {
   state: FormatState
 }
 
-// useDocumentFormats caches on-demand formatting per path for the session.
-// Entries are tied to the source they formatted, so a changed file refetches.
-export function useDocumentFormats(onFailure: (path: string) => void) {
+// useDocumentFormats caches on-demand formatting per path for the project's
+// session. Entries are tied to the source they formatted, so a changed file
+// refetches.
+export function useDocumentFormats(project: string, onFailure: (path: string) => void) {
   const [entries, setEntries] = useState<ReadonlyMap<string, FormatEntry>>(() => new Map())
   const latest = useRef(new Map<string, FormatEntry>())
   const controllers = useRef(new Set<AbortController>())
@@ -33,7 +34,7 @@ export function useDocumentFormats(onFailure: (path: string) => void) {
     const controller = new AbortController()
     controllers.current.add(controller)
     store(path, { source, state: { kind: "loading" } })
-    fetchFormat(path, controller.signal).then((state) => {
+    fetchFormat(project, path, controller.signal).then((state) => {
       if (latest.current.get(path)?.source !== source) return
       store(path, { source, state })
       if (state.kind === "error") failure.current(path)

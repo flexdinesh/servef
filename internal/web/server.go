@@ -17,6 +17,7 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/projects"
 )
 
 //go:embed dist vendor/MINISEARCH-LICENSE.txt vendor/PX0-LICENSE.txt
@@ -27,9 +28,12 @@ var noticeAssets = map[string]string{
 	"/assets/vendor/PX0-LICENSE.txt":        "vendor/PX0-LICENSE.txt",
 }
 
-// Config controls the live file scan performed for each request.
+// Config controls project discovery and the live file scan performed for each
+// request. Root confines every project; ScanDepth bounds repository discovery;
+// Depth bounds the file scan within a project.
 type Config struct {
 	Root       string
+	ScanDepth  int
 	Depth      int
 	Exclusions []string
 	Features   features.Set
@@ -47,6 +51,7 @@ type App struct {
 }
 
 type pageData struct {
+	Project          string         `json:"project"`
 	RootName         string         `json:"rootName"`
 	Tree             []treeNode     `json:"tree"`
 	Selected         string         `json:"selected"`
@@ -96,6 +101,28 @@ type formatResponse struct {
 type errorResponse struct {
 	Error string `json:"error"`
 }
+
+type projectsResponse struct {
+	RootName string             `json:"rootName"`
+	Projects []projects.Project `json:"projects"`
+	Warnings []string           `json:"warnings"`
+}
+
+type directoriesResponse struct {
+	Path        string               `json:"path"`
+	Directories []projects.Directory `json:"directories"`
+}
+
+// workspace is the project directory a request is scoped to.
+type workspace struct {
+	id   string
+	root string
+}
+
+const (
+	noProjectMessage          = "No project was selected."
+	projectUnavailableMessage = "Project unavailable."
+)
 
 // indexedFile is a read of an indexed file. Binary files keep only the sniffed
 // prefix; files over the read limit are not read.
@@ -182,8 +209,18 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveFrontendAsset(w, strings.TrimPrefix(r.URL.Path, "/assets/"))
 		return
 	}
+	query := r.URL.Query()
+	projectID := query.Get("project")
+	if r.URL.Path == "/api/projects" {
+		a.serveProjects(w)
+		return
+	}
+	if r.URL.Path == "/api/directories" {
+		a.serveDirectories(w, query.Get("path"))
+		return
+	}
 	if r.URL.Path == "/api/search-documents" {
-		a.serveSearchDocuments(w)
+		a.serveSearchDocuments(w, projectID)
 		return
 	}
 	if r.URL.Path == "/api/features" {
@@ -195,24 +232,24 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/api/image" {
-		a.serveImage(w, r.URL.Query().Get("path"))
+		a.serveImage(w, projectID, query.Get("path"))
 		return
 	}
 	if r.URL.Path == "/api/raw" {
-		a.serveRaw(w, r.URL.Query().Get("path"))
+		a.serveRaw(w, projectID, query.Get("path"))
 		return
 	}
 	if r.URL.Path == "/api/format" {
-		a.serveFormat(w, r.URL.Query().Get("path"))
+		a.serveFormat(w, projectID, query.Get("path"))
 		return
 	}
 	if r.URL.Path == "/api/page" {
-		selected, required := r.URL.Query()["path"]
+		selected, required := query["path"]
 		pathValue := ""
 		if len(selected) > 0 {
 			pathValue = selected[0]
 		}
-		a.servePageData(w, pathValue, required)
+		a.servePageData(w, projectID, pathValue, required)
 		return
 	}
 	if r.URL.Path != "/" && r.URL.Path != "/view" {
@@ -220,13 +257,67 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Without a project the browser chooses one, so no page data is embedded.
+	if projectID == "" {
+		a.serveShell(w, http.StatusOK, nil)
+		return
+	}
 	selected := ""
 	required := r.URL.Path == "/view"
 	if required {
-		selected = r.URL.Query().Get("path")
+		selected = query.Get("path")
 	}
-	data, status := a.page(selected, required)
-	a.serveShell(w, status, data)
+	data, status := a.page(projectID, selected, required)
+	a.serveShell(w, status, &data)
+}
+
+// project resolves a request's project ID within the root.
+func (a *App) project(id string) (workspace, int, string) {
+	if id == "" {
+		return workspace{}, http.StatusBadRequest, noProjectMessage
+	}
+	root, err := projects.Resolve(a.config.Root, id, a.config.Exclusions)
+	if errors.Is(err, files.ErrPathEscape) {
+		return workspace{}, http.StatusBadRequest, projectUnavailableMessage
+	}
+	if err != nil {
+		return workspace{}, http.StatusNotFound, projectUnavailableMessage
+	}
+	return workspace{id: id, root: root}, http.StatusOK, ""
+}
+
+func (a *App) serveProjects(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	discovery, err := projects.Discover(a.config.Root, a.config.ScanDepth, a.config.Exclusions)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, projectsResponse{
+		RootName: filepath.Base(a.config.Root),
+		Projects: discovery.Projects,
+		Warnings: warningStrings(discovery.Warnings),
+	})
+}
+
+func (a *App) serveDirectories(w http.ResponseWriter, id string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	if id == "" {
+		id = projects.RootID
+	}
+	directories, err := projects.Directories(a.config.Root, id, a.config.Exclusions)
+	switch {
+	case errors.Is(err, files.ErrPathEscape):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "That folder is outside the served directory."})
+	case errors.Is(err, projects.ErrUnavailable):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "That folder is unavailable."})
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Could not read that folder."})
+	default:
+		writeJSON(w, http.StatusOK, directoriesResponse{Path: id, Directories: directories})
+	}
 }
 
 func (a *App) serveAsset(w http.ResponseWriter, name string) {
@@ -264,7 +355,7 @@ func (a *App) serveFrontendAsset(w http.ResponseWriter, name string) {
 	_, _ = w.Write(content)
 }
 
-func (a *App) serveShell(w http.ResponseWriter, status int, data pageData) {
+func (a *App) serveShell(w http.ResponseWriter, status int, data *pageData) {
 	encoded, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, "could not render page", http.StatusInternalServerError)
@@ -294,13 +385,18 @@ func (a *App) serveMetrics(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, a.metrics.sample())
 }
 
-func (a *App) serveImage(w http.ResponseWriter, name string) {
+func (a *App) serveImage(w http.ResponseWriter, projectID, name string) {
 	contentType, ok := imageContentType(name)
 	if !ok {
 		http.NotFound(w, nil)
 		return
 	}
-	resolved, err := resolveImage(a.config.Root, name)
+	project, status, _ := a.project(projectID)
+	if status != http.StatusOK {
+		http.NotFound(w, nil)
+		return
+	}
+	resolved, err := resolveImage(project.root, name)
 	if err != nil {
 		http.NotFound(w, nil)
 		return
@@ -372,11 +468,16 @@ func resolveImage(root, name string) (string, error) {
 	return resolved, nil
 }
 
-func (a *App) serveSearchDocuments(w http.ResponseWriter) {
+func (a *App) serveSearchDocuments(w http.ResponseWriter, projectID string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	index, err := a.scan()
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	index, err := a.scan(project.root)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -416,10 +517,15 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter) {
 }
 
 // serveFormat returns the on-demand formatted view of a formattable file.
-func (a *App) serveFormat(w http.ResponseWriter, name string) {
+func (a *App) serveFormat(w http.ResponseWriter, projectID, name string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	index, err := a.scan()
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	index, err := a.scan(project.root)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -457,8 +563,13 @@ func (a *App) serveFormat(w http.ResponseWriter, name string) {
 }
 
 // serveRaw returns the bytes of an indexed image-preview file in a sandbox.
-func (a *App) serveRaw(w http.ResponseWriter, name string) {
-	index, err := a.scan()
+func (a *App) serveRaw(w http.ResponseWriter, projectID, name string) {
+	project, status, _ := a.project(projectID)
+	if status != http.StatusOK {
+		http.NotFound(w, nil)
+		return
+	}
+	index, err := a.scan(project.root)
 	if err != nil {
 		http.Error(w, "could not scan files", http.StatusInternalServerError)
 		return
@@ -486,8 +597,8 @@ func (a *App) serveRaw(w http.ResponseWriter, name string) {
 	_, _ = io.Copy(w, file)
 }
 
-func (a *App) scan() (*files.Index, error) {
-	return files.Scan(a.config.Root, a.config.Depth, a.config.Exclusions, a.config.Filenames.Match)
+func (a *App) scan(root string) (*files.Index, error) {
+	return files.Scan(root, a.config.Depth, a.config.Exclusions, a.config.Filenames.Match)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -495,18 +606,31 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func (a *App) servePageData(w http.ResponseWriter, selected string, required bool) {
+func (a *App) servePageData(w http.ResponseWriter, projectID, selected string, required bool) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	data, status := a.page(selected, required)
+	data, status := a.page(projectID, selected, required)
 	writeJSON(w, status, data)
 }
 
-func (a *App) page(selected string, required bool) (pageData, int) {
-	index, err := a.scan()
+func (a *App) page(projectID, selected string, required bool) (pageData, int) {
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		return pageData{
+			Project:          projectID,
+			Selected:         selected,
+			Tree:             []treeNode{},
+			FilenamePatterns: a.config.Filenames.Patterns(),
+			SourceLines:      []string{},
+			Error:            message,
+			Warnings:         []string{},
+		}, status
+	}
+	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
-			RootName:         filepath.Base(a.config.Root),
+			Project:          project.id,
+			RootName:         filepath.Base(project.root),
 			Tree:             []treeNode{},
 			FilenamePatterns: a.config.Filenames.Patterns(),
 			SourceLines:      []string{},
@@ -515,6 +639,7 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
+		Project:          project.id,
 		RootName:         filepath.Base(index.RootPath()),
 		Selected:         selected,
 		FileCount:        len(index.Files),
@@ -575,7 +700,7 @@ func (a *App) page(selected string, required bool) (pageData, int) {
 			return data, http.StatusOK
 		}
 		data.SourceLines = document.HighlightLines(file.source, fileType.Language)
-		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Supports: a.config.Filenames.Match})
+		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id, Supports: a.config.Filenames.Match})
 		if err != nil {
 			data.PreviewError = err.Error()
 		}

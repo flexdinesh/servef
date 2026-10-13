@@ -52,13 +52,14 @@ function ResultGroup({ activeIndex, kind, offset, onActivate, results, title }: 
 }
 
 interface SearchDialogProps {
+  project: string
   navigate(path: string): void
   registerOpen(open: (() => void) | null): void
 }
 
-export function SearchDialog({ navigate, registerOpen }: SearchDialogProps) {
+export function SearchDialog({ project, navigate, registerOpen }: SearchDialogProps) {
   const { dialog, input, handlers, activeIndex, expanded, groups, query, status, changeQuery }
-    = useSearchSession(navigate, registerOpen)
+    = useSearchSession(project, navigate, registerOpen)
 
   const activeID = activeIndex >= 0 ? `search-option-${activeIndex}` : undefined
 

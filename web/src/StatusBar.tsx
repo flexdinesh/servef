@@ -1,5 +1,6 @@
 import { formatBytes } from "./format-bytes.ts"
 import type { PageData } from "./page-data.ts"
+import { projectUrl } from "./project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { SearchIcon } from "lucide-react"
 import { ModeToggle } from "./components/ModeToggle.tsx"
@@ -29,7 +30,7 @@ export function StatusBar({ detail, isLoading, error, onSearch, onHome, page }: 
   return (
     <footer className="status-bar">
       <div className="status-explorer" role="group" aria-label="File tree status">
-        <a className="status-brand" href="/" aria-label="servef home" onClick={(event) => {
+        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="servef home" onClick={(event) => {
           if (!onHome || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
           event.preventDefault()
           onHome()

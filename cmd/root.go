@@ -127,7 +127,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Root: root, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
+	app, err := webui.New(webui.Config{Root: root, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}

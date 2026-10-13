@@ -21,7 +21,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	root := filepath.Join("..", "..", "testdata", "markdown")
 	app := newTestApp(t, root)
 
-	landing, landingData := requestPageData(t, app, "/api/page")
+	landing, landingData := requestPageData(t, app, "/api/page?project=.")
 	if landing.Code != http.StatusOK {
 		t.Fatalf("landing status = %d, want %d", landing.Code, http.StatusOK)
 	}
@@ -38,7 +38,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		}
 	}
 
-	guide, guideData := requestPageData(t, app, "/api/page?path=guides%2Fgetting-started.md")
+	guide, guideData := requestPageData(t, app, "/api/page?project=.&path=guides%2Fgetting-started.md")
 	if guide.Code != http.StatusOK {
 		t.Fatalf("guide status = %d, want %d", guide.Code, http.StatusOK)
 	}
@@ -46,13 +46,13 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		"<h1>Getting started</h1>",
 		"<table>",
 		`<pre><code class="language-sh syntax-highlight">servef testdata/markdown`,
-		`href="/view?path=reference%2Ftopics%2Fsearch.md"`,
+		`href="/view?project=.&amp;path=reference%2Ftopics%2Fsearch.md"`,
 	)
 	if guideData.FileSize == 0 {
 		t.Fatal("guide file size is zero")
 	}
 
-	codeBlocks, codeBlocksData := requestPageData(t, app, "/api/page?path=guides%2Fcode-blocks.md")
+	codeBlocks, codeBlocksData := requestPageData(t, app, "/api/page?project=.&path=guides%2Fcode-blocks.md")
 	if codeBlocks.Code != http.StatusOK {
 		t.Fatalf("code blocks status = %d, want %d", codeBlocks.Code, http.StatusOK)
 	}
@@ -64,7 +64,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		`<pre><code>plain text still supports copying`,
 	)
 
-	diagrams, diagramsData := requestPageData(t, app, "/api/page?path=guides%2Fdiagrams.md")
+	diagrams, diagramsData := requestPageData(t, app, "/api/page?project=.&path=guides%2Fdiagrams.md")
 	if diagrams.Code != http.StatusOK {
 		t.Fatalf("diagrams status = %d, want %d", diagrams.Code, http.StatusOK)
 	}
@@ -82,7 +82,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		t.Fatal("Mermaid source was not HTML-escaped")
 	}
 
-	search := request(t, app, "/api/search-documents")
+	search := request(t, app, "/api/search-documents?project=.")
 	if search.Code != http.StatusOK {
 		t.Fatalf("search status = %d, want %d", search.Code, http.StatusOK)
 	}
@@ -171,7 +171,7 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	}
 
 	app := newTestApp(t, root)
-	landing, landingData := requestPageData(t, app, "/api/page")
+	landing, landingData := requestPageData(t, app, "/api/page?project=.")
 	if landing.Code != http.StatusOK {
 		t.Fatalf("landing status = %d, want %d", landing.Code, http.StatusOK)
 	}
@@ -183,7 +183,7 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 		t.Fatalf("landing data = %#v", landingData)
 	}
 
-	document, documentData := requestPageData(t, app, "/api/page?path=docs%2FGuide.MD")
+	document, documentData := requestPageData(t, app, "/api/page?project=.&path=docs%2FGuide.MD")
 	if document.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", document.Code, http.StatusOK)
 	}
@@ -198,7 +198,7 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	if got := document.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
 		t.Fatalf("Content-Type = %q", got)
 	}
-	shell := request(t, app, "/view?path=docs%2FGuide.MD")
+	shell := request(t, app, "/view?project=.&path=docs%2FGuide.MD")
 	if got := shell.Header().Get("Content-Security-Policy"); got == "" {
 		t.Fatal("Content-Security-Policy is empty")
 	}
@@ -282,7 +282,7 @@ func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 		"```",
 	}, "\n"))
 	app := newTestApp(t, root)
-	response, data := requestPageData(t, app, "/api/page?path=diagrams.md")
+	response, data := requestPageData(t, app, "/api/page?project=.&path=diagrams.md")
 	if response.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", response.Code, http.StatusOK)
 	}
@@ -299,7 +299,7 @@ func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 	if strings.Contains(body, "<script>alert") {
 		t.Fatal("Mermaid source was rendered as raw HTML")
 	}
-	for _, target := range []string{"/", "/view?path=missing.md"} {
+	for _, target := range []string{"/", "/view?project=.&path=missing.md"} {
 		if strings.Contains(request(t, app, target).Body.String(), "MermaidCanvas") {
 			t.Errorf("GET %s eagerly includes Mermaid chunk", target)
 		}
@@ -319,7 +319,7 @@ func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 	}, "\n\n"))
 	writeMarkdown(t, filepath.Join(root, "node_modules", "ignored.md"), "# Ignored")
 
-	response := request(t, newTestApp(t, root), "/api/search-documents")
+	response := request(t, newTestApp(t, root), "/api/search-documents?project=.")
 	if response.Code != http.StatusOK {
 		t.Fatalf("search status = %d, want %d", response.Code, http.StatusOK)
 	}
@@ -354,10 +354,10 @@ func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "first.md"), "# First")
 	app := newTestApp(t, root)
 
-	first := request(t, app, "/api/search-documents")
+	first := request(t, app, "/api/search-documents?project=.")
 	assertContains(t, first.Body.String(), "first.md")
 	writeMarkdown(t, filepath.Join(root, "second.md"), "# Second")
-	second := request(t, app, "/api/search-documents")
+	second := request(t, app, "/api/search-documents?project=.")
 	assertContains(t, second.Body.String(), "first.md", "second.md")
 
 	originalOpenFile := app.openFile
@@ -367,7 +367,7 @@ func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
 		}
 		return originalOpenFile(name)
 	}
-	partial := request(t, app, "/api/search-documents")
+	partial := request(t, app, "/api/search-documents?project=.")
 	if partial.Code != http.StatusOK {
 		t.Fatalf("partial status = %d, want %d", partial.Code, http.StatusOK)
 	}
@@ -386,7 +386,7 @@ func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
 func TestSearchDocumentsEncodesHostileMarkdownAsJSON(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "hostile.md"), "# Safe\n\nText </script><script>alert(1)</script> tail")
-	response := request(t, newTestApp(t, root), "/api/search-documents")
+	response := request(t, newTestApp(t, root), "/api/search-documents?project=.")
 	if strings.Contains(response.Body.String(), "</script>") {
 		t.Fatalf("JSON response contains an unescaped script terminator: %s", response.Body.String())
 	}
@@ -399,15 +399,15 @@ func TestSearchDocumentsEncodesHostileMarkdownAsJSON(t *testing.T) {
 	}
 }
 
-func TestSearchDocumentsReturnsJSONForFatalScan(t *testing.T) {
+func TestSearchDocumentsReturnsJSONForUnavailableProject(t *testing.T) {
 	root := t.TempDir()
 	app := newTestApp(t, root)
 	if err := os.Remove(root); err != nil {
 		t.Fatal(err)
 	}
-	response := request(t, app, "/api/search-documents")
-	if response.Code != http.StatusInternalServerError {
-		t.Fatalf("search status = %d, want %d", response.Code, http.StatusInternalServerError)
+	response := request(t, app, "/api/search-documents?project=.")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("search status = %d, want %d", response.Code, http.StatusNotFound)
 	}
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
@@ -472,12 +472,12 @@ func TestAppRescansOnEveryRequest(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "first.md"), "# First\n")
 	app := newTestApp(t, root)
 
-	first := request(t, app, "/api/page")
+	first := request(t, app, "/api/page?project=.")
 	if strings.Contains(first.Body.String(), "second.md") {
 		t.Fatal("second.md appeared before it existed")
 	}
 	writeMarkdown(t, filepath.Join(root, "second.md"), "# Second\n")
-	second := request(t, app, "/api/page")
+	second := request(t, app, "/api/page?project=.")
 	assertContains(t, second.Body.String(), "first.md", "second.md")
 }
 
@@ -495,19 +495,19 @@ func TestAppRewritesLocalMarkdownLinksToViewRoutes(t *testing.T) {
 	}, "\n\n"))
 	writeMarkdown(t, filepath.Join(root, "docs", "Other.markdown"), "# Other\n")
 
-	document, data := requestPageData(t, newTestApp(t, root), "/api/page?path=docs%2FGuide.MD")
+	document, data := requestPageData(t, newTestApp(t, root), "/api/page?project=.&path=docs%2FGuide.MD")
 	if document.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", document.Code, http.StatusOK)
 	}
 	body := data.Content
 	assertContains(t, body,
-		`href="/view?path=README.md#top"`,
-		`href="/view?path=docs%2FOther.markdown&amp;plain=1#details"`,
-		`href="/view?path=README.md"`,
+		`href="/view?project=.&amp;path=README.md#top"`,
+		`href="/view?project=.&amp;path=docs%2FOther.markdown&amp;plain=1#details"`,
+		`href="/view?project=.&amp;path=README.md"`,
 		`href="https://example.com/README.md"`,
 		`href="#section"`,
 		`href="sub/"`,
-		`href="/view?path=docs%2Fnotes.txt"`,
+		`href="/view?project=.&amp;path=docs%2Fnotes.txt"`,
 	)
 }
 
@@ -523,14 +523,14 @@ func TestAppRewritesLocalImageURLs(t *testing.T) {
 		"![protocol relative](//example.com/image.png)",
 	}, "\n\n"))
 
-	response, data := requestPageData(t, newTestApp(t, root), "/api/page?path=docs%2FGuide.md")
+	response, data := requestPageData(t, newTestApp(t, root), "/api/page?project=.&path=docs%2FGuide.md")
 	if response.Code != http.StatusOK {
 		t.Fatalf("document status = %d, want %d", response.Code, http.StatusOK)
 	}
 	assertContains(t, data.Content,
-		`src="/api/image?path=images%2Fexample.png#crop"`,
-		`src="/api/image?path=images%2Fexample.svg&amp;theme=dark"`,
-		`src="/api/image?path=docs%2Flocal.webp&amp;size=2"`,
+		`src="/api/image?project=.&amp;path=images%2Fexample.png#crop"`,
+		`src="/api/image?project=.&amp;path=images%2Fexample.svg&amp;theme=dark"`,
+		`src="/api/image?project=.&amp;path=docs%2Flocal.webp&amp;size=2"`,
 		`src="https://example.com/image.png"`,
 		`src="data:image/png;base64,AAAA"`,
 		`src="blob:https://example.com/id"`,
@@ -563,7 +563,7 @@ func TestAppServesSupportedImages(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			response := request(t, newTestApp(t, root), "/api/image?path=images%2F"+test.name)
+			response := request(t, newTestApp(t, root), "/api/image?project=.&path=images%2F"+test.name)
 			if response.Code != http.StatusOK {
 				t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 			}
@@ -599,13 +599,13 @@ func TestAppRejectsUnsafeAndUnavailableImages(t *testing.T) {
 
 	app := newTestApp(t, root)
 	for _, target := range []string{
-		"/api/image",
-		"/api/image?path=missing.png",
-		"/api/image?path=notes.txt",
-		"/api/image?path=directory.png",
-		"/api/image?path=..%2Foutside.png",
-		"/api/image?path=%2Foutside.png",
-		"/api/image?path=escape.png",
+		"/api/image?project=.",
+		"/api/image?project=.&path=missing.png",
+		"/api/image?project=.&path=notes.txt",
+		"/api/image?project=.&path=directory.png",
+		"/api/image?project=.&path=..%2Foutside.png",
+		"/api/image?project=.&path=%2Foutside.png",
+		"/api/image?project=.&path=escape.png",
 	} {
 		t.Run(target, func(t *testing.T) {
 			response := request(t, app, target)
@@ -620,23 +620,23 @@ func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {
 	root := t.TempDir()
 	app := newTestApp(t, root)
 
-	_, empty := requestPageData(t, app, "/api/page")
+	_, empty := requestPageData(t, app, "/api/page?project=.")
 	if !empty.Empty {
 		t.Fatal("empty root was not reported empty")
 	}
 
-	missing := request(t, app, "/view?path=missing.md")
+	missing := request(t, app, "/view?project=.&path=missing.md")
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("missing status = %d, want %d", missing.Code, http.StatusNotFound)
 	}
 	assertContains(t, missing.Body.String(), "unavailable")
 
-	unsafe := request(t, app, "/view?path=..%2Foutside.md")
+	unsafe := request(t, app, "/view?project=.&path=..%2Foutside.md")
 	if unsafe.Code != http.StatusBadRequest {
 		t.Fatalf("unsafe status = %d, want %d", unsafe.Code, http.StatusBadRequest)
 	}
 
-	noSelection := request(t, app, "/view")
+	noSelection := request(t, app, "/view?project=.")
 	if noSelection.Code != http.StatusBadRequest {
 		t.Fatalf("empty selection status = %d, want %d", noSelection.Code, http.StatusBadRequest)
 	}
@@ -656,7 +656,7 @@ func TestAppRejectsUnknownRoutesAndMethods(t *testing.T) {
 		t.Fatalf("POST status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/search-documents", nil)
+	req = httptest.NewRequest(http.MethodPost, "/api/search-documents?project=.", nil)
 	response = httptest.NewRecorder()
 	app.ServeHTTP(response, req)
 	if response.Code != http.StatusMethodNotAllowed {
