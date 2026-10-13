@@ -136,7 +136,7 @@ func (i *Index) Resolve(name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve indexed path %q: %w", rel, err)
 	}
-	if !withinRoot(i.root, resolved) {
+	if !Within(i.root, resolved) {
 		return "", ErrPathEscape
 	}
 
@@ -163,7 +163,7 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		i.Warnings = append(i.Warnings, Warning{Path: node.Path, Err: err})
 		return nil
 	}
-	if !withinRoot(i.root, resolvedDir) {
+	if !Within(i.root, resolvedDir) {
 		if depth == 0 {
 			return ErrPathEscape
 		}
@@ -254,7 +254,9 @@ func joinSlash(parent, name string) string {
 	return parent + "/" + name
 }
 
-func withinRoot(root, candidate string) bool {
+// Within reports whether candidate is root or lies below it. Both paths must be
+// absolute and symlink-evaluated.
+func Within(root, candidate string) bool {
 	rel, err := filepath.Rel(root, candidate)
 	if err != nil || filepath.IsAbs(rel) {
 		return false

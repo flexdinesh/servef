@@ -21,6 +21,7 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/version"
 	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
@@ -33,6 +34,7 @@ const defaultHost = "localhost"
 type options struct {
 	path       string
 	depth      int
+	scanDepth  int
 	host       string
 	port       int
 	portSet    bool
@@ -71,6 +73,9 @@ func newRootCommand(runCommand runner) *cobra.Command {
 			if opts.depth < 0 {
 				return errors.New("--depth must be zero or greater")
 			}
+			if opts.scanDepth < 0 {
+				return errors.New("--scan-depth must be zero or greater")
+			}
 			if opts.port < 0 || opts.port > 65535 {
 				return errors.New("--port must be between 0 and 65535")
 			}
@@ -93,7 +98,8 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	command.SetVersionTemplate("{{.Version}}\n")
 
 	command.Flags().StringVar(&filenames, "filename", "*", "comma-separated, case-insensitive base-name globs to include (e.g. '*.md,*.go,Dockerfile')")
-	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan")
+	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
+	command.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
 	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
 	command.Flags().IntVar(&opts.port, "port", 0, "port; defaults to the first free port from 7971 to 7980")
 	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
@@ -115,7 +121,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 	if len(filenames.Patterns()) == 0 {
 		filenames = files.AllNames()
 	}
-	index, err := files.Scan(root, opts.depth, exclusions, filenames.Match)
+	discovery, err := projects.Discover(root, opts.scanDepth, exclusions)
 	discoveryDuration := time.Since(discoveryStarted)
 	if err != nil {
 		return err
@@ -184,11 +190,11 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 
 	url := serverURL(host, port)
 	writeStartup(stdout, startupInfo{
-		Version:   "servef " + version.Number(),
-		Directory: root,
-		URL:       url,
-		FileCount: len(index.Files),
-		Discovery: discoveryDuration,
+		Version:      "servef " + version.Number(),
+		Directory:    root,
+		URL:          url,
+		ProjectCount: len(discovery.Projects),
+		Discovery:    discoveryDuration,
 	})
 	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
 		go func() {
