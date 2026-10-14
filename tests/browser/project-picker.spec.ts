@@ -129,3 +129,21 @@ test("the picker switches projects from the mobile drawer", async ({ page }) => 
   await expect(page).toHaveURL(/\/\?project=reference$/)
   await expect(picker(page)).toBeHidden()
 })
+
+test("the mobile toolbar opens the picker without the drawer", async ({ page }) => {
+  await mockProjects(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/?project=.")
+  const toolbarButton = page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: "Switch project (markdown)" })
+  await toolbarButton.click()
+  await expect(page.getByRole("dialog", { name: "Files" })).toBeHidden()
+  await picker(page).getByRole("option", { name: /guides/ }).click()
+  await expect(page).toHaveURL(/\/\?project=guides$/)
+  await expect(page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: "Switch project (guides)" })).toBeVisible()
+})
+
+test("the toolbar project button is hidden on desktop", async ({ page }) => {
+  await page.goto("/?project=.")
+  await expect(trigger(page)).toBeVisible()
+  await expect(page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: /Switch project/ })).toBeHidden()
+})

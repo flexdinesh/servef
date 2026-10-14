@@ -1725,6 +1725,12 @@ article hr {
     height: var(--tabs-height);
   }
 
+  /* The project switcher sits after the files toggle, before the tabs. */
+  .project-toggle {
+    border-left: 1px solid var(--color-border);
+    border-radius: 0;
+  }
+
   .explorer-header {
     height: var(--tabs-height);
   }
