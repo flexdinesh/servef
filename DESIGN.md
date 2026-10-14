@@ -209,7 +209,7 @@ Desktop: full-height explorer beside the tabbed document workspace, above a 28px
 
 Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger, close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and theme remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
+At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and theme remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
 
 Content palette: maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer.
 
@@ -263,7 +263,8 @@ which expands matching ancestors. Directory chevrons are 12px within existing ro
 ### Project picker
 
 The explorer header shows the current project's name with a 12px chevron; it
-opens the picker, as does Ctrl/Cmd+O (also from the mobile drawer header). The
+opens the picker, as does Ctrl/Cmd+O. Mobile also shows a project icon button
+in the toolbar after the files toggle, so switching skips the drawer. The
 picker is a quick pick on the content-palette frame with two modes:
 
 - **Projects**: the served folder first, then discovered repositories; linked

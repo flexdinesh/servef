@@ -10,7 +10,7 @@ import {
   useState,
 } from "react"
 
-import { PanelLeftIcon } from "lucide-react"
+import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
 import { ProjectPicker } from "./ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
@@ -155,6 +155,10 @@ export function App({ project }: AppProps) {
           <div className="workspace-toolbar">
             <button type="button" className="files-toggle" aria-label="Open files" onClick={() => openFiles.current()}>
               <PanelLeftIcon aria-hidden="true" />
+            </button>
+            <button type="button" className="files-toggle project-toggle" aria-haspopup="dialog"
+              aria-label={`Switch project (${page.rootName || page.project || "none"})`} onClick={chooseProject}>
+              <FolderGit2Icon aria-hidden="true" />
             </button>
             <TabBar
               activePath={page.selected}
