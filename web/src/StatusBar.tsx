@@ -2,20 +2,24 @@ import { formatBytes } from "./format-bytes.ts"
 import type { PageData } from "./page-data.ts"
 import { projectUrl } from "./project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
-import { SearchIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, SearchIcon } from "lucide-react"
 import { ModeToggle } from "./components/ModeToggle.tsx"
+import { useClipboardCopy } from "./clipboard.ts"
+import { lineRangeLabel, type LineRange } from "./line-selection.ts"
 
 interface StatusBarProps {
   detail?: string
   isLoading: boolean
+  lines?: LineRange | null
   page: PageData
   error: string
   onSearch(): void
   onHome?(): void
 }
 
-export function StatusBar({ detail, isLoading, error, onSearch, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, isLoading, error, lines, onSearch, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
+  const pathCopy = useClipboardCopy()
   const processTitle = metrics
     ? [
         "servef process",
@@ -55,12 +59,25 @@ export function StatusBar({ detail, isLoading, error, onSearch, onHome, page }: 
         <span className="status-path" title={page.selected || page.rootName}>
           {page.selected || page.rootName || "servef"}
         </span>
+        {page.hasFile && page.selected && (
+          <button
+            className="status-copy-path"
+            type="button"
+            aria-label="Copy path"
+            title={pathCopy.status === "failed" ? "Copy failed" : "Copy path"}
+            data-status={pathCopy.status}
+            onClick={() => { void pathCopy.copy(page.selected) }}
+          >
+            {pathCopy.status === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+          </button>
+        )}
         <button className="status-search" type="button" aria-keyshortcuts="Control+Shift+F Meta+Shift+F" onClick={onSearch}>
           <SearchIcon aria-hidden="true" />
           <span>Find in files</span>
           <kbd>{navigator.platform.includes("Mac") ? "⌘⇧F" : "Ctrl+Shift+F"}</kbd>
         </button>
         <span className="status-grow" />
+        {page.hasFile && lines && <span className="status-lines">{lineRangeLabel(lines)}</span>}
         {page.hasFile && detail && <span className="status-document-detail">{detail}</span>}
         {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
         {page.hasFile && page.documentType && (
@@ -69,6 +86,9 @@ export function StatusBar({ detail, isLoading, error, onSearch, onHome, page }: 
           </span>
         )}
         <ModeToggle />
+        <span className="visually-hidden" role="status">
+          {pathCopy.status === "copied" ? "Path copied" : pathCopy.status === "failed" ? "Copy failed" : ""}
+        </span>
       </div>
     </footer>
   )

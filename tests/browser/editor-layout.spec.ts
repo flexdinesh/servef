@@ -10,7 +10,8 @@ test("workspace identity and actions live in explorer and full-width status bar"
   await expect(status.getByRole("button", { name: "Theme: System" })).toBeVisible()
   const documentStatus = status.getByRole("group", { name: "Document status" })
   await expect(documentStatus.locator(":scope > :first-child")).toHaveText("guides/getting-started.md")
-  await expect(documentStatus.locator(":scope > :nth-child(2)")).toHaveAccessibleName(/^Find in files/)
+  await expect(documentStatus.locator(":scope > :nth-child(2)")).toHaveAccessibleName("Copy path")
+  await expect(documentStatus.locator(":scope > :nth-child(3)")).toHaveAccessibleName(/^Find in files/)
   const footerOffset = () => documentStatus.evaluate((element) => {
     const pane = document.querySelector("main")
     return pane ? element.getBoundingClientRect().x - pane.getBoundingClientRect().x : null

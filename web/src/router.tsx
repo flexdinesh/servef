@@ -74,8 +74,9 @@ const viewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "view",
   validateSearch,
-  beforeLoad: ({ search }) => {
-    if (!search.project) throw redirect({ to: "/view", search: withProject(search, rootProject), replace: true })
+  beforeLoad: ({ search, location }) => {
+    // Keep line anchors (#L12) across the default-project redirect.
+    if (!search.project) throw redirect({ to: "/view", search: withProject(search, rootProject), hash: location.hash, replace: true })
   },
   loaderDeps: ({ search }) => ({ project: search.project ?? rootProject, selected: search.path ?? "" }),
   loader: ({ abortController, deps }) => loadPage({
