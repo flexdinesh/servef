@@ -17,6 +17,7 @@ import { DocumentPane } from "./DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./document-view.ts"
 import { FileTree } from "./FileTree.tsx"
 import { ImageZoomControls } from "./ImageZoomControls.tsx"
+import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./line-selection.ts"
 import {
   emptyPage,
   isPageLoadResult,
@@ -57,6 +58,7 @@ export function App({ project }: AppProps) {
   const routed = useRouterState({ select: (state) => activePageResult(state.matches) })
   const result = routed?.kind === "page" && routed.page.project !== project ? null : routed
   const isLoading = useRouterState({ select: (state) => state.isLoading })
+  const lineRange = parseLineAnchor(useRouterState({ select: (state) => state.location.hash }))
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<() => void>(() => {})
@@ -93,7 +95,8 @@ export function App({ project }: AppProps) {
   })
   const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
   const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
-  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected))
+  // A line anchor (#L12) opens Source unless the tab already chose a view.
+  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : undefined))
   const formatState = formatResult(page.selected, page.source)
   const view = documentView(page, documentMode, formatState)
   const formatPending = view.kind === "source" && view.formatPending
@@ -107,6 +110,13 @@ export function App({ project }: AppProps) {
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
 
+  const selectLines = useCallback((range: LineRange | null) => {
+    if (!page.selected) return
+    void navigate({ to: "/view", search: { project, path: page.selected }, hash: range ? lineAnchor(range) : "", replace: true })
+  }, [navigate, page.selected, project])
+  const showSource = view.kind === "source" && !loadError && !page.error
+  const selectedLines = showSource && lineRange ? clampLineRange(lineRange, splitSourceLines(page.source).length) : null
+
   const switchProject = useCallback((next: string) => {
     prepareDocumentNavigation()
     void navigate({ to: "/", search: { project: next }, hash: "" })
@@ -115,6 +125,8 @@ export function App({ project }: AppProps) {
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
     if (mode === "format") requestFormat(page.selected, page.source)
+    // Line numbers address the original source only.
+    if (mode !== "source" && lineRange) selectLines(null)
     setDocumentMode(page.selected, mode)
     resetDocumentScroll(page.selected)
   }
@@ -174,6 +186,7 @@ export function App({ project }: AppProps) {
             hasData={hasData}
             image={image}
             isLoading={isLoading}
+            lineSelection={{ path: page.selected, range: lineRange, onChange: selectLines }}
             loadError={loadError}
             main={main}
             navigate={navigateToHref}
@@ -188,6 +201,7 @@ export function App({ project }: AppProps) {
         detail={showImage && image.status === "ready" && image.width > 0
           ? `${image.width} × ${image.height} · ${image.percent}%`
           : undefined}
+        lines={selectedLines}
         onSearch={() => openSearch.current()}
         onHome={() => {
           prepareDocumentNavigation()

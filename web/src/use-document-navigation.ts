@@ -1,7 +1,16 @@
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router"
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
+import { parseLineAnchor } from "./line-selection.ts"
 import type { PageData } from "./page-data.ts"
+
+// revealLine scrolls a line anchor into view near the top third, unless visible.
+function revealLine(pane: HTMLElement, line: Element) {
+  const paneBox = pane.getBoundingClientRect()
+  const lineBox = line.getBoundingClientRect()
+  if (lineBox.top >= paneBox.top && lineBox.bottom <= paneBox.bottom) return
+  pane.scrollTop += lineBox.top - paneBox.top - pane.clientHeight / 3
+}
 
 export function useDocumentNavigation(project: string, page: PageData, isLoading: boolean, loadError: string) {
   const navigate = useNavigate()
@@ -37,8 +46,12 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
       if (!pane) return
       let hash = location.hash
       try { hash = decodeURIComponent(hash) } catch { /* Keep malformed fragments literal. */ }
-      const anchor = hash ? document.getElementById(hash) : null
-      if (anchor && pane.contains(anchor)) {
+      const lines = parseLineAnchor(hash)
+      const line = lines ? pane.querySelector(`.source-document [data-line="${lines.start}"]`) : null
+      const anchor = hash && !lines ? document.getElementById(hash) : null
+      if (line) {
+        revealLine(pane, line)
+      } else if (anchor && pane.contains(anchor)) {
         anchor.scrollIntoView({ block: "start" })
       } else {
         const entry = historyPositions.current.get(location.state.__TSR_key ?? location.href)

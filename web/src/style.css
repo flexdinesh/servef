@@ -756,8 +756,46 @@ main.image-mode {
   flex: 1;
 }
 
-.status-document-detail {
+.status-document-detail,
+.status-lines {
   font-variant-numeric: tabular-nums;
+}
+
+.status-copy-path {
+  display: inline-flex;
+  width: 1.75rem;
+  height: var(--status-height);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: calc(-1 * var(--space-2));
+  padding: 0;
+  border: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.status-copy-path:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+}
+
+.status-copy-path:focus-visible {
+  outline-offset: -2px;
+}
+
+.status-copy-path[data-status="copied"] {
+  color: var(--color-success);
+}
+
+.status-copy-path[data-status="failed"] {
+  color: var(--color-destructive);
+}
+
+.status-copy-path svg {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .status-metrics {
@@ -825,7 +863,7 @@ article {
   z-index: 1;
   flex: none;
   box-sizing: border-box;
-  padding: 0 14px 0 16px;
+  padding: 0 14px 0 22px;
   color: var(--color-text-muted);
   background: var(--color-surface);
   cursor: pointer;
@@ -837,6 +875,76 @@ article {
 .source-document-line.active .source-document-line-number {
   color: var(--color-text-primary);
   background: var(--color-surface-secondary);
+}
+
+.source-document.selecting-lines,
+.source-document.selecting-lines .source-document-line-number {
+  cursor: pointer;
+  user-select: none;
+}
+
+.source-document-line.selected,
+.source-document-line.selected .source-document-line-number {
+  background: var(--color-accent-subtle);
+}
+
+.source-document-line.selected .source-document-line-number {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.source-line-copy-button {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  display: inline-flex;
+  width: 1.1875rem;
+  height: 1.1875rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+}
+
+.source-line-copy-button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.source-line-copy-button:focus-visible {
+  outline-offset: 1px;
+}
+
+.source-line-copy-button svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.source-line-copy-status {
+  position: absolute;
+  top: 1px;
+  left: calc(100% + var(--space-1));
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.source-line-copy-status.failed {
+  color: var(--color-destructive);
 }
 
 .source-document-line-content {
@@ -1755,6 +1863,7 @@ article hr {
   }
 
   .status-document-detail,
+  .status-lines,
   .status-file-size,
   .status-file-type,
   .status-file-count,
@@ -1766,6 +1875,11 @@ article hr {
   .status-search,
   .theme-trigger {
     min-height: var(--status-height);
+  }
+
+  .status-copy-path {
+    width: 2.25rem;
+    margin-left: calc(-1 * var(--space-1));
   }
 
   .theme-trigger {

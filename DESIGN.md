@@ -295,6 +295,10 @@ Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 
+### Line selection
+
+Source works like GitHub and VS Code line links. Clicking a line number selects that line; dragging across line numbers (or on into the code) previews a range and commits it on release; Shift-click extends from the last pressed line in either direction; Escape in the source clears. Touch selects on tap only, keeping scroll. The URL fragment owns the selection (`#L12`, `#L12-L20`, replace history, no refetch), so loading an anchor highlights the range, clamps it to the file, and scrolls its first line to the upper third unless visible. A line anchor opens Markdown/SVG in Source; switching to Preview or Format clears it, since line numbers address the original file only. Selected rows use `accent-subtle` with accent, 600-weight line numbers. A 19px raised copy control (2px radius, strong border, control shadow) sits in the gutter's 22px left inset on the first selected line and copies the project-relative `path:12` or `path:12-20`; “Copied” appears beside the gutter.
+
 Unregistered text files open as Source and the footer names the type (“Plain text”). Files over 4 MiB show a slim warning-subtle bar above Source, “Large file (6.2 MB): preview and formatting are off.”, adding “Not included in search.” past 8 MiB; Preview/Format stay visible but `aria-disabled` with the reason as a tooltip.
 
 ### Images and binary files
@@ -307,7 +311,7 @@ Non-image files over 32 MiB use the same layout: “Too large to display”, `na
 
 ### Footer and theme
 
-Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, Find in files immediately after, then image dimensions/zoom (images only), size, file-type label, and theme. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above. Theme opens upward as a single-choice menu, marks configured choice, and shows its label plus resolved light/dark icon.
+Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and theme. Mobile keeps Copy path and hides selected lines. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above. Theme opens upward as a single-choice menu, marks configured choice, and shows its label plus resolved light/dark icon.
 
 ### Content search
 
