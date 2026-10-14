@@ -8,7 +8,7 @@ const customType = {
 function customPage(source: string) {
   return {
     content: "", source, sourceLines: [source.trimEnd()],
-    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, servedRoot: "/example", project: ".", rootName: "example", selected: "sample.custom",
+    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, servedRoot: "/example", project: ".", projectUnavailable: false, rootName: "example", selected: "sample.custom",
     warnings: [], previewError: "", filenamePatterns: ["*"], documentType: customType,
     binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name: "sample.custom", path: "sample.custom", fileType: "custom", isDir: false, open: false, selected: true, children: [] }],

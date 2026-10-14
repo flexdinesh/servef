@@ -13,6 +13,7 @@ export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 export const emptyPage: PageData = {
   servedRoot: "",
   project: "",
+  projectUnavailable: false,
   filenamePatterns: [],
   documentType: null,
   binary: false,

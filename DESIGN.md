@@ -164,7 +164,7 @@ components:
 
 servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
 
-Workspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
+Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
 
 **Key Characteristics:**
 
@@ -201,7 +201,7 @@ Inter Variable is bundled locally for UI and prose; code/source use the system m
 | Source | 13.5px / 21px | Monospace, fixed line rows |
 | Preview code | 13.5px | Monospace; block line-height 1.6 |
 
-Workspace name uses 12px and 600 weight. The generic Tailwind scale serves primitives; preview uses `--preview-*` roles.
+Project name uses 12px and 600 weight. The generic Tailwind scale serves primitives; preview uses `--preview-*` roles.
 
 ## Layout
 
@@ -239,7 +239,7 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 ### Explorer
 
-Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 40px mobile. Workspace name sits above. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
+Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 40px mobile. The project name sits above as a trigger for the project picker. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
 The filename filter sits below the explorer header, always visible, matching the
 filename search field's width and appearance: funnel icon, placeholder
@@ -260,9 +260,37 @@ Beside Search files, a compact action toggles Collapse all/Expand all, including
 folders hidden by the filename filter. It is disabled during a nonempty filename search,
 which expands matching ancestors. Directory chevrons are 12px within existing row targets.
 
+### Project picker
+
+The explorer header shows the current project's name with a 12px chevron; it
+opens the picker, as does Ctrl/Cmd+O (also from the mobile drawer header). The
+picker is a quick pick on the content-palette frame with two modes:
+
+- **Projects**: the served folder first, then discovered repositories; linked
+  worktrees nest under their main worktree. Worktrees outside the served root
+  stay listed but `aria-disabled`, with a muted “Outside <root>” note. Folders
+  opened by hand follow under “Opened folders”, each with a hover Forget action
+  (always visible on mobile) except the current one. The current project shows
+  an accent “Current” check. Typing filters to ranked flat matches; `/` or
+  **Open folder…** enters Browse.
+- **Browse**: the served root is a muted fixed prefix before the path input.
+  The first row opens the typed folder; child folders follow, repositories with
+  a muted `git` label. Tab completes, Enter on a folder descends, Backspace on a
+  trailing slash goes up a level and on an empty path returns to Projects.
+
+Rows are 32px desktop / 44px mobile with 14px icons (folder, repository,
+worktree, opened folder); paths truncate from the start so the deepest folders
+stay visible. Status lines read “Scanning for projects…” and “Reading folder…”
+after 150ms, name list or folder errors with Retry, and count unreadable
+folders. Escape or the backdrop closes the picker and restores focus. Choosing
+a project keeps the current workspace visible until the new project loads, then
+starts fresh: tree filter, search index, and format results reset, and the
+project's remembered tabs return. A project that no longer resolves shows
+“The project <id> is unavailable…” with a Choose another project action.
+
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons use `aria-pressed`, subtle active fill, and 12px labels, filling the toolbar height with 4px above and below: 24px desktop, 36px mobile. View labels/defaults come from file-type metadata. Mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons use `aria-pressed`, subtle active fill, and 12px labels, filling the toolbar height with 4px above and below: 24px desktop, 36px mobile. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 

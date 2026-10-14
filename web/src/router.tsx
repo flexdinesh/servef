@@ -8,7 +8,7 @@ import {
 
 import { App } from "./App.tsx"
 import { loadPage } from "./page-data.ts"
-import { fetchDirectories, fetchProjects, landingProject, rootProject } from "./projects-data.ts"
+import { fetchDirectories, fetchProjects, landingProject, requestLandingPick, rootProject } from "./projects-data.ts"
 import { readMemory } from "./workspace-memory.ts"
 
 interface PageSearch {
@@ -55,6 +55,7 @@ const indexRoute = createRoute({
       // An unlisted folder (opened by hand) reopens only while it still exists.
       if (!landing.listed) await fetchDirectories(landing.project, abortController.signal)
       project = landing.project
+      if (landing.pick) requestLandingPick()
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") throw error
     }

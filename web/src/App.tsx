@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import { PanelLeftIcon } from "lucide-react"
+import { ProjectPicker } from "./ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./document-view.ts"
@@ -58,6 +59,7 @@ export function App({ project }: AppProps) {
   const isLoading = useRouterState({ select: (state) => state.isLoading })
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
+  const openProjects = useRef<() => void>(() => {})
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
   useEffect(() => {
     if (result?.kind === "page") setLastPage(result.page)
@@ -69,6 +71,10 @@ export function App({ project }: AppProps) {
   const registerFiles = useCallback((open: (() => void) | null) => {
     openFiles.current = open ?? (() => {})
   }, [])
+  const registerProjects = useCallback((open: (() => void) | null) => {
+    openProjects.current = open ?? (() => {})
+  }, [])
+  const chooseProject = useCallback(() => openProjects.current(), [])
 
   const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
   const hasData = result?.kind === "page" || lastPage !== null
@@ -100,6 +106,11 @@ export function App({ project }: AppProps) {
   }, [needsFormat, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
+
+  const switchProject = useCallback((next: string) => {
+    prepareDocumentNavigation()
+    void navigate({ to: "/", search: { project: next }, hash: "" })
+  }, [navigate, prepareDocumentNavigation])
 
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
@@ -135,6 +146,7 @@ export function App({ project }: AppProps) {
         <FileTree
           hasData={hasData}
           onNavigate={navigateToDocument}
+          onOpenProjects={chooseProject}
           page={page}
           registerOpen={registerFiles}
         />
@@ -161,6 +173,7 @@ export function App({ project }: AppProps) {
             loadError={loadError}
             main={main}
             navigate={navigateToHref}
+            onChooseProject={chooseProject}
             page={page}
             retry={() => { void router.invalidate() }}
             view={view}
@@ -177,6 +190,7 @@ export function App({ project }: AppProps) {
           void navigate({ to: "/", search: { project }, hash: "" })
         }} />
       <SearchDialog project={project} navigate={navigateToDocument} registerOpen={registerSearch} />
+      <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
     </>
   )
 }

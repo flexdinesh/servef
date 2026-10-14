@@ -8,6 +8,7 @@ import type { FileType, PageData } from "./page-contract.ts"
 const emptyPage: PageData = {
   servedRoot: "/root",
   project: ".",
+  projectUnavailable: false,
   filenamePatterns: ["*"], documentType: null, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
   sourceLines: [], previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
   hasFile: false, rootName: "", selected: "", source: "", tree: [], warnings: [],
