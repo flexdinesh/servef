@@ -877,6 +877,12 @@ article {
   background: var(--color-surface-secondary);
 }
 
+.source-document.selecting-lines,
+.source-document.selecting-lines .source-document-line-number {
+  cursor: pointer;
+  user-select: none;
+}
+
 .source-document-line.selected,
 .source-document-line.selected .source-document-line-number {
   background: var(--color-accent-subtle);

@@ -48,6 +48,39 @@ test("line numbers select lines and ranges, update the URL, and copy path:line",
   expect(pageRequests).toBe(requestsBefore)
 })
 
+test("dragging across line numbers previews a range and commits it on release", async ({ page }) => {
+  await page.goto("/view?path=code%2Fmain.go")
+  const source = page.getByRole("textbox", { name: "Go source" })
+  const gutter = (number: number) => source.locator(`[data-line="${number}"] .source-document-line-number`)
+  await expect(gutter(1)).toBeVisible()
+
+  const center = async (number: number) => {
+    const box = await gutter(number).boundingBox()
+    if (!box) throw new Error(`line ${number} has no box`)
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  }
+  const from = await center(6)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  for (const number of [5, 4, 3]) {
+    const point = await center(number)
+    await page.mouse.move(point.x, point.y, { steps: 3 })
+  }
+  // The range previews during the drag without touching the URL.
+  await expect(source.locator(".selected")).toHaveCount(4)
+  await expect(page).not.toHaveURL(/#/)
+  // Moving over code text keeps extending by row.
+  const code = await source.locator('[data-line="2"] .source-document-line-content').boundingBox()
+  if (!code) throw new Error("line 2 has no box")
+  await page.mouse.move(code.x + 40, code.y + code.height / 2, { steps: 3 })
+  await page.mouse.up()
+  await expect(page).toHaveURL(/#L2-L6$/)
+  await expect(source.locator(".selected")).toHaveCount(5)
+  await expect(page.getByRole("button", { name: "Copy code/main.go:2-6" })).toBeVisible()
+  expect(await page.evaluate(() => window.getSelection()?.toString() ?? "")).toBe("")
+  await expect(source).toBeFocused()
+})
+
 test("the footer copies the open file's project-relative path", async ({ page }) => {
   await page.goto("/view?path=code%2Fmain.go")
   const copy = page.getByRole("button", { name: "Copy path" })

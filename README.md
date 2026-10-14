@@ -9,7 +9,7 @@ formatted JSON/YAML, and highlighted source for everything else.
 - Preview PNG, JPEG, GIF, WebP, AVIF, ICO, BMP, and SVG images
 - Switch each open document between preview and highlighted, read-only source
 - Format JSON and YAML on demand for reading; original files stay unchanged
-- Select lines or ranges from the line numbers (Shift-click) to copy
+- Select lines or ranges from the line numbers (drag or Shift-click) to copy
   `path:12-20`; share `#L12-L20` links that open with the range highlighted
 - Copy the open file's path from the status bar
 - Highlight common languages and config files; show other text as plain text

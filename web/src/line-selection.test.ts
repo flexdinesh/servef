@@ -7,8 +7,9 @@ import {
   lineRangeLabel,
   lineReference,
   parseLineAnchor,
-  selectLine,
+  spanLines,
   splitSourceLines,
+  startLineSelection,
 } from "./line-selection.ts"
 
 test("line anchors parse GitHub-style fragments", () => {
@@ -38,14 +39,20 @@ test("ranges clamp to the document and vanish past its end", () => {
   assert.equal(clampLineRange(null, 5), null)
 })
 
-test("plain clicks select one line; Shift extends from the anchor", () => {
-  assert.deepEqual(selectLine(null, null, 4, false), { start: 4, end: 4 })
-  assert.deepEqual(selectLine({ start: 2, end: 8 }, 2, 5, false), { start: 5, end: 5 })
-  assert.deepEqual(selectLine({ start: 4, end: 4 }, 4, 9, true), { start: 4, end: 9 })
-  assert.deepEqual(selectLine({ start: 4, end: 9 }, 4, 1, true), { start: 1, end: 4 })
+test("plain presses anchor one line; Shift extends from the anchor", () => {
+  assert.deepEqual(startLineSelection(null, null, 4, false), { anchor: 4, range: { start: 4, end: 4 } })
+  assert.deepEqual(startLineSelection({ start: 2, end: 8 }, 2, 5, false), { anchor: 5, range: { start: 5, end: 5 } })
+  assert.deepEqual(startLineSelection({ start: 4, end: 4 }, 4, 9, true), { anchor: 4, range: { start: 4, end: 9 } })
+  assert.deepEqual(startLineSelection({ start: 4, end: 9 }, 4, 1, true), { anchor: 4, range: { start: 1, end: 4 } })
   // Without a remembered anchor (e.g. after loading #L10-L12), Shift extends from the start.
-  assert.deepEqual(selectLine({ start: 10, end: 12 }, null, 20, true), { start: 10, end: 20 })
-  assert.deepEqual(selectLine(null, null, 3, true), { start: 3, end: 3 })
+  assert.deepEqual(startLineSelection({ start: 10, end: 12 }, null, 20, true), { anchor: 10, range: { start: 10, end: 20 } })
+  assert.deepEqual(startLineSelection(null, null, 3, true), { anchor: 3, range: { start: 3, end: 3 } })
+})
+
+test("dragging spans from the anchor in either direction", () => {
+  assert.deepEqual(spanLines(5, 9), { start: 5, end: 9 })
+  assert.deepEqual(spanLines(5, 2), { start: 2, end: 5 })
+  assert.deepEqual(spanLines(5, 5), { start: 5, end: 5 })
 })
 
 test("references and labels use editor conventions", () => {

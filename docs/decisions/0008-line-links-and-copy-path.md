@@ -12,7 +12,9 @@ path could not be copied.
 ## Decision
 
 - Selection follows GitHub and VS Code: click a line number to select it,
-  Shift-click to extend a range, Escape to clear.
+  drag across line numbers or Shift-click to select a range, Escape to clear.
+  A drag previews locally and writes the URL once, on release; touch selects
+  on tap so the page still scrolls.
 - The URL fragment owns the selection: `#L12` or `#L12-L20` (`#L12-20` also
   parses). Changes replace history; the route's loader deps ignore the hash, so
   nothing is refetched. The default-project redirect keeps the fragment.

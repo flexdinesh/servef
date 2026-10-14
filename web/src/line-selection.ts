@@ -33,12 +33,17 @@ export function clampLineRange(range: LineRange | null, lineCount: number): Line
   return { start: range.start, end: Math.min(range.end, lineCount) }
 }
 
-// selectLine applies a gutter click: plain clicks select one line; Shift
-// extends from the anchor (the last plain click, else the current start).
-export function selectLine(current: LineRange | null, anchor: number | null, line: number, extend: boolean): LineRange {
-  const from = extend ? anchor ?? current?.start ?? null : null
-  if (from === null) return { start: line, end: line }
-  return { start: Math.min(from, line), end: Math.max(from, line) }
+// spanLines is the inclusive range between two lines, in either order.
+export function spanLines(anchor: number, line: number): LineRange {
+  return { start: Math.min(anchor, line), end: Math.max(anchor, line) }
+}
+
+// startLineSelection applies a gutter press: plain presses anchor a new
+// selection; Shift extends from the anchor (the last plain press, else the
+// current start). Dragging then spans from the returned anchor.
+export function startLineSelection(current: LineRange | null, anchor: number | null, line: number, extend: boolean): { anchor: number; range: LineRange } {
+  const from = extend ? anchor ?? current?.start ?? line : line
+  return { anchor: from, range: spanLines(from, line) }
 }
 
 // lineReference formats editor-style references: path:12 or path:12-20.
