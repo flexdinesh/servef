@@ -53,3 +53,18 @@ test("projects remember their tabs and the last project reopens", async ({ page 
   await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
   await expect(tabs.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
 })
+
+test("reloading restores open tabs and the active document", async ({ page }) => {
+  const tree = page.getByRole("complementary", { name: "Files" })
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  await tree.getByRole("treeitem", { name: "README.md" }).click()
+  await tabs.getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+
+  await page.reload()
+  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(tabs.getByRole("tab")).toHaveCount(2)
+  await expect(tabs.getByRole("tab", { name: "README.md" })).toBeVisible()
+  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
+})
