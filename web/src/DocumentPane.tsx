@@ -10,6 +10,7 @@ import { FormattedDocument } from "./FormattedDocument.tsx"
 import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
 import { SourceDocument } from "./SourceDocument.tsx"
 import type { PageData } from "./page-data.ts"
+import { projectUrl } from "./project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
 
 interface DocumentPaneProps {
@@ -56,7 +57,7 @@ export function DocumentPane({ hasData, image, isLoading, loadError, main, navig
         <ImageDocument
           key={page.selected}
           name={fileName(page.selected)}
-          src={`/api/raw?path=${encodeURIComponent(page.selected)}`}
+          src={projectUrl("/api/raw", page.project, page.selected)}
           viewer={image}
         />
       ) : view.kind === "preview" ? (

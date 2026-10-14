@@ -1,4 +1,5 @@
 import { isFormatResult } from "./page-contract.ts"
+import { projectUrl } from "./project-url.ts"
 
 export type FormatState =
   | { kind: "loading" }
@@ -16,10 +17,10 @@ export function formatFailureMessage(reason: string): string {
   return `Couldn't format: ${trimmed || "the server returned an invalid response"}.`
 }
 
-export async function fetchFormat(path: string, signal: AbortSignal): Promise<FormatState> {
+export async function fetchFormat(project: string, path: string, signal: AbortSignal): Promise<FormatState> {
   let response: Response
   try {
-    response = await fetch(`/api/format?path=${encodeURIComponent(path)}`, {
+    response = await fetch(projectUrl("/api/format", project, path), {
       headers: { Accept: "application/json" },
       signal,
     })

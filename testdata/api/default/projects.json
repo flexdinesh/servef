@@ -1,0 +1,11 @@
+{
+  "rootName": "workspace",
+  "projects": [
+    { "id": ".", "name": "workspace", "path": ".", "kind": "folder", "group": "", "available": true },
+    { "id": "notes", "name": "notes", "path": "notes", "kind": "repo", "group": "", "available": true },
+    { "id": "servef/main", "name": "main", "path": "servef/main", "kind": "repo", "group": "servef/main", "available": true },
+    { "id": "servef/wt-feat-project-picker", "name": "wt-feat-project-picker", "path": "servef/wt-feat-project-picker", "kind": "worktree", "group": "servef/main", "available": true },
+    { "id": "", "name": "hotfix", "path": "/tmp/servef-hotfix", "kind": "worktree", "group": "servef/main", "available": false }
+  ],
+  "warnings": []
+}

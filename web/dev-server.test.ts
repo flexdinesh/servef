@@ -120,6 +120,8 @@ test("mockFixtureName maps supported API scenarios", () => {
       assert.equal(mockFixtureName("GET", `/${endpoint}?path=${key}`)?.status, 404, `${endpoint} ${key}`)
     }
   }
+  assert.deepEqual(mockFixtureName("GET", "/projects"), { name: "projects.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", "/directories?path=servef"), { name: "directories.json", status: 200 })
   assert.equal(mockFixtureName("POST", "/page"), undefined)
   assert.equal(mockFixtureName("GET", "/unknown"), undefined)
 })

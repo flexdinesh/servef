@@ -5,10 +5,13 @@ import {
   type TreeNode,
 } from "./page-contract.ts"
 
+import { projectUrl } from "./project-url.ts"
+
 export { isPageData, isPageLoadResult } from "./page-contract.ts"
 export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
+  project: "",
   filenamePatterns: [],
   documentType: null,
   binary: false,
@@ -45,20 +48,19 @@ let initialPageData = readInitialPageData()
 
 interface LoadPageOptions {
   pathname: string
+  project: string
   selected: string
   signal: AbortSignal
 }
 
-export async function loadPage({ pathname, selected, signal }: LoadPageOptions): Promise<PageLoadResult> {
+export async function loadPage({ pathname, project, selected, signal }: LoadPageOptions): Promise<PageLoadResult> {
   const embedded = initialPageData
   initialPageData = null
-  if (embedded && embedded.selected === selected && (pathname === "/" || pathname === "/view")) {
+  if (embedded && embedded.project === project && embedded.selected === selected && (pathname === "/" || pathname === "/view")) {
     return { kind: "page", page: embedded }
   }
 
-  const endpoint = pathname === "/view"
-    ? `/api/page?path=${encodeURIComponent(selected)}`
-    : "/api/page"
+  const endpoint = projectUrl("/api/page", project, pathname === "/view" ? selected : undefined)
 
   try {
     const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal })

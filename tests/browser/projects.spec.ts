@@ -1,0 +1,31 @@
+import { expect, test } from "@playwright/test"
+
+test("a URL without a project opens the served root", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+})
+
+test("a project scopes the tree to its directory", async ({ page }) => {
+  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  const tree = page.getByRole("complementary", { name: "Files" })
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await tree.getByRole("treeitem", { name: "README.md" }).click()
+  await expect(tabs.getByRole("tab")).toHaveCount(2)
+
+  await page.goto("/?project=guides")
+
+  await expect(tree.getByText("guides", { exact: true })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "diagrams.md" })).toBeVisible()
+  await expect(tree.getByRole("treeitem", { name: "README.md" })).toHaveCount(0)
+  await expect(tabs.getByRole("tab")).toHaveCount(0)
+
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(page).toHaveURL(/\/view\?project=guides&path=diagrams\.md$/)
+  await expect(tabs.getByRole("tab")).toHaveCount(1)
+})
+
+test("an unavailable project explains itself", async ({ page }) => {
+  await page.goto("/?project=missing")
+  await expect(page.getByRole("alert")).toContainText("Project unavailable.")
+})

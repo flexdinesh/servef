@@ -15,7 +15,7 @@ func TestAppMarkdownVisibilityPreservesSourceAndSearch(t *testing.T) {
 	source := "---\r\ntitle: metadata-search-token\r\n---\r\n\r\n# Visible body\r\n\r\nBefore <!-- comment-search-token --> after.\r\n"
 	writeMarkdown(t, filepath.Join(root, "visibility.md"), source)
 	app := newTestApp(t, root)
-	response, page := requestPageData(t, app, "/api/page?path=visibility.md")
+	response, page := requestPageData(t, app, "/api/page?project=.&path=visibility.md")
 	if response.Code != http.StatusOK {
 		t.Fatalf("page status = %d", response.Code)
 	}
@@ -33,7 +33,7 @@ func TestAppMarkdownVisibilityPreservesSourceAndSearch(t *testing.T) {
 	if highlighted != strings.TrimSuffix(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
 		t.Fatalf("highlight changed source: %q", highlighted)
 	}
-	search := request(t, app, "/api/search-documents")
+	search := request(t, app, "/api/search-documents?project=.")
 	if search.Code != http.StatusOK {
 		t.Fatalf("search status = %d", search.Code)
 	}

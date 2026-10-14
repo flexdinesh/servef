@@ -30,6 +30,7 @@ function LifecycleFixture() {
       {visible && <DocumentPreview html={html} navigate={() => {}} />}
       {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} />}
       <SearchDialog
+        project="."
         navigate={(path) => setNavigation(`${navigationPrefix}:${path}`)}
         registerOpen={(open) => { openSearch.current = open }}
       />

@@ -38,9 +38,11 @@ const (
 )
 
 // Context supplies navigation policy without giving handlers filesystem access.
-// Supports reports whether a link target names an in-scope file.
+// Project scopes rewritten links to the current project; Supports reports
+// whether a link target names an in-scope file.
 type Context struct {
 	Path     string
+	Project  string
 	Supports func(string) bool
 }
 

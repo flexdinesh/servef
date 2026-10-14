@@ -1,0 +1,8 @@
+{
+  "path": "servef",
+  "directories": [
+    { "name": ".github", "path": "servef/.github", "isProject": false },
+    { "name": "main", "path": "servef/main", "isProject": true },
+    { "name": "wt-feat-project-picker", "path": "servef/wt-feat-project-picker", "isProject": true }
+  ]
+}

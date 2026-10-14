@@ -144,7 +144,7 @@ test("default CLI filename scope shows no scope line", async ({ page }) => {
 })
 
 test("CLI filename scope reaches the page contract and prevents opening excluded documents", async ({ page, request }) => {
-  const response = await request.get("http://127.0.0.1:18082/api/page")
+  const response = await request.get("http://127.0.0.1:18082/api/page?project=.")
   expect(await response.json()).toMatchObject({ filenamePatterns: ["*.md"] })
   await page.goto("http://127.0.0.1:18082/view?path=config%2Fsettings.json")
   await expect(page.getByRole("alert")).toContainText("That file is unavailable")

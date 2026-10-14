@@ -1,23 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { createSearchController, type SearchHandlers, type SearchStatus, type SearchView } from "./search-controller.ts"
+import { projectUrl } from "./project-url.ts"
 import { isSearchDocumentsResponse, type SearchDocumentsResponse } from "./search-documents.ts"
 import type { SearchGroups } from "./search-engine.ts"
 
-async function fetchDocuments(signal: AbortSignal): Promise<SearchDocumentsResponse> {
-  const response = await fetch("/api/search-documents", { headers: { Accept: "application/json" }, signal })
+async function fetchDocuments(project: string, signal: AbortSignal): Promise<SearchDocumentsResponse> {
+  const response = await fetch(projectUrl("/api/search-documents", project), { headers: { Accept: "application/json" }, signal })
   if (!response.ok) throw new Error(`Search documents request failed: ${response.status}`)
   const payload: unknown = await response.json()
   if (!isSearchDocumentsResponse(payload)) throw new Error("Invalid search documents response")
   return payload
 }
 
-export function useSearchSession(navigate: (path: string) => void, registerOpen: (open: (() => void) | null) => void) {
+// useSearchSession indexes one project's documents; mount one per project.
+export function useSearchSession(project: string, navigate: (path: string) => void, registerOpen: (open: (() => void) | null) => void) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const handlers = useRef<SearchHandlers | null>(null)
   const controllerRef = useRef<ReturnType<typeof createSearchController> | null>(null)
   const navigateRef = useRef(navigate)
+  const projectRef = useRef(project)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [expanded, setExpanded] = useState(false)
   const [groups, setGroups] = useState<SearchGroups | null>(null)
@@ -25,6 +28,7 @@ export function useSearchSession(navigate: (path: string) => void, registerOpen:
   const [status, setStatus] = useState<Required<SearchStatus>>({ kind: "idle", message: "", detail: "" })
 
   useLayoutEffect(() => { navigateRef.current = navigate }, [navigate])
+  useLayoutEffect(() => { projectRef.current = project }, [project])
 
   useEffect(() => {
     if (!dialog.current || !input.current) return
@@ -63,7 +67,7 @@ export function useSearchSession(navigate: (path: string) => void, registerOpen:
       },
     }
     const controller = createSearchController({
-      fetchDocuments,
+      fetchDocuments: (signal) => fetchDocuments(projectRef.current, signal),
       createWorker: () => new Worker(new URL("./search-worker.ts", import.meta.url), { type: "module" }),
       navigate(path) {
         controller.close()

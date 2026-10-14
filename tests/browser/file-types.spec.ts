@@ -109,14 +109,14 @@ test("mobile filename filter keeps selected document open", async ({ page }) => 
 })
 
 test("source-only capabilities drive the UI without extension-specific components", async ({ page }) => {
-  await page.route("**/api/page?path=main.go", async (route) => {
+  await page.route("**/api/page?project=.&path=main.go", async (route) => {
     const fileType = {
       id: "go", label: "Go", extensions: [".go"], filenames: [], language: "go",
       previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
     }
     await route.fulfill({ json: {
       content: "", source: "package main\n", sourceLines: ['<span class="syntax-kn">package</span> main'],
-      empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, rootName: "example", selected: "main.go",
+      empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, project: ".", rootName: "example", selected: "main.go",
       warnings: [], previewError: "", filenamePatterns: ["*"], documentType: fileType,
       binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
       tree: [{ name: "main.go", path: "main.go", fileType: "go", isDir: false, open: false, selected: true, children: [] }],

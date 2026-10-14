@@ -2,6 +2,8 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
+  useSearch,
 } from "@tanstack/react-router"
 
 import { App } from "./App.tsx"
@@ -10,17 +12,30 @@ import { loadPage } from "./page-data.ts"
 interface PageSearch {
   [key: string]: unknown
   path?: string
+  project?: string
 }
+
+const rootProject = "."
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
   return {
     ...search,
     path: typeof search.path === "string" ? search.path : undefined,
+    project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
   }
 }
 
+// withProject puts project first so URLs read /view?project=…&path=….
+function withProject(search: PageSearch, project: string): PageSearch {
+  const { project: _previous, ...rest } = search
+  return { project, ...rest }
+}
+
 function RoutedApp() {
-  return <App />
+  // Committed (not pending) search: the workspace switches once the new
+  // project's page has loaded, then remounts without the old project's state.
+  const project = useSearch({ strict: false, select: (search) => typeof search.project === "string" ? search.project : "" })
+  return <App key={project} project={project} />
 }
 
 const rootRoute = createRootRoute({
@@ -30,8 +45,14 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  loader: ({ abortController }) => loadPage({
+  validateSearch,
+  beforeLoad: ({ search }) => {
+    if (!search.project) throw redirect({ to: "/", search: withProject(search, rootProject), replace: true })
+  },
+  loaderDeps: ({ search }) => ({ project: search.project ?? rootProject }),
+  loader: ({ abortController, deps }) => loadPage({
     pathname: "/",
+    project: deps.project,
     selected: "",
     signal: abortController.signal,
   }),
@@ -41,9 +62,13 @@ const viewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "view",
   validateSearch,
-  loaderDeps: ({ search }) => ({ selected: search.path ?? "" }),
+  beforeLoad: ({ search }) => {
+    if (!search.project) throw redirect({ to: "/view", search: withProject(search, rootProject), replace: true })
+  },
+  loaderDeps: ({ search }) => ({ project: search.project ?? rootProject, selected: search.path ?? "" }),
   loader: ({ abortController, deps }) => loadPage({
     pathname: "/view",
+    project: deps.project,
     selected: deps.selected,
     signal: abortController.signal,
   }),
