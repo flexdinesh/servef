@@ -24,6 +24,7 @@ export interface TreeNode {
 }
 
 export interface PageData {
+  servedRoot: string
   project: string
   filenamePatterns: string[]
   documentType: FileType | null
@@ -95,6 +96,7 @@ function isTreeNode(value: unknown): value is TreeNode {
 
 export function isPageData(value: unknown): value is PageData {
   return isRecord(value)
+    && typeof value.servedRoot === "string"
     && typeof value.project === "string"
     && isStringArray(value.filenamePatterns)
     && typeof value.binary === "boolean"

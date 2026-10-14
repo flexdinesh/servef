@@ -31,6 +31,16 @@ export function useDocumentWorkspace(page: PageData | null) {
     })
   }, [])
 
+  // restore opens remembered tabs ahead of the ones opened this session.
+  const restore = useCallback((tabs: readonly string[]) => {
+    setWorkspace((current) => {
+      const merged = [...tabs, ...current.tabs.filter((tab) => !tabs.includes(tab))]
+      return merged.length === current.tabs.length && merged.every((tab, index) => tab === current.tabs[index])
+        ? current
+        : { ...current, tabs: merged }
+    })
+  }, [])
+
   function closeDocument(path: string) {
     const index = workspace.tabs.indexOf(path)
     if (index < 0) return null
@@ -43,5 +53,5 @@ export function useDocumentWorkspace(page: PageData | null) {
     return { replacement: remaining[Math.min(index, remaining.length - 1)] }
   }
 
-  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocument }
+  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocument, restore }
 }

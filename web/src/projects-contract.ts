@@ -12,6 +12,7 @@ export interface Project {
 }
 
 export interface ProjectsResponse {
+  servedRoot: string
   rootName: string
   projects: Project[]
   warnings: string[]
@@ -52,6 +53,7 @@ function isDirectory(value: unknown): value is Directory {
 
 export function isProjectsResponse(value: unknown): value is ProjectsResponse {
   return isRecord(value)
+    && typeof value.servedRoot === "string"
     && typeof value.rootName === "string"
     && Array.isArray(value.projects)
     && value.projects.every(isProject)

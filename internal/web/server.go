@@ -44,13 +44,16 @@ type Config struct {
 
 // App composes discovery and document handlers into the HTTP API.
 type App struct {
-	config   Config
-	metrics  metricsCollector
-	openFile func(string) (fs.File, error)
-	shell    string
+	config Config
+	// servedRoot is the absolute root; the browser keys stored state by it.
+	servedRoot string
+	metrics    metricsCollector
+	openFile   func(string) (fs.File, error)
+	shell      string
 }
 
 type pageData struct {
+	ServedRoot       string         `json:"servedRoot"`
 	Project          string         `json:"project"`
 	RootName         string         `json:"rootName"`
 	Tree             []treeNode     `json:"tree"`
@@ -103,9 +106,10 @@ type errorResponse struct {
 }
 
 type projectsResponse struct {
-	RootName string             `json:"rootName"`
-	Projects []projects.Project `json:"projects"`
-	Warnings []string           `json:"warnings"`
+	ServedRoot string             `json:"servedRoot"`
+	RootName   string             `json:"rootName"`
+	Projects   []projects.Project `json:"projects"`
+	Warnings   []string           `json:"warnings"`
 }
 
 type directoriesResponse struct {
@@ -146,7 +150,14 @@ func New(config Config) (*App, error) {
 	if len(config.Filenames.Patterns()) == 0 {
 		config.Filenames = files.AllNames()
 	}
-	return &App{config: config, openFile: openFile, shell: string(shell)}, nil
+	servedRoot, err := filepath.Abs(config.Root)
+	if err != nil {
+		return nil, err
+	}
+	if resolved, err := filepath.EvalSymlinks(servedRoot); err == nil {
+		servedRoot = resolved
+	}
+	return &App{config: config, servedRoot: servedRoot, openFile: openFile, shell: string(shell)}, nil
 }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
@@ -295,9 +306,10 @@ func (a *App) serveProjects(w http.ResponseWriter) {
 		return
 	}
 	writeJSON(w, http.StatusOK, projectsResponse{
-		RootName: filepath.Base(a.config.Root),
-		Projects: discovery.Projects,
-		Warnings: warningStrings(discovery.Warnings),
+		ServedRoot: a.servedRoot,
+		RootName:   filepath.Base(a.servedRoot),
+		Projects:   discovery.Projects,
+		Warnings:   warningStrings(discovery.Warnings),
 	})
 }
 
@@ -617,6 +629,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		return pageData{
+			ServedRoot:       a.servedRoot,
 			Project:          projectID,
 			Selected:         selected,
 			Tree:             []treeNode{},
@@ -629,6 +642,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
+			ServedRoot:       a.servedRoot,
 			Project:          project.id,
 			RootName:         filepath.Base(project.root),
 			Tree:             []treeNode{},
@@ -639,6 +653,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
+		ServedRoot:       a.servedRoot,
 		Project:          project.id,
 		RootName:         filepath.Base(index.RootPath()),
 		Selected:         selected,

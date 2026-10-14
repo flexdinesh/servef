@@ -116,7 +116,7 @@ test("source-only capabilities drive the UI without extension-specific component
     }
     await route.fulfill({ json: {
       content: "", source: "package main\n", sourceLines: ['<span class="syntax-kn">package</span> main'],
-      empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, project: ".", rootName: "example", selected: "main.go",
+      empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, servedRoot: "/example", project: ".", rootName: "example", selected: "main.go",
       warnings: [], previewError: "", filenamePatterns: ["*"], documentType: fileType,
       binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
       tree: [{ name: "main.go", path: "main.go", fileType: "go", isDir: false, open: false, selected: true, children: [] }],

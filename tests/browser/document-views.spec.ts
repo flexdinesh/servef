@@ -4,7 +4,7 @@ function documentPage(selected: string, documentType: Record<string, unknown>, o
   const name = selected.split("/").at(-1) ?? selected
   return {
     content: "", source: "", sourceLines: [], empty: false, error: "", fileCount: 1, fileSize: 0, hasFile: true,
-    project: ".", rootName: "example", selected, warnings: [], previewError: "", filenamePatterns: ["*"], documentType,
+    servedRoot: "/example", project: ".", rootName: "example", selected, warnings: [], previewError: "", filenamePatterns: ["*"], documentType,
     binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name, path: selected, fileType: String(documentType.id), isDir: false, open: false, selected: true, children: [] }],
     ...overrides,
