@@ -12,11 +12,11 @@ import (
 )
 
 type startupInfo struct {
-	Version   string
-	Directory string
-	URL       string
-	FileCount int
-	Discovery time.Duration
+	Version      string
+	Directory    string
+	URL          string
+	ProjectCount int
+	Discovery    time.Duration
 }
 
 func writeStartup(output io.Writer, info startupInfo) {
@@ -40,8 +40,8 @@ func writeStartup(output io.Writer, info startupInfo) {
 
 func writeDiscovery(output io.Writer, label, count, duration *color.Color, info startupInfo) {
 	_, _ = fmt.Fprint(output, "  ")
-	_, _ = label.Fprint(output, "files discovered: ")
-	_, _ = count.Fprint(output, info.FileCount)
+	_, _ = label.Fprint(output, "projects discovered: ")
+	_, _ = count.Fprint(output, info.ProjectCount)
 	_, _ = fmt.Fprint(output, "  ")
 	_, _ = duration.Fprintf(output, "(%dms)", info.Discovery.Milliseconds())
 	_, _ = fmt.Fprintln(output)

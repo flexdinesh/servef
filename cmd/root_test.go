@@ -26,7 +26,7 @@ func TestRootCommandDefaults(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got.path != "." || got.depth != 5 || got.host != defaultHost || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
+	if got.path != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
 		t.Fatalf("default options = %+v", got)
 	}
 }
@@ -88,6 +88,7 @@ func TestRootCommandValidatesArguments(t *testing.T) {
 	tests := [][]string{
 		{"one", "two"},
 		{"--depth", "-1"},
+		{"--scan-depth", "-1"},
 		{"--host", "example.com"},
 		{"--port", "65536"},
 	}
@@ -139,7 +140,7 @@ func TestRunSelectsFreePortAndStopsWithContext(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "  servef dev\n") ||
 		!strings.Contains(stdout.String(), "  serving directory:  "+root+"\n") ||
-		!strings.Contains(stdout.String(), "  files discovered: 1  (") ||
+		!strings.Contains(stdout.String(), "  projects discovered: 1  (") ||
 		!strings.Contains(stdout.String(), "ms)\n") ||
 		!strings.HasSuffix(stdout.String(), "  ctrl-c to stop.\n") {
 		t.Fatalf("stdout = %q", stdout.String())
@@ -185,18 +186,18 @@ func TestWriteStartup(t *testing.T) {
 	disableColor(t)
 	var output bytes.Buffer
 	writeStartup(&output, startupInfo{
-		Version:   "servef 1.2.3",
-		Directory: "/tmp/notes",
-		URL:       "http://localhost:4173/",
-		FileCount: 12,
-		Discovery: 42 * time.Millisecond,
+		Version:      "servef 1.2.3",
+		Directory:    "/tmp/notes",
+		URL:          "http://localhost:4173/",
+		ProjectCount: 12,
+		Discovery:    42 * time.Millisecond,
 	})
 
 	want := "  servef 1.2.3\n" +
 		"  serving directory:  /tmp/notes\n" +
 		"  url:  http://localhost:4173/\n" +
 		"\n" +
-		"  files discovered: 12  (42ms)\n" +
+		"  projects discovered: 12  (42ms)\n" +
 		"  ctrl-c to stop.\n"
 	if output.String() != want {
 		t.Fatalf("output = %q, want %q", output.String(), want)
@@ -314,25 +315,22 @@ func TestRootCommandRemovesFileTypeFlag(t *testing.T) {
 	}
 }
 
-func TestRunScopesDiscoveryByFilename(t *testing.T) {
+func TestRunDiscoversProjects(t *testing.T) {
 	disableColor(t)
 	root := t.TempDir()
-	for _, name := range []string{"README.md", "main.go", "Dockerfile"} {
-		if err := os.WriteFile(filepath.Join(root, name), []byte("x\n"), 0o644); err != nil {
+	for _, repo := range []string{"api", "web", filepath.Join("deep", "a", "b", "c")} {
+		if err := os.MkdirAll(filepath.Join(root, repo, ".git"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-	}
-	filter, err := parseFilenames("*.go,dockerfile")
-	if err != nil {
-		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var stdout bytes.Buffer
-	if err := run(ctx, options{path: root, depth: 5, noOpen: true, filenames: filter, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
+	if err := run(ctx, options{path: root, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "  files discovered: 2  (") {
+	// The root folder plus api and web; deep/a/b/c is beyond --scan-depth.
+	if !strings.Contains(stdout.String(), "  projects discovered: 3  (") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
