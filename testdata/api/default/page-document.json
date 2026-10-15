@@ -123,7 +123,7 @@
     "language": "markdown",
     "previewKind": "markdown",
     "previewLabel": "Preview",
-    "defaultMode": "preview",
+    "defaultMode": "source",
     "formattable": false
   },
   "binary": false,

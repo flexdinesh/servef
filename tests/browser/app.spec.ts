@@ -1,7 +1,13 @@
 import { expect, test, type Page } from "@playwright/test"
-import { endsWith, rootParam } from "./fixture-root.ts"
+import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
+import { apiOrigin, tldrawApiOrigin } from "./ports.ts"
 
 const mermaidCaseCount = 4
+
+// showPreview renders the open document; Markdown opens in Source by default.
+async function showPreview(page: Page) {
+  await page.getByRole("group", { name: "Document view" }).getByRole("button", { name: "Preview", exact: true }).click()
+}
 
 async function revealMermaidCases(page: Page) {
   const blocks = page.locator("main .mermaid-lazy")
@@ -17,7 +23,8 @@ test("uses embedded page data on a direct production load", async ({ page }) => 
     if (new URL(request.url()).pathname === "/api/page") pageRequests++
   })
 
-  await page.goto(`http://127.0.0.1:18080/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
+  await page.goto(`${apiOrigin}/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
+  await showPreview(page)
 
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   expect(pageRequests).toBe(0)
@@ -25,6 +32,7 @@ test("uses embedded page data on a direct production load", async ({ page }) => 
 
 test("renders local Markdown images", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
+  await showPreview(page)
 
   const image = page.getByRole("img", { name: "servef preview fixture" })
   await expect(image).toBeVisible()
@@ -35,6 +43,7 @@ test("renders local Markdown images", async ({ page }) => {
 
 test("renders SVG, PNG, and JPEG Markdown images", async ({ page }) => {
   await page.goto("/view?path=guides%2Fimages.md")
+  await showPreview(page)
 
   for (const name of ["servef SVG preview", "servef PNG preview", "servef JPEG preview"]) {
     const image = page.getByRole("img", { name })
@@ -63,6 +72,7 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
   })
   await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
+  await showPreview(page)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("main table")).toContainText("pnpm dev")
   await expect(page).toHaveTitle("guides/getting-started.md · servef")
@@ -104,6 +114,7 @@ test("searches fixture content and opens the result", async ({ page }) => {
 
 test("navigates Markdown links and history without losing tree state", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
+  await showPreview(page)
 
   const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
@@ -135,6 +146,7 @@ test("navigates Markdown links and history without losing tree state", async ({ 
 
 test("preserves Markdown hashes during client navigation", async ({ page }) => {
   await page.goto("/view?path=reference%2Fapi.markdown")
+  await showPreview(page)
 
   await page.evaluate(() => {
     document.body.dataset.navigationMarker = "preserved"
@@ -168,7 +180,7 @@ test("recovers from an invalid page response", async ({ page }) => {
 
   await expect(page.getByRole("alert")).toContainText("invalid page response")
   await page.getByRole("button", { name: "Try again" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
 })
 
 test("commits only the latest rapid navigation", async ({ page }) => {
@@ -187,7 +199,7 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   await tree.getByRole("treeitem", { name: "diagrams.md" }).dispatchEvent("click")
   await tree.getByRole("treeitem", { name: "getting-started.md" }).dispatchEvent("click")
 
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
   releaseDelayedResponse()
   await page.waitForTimeout(100)
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
@@ -237,6 +249,7 @@ test("system theme follows live OS changes", async ({ page }) => {
 
 test("uses readable body and navigation text sizes", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
+  await showPreview(page)
 
   const tree = page.getByRole("complementary", { name: "Files" })
   const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
@@ -248,6 +261,7 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
 test("highlights fenced code with the selected theme", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   await page.goto("/view?path=reference%2Fapi.markdown")
+  await showPreview(page)
 
   const keyword = page.locator(".syntax-highlight [class^='syntax-k']").first()
   await expect(keyword).toHaveText("func")
@@ -261,6 +275,7 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
 test("labels and copies fenced code", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
   await page.goto("/view?path=guides%2Fcode-blocks.md")
+  await showPreview(page)
 
   const codeBlocks = page.locator(".code-block")
   await expect(codeBlocks).toHaveCount(5)
@@ -305,6 +320,7 @@ test("copies fenced code when the modern clipboard API is unavailable", async ({
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined })
   })
   await page.goto("/view?path=guides%2Fcode-blocks.md")
+  await showPreview(page)
 
   const codeBlock = page.locator(".code-block").first()
   const copy = codeBlock.getByRole("button", { name: "Copy json code" })
@@ -338,10 +354,9 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   const view = page.getByRole("group", { name: "Document view" })
   const preview = view.getByRole("button", { name: "Preview" })
   const source = view.getByRole("button", { name: "Source" })
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-
-  await source.press("Enter")
+  await expect(view.getByRole("button")).toHaveText(["Source", "Preview"])
   await expect(source).toHaveAttribute("aria-pressed", "true")
+
   const sourceView = page.getByRole("textbox", { name: "Markdown source" })
   await expect(sourceView).toContainText("# Getting started")
   await expect(sourceView).toHaveAttribute("aria-readonly", "true")
@@ -359,30 +374,106 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   expect(sourceLeft).toBe(paneLeft)
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
 
+  await preview.press("Enter")
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(sourceView).toHaveCount(0)
+
   const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await source.click()
+  await expect(source).toHaveAttribute("aria-pressed", "true")
 
   const tabs = page.getByRole("tablist", { name: "Open documents" })
   await tabs.getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await tabs.getByRole("tab", { name: "diagrams.md" }).click()
   await expect(source).toHaveAttribute("aria-pressed", "true")
 
   await tabs.getByRole("button", { name: "Close guides/getting-started.md" }).click()
   await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(source).toHaveAttribute("aria-pressed", "true")
+  await expect(sourceView).toContainText("# Getting started")
 })
 
-test("resets document mode after reload", async ({ page }) => {
+test("choosing Preview or Source sets the view new documents open in", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const view = page.getByRole("group", { name: "Document view" })
+  const preview = view.getByRole("button", { name: "Preview" })
+  const source = view.getByRole("button", { name: "Source" })
+  const tree = page.getByRole("complementary", { name: "Files" })
+  const tabs = page.getByRole("tablist", { name: "Open documents" })
+  await expect(source).toHaveAttribute("aria-pressed", "true")
+
+  await preview.click()
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(page).toHaveURL(/path=guides%2Fdiagrams\.md/)
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator("article")).toBeVisible()
+
+  await tree.getByRole("treeitem", { name: "assets", exact: true }).click()
+  await tree.getByRole("treeitem", { name: "preview.svg" }).click()
+  await expect(view.getByRole("button")).toHaveText(["Preview", "Source"])
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+
+  await tabs.getByRole("tab", { name: "diagrams.md" }).click()
+  await source.click()
+  await tree.getByRole("treeitem", { name: "code-blocks.md" }).click()
+  await expect(page).toHaveURL(/path=guides%2Fcode-blocks\.md/)
+  await expect(source).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Code block examples")
+
+  await tabs.getByRole("button", { name: "Close assets/preview.svg" }).click()
+  await tree.getByRole("treeitem", { name: "preview.svg" }).click()
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByRole("img", { name: "preview.svg" })).toBeVisible()
+
+  await tabs.getByRole("tab", { name: "code-blocks.md" }).click()
+  await preview.click()
+  await page.reload()
+  await expect(page).toHaveURL(/path=guides%2Fcode-blocks\.md/)
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+  await tree.getByRole("treeitem", { name: "images.md" }).click()
+  await expect(page).toHaveURL(/path=guides%2Fimages\.md/)
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
+})
+
+test("the Preview choice lasts for the browser tab, per project", async ({ page, context }) => {
+  const view = page.getByRole("group", { name: "Document view" })
+  const tree = page.getByRole("complementary", { name: "Files" })
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
+  await view.getByRole("button", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+
+  await page.goto(`/?project=${projectParam("guides")}`)
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
+  await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
+
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
+  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
+
+  const other = await context.newPage()
+  await other.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
+  await expect(other.getByRole("group", { name: "Document view" }).getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
+})
+
+test("resets per-tab document mode after reload", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const view = page.getByRole("group", { name: "Document view" })
+  await view.getByRole("button", { name: "Preview" }).click()
+  await page.getByRole("complementary", { name: "Files" }).getByRole("treeitem", { name: "diagrams.md" }).click()
   await view.getByRole("button", { name: "Source" }).click()
-  await expect(page.getByLabel("Markdown source")).toBeVisible()
+  await page.getByRole("tablist", { name: "Open documents" }).getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
 
   await page.reload()
-  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.getByLabel("Markdown source")).toBeVisible()
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
 })
 
 test("shows document metadata and process metrics in the status line", async ({ page }) => {
@@ -441,7 +532,8 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
     const url = new URL(response.url())
     if (url.pathname.startsWith("/assets/excalidraw/fonts/")) fontResponses.push(response.status())
   })
-  await page.goto("http://127.0.0.1:18080/view?path=guides%2Fdiagrams.md")
+  await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
+  await showPreview(page)
   await revealMermaidCases(page)
 
   await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
@@ -482,7 +574,8 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
 })
 
 test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => {
-  await page.goto("http://127.0.0.1:18081/view?path=guides%2Fdiagrams.md")
+  await page.goto(`${tldrawApiOrigin}/view?path=guides%2Fdiagrams.md`)
+  await showPreview(page)
   await revealMermaidCases(page)
 
   await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)

@@ -26,13 +26,13 @@ function page(documentType: FileType, overrides: Partial<PageData> = {}): PageDa
   return { ...emptyPage, hasFile: true, selected: "file", fileSize: 6_500_000, documentType, ...overrides }
 }
 
-const markdown = fileType({ id: "markdown", previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview" })
+const markdown = fileType({ id: "markdown", previewKind: "markdown", previewLabel: "Preview" })
 const json = fileType({ id: "json", label: "JSON", formattable: true })
 const svg = fileType({ id: "svg", previewKind: "image", previewLabel: "Preview", defaultMode: "preview", language: "xml" })
 const raster = fileType({ id: "image", previewKind: "image", previewLabel: "Preview", defaultMode: "preview", language: "" })
 
 test("declared capabilities select toolbar modes", () => {
-  assert.deepEqual(documentModes(page(markdown)), ["preview", "source"])
+  assert.deepEqual(documentModes(page(markdown)), ["source", "preview"])
   assert.deepEqual(documentModes(page(json)), ["source", "format"])
   assert.deepEqual(documentModes(page(svg)), ["preview", "source"])
   assert.deepEqual(documentModes(page(raster, { binary: true })), ["preview"])
@@ -45,8 +45,9 @@ test("declared capabilities select toolbar modes", () => {
 })
 
 test("modes resolve from request, then default, and respect large-file limits", () => {
-  assert.equal(resolveDocumentMode(page(markdown), undefined), "preview")
-  assert.equal(resolveDocumentMode(page(markdown), "source"), "source")
+  assert.equal(resolveDocumentMode(page(markdown), undefined), "source")
+  assert.equal(resolveDocumentMode(page(markdown), "preview"), "preview")
+  assert.equal(resolveDocumentMode(page(svg), undefined), "preview")
   assert.equal(resolveDocumentMode(page(json), undefined), "source")
   assert.equal(resolveDocumentMode(page(json), "format"), "format")
   assert.equal(resolveDocumentMode(page(json), "preview"), "source")

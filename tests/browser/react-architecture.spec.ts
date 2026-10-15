@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test"
 import { rootParam } from "./fixture-root.ts"
 
+import { apiOrigin } from "./ports.ts"
+
 for (const entry of [
   { name: "development", url: "/" },
-  { name: "embedded binary", url: "http://127.0.0.1:18080/" },
+  { name: "embedded binary", url: `${apiOrigin}/` },
 ]) {
   test(`search retains query and results across document navigation (${entry.name})`, async ({ page }) => {
     let indexRequests = 0
@@ -16,7 +18,7 @@ for (const entry of [
     await input.fill("getting-started")
     const result = page.getByRole("option", { name: /getting-started.md guides\/getting-started.md/ })
     await result.click()
-    await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+    await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
     await expect(page.locator("main")).toBeFocused()
 
     await page.getByRole("button", { name: /^Find in files/ }).click()
@@ -69,12 +71,13 @@ test("search survives unavailable Worker and recovers when support returns", asy
 
 for (const entry of [
   { name: "development", url: "/view?path=guides%2Fgetting-started.md" },
-  { name: "embedded binary", url: "http://127.0.0.1:18080/view?path=guides%2Fgetting-started.md" },
+  { name: "embedded binary", url: `${apiOrigin}/view?path=guides%2Fgetting-started.md` },
 ]) {
   test(`document scroll survives tabs, Home, Back, and Forward (${entry.name})`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 400 })
     await page.goto(entry.url)
     const pane = page.locator("#document-pane")
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
     await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
     const firstScroll = await pane.evaluate((element) => {
       element.scrollTop = 220
@@ -109,7 +112,7 @@ for (const entry of [
     await page.getByRole("button", { name: "Close guides/getting-started.md" }).click()
     await expect(page.getByRole("tab", { name: "code-blocks.md" })).toHaveAttribute("aria-selected", "true")
     await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
-    await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveAttribute("aria-pressed", "true")
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(0)
   })
 }
@@ -148,12 +151,14 @@ test("diagram module failure offers reload and recovers", async ({ page }) => {
     else await route.continue()
   })
   await page.goto("/view?path=guides%2Fdiagrams.md")
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
   const reload = page.getByRole("button", { name: "Reload diagrams" }).first()
   await expect(reload).toBeVisible()
   await expect(page.locator(".mermaid-error").first()).toContainText("Reload to try again.")
   await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   blocked = false
   await reload.click()
+  await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator(".mermaid-diagram.ready").first()).toBeVisible()
   await expect(page.locator(".mermaid-error")).toHaveCount(0)
 })

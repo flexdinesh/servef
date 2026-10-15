@@ -32,6 +32,7 @@ import { useDelayedFlag, useDocumentFormats } from "./use-document-format.ts"
 import { useDocumentNavigation } from "./use-document-navigation.ts"
 import { useDocumentWorkspace } from "./use-document-workspace.ts"
 import { useImageViewer } from "./use-image-viewer.ts"
+import { usePreviewPreference } from "./use-preview-preference.ts"
 import { useProjectMemory } from "./use-project-memory.ts"
 
 function initialPage(result: PageLoadResult): PageData | null {
@@ -84,6 +85,7 @@ export function App({ project }: AppProps) {
   const loadError = result?.kind === "failure" ? result.message : ""
   const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
   const { setDocumentMode } = workspace
+  const previewPreference = usePreviewPreference(project)
   const openRemembered = useCallback((path: string) => {
     void navigate({ to: "/view", search: { project, path }, hash: "", replace: true })
   }, [navigate, project])
@@ -97,7 +99,7 @@ export function App({ project }: AppProps) {
   const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
   const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
   // A line anchor (#L12) opens Source unless the tab already chose a view.
-  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : undefined))
+  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : previewPreference.preferredMode))
   const formatState = formatResult(page.selected, page.source)
   const view = documentView(page, documentMode, formatState)
   const formatPending = view.kind === "source" && view.formatPending
@@ -129,6 +131,7 @@ export function App({ project }: AppProps) {
     // Line numbers address the original source only.
     if (mode !== "source" && lineRange) selectLines(null)
     setDocumentMode(page.selected, mode)
+    previewPreference.choose(mode)
     resetDocumentScroll(page.selected)
   }
 

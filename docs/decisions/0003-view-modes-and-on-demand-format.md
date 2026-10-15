@@ -1,6 +1,6 @@
 # 0003: Preview for Markdown/images; Format on demand
 
-- Status: Accepted
+- Status: Accepted; Markdown default view superseded by [0010](0010-markdown-opens-in-source.md)
 - Date: 2026-10-12
 
 ## Context

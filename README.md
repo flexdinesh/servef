@@ -111,7 +111,9 @@ Markdown image dependencies remain available within the served root.
 
 How a file is shown depends on its type, not on the scope:
 
-- Markdown and images open in Preview; SVG also has Source.
+- Markdown opens in Source. Choosing Preview opens other documents in the
+  project in Preview until you choose Source, for the rest of the browser tab.
+  Images open in Preview; SVG also has Source.
 - JSON/YAML open in Source; Format shows a formatted, highlighted view on
   demand. Invalid files stay readable and searchable in Source.
   YAML formatting retains comments, anchors/aliases, scalar styles, and all

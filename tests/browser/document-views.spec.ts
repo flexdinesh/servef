@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 import { fixtureRoot, rootParam } from "./fixture-root.ts"
+import { apiOrigin } from "./ports.ts"
 
 function documentPage(selected: string, documentType: Record<string, unknown>, overrides: Record<string, unknown>) {
   const name = selected.split("/").at(-1) ?? selected
@@ -41,7 +42,7 @@ test("binary files open to a note without views", async ({ page }) => {
   await expect(page.locator(".status-file-type")).toHaveText("Binary")
 })
 
-for (const origin of ["", "http://127.0.0.1:18080"]) {
+for (const origin of ["", apiOrigin]) {
   test(`raster images fit, zoom by button and keyboard, and report dimensions (${origin || "development"})`, async ({ page }) => {
     await page.goto(`${origin}/view?path=assets%2Fpreview.png`)
     const image = page.getByRole("img", { name: "preview.png" })

@@ -30,7 +30,7 @@ func newMarkdown() Handler {
 }
 
 func (*markdownHandler) Type() Type {
-	return Type{ID: "markdown", Label: "Markdown", Extensions: []string{".md", ".markdown"}, Language: "markdown", PreviewKind: "markdown", PreviewLabel: "Preview", DefaultMode: "preview"}
+	return Type{ID: "markdown", Label: "Markdown", Extensions: []string{".md", ".markdown"}, Language: "markdown", PreviewKind: "markdown", PreviewLabel: "Preview", DefaultMode: "source"}
 }
 
 func (a *markdownHandler) Preview(source []byte, context Context) (string, error) {

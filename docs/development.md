@@ -43,6 +43,10 @@ GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@m
 | Type-check TypeScript | `pnpm typecheck` |
 | Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
 | Run browser tests | `pnpm test:browser` |
+| Run browser tests on other ports | `PORT=18090 pnpm test:browser` |
+
+Browser tests start API servers on `PORT` (default `18080`) and the next two
+ports, plus the Vite server on `15173`.
 
 `pnpm link:local` rebuilds the embedded frontend and installs the current
 checkout with `go install`.
