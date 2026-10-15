@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test"
 import { rootParam } from "./fixture-root.ts"
 
+import { apiOrigin } from "./ports.ts"
+
 for (const entry of [
   { name: "development", url: "/" },
-  { name: "embedded binary", url: "http://127.0.0.1:18080/" },
+  { name: "embedded binary", url: `${apiOrigin}/` },
 ]) {
   test(`search retains query and results across document navigation (${entry.name})`, async ({ page }) => {
     let indexRequests = 0
@@ -69,7 +71,7 @@ test("search survives unavailable Worker and recovers when support returns", asy
 
 for (const entry of [
   { name: "development", url: "/view?path=guides%2Fgetting-started.md" },
-  { name: "embedded binary", url: "http://127.0.0.1:18080/view?path=guides%2Fgetting-started.md" },
+  { name: "embedded binary", url: `${apiOrigin}/view?path=guides%2Fgetting-started.md` },
 ]) {
   test(`document scroll survives tabs, Home, Back, and Forward (${entry.name})`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 400 })
@@ -156,9 +158,7 @@ test("diagram module failure offers reload and recovers", async ({ page }) => {
   await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   blocked = false
   await reload.click()
-  // Reloading the page resets the session view preference to Source.
-  await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveAttribute("aria-pressed", "true")
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator(".mermaid-diagram.ready").first()).toBeVisible()
   await expect(page.locator(".mermaid-error")).toHaveCount(0)
 })

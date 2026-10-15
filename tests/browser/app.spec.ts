@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
-import { endsWith, rootParam } from "./fixture-root.ts"
+import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
+import { apiOrigin, tldrawApiOrigin } from "./ports.ts"
 
 const mermaidCaseCount = 4
 
@@ -22,7 +23,7 @@ test("uses embedded page data on a direct production load", async ({ page }) => 
     if (new URL(request.url()).pathname === "/api/page") pageRequests++
   })
 
-  await page.goto(`http://127.0.0.1:18080/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
+  await page.goto(`${apiOrigin}/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
   await showPreview(page)
 
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
@@ -433,18 +434,41 @@ test("choosing Preview or Source sets the view new documents open in", async ({ 
   await preview.click()
   await page.reload()
   await expect(page).toHaveURL(/path=guides%2Fcode-blocks\.md/)
-  await expect(source).toHaveAttribute("aria-pressed", "true")
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
   await tree.getByRole("treeitem", { name: "images.md" }).click()
   await expect(page).toHaveURL(/path=guides%2Fimages\.md/)
-  await expect(source).toHaveAttribute("aria-pressed", "true")
+  await expect(preview).toHaveAttribute("aria-pressed", "true")
 })
 
-test("resets document mode after reload", async ({ page }) => {
+test("the Preview choice lasts for the browser tab, per project", async ({ page, context }) => {
+  const view = page.getByRole("group", { name: "Document view" })
+  const tree = page.getByRole("complementary", { name: "Files" })
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
+  await view.getByRole("button", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+
+  await page.goto(`/?project=${projectParam("guides")}`)
+  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
+  await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
+
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
+  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
+
+  const other = await context.newPage()
+  await other.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
+  await expect(other.getByRole("group", { name: "Document view" }).getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
+})
+
+test("resets per-tab document mode after reload", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
   const view = page.getByRole("group", { name: "Document view" })
   await view.getByRole("button", { name: "Preview" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await page.getByRole("complementary", { name: "Files" }).getByRole("treeitem", { name: "diagrams.md" }).click()
+  await view.getByRole("button", { name: "Source" }).click()
+  await page.getByRole("tablist", { name: "Open documents" }).getByRole("tab", { name: "getting-started.md" }).click()
+  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
 
   await page.reload()
   await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
@@ -508,7 +532,7 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
     const url = new URL(response.url())
     if (url.pathname.startsWith("/assets/excalidraw/fonts/")) fontResponses.push(response.status())
   })
-  await page.goto("http://127.0.0.1:18080/view?path=guides%2Fdiagrams.md")
+  await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
   await showPreview(page)
   await revealMermaidCases(page)
 
@@ -550,7 +574,7 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
 })
 
 test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => {
-  await page.goto("http://127.0.0.1:18081/view?path=guides%2Fdiagrams.md")
+  await page.goto(`${tldrawApiOrigin}/view?path=guides%2Fdiagrams.md`)
   await showPreview(page)
   await revealMermaidCases(page)
 
