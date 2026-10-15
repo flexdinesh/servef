@@ -24,7 +24,7 @@ Key files:
 | --- | --- |
 | CLI scope | `cmd/root.go`, `internal/files/names.go` |
 | Families and lookup | `internal/document/builtins.go`, `registry.go` |
-| Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `markdown.go` |
+| Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go` |
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md` |
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, all scoped by `project`; `/api/projects`, `/api/directories`) |

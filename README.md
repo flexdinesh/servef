@@ -1,14 +1,16 @@
 # servef
 
 Browse any file in a local directory: rendered Markdown, image previews,
-formatted JSON/YAML, and highlighted source for everything else.
+formatted JSON/YAML/HTML/CSS/JavaScript, and highlighted source for everything
+else.
 
 ## Features
 
 - Render Markdown content and local images
 - Preview PNG, JPEG, GIF, WebP, AVIF, ICO, BMP, and SVG images
 - Switch each open document between preview and highlighted, read-only source
-- Format JSON and YAML on demand for reading; original files stay unchanged
+- Format JSON, YAML, HTML, CSS, and JavaScript on demand for reading; original
+  files stay unchanged
 - Select lines or ranges from the line numbers (drag or Shift-click) to copy
   `path:12-20`; share `#L12-L20` links that open with the range highlighted
 - Copy the open file's path from the status bar
@@ -118,6 +120,11 @@ How a file is shown depends on its type, not on the scope:
   demand. Invalid files stay readable and searchable in Source.
   YAML formatting retains comments, anchors/aliases, scalar styles, and all
   documents; spacing and comment placement can change in the formatted view.
+- HTML, CSS, and JavaScript also open in Source with Format on demand. Format
+  only reindents and breaks lines: comments, strings, and values are kept
+  verbatim, as are `pre`, `textarea`, `script`, `style`, and inline SVG
+  content. HTML tag and attribute names show lowercase. JavaScript containing
+  JSX or that fails to tokenize keeps Source with a format notice.
 - Known languages and config files show highlighted source. Unknown text files
   show plain text.
 - Binary files (a NUL byte in the first 8000 bytes) other than images show a
@@ -189,5 +196,6 @@ locally embedded assets.
 
 Add behavior tests for lookup (filenames, extensions, fallback), source
 preservation, preview/format failure, search, and the API contract. Samples
-under `testdata/markdown` (Markdown, JSON/YAML, images, code, a binary file)
+under `testdata/markdown` (Markdown, JSON/YAML, HTML/CSS/JS, images, code, a
+binary file)
 exercise the same development and browser workflows.

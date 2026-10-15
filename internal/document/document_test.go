@@ -71,7 +71,7 @@ func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
 		t.Fatalf("fallback = %+v", types[0])
 	}
 	for _, definition := range types {
-		formattable := definition.ID == "json" || definition.ID == "yaml"
+		formattable := map[string]bool{"json": true, "yaml": true, "html": true, "css": true, "javascript": true}[definition.ID]
 		if definition.Formattable != formattable {
 			t.Errorf("%s formattable = %t", definition.ID, definition.Formattable)
 		}

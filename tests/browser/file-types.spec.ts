@@ -41,6 +41,20 @@ for (const origin of ["", apiOrigin]) {
   })
 }
 
+test("HTML, CSS, and JavaScript format on demand without changing tokens", async ({ page }) => {
+  for (const [path, label, line] of [
+    ["code/index.html", "HTML", '<p>Format reindents blocks; <a href="#top" title="html-search-token">links</a> stay inline.</p>'],
+    ["code/styles.css", "CSS", "margin: 0 auto;"],
+    ["code/app.js", "JavaScript", 'console.warn("no items")'],
+  ]) {
+    await page.goto(`/view?path=${encodeURIComponent(path)}`)
+    await expect(page.getByRole("textbox", { name: `${label} source` })).toBeVisible()
+    await page.getByRole("button", { name: "Format", exact: true }).click()
+    const formatted = page.getByRole("textbox", { name: `${label} formatted` })
+    await expect(formatted.locator(".source-document-line-content").filter({ hasText: line })).toHaveCount(1)
+  }
+})
+
 test("YAML formatting retains comments, aliases, and multiple documents", async ({ page }) => {
   await page.goto("/view?path=config%2Fsettings.yaml")
   await expect(page.getByRole("textbox", { name: "YAML source" })).toContainText("    name:")

@@ -30,7 +30,7 @@ func Builtins() *Registry {
 		// Code.
 		source("go", "Go", "go", []string{".go"}),
 		source("python", "Python", "python", []string{".py"}),
-		source("javascript", "JavaScript", "javascript", []string{".js", ".mjs", ".cjs"}),
+		NewJavaScript(),
 		source("typescript", "TypeScript", "typescript", []string{".ts", ".tsx"}),
 		source("jsx", "JSX", "react", []string{".jsx"}),
 		source("rust", "Rust", "rust", []string{".rs"}),
@@ -43,9 +43,9 @@ func Builtins() *Registry {
 		source("lua", "Lua", "lua", []string{".lua"}),
 		source("swift", "Swift", "swift", []string{".swift"}),
 		source("sql", "SQL", "sql", []string{".sql"}),
-		source("css", "CSS", "css", []string{".css"}),
+		NewCSS(),
 		source("scss", "SCSS", "scss", []string{".scss"}),
-		source("html", "HTML", "html", []string{".html", ".htm"}),
+		NewHTML(),
 	)
 	if err != nil {
 		// Static built-in definitions are programmer-owned.

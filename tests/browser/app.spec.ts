@@ -482,7 +482,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("19 files")
+  await expect(status).toContainText("22 files")
   await expect(status.locator(".status-file-type")).toHaveText("Markdown")
   await status.locator("summary").click()
   if (process.platform === "linux") {
