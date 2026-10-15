@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
-const apiPort = 18080
-const tldrawApiPort = 18081
+import { apiPort, filteredApiOrigin, filteredApiPort, tldrawApiPort } from "./tests/browser/ports.ts"
+
 const webPort = 15173
 
 export default defineConfig({
@@ -20,10 +20,10 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "go run . testdata/markdown --port 18082 --no-open --filename '*.md'",
+      command: `go run . testdata/markdown --port ${filteredApiPort} --no-open --filename '*.md'`,
       reuseExistingServer: false,
       timeout: 120_000,
-      url: "http://127.0.0.1:18082/api/page",
+      url: `${filteredApiOrigin}/api/page`,
     },
     {
       command: `go run . testdata/markdown --port ${apiPort} --no-open`,

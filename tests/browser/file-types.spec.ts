@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test"
 import { fixtureRoot, rootParam } from "./fixture-root.ts"
+import { apiOrigin } from "./ports.ts"
 
 async function filterFiles(page: Page, value: string) {
   await page.getByRole("textbox", { name: "Filter files by name" }).fill(value)
 }
 
-for (const origin of ["", "http://127.0.0.1:18080"]) {
+for (const origin of ["", apiOrigin]) {
   test(`JSON opens as Source and formats on demand, preserving values (${origin || "development"})`, async ({ page }) => {
     let formatRequests = 0
     page.on("request", (request) => {
