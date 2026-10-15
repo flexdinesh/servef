@@ -20,7 +20,7 @@ func newScopedApp(t *testing.T, root string, patterns ...string) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := New(Config{Root: root, Depth: 5, Filenames: filter})
+	app, err := New(Config{Roots: []string{root}, Depth: 5, Filenames: filter})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestSourceOnlyHandlerUsesSameAPIContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := New(Config{Root: root, Depth: 0, Types: types})
+	app, err := New(Config{Roots: []string{root}, Depth: 0, Types: types})
 	if err != nil {
 		t.Fatal(err)
 	}

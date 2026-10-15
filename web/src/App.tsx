@@ -11,7 +11,7 @@ import {
 } from "react"
 
 import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
-import { ProjectPicker } from "./ProjectPicker.tsx"
+import { ProjectPicker, type PickerOpenOptions } from "./ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
 import { DocumentPane } from "./DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./document-view.ts"
@@ -61,7 +61,7 @@ export function App({ project }: AppProps) {
   const lineRange = parseLineAnchor(useRouterState({ select: (state) => state.location.hash }))
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
-  const openProjects = useRef<() => void>(() => {})
+  const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
   useEffect(() => {
     if (result?.kind === "page") setLastPage(result.page)
@@ -73,10 +73,11 @@ export function App({ project }: AppProps) {
   const registerFiles = useCallback((open: (() => void) | null) => {
     openFiles.current = open ?? (() => {})
   }, [])
-  const registerProjects = useCallback((open: (() => void) | null) => {
+  const registerProjects = useCallback((open: ((options?: PickerOpenOptions) => void) | null) => {
     openProjects.current = open ?? (() => {})
   }, [])
   const chooseProject = useCallback(() => openProjects.current(), [])
+  const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
 
   const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
   const hasData = result?.kind === "page" || lastPage !== null
@@ -159,6 +160,7 @@ export function App({ project }: AppProps) {
           hasData={hasData}
           onNavigate={navigateToDocument}
           onOpenProjects={chooseProject}
+          onOpenWorktrees={chooseWorktree}
           page={page}
           registerOpen={registerFiles}
         />

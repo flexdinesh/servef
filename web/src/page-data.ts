@@ -11,7 +11,7 @@ export { isPageData, isPageLoadResult } from "./page-contract.ts"
 export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
-  servedRoot: "",
+  roots: [],
   project: "",
   projectUnavailable: false,
   filenamePatterns: [],
@@ -29,6 +29,7 @@ export const emptyPage: PageData = {
   fileSize: 0,
   hasFile: false,
   rootName: "",
+  branch: "",
   selected: "",
   source: "",
   tree: [],

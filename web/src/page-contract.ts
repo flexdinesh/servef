@@ -24,7 +24,8 @@ export interface TreeNode {
 }
 
 export interface PageData {
-  servedRoot: string
+  // roots are the served roots; browser memory is keyed by them.
+  roots: string[]
   project: string
   projectUnavailable: boolean
   filenamePatterns: string[]
@@ -42,6 +43,8 @@ export interface PageData {
   fileSize: number
   hasFile: boolean
   rootName: string
+  // branch is the project's checked-out branch, empty for a folder.
+  branch: string
   selected: string
   source: string
   tree: TreeNode[]
@@ -97,7 +100,7 @@ function isTreeNode(value: unknown): value is TreeNode {
 
 export function isPageData(value: unknown): value is PageData {
   return isRecord(value)
-    && typeof value.servedRoot === "string"
+    && isStringArray(value.roots)
     && typeof value.project === "string"
     && typeof value.projectUnavailable === "boolean"
     && isStringArray(value.filenamePatterns)
@@ -117,6 +120,7 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.fileSize === "number"
     && typeof value.hasFile === "boolean"
     && typeof value.rootName === "string"
+    && typeof value.branch === "string"
     && typeof value.selected === "string"
     && typeof value.source === "string"
     && Array.isArray(value.tree)

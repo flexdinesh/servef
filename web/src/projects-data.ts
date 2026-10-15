@@ -1,7 +1,5 @@
 import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "./projects-contract.ts"
-import { rootMemory, type WorkspaceMemory } from "./workspace-memory.ts"
-
-export const rootProject = "."
+import { lastProject, type WorkspaceMemory } from "./workspace-memory.ts"
 
 export async function fetchProjects(signal?: AbortSignal): Promise<ProjectsResponse> {
   const response = await fetch("/api/projects", { headers: { Accept: "application/json" }, signal })
@@ -29,18 +27,25 @@ export interface Landing {
   listed: boolean
   // pick opens the picker: nothing is remembered and there is a choice.
   pick: boolean
+  // fallback is the first served root, opened when project is gone.
+  fallback: string
+}
+
+// defaultProject is the first served root, always listed as a project.
+export function defaultProject(projects: ProjectsResponse): string {
+  return projects.roots[0]?.path ?? ""
 }
 
 // landingProject picks the project for a URL without one: the last project
-// remembered for this served root, or the root.
+// remembered for these served roots, or the first root.
 export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory): Landing {
-  const last = rootMemory(memory, projects.servedRoot).last
+  const fallback = defaultProject(projects)
+  const last = lastProject(memory, projects.roots.map((root) => root.path))
   if (!last) {
     const choices = projects.projects.filter((project) => project.available).length
-    return { project: rootProject, listed: true, pick: choices > 1 }
+    return { project: fallback, listed: true, pick: choices > 1, fallback }
   }
-  if (last === rootProject) return { project: rootProject, listed: true, pick: false }
-  return { project: last, listed: projects.projects.some((project) => project.available && project.id === last), pick: false }
+  return { project: last, listed: projects.projects.some((project) => project.available && project.id === last), pick: false, fallback }
 }
 
 let landingPick = false

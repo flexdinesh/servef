@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { endsWith, rootParam } from "./fixture-root.ts"
 
 const mermaidCaseCount = 4
 
@@ -16,7 +17,7 @@ test("uses embedded page data on a direct production load", async ({ page }) => 
     if (new URL(request.url()).pathname === "/api/page") pageRequests++
   })
 
-  await page.goto("http://127.0.0.1:18080/view?project=.&path=guides%2Fgetting-started.md")
+  await page.goto(`http://127.0.0.1:18080/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
 
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   expect(pageRequests).toBe(0)
@@ -61,7 +62,7 @@ test("browses nested Markdown without resetting the file tree", async ({ page })
     document.body.dataset.navigationMarker = "preserved"
   })
   await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("main table")).toContainText("pnpm dev")
   await expect(page).toHaveTitle("guides/getting-started.md · servef")
@@ -95,7 +96,7 @@ test("searches fixture content and opens the result", async ({ page }) => {
     document.body.dataset.navigationMarker = "preserved"
   })
   await result.click()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=reference%2Ftopics%2Fsearch\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=reference%2Ftopics%2Fsearch.md`))
   await expect(page.locator("main")).toContainText("luminous-orchid")
   await expect(page.locator("main")).toBeFocused()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
@@ -113,20 +114,20 @@ test("navigates Markdown links and history without losing tree state", async ({ 
     document.body.dataset.navigationMarker = "preserved"
   })
   await page.getByRole("link", { name: "search notes" }).click()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=reference%2Ftopics%2Fsearch\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=reference%2Ftopics%2Fsearch.md`))
   await expect(page.getByRole("heading", { level: 1, name: "Search notes" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
   await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 
   await page.goBack()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
   await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
 
   await page.goForward()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=reference%2Ftopics%2Fsearch\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=reference%2Ftopics%2Fsearch.md`))
   await expect(page.getByRole("heading", { level: 1, name: "Search notes" })).toBeVisible()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
   await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
@@ -140,14 +141,14 @@ test("preserves Markdown hashes during client navigation", async ({ page }) => {
   })
   await page.getByRole("link", { name: "diagrams" }).click()
 
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fdiagrams\.md#request-flow$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fdiagrams.md#request-flow`))
   await expect(page.getByRole("heading", { level: 2, name: "Request flow" })).toBeInViewport()
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
 })
 
 test("recovers from an invalid page response", async ({ page }) => {
   let returnInvalidResponse = true
-  await page.route("**/api/page?project=.&path=guides%2Fgetting-started.md", async (route) => {
+  await page.route(`**/api/page?project=${rootParam}&path=guides%2Fgetting-started.md`, async (route) => {
     if (returnInvalidResponse) {
       returnInvalidResponse = false
       await route.fulfill({ contentType: "application/json", body: "{}" })
@@ -175,7 +176,7 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   const delayedResponse = new Promise<void>((resolve) => {
     releaseDelayedResponse = resolve
   })
-  await page.route("**/api/page?project=.&path=guides%2Fdiagrams.md", async (route) => {
+  await page.route(`**/api/page?project=${rootParam}&path=guides%2Fdiagrams.md`, async (route) => {
     await delayedResponse
     await route.continue().catch(() => {})
   })
@@ -189,7 +190,7 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   releaseDelayedResponse()
   await page.waitForTimeout(100)
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
 })
 
 test("opens content search from the status bar", async ({ page }) => {

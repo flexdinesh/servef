@@ -14,9 +14,10 @@ formatted JSON/YAML, and highlighted source for everything else.
 - Copy the open file's path from the status bar
 - Highlight common languages and config files; show other text as plain text
 - Filter the tree by filename glob; restrict served files through the CLI
-- Switch between git repositories and worktrees found under the served
-  directory, or open any folder in it, with Cmd/Ctrl+O; each switch reads the
-  file system afresh and restores that project's tabs
+- Serve several directories at once; switch between the git repositories found
+  under them, pick a repository's worktree by branch, or open a folder outside
+  any repository, with Cmd/Ctrl+O; each switch reads the file system afresh and
+  restores that project's tabs
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
@@ -65,13 +66,25 @@ Or serve another directory:
 servef path/to/markdown
 ```
 
+Serve several directories with a repeatable `--path` (a positional path is
+shorthand for one); overlapping directories fail before starting:
+
+```sh
+servef --path ~/work --path ~/personal
+```
+
 servef looks for git repositories (including linked worktrees) up to
-`--scan-depth` folders deep (default `10`; `0` checks only the served directory)
-and lists them in the project picker. It stops descending at a repository and
-skips hidden and excluded folders. Only one project is read at a time, and every
-switch reads it from disk. `--depth` limits the file tree within a project.
-Worktrees outside the served directory are listed but cannot be opened; serve a
-common parent directory to browse them.
+`--scan-depth` folders deep in each directory (default `10`; `0` checks only
+the served directories) and lists them in the project picker. It stops
+descending at a repository and skips hidden and excluded folders. Only one
+project is read at a time, and every switch reads it from disk. `--depth` limits
+the file tree within a project.
+
+A repository opens whole: its own folders cannot be opened as projects, and
+Open folder only browses folders outside repositories. A repository with
+worktrees is one picker entry that opens the last-used worktree; press → (or
+click its arrow) to choose a worktree by branch. Worktrees of a served
+repository open wherever they live, even outside the served directories.
 
 Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.

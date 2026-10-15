@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { fixtureRoot, rootParam } from "./fixture-root.ts"
 
 function readClipboard(page: Page) {
   return page.evaluate(() => navigator.clipboard.readText())
@@ -109,9 +110,9 @@ test("a line anchor scrolls its line into view and clamps to the document", asyn
     id: "text", label: "Plain text", extensions: [".txt"], filenames: [], language: "plaintext",
     previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
   }
-  await page.route("**/api/page?project=.&path=long.txt", (route) => route.fulfill({ json: {
+  await page.route(`**/api/page?project=${rootParam}&path=long.txt`, (route) => route.fulfill({ json: {
     content: "", source, sourceLines: [], empty: false, error: "", fileCount: 1, fileSize: source.length,
-    hasFile: true, servedRoot: "/example", project: ".", projectUnavailable: false, rootName: "example",
+    hasFile: true, roots: ["/example"], branch: "", project: fixtureRoot, projectUnavailable: false, rootName: "example",
     selected: "long.txt", warnings: [], previewError: "", filenamePatterns: ["*"], documentType: type,
     binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name: "long.txt", path: "long.txt", fileType: "text", isDir: false, open: false, selected: true, children: [] }],

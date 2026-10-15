@@ -1,8 +1,9 @@
 {
-  "servedRoot": "/home/user/markdown",
-  "project": ".",
+  "roots": ["/home/user/markdown"],
+  "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
+  "branch": "",
   "tree": [
     {
       "name": "assets",

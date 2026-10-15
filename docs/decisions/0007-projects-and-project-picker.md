@@ -1,6 +1,7 @@
 # 0007: Projects and project picker
 
-- Status: Accepted
+- Status: Partially superseded by [0009](0009-multiple-roots-and-worktree-picker.md)
+  (roots, project IDs, what opens, worktree boundary, picker layout, memory)
 - Date: 2026-10-13
 
 ## Context

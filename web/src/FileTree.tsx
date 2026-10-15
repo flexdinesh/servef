@@ -1,6 +1,6 @@
 import type { FileTree as FileTreeModel } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react"
-import { ChevronDownIcon, FoldVerticalIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
+import { ChevronDownIcon, FoldVerticalIcon, GitBranchIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { FilenameFilter, useFilenameFilter, type FilenameFilterState } from "./FilenameFilter.tsx"
@@ -19,6 +19,8 @@ interface FileTreeProps {
   hasData: boolean
   onNavigate(path: string): void
   onOpenProjects(): void
+  // onOpenWorktrees lists the current repository's worktrees.
+  onOpenWorktrees(): void
   page: PageData
   registerOpen(open: (() => void) | null): void
 }
@@ -64,7 +66,7 @@ export function FileTree(props: FileTreeProps) {
   }}>{explorer}</dialog> : explorer
 }
 
-function Explorer({ hasData, onNavigate, onOpenProjects, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
   mobile: boolean
   filter: FilenameFilterState
   dialog: RefObject<HTMLDialogElement | null>
@@ -227,6 +229,13 @@ function Explorer({ hasData, onNavigate, onOpenProjects, page, registerOpen, mob
           <span>{page.rootName || page.project || "Files"}</span>
           <ChevronDownIcon aria-hidden="true" />
         </button>
+        {page.branch && (
+          <button type="button" className="project-branch" aria-haspopup="dialog"
+            aria-label={`Switch worktree (${page.branch})`} title={`Switch worktree (${page.branch})`} onClick={onOpenWorktrees}>
+            <GitBranchIcon aria-hidden="true" />
+            <span>{page.branch}</span>
+          </button>
+        )}
         <button ref={searchButton} type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
           onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }}>
           <SearchIcon aria-hidden="true" />

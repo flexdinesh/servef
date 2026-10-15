@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -32,7 +31,7 @@ var defaultExclusions = []string{".git", "node_modules", "vendor"}
 const defaultHost = "localhost"
 
 type options struct {
-	path       string
+	paths      []string
 	depth      int
 	scanDepth  int
 	host       string
@@ -66,9 +65,10 @@ func newRootCommand(runCommand runner) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(command *cobra.Command, args []string) error {
-			opts.path = "."
-			if len(args) == 1 {
-				opts.path = args[0]
+			// A positional path is shorthand for one --path.
+			opts.paths = append(args, opts.paths...)
+			if len(opts.paths) == 0 {
+				opts.paths = []string{"."}
 			}
 			if opts.depth < 0 {
 				return errors.New("--depth must be zero or greater")
@@ -97,6 +97,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	}
 	command.SetVersionTemplate("{{.Version}}\n")
 
+	command.Flags().StringArrayVar(&opts.paths, "path", nil, "add a directory to serve (repeatable); a positional path is shorthand for one")
 	command.Flags().StringVar(&filenames, "filename", "*", "comma-separated, case-insensitive base-name globs to include (e.g. '*.md,*.go,Dockerfile')")
 	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
 	command.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
@@ -109,9 +110,9 @@ func newRootCommand(runCommand runner) *cobra.Command {
 }
 
 func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.Writer) error {
-	root, err := filepath.Abs(opts.path)
+	roots, err := projects.CanonicalRoots(opts.paths)
 	if err != nil {
-		return fmt.Errorf("resolve %q: %w", opts.path, err)
+		return err
 	}
 	exclusions := append(append([]string{}, defaultExclusions...), opts.exclusions...)
 
@@ -121,13 +122,13 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 	if len(filenames.Patterns()) == 0 {
 		filenames = files.AllNames()
 	}
-	discovery, err := projects.Discover(root, opts.scanDepth, exclusions)
+	discovery, err := projects.Discover(roots, opts.scanDepth, exclusions)
 	discoveryDuration := time.Since(discoveryStarted)
 	if err != nil {
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Root: root, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
+	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
@@ -191,7 +192,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 	url := serverURL(host, port)
 	writeStartup(stdout, startupInfo{
 		Version:      "servef " + version.Number(),
-		Directory:    root,
+		Directories:  roots,
 		URL:          url,
 		ProjectCount: len(discovery.Projects),
 		Discovery:    discoveryDuration,

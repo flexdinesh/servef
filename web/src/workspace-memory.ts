@@ -1,25 +1,25 @@
-// Browser memory of project workspaces, keyed by the served root so separate
-// servef sessions on one origin stay apart. Pure functions return new values;
+// Browser memory of project workspaces. Projects are absolute paths, so each
+// project's tabs are shared by every servef session that serves it; the last
+// project is kept per set of served roots. Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
-export const MEMORY_STORAGE_KEY = "servef-workspaces"
+export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"
 
-const maxProjects = 50
-const maxRoots = 20
+const maxProjects = 100
+const maxSessions = 20
 
 export interface ProjectMemory {
   tabs: string[]
   active: string
 }
 
-export interface RootMemory {
-  last: string
+export interface WorkspaceMemory {
+  // last maps a rootsKey to the project last open in that session shape.
+  last: Record<string, string>
   projects: Record<string, ProjectMemory>
 }
 
-export type WorkspaceMemory = Record<string, RootMemory>
-
-const emptyRoot: RootMemory = { last: "", projects: {} }
+export const emptyMemory: WorkspaceMemory = { last: {}, projects: {} }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -34,69 +34,63 @@ function parseProject(value: unknown): ProjectMemory | null {
   return { tabs: stringArray(value.tabs), active: typeof value.active === "string" ? value.active : "" }
 }
 
-function parseRoot(value: unknown): RootMemory | null {
-  if (!isRecord(value)) return null
-  const projects: Record<string, ProjectMemory> = {}
-  if (isRecord(value.projects)) {
-    for (const [id, entry] of Object.entries(value.projects)) {
-      if (id === "__proto__") continue
-      const project = parseProject(entry)
-      if (project) projects[id] = project
-    }
-  }
-  return { last: typeof value.last === "string" ? value.last : "", projects }
+function entries(value: unknown): [string, unknown][] {
+  return isRecord(value) ? Object.entries(value).filter(([key]) => key !== "__proto__") : []
 }
 
 // parseMemory keeps every well-formed entry of untrusted stored data.
 export function parseMemory(value: unknown): WorkspaceMemory {
-  const memory: WorkspaceMemory = {}
-  if (!isRecord(value)) return memory
-  for (const [root, entry] of Object.entries(value)) {
-    if (root === "__proto__") continue
-    const parsed = parseRoot(entry)
-    if (parsed) memory[root] = parsed
+  if (!isRecord(value)) return emptyMemory
+  const last: Record<string, string> = {}
+  for (const [roots, project] of entries(value.last)) {
+    if (typeof project === "string") last[roots] = project
   }
-  return memory
+  const projects: Record<string, ProjectMemory> = {}
+  for (const [id, entry] of entries(value.projects)) {
+    const project = parseProject(entry)
+    if (project) projects[id] = project
+  }
+  return { last, projects }
 }
 
-export function rootMemory(memory: WorkspaceMemory, root: string): RootMemory {
-  return Object.hasOwn(memory, root) ? memory[root] ?? emptyRoot : emptyRoot
+// rootsKey identifies a session by its served roots.
+export function rootsKey(roots: readonly string[]): string {
+  return roots.join("\n")
 }
 
-export function projectMemory(memory: WorkspaceMemory, root: string, project: string): ProjectMemory | undefined {
-  const projects = rootMemory(memory, root).projects
-  return Object.hasOwn(projects, project) ? projects[project] : undefined
+export function lastProject(memory: WorkspaceMemory, roots: readonly string[]): string {
+  const key = rootsKey(roots)
+  return Object.hasOwn(memory.last, key) ? memory.last[key] ?? "" : ""
+}
+
+export function projectMemory(memory: WorkspaceMemory, project: string): ProjectMemory | undefined {
+  return Object.hasOwn(memory.projects, project) ? memory.projects[project] : undefined
 }
 
 // Re-inserting moves an entry to the end, so object order is least recent first.
-function withRoot(memory: WorkspaceMemory, root: string, entry: RootMemory): WorkspaceMemory {
-  const { [root]: _previous, ...rest } = memory
-  const roots = Object.entries(rest).slice(-(maxRoots - 1))
-  return { ...Object.fromEntries(roots), [root]: entry }
+function withEntry<T>(record: Record<string, T>, key: string, value: T, max: number): Record<string, T> {
+  const { [key]: _previous, ...rest } = record
+  return { ...Object.fromEntries(Object.entries(rest).slice(-(max - 1))), [key]: value }
 }
 
-export function rememberProject(memory: WorkspaceMemory, root: string, project: string, tabs: readonly string[], active: string): WorkspaceMemory {
-  const current = rootMemory(memory, root)
-  const { [project]: _previous, ...rest } = current.projects
-  const kept = Object.entries(rest).slice(-(maxProjects - 1))
-  return withRoot(memory, root, {
-    ...current,
-    last: project,
-    projects: { ...Object.fromEntries(kept), [project]: { tabs: [...tabs], active: tabs.includes(active) ? active : "" } },
-  })
+export function rememberProject(memory: WorkspaceMemory, roots: readonly string[], project: string, tabs: readonly string[], active: string): WorkspaceMemory {
+  return {
+    last: withEntry(memory.last, rootsKey(roots), project, maxSessions),
+    projects: withEntry(memory.projects, project, { tabs: [...tabs], active: tabs.includes(active) ? active : "" }, maxProjects),
+  }
 }
 
 // forgetProject drops a project's remembered tabs; a forgotten last project
 // no longer reopens on landing.
-export function forgetProject(memory: WorkspaceMemory, root: string, project: string): WorkspaceMemory {
-  const current = rootMemory(memory, root)
-  const { [project]: _forgotten, ...projects } = current.projects
-  return withRoot(memory, root, { last: current.last === project ? "" : current.last, projects })
+export function forgetProject(memory: WorkspaceMemory, project: string): WorkspaceMemory {
+  const { [project]: _forgotten, ...projects } = memory.projects
+  const last = Object.fromEntries(Object.entries(memory.last).filter(([, id]) => id !== project))
+  return { last, projects }
 }
 
 // rememberedProjects lists remembered project IDs, most recent first.
-export function rememberedProjects(memory: WorkspaceMemory, root: string): string[] {
-  return Object.keys(rootMemory(memory, root).projects).reverse()
+export function rememberedProjects(memory: WorkspaceMemory): string[] {
+  return Object.keys(memory.projects).reverse()
 }
 
 // restoreTabs keeps remembered tabs that still exist in the fresh tree.
@@ -109,9 +103,9 @@ export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySe
 export function readMemory(): WorkspaceMemory {
   try {
     const raw = window.localStorage.getItem(MEMORY_STORAGE_KEY)
-    return raw ? parseMemory(JSON.parse(raw)) : {}
+    return raw ? parseMemory(JSON.parse(raw)) : emptyMemory
   } catch {
-    return {}
+    return emptyMemory
   }
 }
 

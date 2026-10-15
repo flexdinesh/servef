@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { rootParam } from "./fixture-root.ts"
 
 for (const entry of [
   { name: "development", url: "/" },
@@ -30,7 +31,7 @@ for (const entry of [
 
 test("search retries transient failure without losing the query", async ({ page }) => {
   let requests = 0
-  await page.route("**/api/search-documents?project=.", async (route) => {
+  await page.route(`**/api/search-documents?project=${rootParam}`, async (route) => {
     if (++requests === 1) {
       await route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
     } else {
@@ -209,7 +210,7 @@ test("search keeps its session while callbacks change", async ({ page }) => {
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/search-documents") indexRequests++
   })
-  await page.goto("/test-fixtures/markdown-document.html")
+  await page.goto(`/test-fixtures/markdown-document.html?project=${rootParam}`)
   const input = page.getByPlaceholder("Search document content…")
   await page.getByRole("button", { name: "Open search" }).click()
   await input.fill("getting-started")

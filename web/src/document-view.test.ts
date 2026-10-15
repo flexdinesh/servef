@@ -6,7 +6,8 @@ import { documentModes, documentView, modeDisabledReason, resolveDocumentMode } 
 import type { FileType, PageData } from "./page-contract.ts"
 
 const emptyPage: PageData = {
-  servedRoot: "/root",
+  roots: ["/root"],
+  branch: "",
   project: ".",
   projectUnavailable: false,
   filenamePatterns: ["*"], documentType: null, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,

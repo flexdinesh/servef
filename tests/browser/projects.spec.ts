@@ -1,19 +1,20 @@
 import { expect, test } from "@playwright/test"
+import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
 
 test("a URL without a project opens the served root", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
 })
 
 test("a project scopes the tree to its directory", async ({ page }) => {
-  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
   const tree = page.getByRole("complementary", { name: "Files" })
   const tabs = page.getByRole("tablist", { name: "Open documents" })
   await tree.getByRole("treeitem", { name: "README.md" }).click()
   await expect(tabs.getByRole("tab")).toHaveCount(2)
 
-  await page.goto("/?project=guides")
+  await page.goto(`/?project=${projectParam("guides")}`)
 
   await expect(tree.getByText("guides", { exact: true })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "diagrams.md" })).toBeVisible()
@@ -21,7 +22,7 @@ test("a project scopes the tree to its directory", async ({ page }) => {
   await expect(tabs.getByRole("tab")).toHaveCount(0)
 
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
-  await expect(page).toHaveURL(/\/view\?project=guides&path=diagrams\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
   await expect(tabs.getByRole("tab")).toHaveCount(1)
 })
 
@@ -35,21 +36,21 @@ test("an unavailable project explains itself", async ({ page }) => {
 test("projects remember their tabs and the last project reopens", async ({ page }) => {
   const tree = page.getByRole("complementary", { name: "Files" })
   const tabs = page.getByRole("tablist", { name: "Open documents" })
-  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
   await tree.getByRole("treeitem", { name: "README.md" }).click()
   await expect(tabs.getByRole("tab")).toHaveCount(2)
 
-  await page.goto("/?project=guides")
+  await page.goto(`/?project=${projectParam("guides")}`)
   await expect(tabs.getByRole("tab")).toHaveCount(0)
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
 
   await page.goto("/")
-  await expect(page).toHaveURL(/\/view\?project=guides&path=diagrams\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
   await expect(tabs.getByRole("tab")).toHaveCount(1)
 
-  await page.goto("/?project=.")
-  await expect(page).toHaveURL(/\/view\?project=\.&path=README\.md$/)
+  await page.goto(`/?project=${rootParam}`)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=README.md`))
   await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
   await expect(tabs.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
 })
@@ -57,13 +58,13 @@ test("projects remember their tabs and the last project reopens", async ({ page 
 test("reloading restores open tabs and the active document", async ({ page }) => {
   const tree = page.getByRole("complementary", { name: "Files" })
   const tabs = page.getByRole("tablist", { name: "Open documents" })
-  await page.goto("/view?project=.&path=guides%2Fgetting-started.md")
+  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
   await tree.getByRole("treeitem", { name: "README.md" }).click()
   await tabs.getByRole("tab", { name: "getting-started.md" }).click()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
 
   await page.reload()
-  await expect(page).toHaveURL(/\/view\?project=\.&path=guides%2Fgetting-started\.md$/)
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
   await expect(tabs.getByRole("tab")).toHaveCount(2)
   await expect(tabs.getByRole("tab", { name: "README.md" })).toBeVisible()
   await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
