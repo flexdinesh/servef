@@ -310,11 +310,15 @@ func TestFormatEndpoint(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "config.yml"), "a:   1\n")
 	writeMarkdown(t, filepath.Join(root, "broken.json"), `{"token": broken`)
 	writeMarkdown(t, filepath.Join(root, "main.go"), "package main\n")
+	writeMarkdown(t, filepath.Join(root, "page.html"), "<div><p>web-format</p></div>")
+	writeMarkdown(t, filepath.Join(root, "site.css"), "a{color:red}")
+	writeMarkdown(t, filepath.Join(root, "app.js"), "if(a){b()}")
+	writeMarkdown(t, filepath.Join(root, "view.js"), "const el = <div>jsx</div>")
 	writeMarkdown(t, filepath.Join(root, "large.json"), `{"a":"`+strings.Repeat("x", document.PreviewLimit)+`"}`)
 	if err := os.WriteFile(filepath.Join(root, "binary.json"), []byte("{\x00}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	app := newScopedApp(t, root, "*.json", "*.yml", "*.go")
+	app := newScopedApp(t, root, "*.json", "*.yml", "*.go", "*.html", "*.css", "*.js")
 	writeMarkdown(t, filepath.Join(root, "outside.md"), "# outside")
 
 	response := request(t, app, "/api/format?project=.&path=config.json")
@@ -334,8 +338,16 @@ func TestFormatEndpoint(t *testing.T) {
 	if response := request(t, app, "/api/format?project=.&path=config.yml"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "formattedLines") {
 		t.Fatalf("YAML format = %d %s", response.Code, response.Body.String())
 	}
+	for path, lines := range map[string]int{"page.html": 3, "site.css": 3, "app.js": 3} {
+		response := request(t, app, "/api/format?project=.&path="+path)
+		var formatted formatResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil || response.Code != http.StatusOK || len(formatted.FormattedLines) != lines {
+			t.Errorf("%s format = %d %s", path, response.Code, response.Body.String())
+		}
+	}
 	for target, status := range map[string]int{
 		"/api/format?project=.&path=broken.json":   http.StatusUnprocessableEntity,
+		"/api/format?project=.&path=view.js":       http.StatusUnprocessableEntity,
 		"/api/format?project=.&path=binary.json":   http.StatusUnprocessableEntity,
 		"/api/format?project=.&path=main.go":       http.StatusBadRequest,
 		"/api/format?project=.&path=large.json":    http.StatusRequestEntityTooLarge,

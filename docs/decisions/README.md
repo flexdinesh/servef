@@ -16,3 +16,4 @@ rewriting history; update `Status` on the old record.
 | [0008](0008-line-links-and-copy-path.md) | Line links and copy path | Accepted |
 | [0009](0009-multiple-roots-and-worktree-picker.md) | Multiple roots, whole repositories, and worktree picker | Accepted |
 | [0010](0010-markdown-opens-in-source.md) | Markdown opens in Source | Accepted |
+| [0011](0011-token-preserving-web-formatters.md) | Token-preserving HTML, CSS, and JavaScript formatters | Accepted |
