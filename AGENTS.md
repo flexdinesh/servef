@@ -11,7 +11,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
 - `cmd/` owns CLI validation, session configuration, and application startup.
 - `internal/files/` owns traversal, exclusions, depth, filename-glob scope, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
-- `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker and git's worktree and `HEAD` files only.
+- `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
 - `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
@@ -26,7 +26,7 @@ Key files:
 | Families and lookup | `internal/document/builtins.go`, `registry.go` |
 | Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go` |
 | Binary/size limits | `internal/document/content.go` |
-| Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md` |
+| Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, all scoped by `project`; `/api/projects`, `/api/directories`) |
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |

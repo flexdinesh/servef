@@ -1,3 +1,5 @@
+import { isProjectKind, type ProjectKind } from "./projects-contract.ts"
+
 export type DocumentMode = "preview" | "source" | "format"
 export type DefaultDocumentMode = "preview" | "source"
 
@@ -43,8 +45,15 @@ export interface PageData {
   fileSize: number
   hasFile: boolean
   rootName: string
+  // repository names the project's repository (origin remote, else main
+  // worktree folder), empty for a folder.
+  repository: string
+  // projectKind tells a linked worktree from a repository or folder.
+  projectKind: ProjectKind
   // branch is the project's checked-out branch, empty for a folder.
   branch: string
+  // worktrees counts the repository's checkouts; above 1 it has worktrees.
+  worktrees: number
   selected: string
   source: string
   tree: TreeNode[]
@@ -120,7 +129,10 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.fileSize === "number"
     && typeof value.hasFile === "boolean"
     && typeof value.rootName === "string"
+    && typeof value.repository === "string"
+    && isProjectKind(value.projectKind)
     && typeof value.branch === "string"
+    && typeof value.worktrees === "number"
     && typeof value.selected === "string"
     && typeof value.source === "string"
     && Array.isArray(value.tree)

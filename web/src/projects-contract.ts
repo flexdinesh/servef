@@ -1,5 +1,9 @@
 export type ProjectKind = "folder" | "repo" | "worktree"
 
+export function isProjectKind(value: unknown): value is ProjectKind {
+  return value === "folder" || value === "repo" || value === "worktree"
+}
+
 // Root mirrors projects.Root, a served root directory.
 export interface Root {
   path: string
@@ -10,7 +14,8 @@ export interface Root {
 // Project mirrors projects.Project. The id is the absolute path, or empty for
 // a project that cannot be opened. Members of one repository share group, the
 // path of its main worktree; root is the served root it, or its repository,
-// lives in.
+// lives in. repository names its repository: the origin remote's name, else the
+// main worktree's folder; empty for a folder.
 export interface Project {
   id: string
   name: string
@@ -19,6 +24,7 @@ export interface Project {
   group: string
   root: string
   branch: string
+  repository: string
   available: boolean
 }
 
@@ -48,10 +54,11 @@ function isProject(value: unknown): value is Project {
     && typeof value.id === "string"
     && typeof value.name === "string"
     && typeof value.path === "string"
-    && (value.kind === "folder" || value.kind === "repo" || value.kind === "worktree")
+    && isProjectKind(value.kind)
     && typeof value.group === "string"
     && typeof value.root === "string"
     && typeof value.branch === "string"
+    && typeof value.repository === "string"
     && typeof value.available === "boolean"
     && (value.available === (value.id !== ""))
 }

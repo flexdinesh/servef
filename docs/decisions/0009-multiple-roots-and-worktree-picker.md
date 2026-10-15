@@ -1,6 +1,6 @@
 # 0009: Multiple roots, whole repositories, and worktree picker
 
-- Status: Accepted
+- Status: Partially superseded by [0012](0012-repository-names-and-worktree-header.md)
 - Date: 2026-10-15
 - Supersedes parts of: [0007](0007-projects-and-project-picker.md)
 

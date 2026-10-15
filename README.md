@@ -87,6 +87,9 @@ Open folder only browses folders outside repositories. A repository with
 worktrees is one picker entry that opens the last-used worktree; press → (or
 click its arrow) to choose a worktree by branch. Worktrees of a served
 repository open wherever they live, even outside the served directories.
+Repositories are named after their `origin` remote, else their folder. The
+explorer header shows the repository and branch; when the repository has
+worktrees, click the branch to switch. Linked worktrees get a colored fork icon.
 
 Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.

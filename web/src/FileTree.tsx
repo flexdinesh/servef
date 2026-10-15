@@ -1,6 +1,6 @@
 import type { FileTree as FileTreeModel } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react"
-import { ChevronDownIcon, FoldVerticalIcon, GitBranchIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
+import { ChevronDownIcon, FoldVerticalIcon, GitBranchIcon, GitForkIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { FilenameFilter, useFilenameFilter, type FilenameFilterState } from "./FilenameFilter.tsx"
@@ -220,22 +220,35 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
     }
   }, [mobile, model, registerOpen])
 
+  // A linked worktree shows a colored fork; other checkouts show a branch.
+  const projectName = page.repository || page.rootName || page.project
+  const branchIcon = page.projectKind === "worktree"
+    ? <GitForkIcon className="worktree-icon" aria-hidden="true" />
+    : <GitBranchIcon aria-hidden="true" />
+
   return (
     <aside className="file-explorer" aria-label="Files">
       <div className="explorer-header">
         <button type="button" className="project-trigger" aria-haspopup="dialog"
-          aria-label={`Switch project (${page.rootName || page.project || "none"})`}
+          aria-label={`Switch project (${projectName || "none"})`}
           aria-keyshortcuts="Control+O Meta+O" title={`Switch project (${projectShortcutLabel})`} onClick={onOpenProjects}>
-          <span>{page.rootName || page.project || "Files"}</span>
+          <span>{projectName || "Files"}</span>
           <ChevronDownIcon aria-hidden="true" />
         </button>
-        {page.branch && (
-          <button type="button" className="project-branch" aria-haspopup="dialog"
-            aria-label={`Switch worktree (${page.branch})`} title={`Switch worktree (${page.branch})`} onClick={onOpenWorktrees}>
-            <GitBranchIcon aria-hidden="true" />
-            <span>{page.branch}</span>
-          </button>
-        )}
+        {page.branch && (page.worktrees > 1
+          ? (
+            <button type="button" className="project-branch" aria-haspopup="dialog"
+              aria-label={`Switch worktree (${page.branch})`} title={`Switch worktree (${page.branch})`} onClick={onOpenWorktrees}>
+              {branchIcon}
+              <span>{page.branch}</span>
+            </button>
+          )
+          : (
+            <span className="project-branch" title={`${page.projectKind === "worktree" ? "Worktree" : "Branch"} ${page.branch}`}>
+              {branchIcon}
+              <span>{page.branch}</span>
+            </span>
+          ))}
         <button ref={searchButton} type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
           onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }}>
           <SearchIcon aria-hidden="true" />

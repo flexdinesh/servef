@@ -1566,6 +1566,7 @@ article hr {
   flex: 0 1 auto;
 }
 
+/* A static branch is text, not a control: no hover or pointer. */
 .explorer-header .project-branch {
   display: flex;
   width: auto;
@@ -1592,6 +1593,12 @@ article hr {
   width: 0.75rem;
   height: 0.75rem;
   flex: none;
+}
+
+/* Linked worktrees carry a colored fork wherever they are listed. */
+.explorer-header .project-branch .worktree-icon,
+.project-option .worktree-icon {
+  color: var(--color-success);
 }
 
 .project-prefix {

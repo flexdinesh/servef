@@ -9,9 +9,9 @@ const roots = ["/work", "/home"]
 const projects: ProjectsResponse = {
   roots: [{ path: "/work", name: "work", isRepo: false }, { path: "/home", name: "home", isRepo: false }],
   projects: [
-    { id: "/work", name: "work", path: "/work", kind: "folder", group: "", root: "/work", branch: "", available: true },
-    { id: "/work/api", name: "api", path: "/work/api", kind: "repo", group: "", root: "/work", branch: "main", available: true },
-    { id: "/home", name: "home", path: "/home", kind: "folder", group: "", root: "/home", branch: "", available: true },
+    { id: "/work", name: "work", path: "/work", kind: "folder", group: "", root: "/work", branch: "", repository: "", available: true },
+    { id: "/work/api", name: "api", path: "/work/api", kind: "repo", group: "", root: "/work", branch: "main", repository: "api", available: true },
+    { id: "/home", name: "home", path: "/home", kind: "folder", group: "", root: "/home", branch: "", repository: "", available: true },
   ],
   warnings: [],
 }

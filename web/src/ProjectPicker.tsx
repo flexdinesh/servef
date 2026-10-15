@@ -8,6 +8,7 @@ import {
   FolderOpenIcon,
   FolderSearchIcon,
   GitBranchIcon,
+  GitForkIcon,
   XIcon,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
@@ -307,7 +308,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
         : folderLoad?.kind === "ready" && !sections.some((section) => section.title)
           ? { tone: "muted", text: partial ? `No folders match “${partial}”.` : "No folders here." }
           : null
-  const listedName = listedGroup ? groupName(listedGroup) : ""
+  const listedName = listedGroup && projectList ? groupName(projectList, listedGroup) : ""
   const label = mode === "browse" ? "Folder path" : listedGroup ? `Switch ${listedName} worktree` : "Switch project"
   const warnings = mode === "projects" ? projectList?.warnings ?? [] : []
   const activeID = active ? `project-option-${active.key}` : undefined
@@ -440,7 +441,7 @@ function OptionIcon({ row }: { row: PickerRow }) {
     case "project":
       switch (row.projectKind) {
         case "repo": return <FolderGit2Icon aria-hidden="true" />
-        case "worktree": return <GitBranchIcon aria-hidden="true" />
+        case "worktree": return <GitForkIcon className="worktree-icon" aria-hidden="true" />
         case "opened": return <FolderOpenIcon aria-hidden="true" />
         case "folder": return <FolderIcon aria-hidden="true" />
       }

@@ -50,15 +50,29 @@ type Root struct {
 // its first member when the main worktree is missing). Root is the served root
 // the project, or its repository, lives in; empty when none. Branch is the
 // checked-out branch, a short commit for a detached HEAD, or empty.
+// Repository names the project's repository (see Checkout); empty for a
+// folder.
 type Project struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Kind      Kind   `json:"kind"`
-	Group     string `json:"group"`
-	Root      string `json:"root"`
-	Branch    string `json:"branch"`
-	Available bool   `json:"available"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	Kind       Kind   `json:"kind"`
+	Group      string `json:"group"`
+	Root       string `json:"root"`
+	Branch     string `json:"branch"`
+	Repository string `json:"repository"`
+	Available  bool   `json:"available"`
+}
+
+// Checkout describes the repository checked out at a project directory.
+// Repository is the origin remote's repository name, else the main worktree's
+// folder; Worktrees counts the repository's verified checkouts. A folder
+// outside any repository has KindFolder and nothing else.
+type Checkout struct {
+	Kind       Kind
+	Branch     string
+	Repository string
+	Worktrees  int
 }
 
 // Directory is a child directory listed while browsing for a project.
@@ -353,7 +367,7 @@ func (d *discoverer) add(dir, group, common string) {
 	if isLinkedWorktree(dir) {
 		kind = KindWorktree
 	}
-	project := Project{Name: filepath.Base(dir), Path: dir, Kind: kind, Group: group, Root: d.rootOf(dir), Branch: Branch(dir)}
+	project := Project{Name: filepath.Base(dir), Path: dir, Kind: kind, Group: group, Root: d.rootOf(dir), Branch: Branch(dir), Repository: repositoryName(dir, common)}
 	if project.Root != "" {
 		project.Available = true
 	} else if common != "" {
@@ -486,6 +500,68 @@ func Branch(dir string) string {
 		return head[:7]
 	}
 	return head
+}
+
+// Inspect describes the checkout at a canonical project directory.
+func Inspect(dir string) Checkout {
+	if !hasGit(dir) {
+		return Checkout{Kind: KindFolder}
+	}
+	checkout := Checkout{Kind: KindRepo, Branch: Branch(dir), Repository: filepath.Base(dir), Worktrees: 1}
+	if isLinkedWorktree(dir) {
+		checkout.Kind = KindWorktree
+	}
+	common, err := commonDir(dir)
+	if err != nil {
+		return checkout
+	}
+	members := worktrees(common)
+	if !containsPath(members, dir) {
+		members = append(members, dir)
+	}
+	checkout.Repository = repositoryName(dir, common)
+	checkout.Worktrees = len(members)
+	return checkout
+}
+
+// repositoryName names the repository of a checkout by its origin remote,
+// else by its main worktree's folder or bare git directory. Without a common
+// git directory it is the checkout's folder.
+func repositoryName(dir, common string) string {
+	if common == "" {
+		return filepath.Base(dir)
+	}
+	if name := originName(common); name != "" {
+		return name
+	}
+	if filepath.Base(common) == ".git" {
+		return filepath.Base(filepath.Dir(common))
+	}
+	return strings.TrimSuffix(filepath.Base(common), ".git")
+}
+
+// originName reads the repository name from the origin remote URL in a common
+// git directory's config, as in "git@host:owner/name.git" or "../name".
+func originName(common string) string {
+	content, err := os.ReadFile(filepath.Join(common, "config"))
+	if err != nil {
+		return ""
+	}
+	origin := false
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			origin = line == `[remote "origin"]`
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !origin || !ok || !strings.EqualFold(strings.TrimSpace(key), "url") {
+			continue
+		}
+		url := strings.TrimRight(strings.Trim(strings.TrimSpace(value), `"`), `/\`)
+		return strings.TrimSuffix(url[strings.LastIndexAny(url, `/\:`)+1:], ".git")
+	}
+	return ""
 }
 
 // readGitFile reads a "gitdir: <path>" file and returns the canonical path.

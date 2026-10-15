@@ -3,7 +3,10 @@
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
+  "repository": "",
+  "projectKind": "folder",
   "branch": "",
+  "worktrees": 0,
   "tree": [
     {
       "name": "assets",

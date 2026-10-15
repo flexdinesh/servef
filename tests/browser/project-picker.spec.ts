@@ -16,7 +16,8 @@ async function mockProjects(page: Page) {
       throw new Error("unexpected projects payload")
     }
     const member = (path: string, kind: string, group: string, branch: string, available = true) => ({
-      id: available ? path : "", name: path.split("/").at(-1), path, kind, group, root: available ? root : "", branch, available,
+      id: available ? path : "", name: path.split("/").at(-1), path, kind, group, root: available ? root : "", branch,
+      repository: group ? "reference" : path.split("/").at(-1), available,
     })
     await route.fulfill({ response, json: { ...json, projects: [
       json.projects[0],
@@ -28,13 +29,20 @@ async function mockProjects(page: Page) {
   })
 }
 
-// withBranch reports a branch for pages of the given project.
-async function withBranch(page: Page, project: string, branch: string) {
+interface Checkout {
+  repository: string
+  projectKind: "folder" | "repo" | "worktree"
+  branch: string
+  worktrees: number
+}
+
+// withCheckout reports a repository checkout for pages of the given project.
+async function withCheckout(page: Page, project: string, checkout: Checkout) {
   await page.route(`**/api/page?project=${project}*`, async (route) => {
     const response = await route.fetch()
     const json: unknown = await response.json()
     if (typeof json !== "object" || json === null) throw new Error("unexpected page payload")
-    await route.fulfill({ response, json: { ...json, branch } })
+    await route.fulfill({ response, json: { ...json, ...checkout } })
   })
 }
 
@@ -104,13 +112,33 @@ test("searching finds worktrees by branch", async ({ page }) => {
 
 test("the header branch lists the repository's worktrees", async ({ page }) => {
   await mockProjects(page)
-  await withBranch(page, projectParam("reference"), "main")
+  await withCheckout(page, projectParam("reference"), { repository: "reference", projectKind: "repo", branch: "main", worktrees: 3 })
   await page.goto(`/?project=${projectParam("reference")}`)
   await tree(page).getByRole("button", { name: "Switch worktree (main)" }).click()
   const worktrees = picker(page).getByRole("listbox", { name: "Worktrees" })
   await expect(worktrees.getByRole("option", { name: /main/ })).toContainText("Current")
   await worktrees.getByRole("option", { name: /topics-branch/ }).click()
   await expect(page).toHaveURL(endsWith(`/?project=${projectParam("reference", "topics")}`))
+})
+
+test("a linked worktree shows its repository name and a worktree icon", async ({ page }) => {
+  await mockProjects(page)
+  await withCheckout(page, projectParam("reference", "topics"), { repository: "refdocs", projectKind: "worktree", branch: "topics-branch", worktrees: 3 })
+  await page.goto(`/?project=${projectParam("reference", "topics")}`)
+  await expect(trigger(page)).toHaveAccessibleName("Switch project (refdocs)")
+  const branch = tree(page).getByRole("button", { name: "Switch worktree (topics-branch)" })
+  await expect(branch.locator(".worktree-icon")).toBeVisible()
+  await branch.click()
+  await expect(picker(page).getByRole("listbox", { name: "Worktrees" })).toBeVisible()
+})
+
+test("a repository without worktrees shows its branch as text", async ({ page }) => {
+  await mockProjects(page)
+  await withCheckout(page, projectParam("guides"), { repository: "guides", projectKind: "repo", branch: "main", worktrees: 1 })
+  await page.goto(`/?project=${projectParam("guides")}`)
+  await expect(tree(page).locator(".project-branch")).toHaveText("main")
+  await expect(tree(page).getByRole("button", { name: /Switch worktree/ })).toHaveCount(0)
+  await expect(tree(page).locator(".project-branch .worktree-icon")).toHaveCount(0)
 })
 
 test("browsing opens folders, which stay listed until forgotten", async ({ page }) => {
