@@ -842,7 +842,6 @@ article {
   display: block;
   width: max-content;
   min-width: 100%;
-  padding-bottom: 40vh;
   font: inherit;
   line-height: 21px;
 }
