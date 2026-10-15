@@ -97,7 +97,7 @@ export function App({ project }: AppProps) {
   const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
   const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
   // A line anchor (#L12) opens Source unless the tab already chose a view.
-  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : undefined))
+  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : workspace.preferredMode))
   const formatState = formatResult(page.selected, page.source)
   const view = documentView(page, documentMode, formatState)
   const formatPending = view.kind === "source" && view.formatPending
@@ -128,7 +128,7 @@ export function App({ project }: AppProps) {
     if (mode === "format") requestFormat(page.selected, page.source)
     // Line numbers address the original source only.
     if (mode !== "source" && lineRange) selectLines(null)
-    setDocumentMode(page.selected, mode)
+    workspace.chooseDocumentMode(page.selected, mode)
     resetDocumentScroll(page.selected)
   }
 

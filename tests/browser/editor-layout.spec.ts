@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test"
 
 test("workspace identity and actions live in explorer and full-width status bar", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
   await expect(page.locator(".app-header, .brand-mark, .empty-mark")).toHaveCount(0)
   await expect(page.locator(".explorer-header")).toContainText("markdown")
   const status = page.locator(".status-bar")
@@ -88,6 +89,7 @@ test("content shortcut searches text and Escape returns focus to status action",
 test("mobile explorer opens, selects, and closes without reserving reading space", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/view?path=guides%2Fgetting-started.md")
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
   await expect(page.locator(".explorer-drawer")).toBeHidden()
   await expect(page.locator("article")).toHaveCSS("font-size", "16px")
   await page.getByRole("button", { name: "Open files" }).click()
@@ -154,7 +156,7 @@ test("responsive explorer preserves expansion and keeps virtualized row heights 
 
 test("document pane stops at its edges without elastic overscroll", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
-  await expect(page.locator("article")).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
   await expect(page.locator("html")).toHaveCSS("overscroll-behavior-y", "none")
   await expect(page.locator("body")).toHaveCSS("overscroll-behavior-y", "none")
   await expect(page.locator("main")).toHaveCSS("overscroll-behavior-y", "none")

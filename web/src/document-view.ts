@@ -16,12 +16,14 @@ export function documentModes(page: PageData): DocumentMode[] {
   const type = page.hasFile ? page.documentType : null
   if (!type || page.tooLarge) return []
   const modes: DocumentMode[] = []
+  if (!page.binary) modes.push("source")
   // Only images preview binary bytes; other binary files show the Binary file note.
-  if (type.previewKind && (!page.binary || type.previewKind === "image")) modes.push("preview")
-  if (!page.binary) {
-    modes.push("source")
-    if (type.formattable) modes.push("format")
+  if (type.previewKind && (!page.binary || type.previewKind === "image")) {
+    // The default view leads the toolbar.
+    if (type.defaultMode === "preview") modes.unshift("preview")
+    else modes.push("preview")
   }
+  if (!page.binary && type.formattable) modes.push("format")
   return modes
 }
 

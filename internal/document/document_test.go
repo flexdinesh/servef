@@ -80,7 +80,7 @@ func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
 		}
 		switch definition.ID {
 		case "markdown":
-			if definition.PreviewKind != PreviewMarkdown || definition.DefaultMode != "preview" {
+			if definition.PreviewKind != PreviewMarkdown || definition.DefaultMode != "source" {
 				t.Errorf("markdown = %+v", definition)
 			}
 		case "svg", "image":

@@ -6,6 +6,8 @@ import type { PageData } from "./page-data.ts"
 interface DocumentWorkspace {
   tabs: string[]
   modes: ReadonlyMap<string, DocumentMode>
+  // preferPreview opens documents without a chosen view in Preview when they offer it.
+  preferPreview: boolean
 }
 
 export function useDocumentWorkspace(page: PageData | null) {
@@ -13,6 +15,7 @@ export function useDocumentWorkspace(page: PageData | null) {
   const [workspace, setWorkspace] = useState<DocumentWorkspace>(() => ({
     tabs: selected ? [selected] : [],
     modes: new Map(),
+    preferPreview: false,
   }))
 
   useEffect(() => {
@@ -28,6 +31,18 @@ export function useDocumentWorkspace(page: PageData | null) {
       const modes = new Map(current.modes)
       modes.set(path, mode)
       return { ...current, modes }
+    })
+  }, [])
+
+  // chooseDocumentMode records a user's view choice. Preview and Source also
+  // set the view that documents without a chosen view open in; Format does not.
+  const chooseDocumentMode = useCallback((path: string, mode: DocumentMode) => {
+    setWorkspace((current) => {
+      const preferPreview = mode === "format" ? current.preferPreview : mode === "preview"
+      if (current.modes.get(path) === mode && preferPreview === current.preferPreview) return current
+      const modes = new Map(current.modes)
+      modes.set(path, mode)
+      return { ...current, modes, preferPreview }
     })
   }, [])
 
@@ -48,10 +63,11 @@ export function useDocumentWorkspace(page: PageData | null) {
     setWorkspace((current) => {
       const modes = new Map(current.modes)
       modes.delete(path)
-      return { tabs: current.tabs.filter((tab) => tab !== path), modes }
+      return { ...current, tabs: current.tabs.filter((tab) => tab !== path), modes }
     })
     return { replacement: remaining[Math.min(index, remaining.length - 1)] }
   }
 
-  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocument, restore }
+  const preferredMode: DocumentMode | undefined = workspace.preferPreview ? "preview" : undefined
+  return { tabs: workspace.tabs, modes: workspace.modes, preferredMode, setDocumentMode, chooseDocumentMode, closeDocument, restore }
 }

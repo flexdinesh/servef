@@ -16,7 +16,7 @@ for (const entry of [
     await input.fill("getting-started")
     const result = page.getByRole("option", { name: /getting-started.md guides\/getting-started.md/ })
     await result.click()
-    await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+    await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
     await expect(page.locator("main")).toBeFocused()
 
     await page.getByRole("button", { name: /^Find in files/ }).click()
@@ -75,6 +75,7 @@ for (const entry of [
     await page.setViewportSize({ width: 1280, height: 400 })
     await page.goto(entry.url)
     const pane = page.locator("#document-pane")
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
     await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
     const firstScroll = await pane.evaluate((element) => {
       element.scrollTop = 220
@@ -109,7 +110,7 @@ for (const entry of [
     await page.getByRole("button", { name: "Close guides/getting-started.md" }).click()
     await expect(page.getByRole("tab", { name: "code-blocks.md" })).toHaveAttribute("aria-selected", "true")
     await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
-    await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveAttribute("aria-pressed", "true")
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(0)
   })
 }
@@ -148,12 +149,16 @@ test("diagram module failure offers reload and recovers", async ({ page }) => {
     else await route.continue()
   })
   await page.goto("/view?path=guides%2Fdiagrams.md")
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
   const reload = page.getByRole("button", { name: "Reload diagrams" }).first()
   await expect(reload).toBeVisible()
   await expect(page.locator(".mermaid-error").first()).toContainText("Reload to try again.")
   await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   blocked = false
   await reload.click()
+  // Reloading the page resets the session view preference to Source.
+  await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
   await expect(page.locator(".mermaid-diagram.ready").first()).toBeVisible()
   await expect(page.locator(".mermaid-error")).toHaveCount(0)
 })

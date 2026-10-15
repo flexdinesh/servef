@@ -4,7 +4,7 @@ import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
 test("a URL without a project opens the served root", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
 })
 
 test("a project scopes the tree to its directory", async ({ page }) => {
