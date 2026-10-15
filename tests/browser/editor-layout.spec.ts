@@ -161,3 +161,19 @@ test("document pane stops at its edges without elastic overscroll", async ({ pag
   await expect(page.locator("body")).toHaveCSS("overscroll-behavior-y", "none")
   await expect(page.locator("main")).toHaveCSS("overscroll-behavior-y", "none")
 })
+
+test("source view stops scrolling at its last line", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 400 })
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  const source = page.getByRole("textbox", { name: "Markdown source" })
+  await expect(source).toBeVisible()
+  const pane = page.locator("#document-pane")
+  await pane.evaluate((element) => { element.scrollTop = element.scrollHeight })
+  const gap = await pane.evaluate((element) => {
+    const lines = element.querySelectorAll(".source-document-line")
+    const last = lines.item(lines.length - 1)
+    return element.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom
+  })
+  expect(gap).toBeGreaterThanOrEqual(0)
+  expect(gap).toBeLessThan(21)
+})
