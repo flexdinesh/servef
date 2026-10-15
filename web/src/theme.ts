@@ -8,6 +8,23 @@ export interface ThemeSnapshot {
   resolvedTheme: ResolvedTheme
 }
 
+export const DEFAULT_THEME: Theme = "system"
+
+export interface ThemeOption {
+  label: string
+  value: Theme
+}
+
+export const themeOptions: readonly ThemeOption[] = [
+  { label: "System", value: "system" },
+  { label: "Light", value: "light" },
+  { label: "Dark", value: "dark" },
+  { label: "Catppuccin Mocha", value: "catppuccin-mocha" },
+  { label: "Gruvbox Dark", value: "gruvbox-dark" },
+  { label: "Nord", value: "nord" },
+  { label: "Solarized Light", value: "solarized-light" },
+]
+
 export function isTheme(value: unknown): value is Theme {
   return value === "system"
     || value === "light"
@@ -23,7 +40,7 @@ function isResolvedTheme(value: unknown): value is ResolvedTheme {
 }
 
 export function parseTheme(value: string | null): Theme {
-  return isTheme(value) ? value : "system"
+  return isTheme(value) ? value : DEFAULT_THEME
 }
 
 export function resolveTheme(theme: Theme, prefersDark: boolean): ResolvedTheme {
@@ -36,7 +53,7 @@ export function readStoredTheme(): Theme {
   try {
     return parseTheme(window.localStorage.getItem(THEME_STORAGE_KEY))
   } catch {
-    return "system"
+    return DEFAULT_THEME
   }
 }
 

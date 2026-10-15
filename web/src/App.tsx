@@ -25,6 +25,9 @@ import {
   type PageLoadResult,
 } from "./page-data.ts"
 import { SearchDialog } from "./SearchDialog.tsx"
+import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
+import { CommandPalette } from "./CommandPalette.tsx"
+import type { CommandAction } from "./commands.ts"
 import { SidebarResizer } from "./SidebarResizer.tsx"
 import { StatusBar } from "./StatusBar.tsx"
 import { TabBar } from "./TabBar.tsx"
@@ -63,6 +66,8 @@ export function App({ project }: AppProps) {
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
+  const openSettings = useRef<OpenSettings>(() => {})
+  const openCommands = useRef<() => void>(() => {})
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
   useEffect(() => {
     if (result?.kind === "page") setLastPage(result.page)
@@ -76,6 +81,15 @@ export function App({ project }: AppProps) {
   }, [])
   const registerProjects = useCallback((open: ((options?: PickerOpenOptions) => void) | null) => {
     openProjects.current = open ?? (() => {})
+  }, [])
+  const registerSettings = useCallback((open: OpenSettings | null) => {
+    openSettings.current = open ?? (() => {})
+  }, [])
+  const registerCommands = useCallback((open: (() => void) | null) => {
+    openCommands.current = open ?? (() => {})
+  }, [])
+  const runCommand = useCallback((action: CommandAction) => {
+    openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
   }, [])
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
@@ -208,12 +222,15 @@ export function App({ project }: AppProps) {
           : undefined}
         lines={selectedLines}
         onSearch={() => openSearch.current()}
+        onSettings={() => openSettings.current()}
         onHome={() => {
           prepareDocumentNavigation()
           void navigate({ to: "/", search: { project }, hash: "" })
         }} />
       <SearchDialog project={project} navigate={navigateToDocument} registerOpen={registerSearch} />
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
+      <SettingsDialog registerOpen={registerSettings} />
+      <CommandPalette registerOpen={registerCommands} onRun={runCommand} />
     </>
   )
 }

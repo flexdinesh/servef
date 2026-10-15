@@ -8,6 +8,8 @@ import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "./page-data.ts"
 import { projectShortcutLabel } from "./ProjectPicker.tsx"
+import { useSettings } from "./components/SettingsProvider.tsx"
+import { uiScale } from "./settings.ts"
 
 function treePaths(nodes: readonly TreeNode[]): string[] {
   return nodes.flatMap((node) => node.isDir
@@ -37,37 +39,51 @@ export function FileTree(props: FileTreeProps) {
   const page = useRef(props.page)
   const state = useRef<ExplorerState>({ model: null, expanded: null, search: null })
   const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 48rem)").matches)
+  const scale = uiScale(useSettings().settings)
+  const [rowScale, setRowScale] = useState(scale)
   useLayoutEffect(() => { page.current = props.page }, [props.page])
+  // saveState keeps expansion and search across an Explorer remount.
+  const saveState = useCallback(() => {
+    const model = state.current.model
+    if (!model) return
+    const expanded = new Set(state.current.expanded)
+    for (const path of treePaths(page.current.tree)) {
+      const item = model.getItem(path)
+      if (item && "isExpanded" in item) {
+        if (item.isExpanded()) expanded.add(path)
+        else expanded.delete(path)
+      }
+    }
+    state.current.expanded = [...expanded]
+    state.current.search = model.isSearchOpen() ? model.getSearchValue() : null
+  }, [])
+  // Pierre fixes row height at creation, so a font size change remounts it.
+  useEffect(() => {
+    if (scale === rowScale) return
+    saveState()
+    setRowScale(scale)
+  }, [rowScale, saveState, scale])
   useEffect(() => {
     const query = window.matchMedia("(max-width: 48rem)")
     const update = () => {
-      const model = state.current.model
-      if (model) {
-        const expanded = new Set(state.current.expanded)
-        for (const path of treePaths(page.current.tree)) {
-          const item = model.getItem(path)
-          if (item && "isExpanded" in item) {
-            if (item.isExpanded()) expanded.add(path)
-            else expanded.delete(path)
-          }
-        }
-        state.current.expanded = [...expanded]
-        state.current.search = model.isSearchOpen() ? model.getSearchValue() : null
-      }
+      saveState()
       setMobile(query.matches)
     }
     query.addEventListener("change", update)
     return () => query.removeEventListener("change", update)
-  }, [])
+  }, [saveState])
 
-  const explorer = <Explorer {...props} key={mobile ? "mobile" : "desktop"} mobile={mobile} filter={filter} dialog={dialog} state={state} />
+  const itemHeight = mobile ? Math.max(40, Math.round(40 * rowScale)) : Math.round(24 * rowScale)
+  const explorer = <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
+    itemHeight={itemHeight} filter={filter} dialog={dialog} state={state} />
   return mobile ? <dialog ref={dialog} className="explorer-drawer" aria-label="Files" onClick={(event) => {
     if (event.target === dialog.current) dialog.current.close()
   }}>{explorer}</dialog> : explorer
 }
 
-function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, registerOpen, mobile, dialog, state, filter }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, registerOpen, mobile, itemHeight, dialog, state, filter }: FileTreeProps & {
   mobile: boolean
+  itemHeight: number
   filter: FilenameFilterState
   dialog: RefObject<HTMLDialogElement | null>
   state: RefObject<ExplorerState>
@@ -89,7 +105,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
     paths,
     initialExpandedPaths: state.current.expanded ?? openDirectoryPaths(page.tree),
     initialSearchQuery: state.current.search,
-    itemHeight: mobile ? 40 : 24,
+    itemHeight,
     initialSelectedPaths: paths.includes(page.selected) ? [page.selected] : [],
     density: "compact",
     search: false,

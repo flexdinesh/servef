@@ -8,7 +8,7 @@ test("workspace identity and actions live in explorer and full-width status bar"
   const status = page.locator(".status-bar")
   await expect(status.getByRole("link", { name: "servef home" })).toBeVisible()
   await expect(status.getByRole("button", { name: /^Find in files/ })).toBeVisible()
-  await expect(status.getByRole("button", { name: "Theme: System" })).toBeVisible()
+  await expect(status.getByRole("button", { name: "Settings" })).toBeVisible()
   const documentStatus = status.getByRole("group", { name: "Document status" })
   await expect(documentStatus.locator(":scope > :first-child")).toHaveText("guides/getting-started.md")
   await expect(documentStatus.locator(":scope > :nth-child(2)")).toHaveAccessibleName("Copy path")
@@ -21,8 +21,8 @@ test("workspace identity and actions live in explorer and full-width status bar"
   await page.getByRole("separator", { name: "Resize file tree" }).press("ArrowRight")
   await expect.poll(footerOffset).toBe(0)
   expect(await status.evaluate((element) => element.getBoundingClientRect().width)).toBe(page.viewportSize()?.width)
-  await expect(page.locator("article")).toHaveCSS("font-size", "15px")
-  await expect(page.locator("article h1")).toHaveCSS("font-size", "28px")
+  await expect(page.locator("article")).toHaveCSS("font-size", "14px")
+  await expect(page.locator("article h1")).toHaveCSS("font-size", "26px")
 })
 
 test("file search filters paths and opens results without loading content index", async ({ page }) => {
@@ -91,7 +91,7 @@ test("mobile explorer opens, selects, and closes without reserving reading space
   await page.goto("/view?path=guides%2Fgetting-started.md")
   await page.getByRole("button", { name: "Preview", exact: true }).click()
   await expect(page.locator(".explorer-drawer")).toBeHidden()
-  await expect(page.locator("article")).toHaveCSS("font-size", "16px")
+  await expect(page.locator("article")).toHaveCSS("font-size", "15px")
   await page.getByRole("button", { name: "Open files" }).click()
   const drawer = page.getByRole("dialog", { name: "Files", exact: true })
   await expect(drawer).toBeVisible()
@@ -116,7 +116,7 @@ test("mobile explorer opens, selects, and closes without reserving reading space
   await expect(page.getByRole("button", { name: /^Find in files/ })).toBeVisible()
   await expect(page.locator(".status-path")).toBeVisible()
   await expect(page.locator(".status-path")).toHaveText("guides/code-blocks.md")
-  await expect(page.getByRole("button", { name: "Theme: System" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
 })
 
