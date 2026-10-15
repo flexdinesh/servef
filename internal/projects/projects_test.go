@@ -33,8 +33,8 @@ func TestDiscoverFindsRepositoriesAndStopsAtThem(t *testing.T) {
 	alpha, beta := filepath.Join(root, "alpha"), filepath.Join(root, "work", "Beta")
 	want := []Project{
 		{ID: root, Name: filepath.Base(root), Path: root, Kind: KindFolder, Root: root, Available: true},
-		{ID: alpha, Name: "alpha", Path: alpha, Kind: KindRepo, Root: root, Branch: "main", Available: true},
-		{ID: beta, Name: "Beta", Path: beta, Kind: KindRepo, Root: root, Branch: "main", Available: true},
+		{ID: alpha, Name: "alpha", Path: alpha, Kind: KindRepo, Root: root, Branch: "main", Repository: "alpha", Available: true},
+		{ID: beta, Name: "Beta", Path: beta, Kind: KindRepo, Root: root, Branch: "main", Repository: "Beta", Available: true},
 	}
 	if !reflect.DeepEqual(discovery.Projects, want) {
 		t.Fatalf("Projects = %#v\nwant %#v", discovery.Projects, want)
@@ -63,7 +63,7 @@ func TestDiscoverRootRepositoryIsTheOnlyProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Project{{ID: root, Name: filepath.Base(root), Path: root, Kind: KindRepo, Root: root, Branch: "main", Available: true}}
+	want := []Project{{ID: root, Name: filepath.Base(root), Path: root, Kind: KindRepo, Root: root, Branch: "main", Repository: filepath.Base(root), Available: true}}
 	if !reflect.DeepEqual(discovery.Projects, want) {
 		t.Fatalf("Projects = %#v, want %#v", discovery.Projects, want)
 	}
@@ -103,10 +103,10 @@ func TestDiscoverGroupsWorktreesWherever(t *testing.T) {
 	}
 	want := []Project{
 		{ID: root, Name: "root", Path: root, Kind: KindFolder, Root: root, Available: true},
-		{ID: outside, Name: "outside", Path: outside, Kind: KindWorktree, Group: main, Root: root, Branch: "outside", Available: true},
-		{ID: main, Name: "main", Path: main, Kind: KindRepo, Group: main, Root: root, Branch: "main", Available: true},
-		{ID: inside, Name: "inside", Path: inside, Kind: KindWorktree, Group: main, Root: root, Branch: "inside", Available: true},
-		{ID: sibling, Name: "sibling", Path: sibling, Kind: KindWorktree, Group: main, Root: root, Branch: "sibling", Available: true},
+		{ID: outside, Name: "outside", Path: outside, Kind: KindWorktree, Group: main, Root: root, Branch: "outside", Repository: "main", Available: true},
+		{ID: main, Name: "main", Path: main, Kind: KindRepo, Group: main, Root: root, Branch: "main", Repository: "main", Available: true},
+		{ID: inside, Name: "inside", Path: inside, Kind: KindWorktree, Group: main, Root: root, Branch: "inside", Repository: "main", Available: true},
+		{ID: sibling, Name: "sibling", Path: sibling, Kind: KindWorktree, Group: main, Root: root, Branch: "sibling", Repository: "main", Available: true},
 	}
 	if !reflect.DeepEqual(discovery.Projects, want) {
 		t.Fatalf("Projects = %#v\nwant %#v", discovery.Projects, want)
@@ -392,6 +392,46 @@ func TestBranchReadsHead(t *testing.T) {
 	} {
 		if got := Branch(filepath.Join(root, dir)); got != want {
 			t.Errorf("Branch(%s) = %q, want %q", dir, got, want)
+		}
+	}
+}
+
+func TestInspectDescribesCheckout(t *testing.T) {
+	root := canonicalTemp(t)
+	main := filepath.Join(root, "servef", "main")
+	makeRepo(t, main)
+	writeFile(t, filepath.Join(main, ".git", "config"), "[core]\n\tbare = false\n[remote \"upstream\"]\n\turl = git@github.com:other/fork.git\n[remote \"origin\"]\n\turl = git@github.com:owner/servef.git\n")
+	feature := linkWorktree(t, main, "feature", filepath.Join(root, "servef", "wt-feature"))
+	solo := filepath.Join(root, "solo")
+	makeRepo(t, solo)
+	folder := filepath.Join(root, "notes")
+	writeFile(t, filepath.Join(folder, "a.md"), "")
+
+	for dir, want := range map[string]Checkout{
+		main:    {Kind: KindRepo, Branch: "main", Repository: "servef", Worktrees: 2},
+		feature: {Kind: KindWorktree, Branch: "feature", Repository: "servef", Worktrees: 2},
+		solo:    {Kind: KindRepo, Branch: "main", Repository: "solo", Worktrees: 1},
+		folder:  {Kind: KindFolder},
+	} {
+		if got := Inspect(dir); got != want {
+			t.Errorf("Inspect(%s) = %#v, want %#v", dir, got, want)
+		}
+	}
+}
+
+func TestInspectNamesRepositoryByOriginURL(t *testing.T) {
+	for url, want := range map[string]string{
+		"git@github.com:owner/servef.git":  "servef",
+		"https://github.com/owner/servef/": "servef",
+		"ssh://host/srv/git/servef.git":    "servef",
+		"../servef":                        "servef",
+		`"/srv/servef.git"`:                "servef",
+	} {
+		dir := filepath.Join(canonicalTemp(t), "checkout")
+		makeRepo(t, dir)
+		writeFile(t, filepath.Join(dir, ".git", "config"), "[remote \"origin\"]\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n\turl = "+url+"\n")
+		if got := Inspect(dir).Repository; got != want {
+			t.Errorf("Inspect(origin %q).Repository = %q, want %q", url, got, want)
 		}
 	}
 }

@@ -174,7 +174,7 @@ export function App({ project }: AppProps) {
               <PanelLeftIcon aria-hidden="true" />
             </button>
             <button type="button" className="files-toggle project-toggle" aria-haspopup="dialog"
-              aria-label={`Switch project (${page.rootName || page.project || "none"})`} onClick={chooseProject}>
+              aria-label={`Switch project (${page.repository || page.rootName || page.project || "none"})`} onClick={chooseProject}>
               <FolderGit2Icon aria-hidden="true" />
             </button>
             <TabBar

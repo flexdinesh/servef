@@ -42,7 +42,7 @@ function summary(sections: readonly PickerSection[]) {
 
 test("projects list each root's folder and repositories, a repository with worktrees as one row", async () => {
   assert.deepEqual(summary(projectSections(await projects(), [], `${workspace}/servef/wt-feat-project-picker`, "")), [
-    ["markdown", ["markdown", "notes @main", "main @main 3 worktrees *"]],
+    ["markdown", ["markdown", "notes @main", "servef @main 3 worktrees *"]],
     ["personal", ["personal", "blog @draft"]],
     ["", ["browse"]],
   ])
@@ -63,9 +63,9 @@ test("a repository row opens its last-used worktree", async () => {
 test("a repository's worktree list shows branches, main first", async () => {
   const response = await projects()
   assert.deepEqual(summary(projectSections(response, [], servef, "", servef)), [
-    ["main worktrees", ["main @main *", "feat-project-picker @feat-project-picker", "hotfix @hotfix"]],
+    ["servef worktrees", ["main @main *", "feat-project-picker @feat-project-picker", "hotfix @hotfix"]],
   ])
-  assert.deepEqual(summary(projectSections(response, [], servef, "hot", servef)), [["main worktrees", ["hotfix @hotfix"]]])
+  assert.deepEqual(summary(projectSections(response, [], servef, "hot", servef)), [["servef worktrees", ["hotfix @hotfix"]]])
   assert.deepEqual(projectSections(response, [], servef, "zzz", servef), [])
   assert.equal(currentGroup(response, "/tmp/servef-hotfix"), servef)
   assert.equal(currentGroup(response, `${workspace}/notes`), "")
@@ -92,11 +92,11 @@ test("opened folders list remembered folders in the roots that discovery does no
 
 test("a query ranks matches flat, including each worktree by branch", async () => {
   assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "feat")), [
-    ["Projects", ["feat-project-picker in main @feat-project-picker"]],
+    ["Projects", ["feat-project-picker in servef @feat-project-picker"]],
     ["", ["browse"]],
   ])
   assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "wt")), [
-    ["Projects", ["feat-project-picker in main @feat-project-picker"]],
+    ["Projects", ["feat-project-picker in servef @feat-project-picker"]],
     ["Opened folders", ["wt"]],
     ["", ["browse"]],
   ])

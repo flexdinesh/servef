@@ -114,6 +114,8 @@ function byScore(entries: { score: number; row: ProjectRow }[]): ProjectRow[] {
 
 interface Group {
   path: string
+  // name is the repository's name, shared by its members.
+  name: string
   // members lists the main worktree first, then the rest in discovery order.
   members: Project[]
   root: string
@@ -123,7 +125,7 @@ function groups(response: ProjectsResponse): Map<string, Group> {
   const result = new Map<string, Group>()
   for (const project of response.projects) {
     if (!project.group) continue
-    const group = result.get(project.group) ?? { path: project.group, members: [], root: "" }
+    const group = result.get(project.group) ?? { path: project.group, name: "", members: [], root: "" }
     if (project.path === project.group) group.members.unshift(project)
     else group.members.push(project)
     result.set(project.group, group)
@@ -131,6 +133,7 @@ function groups(response: ProjectsResponse): Map<string, Group> {
   for (const group of result.values()) {
     const leader = group.members.find((member) => member.path === group.path)
     group.root = leader?.root || group.members.find((member) => member.available)?.root || group.members[0]?.root || ""
+    group.name = leader?.repository || group.members.find((member) => member.repository)?.repository || baseName(group.path)
   }
   return result
 }
@@ -173,7 +176,7 @@ function groupRow(group: Group, roots: readonly string[], remembered: readonly s
     kind: "project",
     key: `group:${group.path}`,
     id: target?.id ?? "",
-    name: groupName(group.path),
+    name: group.name,
     path: group.path,
     location: locate(group.path, roots),
     branch: target?.branch ?? "",
@@ -192,9 +195,9 @@ export function currentGroup(response: ProjectsResponse, current: string): strin
   return response.projects.find((project) => project.available && project.id === current)?.group ?? ""
 }
 
-// groupName names a repository group by its main worktree's folder.
-export function groupName(group: string): string {
-  return baseName(group)
+// groupName names a repository group by its repository name.
+export function groupName(response: ProjectsResponse, group: string): string {
+  return groups(response).get(group)?.name ?? baseName(group)
 }
 
 // projectSections lists each served root's folder and repositories, a
@@ -206,14 +209,15 @@ export function projectSections(response: ProjectsResponse, remembered: readonly
   const roots = response.roots.map((root) => root.path)
   if (group) {
     const members = repositories.get(group)?.members ?? []
+    const name = repositories.get(group)?.name ?? baseName(group)
     const matches = members.flatMap((member) => {
       // The list title names the repository, so rows show only branches.
-      const row = { ...projectRow(member, roots, current, groupName(group)), repository: "" }
+      const row = { ...projectRow(member, roots, current, name), repository: "" }
       const score = bestScore(query, [row.name, member.name], row.location)
       return score === null ? [] : [{ score, row }]
     })
     const rows = query.trim() ? byScore(matches) : matches.map((match) => match.row)
-    return rows.length ? [{ title: `${groupName(group)} worktrees`, rows }] : []
+    return rows.length ? [{ title: `${name} worktrees`, rows }] : []
   }
 
   const listed = new Set(response.projects.filter((project) => project.available).map((project) => project.id))
@@ -239,7 +243,7 @@ export function projectSections(response: ProjectsResponse, remembered: readonly
 
   if (query.trim()) {
     const matches = response.projects.flatMap((project) => {
-      const repository = project.group ? groupName(project.group) : ""
+      const repository = project.group ? repositories.get(project.group)?.name ?? "" : ""
       const row = projectRow(project, roots, current, repository)
       const score = bestScore(query, repository ? [row.name, project.name, repository] : [row.name], row.location)
       return score === null ? [] : [{ score, row }]

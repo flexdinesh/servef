@@ -60,7 +60,10 @@ type pageData struct {
 	// resolved, as opposed to a file within it.
 	ProjectUnavailable bool           `json:"projectUnavailable"`
 	RootName           string         `json:"rootName"`
+	Repository         string         `json:"repository"`
+	ProjectKind        projects.Kind  `json:"projectKind"`
 	Branch             string         `json:"branch"`
+	Worktrees          int            `json:"worktrees"`
 	Tree               []treeNode     `json:"tree"`
 	Selected           string         `json:"selected"`
 	Content            string         `json:"content"`
@@ -636,6 +639,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			Roots:              a.roots,
 			Project:            projectID,
 			ProjectUnavailable: true,
+			ProjectKind:        projects.KindFolder,
 			Selected:           selected,
 			Tree:               []treeNode{},
 			FilenamePatterns:   a.config.Filenames.Patterns(),
@@ -644,13 +648,17 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			Warnings:           []string{},
 		}, status
 	}
+	checkout := projects.Inspect(project.root)
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
 			Roots:            a.roots,
 			Project:          project.id,
 			RootName:         filepath.Base(project.root),
-			Branch:           projects.Branch(project.root),
+			Repository:       checkout.Repository,
+			ProjectKind:      checkout.Kind,
+			Branch:           checkout.Branch,
+			Worktrees:        checkout.Worktrees,
 			Tree:             []treeNode{},
 			FilenamePatterns: a.config.Filenames.Patterns(),
 			SourceLines:      []string{},
@@ -662,7 +670,10 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		Roots:            a.roots,
 		Project:          project.id,
 		RootName:         filepath.Base(index.RootPath()),
-		Branch:           projects.Branch(project.root),
+		Repository:       checkout.Repository,
+		ProjectKind:      checkout.Kind,
+		Branch:           checkout.Branch,
+		Worktrees:        checkout.Worktrees,
 		Selected:         selected,
 		FileCount:        len(index.Files),
 		Empty:            len(index.Files) == 0,

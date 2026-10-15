@@ -12,7 +12,7 @@ const emptyPage: PageData = {
   projectUnavailable: false,
   filenamePatterns: ["*"], documentType: null, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
   sourceLines: [], previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
-  hasFile: false, rootName: "", selected: "", source: "", tree: [], warnings: [],
+  hasFile: false, rootName: "", repository: "", projectKind: "folder", worktrees: 0, selected: "", source: "", tree: [], warnings: [],
 }
 
 function fileType(overrides: Partial<FileType>): FileType {

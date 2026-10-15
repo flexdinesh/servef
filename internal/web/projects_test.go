@@ -56,8 +56,10 @@ func TestPageIsScopedToProject(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", response.Code, response.Body.String())
 	}
-	if data.Project != filepath.Join(root, "api") || data.ProjectUnavailable || data.RootName != "api" || data.Branch != "main" || data.FileCount != 3 {
-		t.Fatalf("page = project %q root %q branch %q files %d", data.Project, data.RootName, data.Branch, data.FileCount)
+	if data.Project != filepath.Join(root, "api") || data.ProjectUnavailable || data.RootName != "api" || data.Branch != "main" || data.FileCount != 3 ||
+		data.Repository != "api" || data.ProjectKind != projects.KindRepo || data.Worktrees != 1 {
+		t.Fatalf("page = project %q root %q repository %q kind %q branch %q worktrees %d files %d",
+			data.Project, data.RootName, data.Repository, data.ProjectKind, data.Branch, data.Worktrees, data.FileCount)
 	}
 	if !reflect.DeepEqual(data.Roots, []string{root}) {
 		t.Fatalf("roots = %v", data.Roots)
@@ -155,7 +157,7 @@ func TestProjectsEndpointRediscovers(t *testing.T) {
 	for key := range raw.Projects[0] {
 		keys = append(keys, key)
 	}
-	for _, key := range []string{"id", "name", "path", "kind", "group", "root", "branch", "available"} {
+	for _, key := range []string{"id", "name", "path", "kind", "group", "root", "branch", "repository", "available"} {
 		if _, ok := raw.Projects[0][key]; !ok {
 			t.Errorf("project JSON lacks %q: %v", key, keys)
 		}
