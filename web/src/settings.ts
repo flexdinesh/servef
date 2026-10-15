@@ -1,0 +1,141 @@
+import { themeOptions } from "./theme.ts"
+
+export const SETTINGS_STORAGE_KEY = "servef-settings"
+
+export interface Settings {
+  fontSize: number
+}
+
+// SettingKey names values stored under SETTINGS_STORAGE_KEY. Theme is a
+// setting too but keeps its own key (see theme.ts).
+export type SettingKey = keyof Settings
+export type SettingId = SettingKey | "theme"
+
+const storedKeys: readonly SettingKey[] = ["fontSize"]
+
+// The UI type scale is authored for a 13px base: explorer, tabs, and source
+// text are 0.8125rem, so 1rem is 16px at the default.
+export const DEFAULT_FONT_SIZE = 13
+export const FONT_SIZE_MIN = 10
+export const FONT_SIZE_MAX = 20
+
+export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE }
+
+interface SettingBase {
+  id: SettingId
+  category: string
+  title: string
+  description: string
+}
+
+export interface NumberSettingDefinition extends SettingBase {
+  kind: "number"
+  min: number
+  max: number
+  unit: string
+}
+
+export interface SelectSettingDefinition extends SettingBase {
+  kind: "select"
+  options: readonly { label: string; value: string }[]
+}
+
+export type SettingDefinition = NumberSettingDefinition | SelectSettingDefinition
+
+export const settingDefinitions: readonly SettingDefinition[] = [
+  {
+    id: "theme",
+    kind: "select",
+    category: "Appearance",
+    title: "Theme",
+    description: "Color theme for the interface, code, and diagrams. System follows the operating system's light or dark mode.",
+    options: themeOptions,
+  },
+  {
+    id: "fontSize",
+    kind: "number",
+    category: "Appearance",
+    title: "Font Size",
+    description: "Base size for explorer, tab, and source text. Preview, status bar, and spacing scale with it.",
+    min: FONT_SIZE_MIN,
+    max: FONT_SIZE_MAX,
+    unit: "px",
+  },
+]
+
+// parseSettingValue accepts whole numbers, or numeric text, within the
+// definition's range.
+export function parseSettingValue(definition: Pick<NumberSettingDefinition, "min" | "max">, value: unknown): number | null {
+  const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value
+  return typeof number === "number" && Number.isInteger(number) && number >= definition.min && number <= definition.max
+    ? number
+    : null
+}
+
+export function parseFontSize(value: unknown): number | null {
+  return parseSettingValue({ min: FONT_SIZE_MIN, max: FONT_SIZE_MAX }, value)
+}
+
+// parseSettings keeps each valid stored value and defaults the rest.
+export function parseSettings(raw: string | null): Settings {
+  let data: unknown = null
+  try {
+    data = raw === null ? null : JSON.parse(raw)
+  } catch {
+    return defaultSettings
+  }
+  const fontSize = typeof data === "object" && data !== null && "fontSize" in data ? parseFontSize(data.fontSize) : null
+  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE }
+}
+
+export function modifiedSettings(settings: Settings): SettingKey[] {
+  return storedKeys.filter((key) => settings[key] !== defaultSettings[key])
+}
+
+// uiScale is the factor applied to px-sized widgets that cannot use rem.
+export function uiScale(settings: Settings): number {
+  return settings.fontSize / DEFAULT_FONT_SIZE
+}
+
+export function matchSettings(query: string): readonly SettingDefinition[] {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
+  return settingDefinitions.filter((definition) => {
+    const options = definition.kind === "select" ? definition.options.map((option) => option.label).join(" ") : ""
+    const text = `${definition.category} ${definition.title} ${definition.description} ${options}`.toLowerCase()
+    return terms.every((term) => text.includes(term))
+  })
+}
+
+export function readStoredSettings(): Settings {
+  try {
+    return parseSettings(window.localStorage.getItem(SETTINGS_STORAGE_KEY))
+  } catch {
+    return defaultSettings
+  }
+}
+
+// storeSettings keeps only values that differ from the defaults.
+export function storeSettings(settings: Settings): void {
+  try {
+    const modified = modifiedSettings(settings)
+    if (modified.length === 0) {
+      window.localStorage.removeItem(SETTINGS_STORAGE_KEY)
+      return
+    }
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(
+      Object.fromEntries(modified.map((key) => [key, settings[key]])),
+    ))
+  } catch {
+    // Settings still apply when storage is unavailable.
+  }
+}
+
+export function applySettings(settings: Settings): void {
+  document.documentElement.style.setProperty("--font-size-base", `${settings.fontSize}px`)
+}
+
+export function initializeSettings(): Settings {
+  const settings = readStoredSettings()
+  applySettings(settings)
+  return settings
+}

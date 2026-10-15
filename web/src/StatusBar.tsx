@@ -2,10 +2,10 @@ import { formatBytes } from "./format-bytes.ts"
 import type { PageData } from "./page-data.ts"
 import { projectUrl } from "./project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
-import { CheckIcon, CopyIcon, SearchIcon } from "lucide-react"
-import { ModeToggle } from "./components/ModeToggle.tsx"
+import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useClipboardCopy } from "./clipboard.ts"
 import { lineRangeLabel, type LineRange } from "./line-selection.ts"
+import { settingsShortcutLabel } from "./SettingsDialog.tsx"
 
 interface StatusBarProps {
   detail?: string
@@ -14,10 +14,11 @@ interface StatusBarProps {
   page: PageData
   error: string
   onSearch(): void
+  onSettings(): void
   onHome?(): void
 }
 
-export function StatusBar({ detail, isLoading, error, lines, onSearch, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, isLoading, error, lines, onSearch, onSettings, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
   const pathCopy = useClipboardCopy()
   const processTitle = metrics
@@ -85,7 +86,17 @@ export function StatusBar({ detail, isLoading, error, lines, onSearch, onHome, p
             {page.binary && !page.documentType.previewKind ? "Binary" : page.documentType.label}
           </span>
         )}
-        <ModeToggle />
+        <button
+          className="status-settings"
+          type="button"
+          aria-haspopup="dialog"
+          aria-keyshortcuts="Control+, Meta+,"
+          aria-label="Settings"
+          title={`Settings (${settingsShortcutLabel})`}
+          onClick={onSettings}
+        >
+          <SettingsIcon aria-hidden="true" />
+        </button>
         <span className="visually-hidden" role="status">
           {pathCopy.status === "copied" ? "Path copied" : pathCopy.status === "failed" ? "Copy failed" : ""}
         </span>

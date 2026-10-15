@@ -19,7 +19,7 @@ Browse and search any local file in a directory through a Go CLI and embedded Re
 - `--filename` globs set CLI scope; the explorer filename filter limits visibility only. File types decide presentation, not availability.
 - Separate file/path search and document-content search.
 - File-tree selection follows editor conventions rather than native browser links.
-- Desktop and mobile web; theme selection persists locally.
+- Desktop and mobile web; theme and UI settings (font size) persist locally.
 
 ## Brand Commitments
 

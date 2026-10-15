@@ -18,3 +18,5 @@ rewriting history; update `Status` on the old record.
 | [0010](0010-markdown-opens-in-source.md) | Markdown opens in Source | Accepted |
 | [0011](0011-token-preserving-web-formatters.md) | Token-preserving HTML, CSS, and JavaScript formatters | Accepted |
 | [0012](0012-repository-names-and-worktree-header.md) | Repository names and worktree header | Accepted |
+| [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted |
+| [0014](0014-command-palette.md) | Command palette | Accepted |

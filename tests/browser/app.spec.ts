@@ -212,39 +212,96 @@ test("opens content search from the status bar", async ({ page }) => {
   await expect(page.getByPlaceholder("Search document content…")).toBeFocused()
 })
 
-test("selects and persists an explicit theme", async ({ page }) => {
+// themeSetting opens Settings and returns its Theme select.
+async function themeSetting(page: Page) {
+  await page.getByRole("button", { name: "Settings" }).click()
+  return page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
+}
+
+test("selects and persists an explicit theme in settings", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   await page.goto("/")
 
-  const theme = page.getByRole("button", { name: "Theme: System" })
-  await theme.press("Enter")
-  const dark = page.getByRole("menuitemradio", { name: "Dark", exact: true })
-  await expect(dark).toBeVisible()
-  await dark.click()
+  const theme = await themeSetting(page)
+  await expect(theme).toHaveValue("system")
+  await theme.selectOption({ label: "Dark" })
 
   await expect(page.locator("html")).toHaveClass(/dark/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
   expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("dark")
 
   await page.reload()
-  await expect(page.getByRole("button", { name: "Theme: Dark" })).toBeVisible()
   await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(await themeSetting(page)).toHaveValue("dark")
 
-  await page.getByRole("button", { name: "Theme: Dark" }).click()
-  await page.getByRole("menuitemradio", { name: "Light", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Settings" })
+  await dialog.getByRole("button", { name: "Reset all" }).click()
   await expect(page.locator("html")).toHaveClass(/light/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
+  await expect(dialog.getByRole("combobox", { name: "Appearance: Theme" })).toHaveValue("system")
 })
 
 test("system theme follows live OS changes", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   await page.goto("/")
 
-  await expect(page.getByRole("button", { name: "Theme: System" })).toBeVisible()
   await expect(page.locator("html")).toHaveClass(/light/)
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.getByRole("button", { name: "Theme: System" })).toBeVisible()
+})
+
+test("command palette opens settings at the chosen setting", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  const source = page.getByRole("textbox", { name: "Markdown source" })
+  await source.click()
+
+  await page.keyboard.press("ControlOrMeta+Shift+P")
+  const palette = page.getByRole("dialog", { name: "Command palette" })
+  const input = palette.getByRole("combobox", { name: "Command" })
+  await expect(input).toBeFocused()
+  const options = palette.getByRole("option")
+  await expect(options).toHaveCount(3)
+  await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
+  await expect(options.nth(1)).toHaveAccessibleName("Settings: Theme, System")
+  await expect(options.nth(2)).toHaveAccessibleName("Settings: Font Size, 13px")
+  await expect(options.first()).toHaveAttribute("aria-selected", "true")
+
+  await input.fill("nothing here")
+  await expect(palette.getByText("No matching commands")).toBeVisible()
+  await input.fill("size")
+  await expect(options).toHaveCount(1)
+  await expect(options.first()).toHaveAccessibleName("Settings: Font Size, 13px")
+  await expect(palette.locator("mark")).toHaveText(["Size"])
+
+  await page.keyboard.press("Escape")
+  await expect(palette).toBeHidden()
+  await expect(source).toBeFocused()
+
+  await page.keyboard.press("F1")
+  await expect(input).toHaveValue("")
+  await input.fill("font")
+  await page.keyboard.press("Enter")
+  await expect(palette).toBeHidden()
+  const settings = page.getByRole("dialog", { name: "Settings" })
+  const fontSize = settings.getByRole("spinbutton", { name: "Appearance: Font Size" })
+  await expect(fontSize).toBeFocused()
+  const item = settings.locator('[data-setting="fontSize"]')
+  await expect(item).toHaveAttribute("data-revealed", "true")
+  await expect(item).not.toHaveAttribute("data-revealed")
+
+  await page.keyboard.type("15")
+  await expect(source).toHaveCSS("font-size", "15px")
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("ControlOrMeta+Shift+P")
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("Enter")
+  await expect(settings.getByRole("combobox", { name: "Appearance: Theme" })).toBeFocused()
+
+  await page.keyboard.press("Escape")
+  await page.keyboard.press("ControlOrMeta+Shift+P")
+  await page.keyboard.press("Enter")
+  await expect(settings.getByRole("searchbox", { name: "Search settings" })).toBeFocused()
+  await expect(settings.locator("[data-revealed]")).toHaveCount(0)
 })
 
 test("uses readable body and navigation text sizes", async ({ page }) => {
@@ -253,9 +310,52 @@ test("uses readable body and navigation text sizes", async ({ page }) => {
 
   const tree = page.getByRole("complementary", { name: "Files" })
   const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
-  await expect(page.locator("article")).toHaveCSS("font-size", "15px")
+  await expect(page.locator("article")).toHaveCSS("font-size", "14px")
   await expect(selected).toHaveCSS("font-size", "13px")
   await expect(selected).toHaveCSS("border-radius", "0px")
+})
+
+test("font size setting scales the interface, persists, and resets", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+
+  const tree = page.getByRole("complementary", { name: "Files" })
+  const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
+  const source = page.getByRole("textbox", { name: "Markdown source" })
+  const status = page.locator(".status-bar")
+  await expect(source).toHaveCSS("font-size", "13px")
+
+  await page.getByRole("button", { name: "Settings" }).click()
+  const dialog = page.getByRole("dialog", { name: "Settings" })
+  await expect(dialog.getByRole("searchbox", { name: "Search settings" })).toBeFocused()
+  const fontSize = dialog.getByRole("spinbutton", { name: "Appearance: Font Size" })
+  await expect(fontSize).toHaveValue("13")
+  await expect(dialog.getByRole("button", { name: "Reset all" })).toBeDisabled()
+
+  await fontSize.fill("16")
+  await expect(source).toHaveCSS("font-size", "16px")
+  await expect(selected).toHaveCSS("font-size", "16px")
+  // The status bar keeps its 12:13 ratio to the base size.
+  await expect.poll(() => status.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeCloseTo(12 * 16 / 13)
+  await expect(dialog.getByText("Modified")).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem("servef-settings"))).toBe('{"fontSize":16}')
+
+  await fontSize.fill("40")
+  await expect(dialog.getByText("Enter a whole number from 10 to 20.")).toBeVisible()
+  await expect(source).toHaveCSS("font-size", "16px")
+
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
+  await page.reload()
+  await expect(source).toHaveCSS("font-size", "16px")
+  await expect(selected).toHaveCSS("font-size", "16px")
+
+  await page.keyboard.press("ControlOrMeta+,")
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole("searchbox", { name: "Search settings" }).fill("colour")
+  await expect(dialog.getByText("No settings match “colour”.")).toBeVisible()
+  await dialog.getByRole("button", { name: "Reset all" }).click()
+  await expect(source).toHaveCSS("font-size", "13px")
+  expect(await page.evaluate(() => localStorage.getItem("servef-settings"))).toBeNull()
 })
 
 test("highlights fenced code with the selected theme", async ({ page }) => {
@@ -267,8 +367,7 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
   await expect(keyword).toHaveText("func")
   await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
 
-  await page.getByRole("button", { name: "Theme: System" }).click()
-  await page.getByRole("menuitemradio", { name: "Nord" }).click()
+  await (await themeSetting(page)).selectOption({ label: "Nord" })
   await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
 })
 
@@ -367,8 +466,8 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   await sourceLines.nth(2).click()
   await expect(sourceLines.nth(2)).toHaveClass(/active/)
   await expect(sourceLines.first()).not.toHaveClass(/active/)
-  await expect(sourceLines.nth(2)).toHaveCSS("height", "21px")
-  await expect(sourceView).toHaveCSS("font-size", "13.5px")
+  await expect(sourceLines.nth(2)).toHaveCSS("height", "20px")
+  await expect(sourceView).toHaveCSS("font-size", "13px")
   const sourceLeft = await sourceView.evaluate((element) => element.getBoundingClientRect().left)
   const paneLeft = await page.locator("#document-pane").evaluate((element) => element.getBoundingClientRect().left)
   expect(sourceLeft).toBe(paneLeft)
@@ -510,8 +609,7 @@ test("resizes and persists the file tree", async ({ page }) => {
 test("applies an editor palette while preserving dark rendering", async ({ page }) => {
   await page.goto("/")
 
-  await page.getByRole("button", { name: "Theme: System" }).click()
-  await page.getByRole("menuitemradio", { name: "Gruvbox Dark" }).click()
+  await (await themeSetting(page)).selectOption({ label: "Gruvbox Dark" })
 
   await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox-dark")
   await expect(page.locator("html")).toHaveClass(/dark/)
