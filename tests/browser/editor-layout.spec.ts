@@ -151,3 +151,11 @@ test("responsive explorer preserves expansion and keeps virtualized row heights 
   await expect(guides).toHaveAttribute("aria-expanded", "true")
   await expect(code).toHaveCSS("height", "24px")
 })
+
+test("document pane stops at its edges without elastic overscroll", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  await expect(page.locator("article")).toBeVisible()
+  await expect(page.locator("html")).toHaveCSS("overscroll-behavior-y", "none")
+  await expect(page.locator("body")).toHaveCSS("overscroll-behavior-y", "none")
+  await expect(page.locator("main")).toHaveCSS("overscroll-behavior-y", "none")
+})
