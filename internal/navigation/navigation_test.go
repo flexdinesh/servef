@@ -294,3 +294,27 @@ func TestSnippetTrimsAndBoundsLines(t *testing.T) {
 		t.Fatal("out-of-range snippet")
 	}
 }
+
+func TestMinifiedBundlesAreNotIndexed(t *testing.T) {
+	bundle := "function render(){}" + strings.Repeat(";render()", minifiedLine/9+1) + "\n"
+	source := newSource(map[string]string{
+		"dist/app.js":   bundle,
+		"src/use.js":    "render()\n",
+		"src/render.js": "export function render() {}\n",
+	})
+	index := ready(t, source)
+	result, err := index.Definition("project", source, "src/use.js", position(t, source, "src/use.js", "render", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, source, result, target{"src/render.js", "render", 0})
+	references, err := index.References(context.Background(), "project", source, "src/render.js", position(t, source, "src/render.js", "render", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, location := range references.Locations {
+		if location.Path == "dist/app.js" {
+			t.Fatalf("references include the minified bundle: %+v", location)
+		}
+	}
+}

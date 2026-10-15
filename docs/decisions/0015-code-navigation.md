@@ -1,6 +1,6 @@
 # 0015: Code navigation
 
-- Status: Accepted
+- Status: Partially superseded by 0016
 - Date: 2026-10-16
 
 ## Context

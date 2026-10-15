@@ -33,6 +33,13 @@ func (g *grammar) init() {
 	})
 }
 
+// ReleaseSyntaxMemory drops the parse arenas gotreesitter keeps for reuse.
+// They are strong references the collector never reclaims, so an idle
+// server would otherwise hold tens of megabytes after one parse.
+func ReleaseSyntaxMemory() {
+	gotreesitter.DrainArenaPools()
+}
+
 // analyze parses source and extracts a model with build. Parser panics
 // become errors so malformed input never takes down the server.
 func (g *grammar) analyze(source []byte, build func(*walker, *gotreesitter.Node)) (model syntaxModel, err error) {

@@ -38,9 +38,17 @@ const (
 	// maxWorkers bounds concurrent parses; each parse holds its tree and
 	// parser arena, so CPU-wide parallelism multiplies peak memory.
 	maxWorkers = 4
-	// releaseAfter returns memory to the OS after a build parsing this
-	// many files, since parse garbage dwarfs the index it leaves.
-	releaseAfter = 256
+	// bytesPerWorker sizes an index build's parallelism: each worker costs
+	// tens of megabytes at peak, which small projects need not pay.
+	bytesPerWorker = 2 << 20
+	// releaseDelay is how long navigation stays idle before parser memory,
+	// which dwarfs the index, is returned to the OS.
+	releaseDelay = 2 * time.Second
+	// A line longer than minifiedLine within the first minifiedWindow bytes
+	// marks a minified or generated bundle: costly to parse, useless to
+	// navigate. Hand-written code stays far below it.
+	minifiedLine   = 1000
+	minifiedWindow = 64 << 10
 )
 
 // File is an in-scope file and its change stamp.
@@ -82,6 +90,12 @@ type Index struct {
 	interval time.Duration
 	mu       sync.Mutex
 	projects map[string]*project
+
+	// active counts running builds and requests; release fires once it
+	// stays zero for releaseDelay.
+	activity sync.Mutex
+	active   int
+	release  *time.Timer
 }
 
 // New returns an empty index over the registry's navigable families.
@@ -165,6 +179,7 @@ func (x *Index) fresh(key string, source Source) bool {
 
 // update rescans the source and reparses files whose stamp changed.
 func (x *Index) update(p *project, source Source) error {
+	defer x.busy()()
 	p.refresh.Lock()
 	defer p.refresh.Unlock()
 	defer func() {
@@ -182,6 +197,7 @@ func (x *Index) update(p *project, source Source) error {
 
 	next := make(map[string]indexedFile, len(listed))
 	var changed []File
+	var changedBytes int64
 	for _, file := range listed {
 		navigator, ok := x.registry.Lookup(file.Path).Navigator()
 		if !ok {
@@ -193,11 +209,13 @@ func (x *Index) update(p *project, source Source) error {
 		}
 		next[file.Path] = indexedFile{size: file.Size, modified: file.Modified, group: navigator.NavigationGroup()}
 		changed = append(changed, file)
+		changedBytes += file.Size
 	}
-	parsed := parallel(changed, func(file File) indexedFile {
+	workers := int(min(maxWorkers, 1+changedBytes/bytesPerWorker))
+	parsed := parallel(changed, workers, func(file File) indexedFile {
 		indexed := next[file.Path]
 		source, ok, err := source.Read(file.Path)
-		if err != nil || !ok {
+		if err != nil || !ok || minified(source) {
 			return indexed
 		}
 		navigator, _ := x.registry.Lookup(file.Path).Navigator()
@@ -226,18 +244,49 @@ func (x *Index) update(p *project, source Source) error {
 	p.mu.Lock()
 	p.files, p.byName, p.ready, p.checked = next, byName, true, time.Now()
 	p.mu.Unlock()
-	if len(changed) >= releaseAfter {
-		debug.FreeOSMemory()
-	}
 	return nil
 }
 
-// parallel maps items across bounded workers, preserving order.
-func parallel[T, R any](items []T, work func(T) R) []R {
+// busy marks navigation work running until the returned func is called.
+func (x *Index) busy() func() {
+	x.activity.Lock()
+	x.active++
+	x.activity.Unlock()
+	return func() {
+		x.activity.Lock()
+		defer x.activity.Unlock()
+		x.active--
+		if x.active > 0 {
+			return
+		}
+		if x.release == nil {
+			x.release = time.AfterFunc(releaseDelay, x.releaseIdle)
+		} else {
+			x.release.Reset(releaseDelay)
+		}
+	}
+}
+
+// releaseIdle frees parser memory when no navigation work is running.
+func (x *Index) releaseIdle() {
+	x.activity.Lock()
+	idle := x.active == 0
+	x.activity.Unlock()
+	if idle {
+		document.ReleaseSyntaxMemory()
+		// Pooled parsers survive one collection in sync.Pool's victim
+		// cache; the second, inside FreeOSMemory, frees them.
+		runtime.GC()
+		debug.FreeOSMemory()
+	}
+}
+
+// parallel maps items across up to workers goroutines, preserving order.
+func parallel[T, R any](items []T, workers int, work func(T) R) []R {
 	results := make([]R, len(items))
 	jobs := make(chan int)
 	var wg sync.WaitGroup
-	for range max(1, min(runtime.GOMAXPROCS(0), maxWorkers, len(items))) {
+	for range max(1, min(runtime.GOMAXPROCS(0), workers, len(items))) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -282,6 +331,7 @@ func (x *Index) bind(source Source, name string, at document.Position) (document
 // A definition site resolves to itself, so the caller can show its
 // references instead, as editors do.
 func (x *Index) Definition(key string, source Source, name string, at document.Position) (Result, error) {
+	defer x.busy()()
 	navigator, text, binding, found, err := x.bind(source, name, at)
 	if err != nil || !found {
 		return Result{Locations: []Location{}}, err
@@ -404,6 +454,7 @@ func locations(entries []entry) []Location {
 // References lists occurrences of the name at a position that resolve to
 // the same symbol. It stops at maxReferences or when ctx ends.
 func (x *Index) References(ctx context.Context, key string, source Source, name string, at document.Position) (Result, error) {
+	defer x.busy()()
 	navigator, text, binding, found, err := x.bind(source, name, at)
 	if err != nil || !found {
 		return Result{Locations: []Location{}}, err
@@ -487,12 +538,12 @@ func (x *Index) References(ctx context.Context, key string, source Source, name 
 			return result, err
 		}
 		batch := candidates[start:min(start+maxWorkers*8, len(candidates))]
-		perFile := parallel(batch, func(candidate string) []Location {
+		perFile := parallel(batch, maxWorkers, func(candidate string) []Location {
 			if ctx.Err() != nil {
 				return nil
 			}
 			text, ok, err := source.Read(candidate)
-			if err != nil || !ok || !containsWord(text, needle) {
+			if err != nil || !ok || minified(text) || !containsWord(text, needle) {
 				return nil
 			}
 			other, _ := x.registry.Lookup(candidate).Navigator()
@@ -516,6 +567,22 @@ func (x *Index) References(ctx context.Context, key string, source Source, name 
 		}
 	}
 	return result, nil
+}
+
+// minified reports whether source looks like a minified bundle.
+func minified(source []byte) bool {
+	window := source[:min(len(source), minifiedWindow)]
+	for len(window) > 0 {
+		end := bytes.IndexByte(window, '\n')
+		if end < 0 {
+			end = len(window)
+		}
+		if end > minifiedLine {
+			return true
+		}
+		window = window[min(end+1, len(window)):]
+	}
+	return false
 }
 
 // containsWord reports whether text holds word not inside a longer name,
