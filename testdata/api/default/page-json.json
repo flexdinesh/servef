@@ -126,7 +126,8 @@
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
-    "formattable": true
+    "formattable": true,
+    "navigable": false
   },
   "binary": false,
   "tooLarge": false,

@@ -115,7 +115,7 @@ test("undecodable images explain the failure", async ({ page }) => {
 test("large files show Source with a warning and disable preview", async ({ page }) => {
   const markdown = {
     id: "markdown", label: "Markdown", extensions: [".md"], filenames: [], language: "markdown",
-    previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false,
+    previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false, navigable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=big.md`, (route) => route.fulfill({ json: documentPage("big.md", markdown, {
     source: "# Big\n", sourceLines: ["# Big"], fileSize: 6_500_000, previewDisabled: true,
@@ -134,7 +134,7 @@ test("large files show Source with a warning and disable preview", async ({ page
 test("very large files also note search exclusion and disable Format", async ({ page }) => {
   const json = {
     id: "json", label: "JSON", extensions: [".json"], filenames: [], language: "json",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: true, navigable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=huge.json`, (route) => route.fulfill({ json: documentPage("huge.json", json, {
     source: "{}\n", sourceLines: ["{}"], fileSize: 9_437_184, previewDisabled: true, searchExcluded: true,
@@ -147,7 +147,7 @@ test("very large files also note search exclusion and disable Format", async ({ 
 test("files over the display cap open to a note without views", async ({ page }) => {
   const text = {
     id: "text", label: "Plain text", extensions: [], filenames: [], language: "plaintext",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=enormous.log`, (route) => route.fulfill({ json: documentPage("enormous.log", text, {
     fileSize: 41_943_040, tooLarge: true, previewDisabled: true, searchExcluded: true,

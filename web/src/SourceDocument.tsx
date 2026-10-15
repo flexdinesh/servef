@@ -1,14 +1,25 @@
 import { CheckIcon, CopyIcon } from "lucide-react"
-import { useEffect, useRef, useState, type PointerEvent } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
 
 import { useClipboardCopy } from "./clipboard.ts"
+import type { ColumnRange, NavigationKind } from "./code-navigation.ts"
 import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "./line-selection.ts"
+import { showLink, targetAt, wordRange, type SourceTarget } from "./source-position.ts"
 
 // LineSelection connects gutter selection to its owner (the URL fragment).
 export interface LineSelection {
   path: string
   range: LineRange | null
   onChange(range: LineRange | null): void
+}
+
+// SourceNavigation connects names in code to go to definition and find
+// references. A plain click remembers the name for F12 and the command
+// palette; Ctrl/Cmd+click goes to its definition.
+export interface SourceNavigation {
+  onPoint(target: SourceTarget): void
+  // onNavigate runs from target, or from the remembered name when null.
+  onNavigate(kind: NavigationKind, target: SourceTarget | null): void
 }
 
 // LineDrag previews a gutter selection until pointer release commits it.
@@ -27,6 +38,7 @@ interface SourceDocumentProps {
   highlightedLines: readonly string[]
   label: string
   selection?: LineSelection
+  navigation?: SourceNavigation
 }
 
 function LineCopyButton({ reference }: { reference: string }) {
@@ -57,7 +69,11 @@ function LineCopyButton({ reference }: { reference: string }) {
   )
 }
 
-export function SourceDocument({ source, highlightedLines, label, selection }: SourceDocumentProps) {
+function modified(event: { metaKey: boolean; ctrlKey: boolean }): boolean {
+  return event.metaKey || event.ctrlKey
+}
+
+export function SourceDocument({ source, highlightedLines, label, selection, navigation }: SourceDocumentProps) {
   const lines = splitSourceLines(source)
   const [activeLine, setActiveLine] = useState<number | null>(null)
   const selectionAnchor = useRef<number | null>(null)
@@ -72,6 +88,43 @@ export function SourceDocument({ source, highlightedLines, label, selection }: S
     if (drag && !drag.active) setDrag(null)
   }
   const shown = drag?.range ?? range
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  const [linked, setLinked] = useState<{ line: number; word: ColumnRange } | null>(null)
+
+  // link marks the name under the pointer while Ctrl/Cmd is held.
+  const link = useCallback((active: boolean) => {
+    const root = container.current
+    const target = active && root && pointer.current ? targetAt(root, pointer.current.x, pointer.current.y) : null
+    const word = target?.word ?? null
+    setLinked((current) => {
+      if (!target || !word) return null
+      return current?.line === target.position.line && current.word.start === word.start ? current : { line: target.position.line, word }
+    })
+  }, [])
+
+  // Rendering may replace the highlighted text nodes, so the underline's
+  // range is rebuilt from the DOM after every render.
+  useLayoutEffect(() => {
+    const root = container.current
+    showLink(root && linked ? wordRange(root, linked.line, linked.word) : null)
+  })
+
+  useEffect(() => {
+    if (!navigation) return
+    const key = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Meta" || event.key === "Control") link(event.type === "keydown")
+    }
+    const clear = () => link(false)
+    window.addEventListener("keydown", key)
+    window.addEventListener("keyup", key)
+    window.addEventListener("blur", clear)
+    return () => {
+      window.removeEventListener("keydown", key)
+      window.removeEventListener("keyup", key)
+      window.removeEventListener("blur", clear)
+      showLink(null)
+    }
+  }, [link, navigation])
 
   useEffect(() => {
     if (!drag?.active || !selection) return
@@ -111,23 +164,53 @@ export function SourceDocument({ source, highlightedLines, label, selection }: S
     if (rangeKey(next) !== rangeKey(drag.range)) setDrag({ ...drag, range: next })
   }
 
+  function clickCode(event: MouseEvent) {
+    const root = container.current
+    if (!navigation || !root || event.button !== 0) return
+    const target = targetAt(root, event.clientX, event.clientY)
+    if (!target) return
+    if (modified(event)) {
+      event.preventDefault()
+      link(false)
+      navigation.onNavigate("definition", target)
+    } else {
+      navigation.onPoint(target)
+    }
+  }
+
   return (
     <div
       ref={container}
-      className={`source-document syntax-highlight${drag?.active ? " selecting-lines" : ""}`}
+      className={`source-document syntax-highlight${drag?.active ? " selecting-lines" : ""}${linked ? " navigation-linking" : ""}`}
       role="textbox"
       aria-label={label}
       aria-multiline="true"
       aria-readonly="true"
       tabIndex={0}
       onKeyDown={(event) => {
+        if (navigation && event.key === "F12" && !event.altKey && !modified(event)) {
+          event.preventDefault()
+          navigation.onNavigate(event.shiftKey ? "references" : "definition", null)
+          return
+        }
         if (event.key !== "Escape" || !range || !selection) return
         event.preventDefault()
         selectionAnchor.current = null
         selection.onChange(null)
       }}
     >
-      <code onPointerOver={dragOver}>
+      <code
+        onPointerOver={dragOver}
+        onClick={clickCode}
+        onPointerMove={navigation ? (event) => {
+          pointer.current = { x: event.clientX, y: event.clientY }
+          link(modified(event))
+        } : undefined}
+        onPointerLeave={navigation ? () => {
+          pointer.current = null
+          link(false)
+        } : undefined}
+      >
         {lines.map((line, index) => {
           const lineNumber = index + 1
           const selected = shown !== null && lineNumber >= shown.start && lineNumber <= shown.end

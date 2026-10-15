@@ -3,7 +3,7 @@ import { fixtureRoot, rootParam } from "./fixture-root.ts"
 
 const customType = {
   id: "custom", label: "Custom", extensions: [".custom"], filenames: [], language: "plaintext",
-  previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
+  previewKind: "", previewLabel: "", defaultMode: "source", formattable: true, navigable: false,
 }
 
 function customPage(source: string) {

@@ -133,7 +133,8 @@
     "previewKind": "image",
     "previewLabel": "Preview",
     "defaultMode": "preview",
-    "formattable": false
+    "formattable": false,
+    "navigable": false
   },
   "binary": true,
   "tooLarge": false,

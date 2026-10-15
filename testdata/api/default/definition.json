@@ -1,0 +1,13 @@
+{
+  "symbol": "Format",
+  "indexing": false,
+  "locations": [
+    {
+      "path": "navigation/format.go",
+      "line": 6,
+      "column": 5,
+      "kind": "function",
+      "snippet": "func Format(words ...string) string {"
+    }
+  ]
+}

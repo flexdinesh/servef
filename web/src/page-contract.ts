@@ -13,6 +13,8 @@ export interface FileType {
   previewLabel: string
   defaultMode: DefaultDocumentMode
   formattable: boolean
+  // navigable files support go to definition and find references in Source.
+  navigable: boolean
 }
 
 export interface TreeNode {
@@ -85,6 +87,7 @@ export function isFileType(value: unknown): value is FileType {
     && (value.previewKind !== "" || value.defaultMode === "source")
     && (value.previewKind === "" || value.previewLabel !== "")
     && typeof value.formattable === "boolean"
+    && typeof value.navigable === "boolean"
 }
 
 function isStringArray(value: unknown): value is string[] {

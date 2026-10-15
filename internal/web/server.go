@@ -17,6 +17,7 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/navigation"
 	"github.com/flexdinesh/servef/internal/projects"
 )
 
@@ -47,10 +48,11 @@ type App struct {
 	config Config
 	// roots are the canonical served roots; the browser keys stored state by
 	// them.
-	roots    []string
-	metrics  metricsCollector
-	openFile func(string) (fs.File, error)
-	shell    string
+	roots      []string
+	metrics    metricsCollector
+	openFile   func(string) (fs.File, error)
+	shell      string
+	navigation *navigation.Index
 }
 
 type pageData struct {
@@ -163,7 +165,7 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	config.Roots = roots
-	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell)}, nil
+	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell), navigation: navigation.New(config.Types)}, nil
 }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
@@ -254,6 +256,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/raw" {
 		a.serveRaw(w, projectID, query.Get("path"))
+		return
+	}
+	if r.URL.Path == "/api/definition" || r.URL.Path == "/api/references" {
+		a.serveNavigation(w, r, r.URL.Path == "/api/references", projectID, query.Get("path"), query.Get("line"), query.Get("column"))
 		return
 	}
 	if r.URL.Path == "/api/format" {
@@ -507,6 +513,9 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter, projectID string) {
 		Warnings:  warningStrings(index.Warnings),
 	}
 	for _, indexedPath := range index.Files {
+		if index.Ignored(indexedPath) {
+			continue
+		}
 		resolved, err := index.Resolve(indexedPath)
 		if err != nil {
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
@@ -649,6 +658,8 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		}, status
 	}
 	checkout := projects.Inspect(project.root)
+	// Opening a project starts its navigation index in the background.
+	a.navigation.Warm(project.root, a.navigationSource(project.root))
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{

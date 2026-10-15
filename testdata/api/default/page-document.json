@@ -127,7 +127,8 @@
     "previewKind": "markdown",
     "previewLabel": "Preview",
     "defaultMode": "source",
-    "formattable": false
+    "formattable": false,
+    "navigable": false
   },
   "binary": false,
   "tooLarge": false,

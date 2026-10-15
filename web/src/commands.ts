@@ -4,12 +4,16 @@ import { settingDefinitions, type SettingId } from "./settings.ts"
 export type CommandAction =
   | { kind: "open-settings" }
   | { kind: "open-setting"; setting: SettingId }
+  | { kind: "go-to-definition" }
+  | { kind: "find-references" }
 
 export interface Command {
   id: string
   category: string
   title: string
   action: CommandAction
+  // shortcut labels a command's key binding when it is not Settings'.
+  shortcut?: string
 }
 
 export interface CommandMatch {
@@ -19,7 +23,8 @@ export interface CommandMatch {
 }
 
 // Open Settings comes first; then each setting is a command that opens
-// Settings at that setting.
+// Settings at that setting; then code navigation, which acts on the name
+// last clicked in Source.
 export const commands: readonly Command[] = [
   { id: "preferences.openSettings", category: "Preferences", title: "Open Settings", action: { kind: "open-settings" } },
   ...settingDefinitions.map((definition): Command => ({
@@ -28,6 +33,8 @@ export const commands: readonly Command[] = [
     title: definition.title,
     action: { kind: "open-setting", setting: definition.id },
   })),
+  { id: "navigation.goToDefinition", category: "Navigation", title: "Go to Definition", action: { kind: "go-to-definition" }, shortcut: "F12" },
+  { id: "navigation.findReferences", category: "Navigation", title: "Find All References", action: { kind: "find-references" }, shortcut: "Shift+F12" },
 ]
 
 function mergeRanges(ranges: HighlightRange[]): HighlightRange[] {

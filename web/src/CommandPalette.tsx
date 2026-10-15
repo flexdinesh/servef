@@ -134,7 +134,7 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
             // Settings show their current value; other commands their shortcut.
             const detail = command.action.kind === "open-setting"
               ? values[command.action.setting].label
-              : settingsShortcutLabel
+              : command.shortcut ?? settingsShortcutLabel
             return (
               <div
                 key={command.id}

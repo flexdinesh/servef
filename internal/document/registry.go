@@ -12,8 +12,8 @@ import (
 // Type describes a file family and the views the UI can offer. Source is always
 // available. An empty PreviewKind means no preview; extensions include their
 // leading dot; filenames are exact base names. Matching is case-insensitive.
-// Formattable is derived by the registry from the Formatter capability;
-// handlers leave it unset.
+// Formattable and Navigable are derived by the registry from the Formatter
+// and Navigator capabilities; handlers leave them unset.
 type Type struct {
 	ID           string   `json:"id"`
 	Label        string   `json:"label"`
@@ -24,6 +24,7 @@ type Type struct {
 	PreviewLabel string   `json:"previewLabel"`
 	DefaultMode  string   `json:"defaultMode"`
 	Formattable  bool     `json:"formattable"`
+	Navigable    bool     `json:"navigable"`
 }
 
 // HasTextSource reports whether files of this type have a text source view.
@@ -70,6 +71,7 @@ type Family struct {
 	handler    Handler
 	definition Type
 	formatter  Formatter
+	navigator  Navigator
 }
 
 // Type returns the family metadata, including derived capabilities.
@@ -80,6 +82,9 @@ func (f Family) Preview(source []byte, context Context) (string, error) {
 }
 
 func (f Family) SearchText(source []byte) (string, error) { return f.handler.SearchText(source) }
+
+// Navigator returns the family's code navigation, if it has any.
+func (f Family) Navigator() (Navigator, bool) { return f.navigator, f.navigator != nil }
 
 // FormatLines formats a copy of source and returns escaped, highlighted HTML
 // per formatted line.
@@ -123,7 +128,7 @@ func NewRegistry(fallback Handler, handlers ...Handler) (*Registry, error) {
 		}
 		ids[definition.ID] = true
 		if index == 0 {
-			if definition.PreviewKind != "" || definition.Formattable {
+			if definition.PreviewKind != "" || definition.Formattable || definition.Navigable {
 				return nil, fmt.Errorf("fallback file type %q must be source-only", definition.ID)
 			}
 			registry.fallback = family
@@ -174,6 +179,14 @@ func newFamily(handler Handler) (Family, error) {
 		return Family{}, fmt.Errorf("file type %q declares formatting without a Formatter", definition.ID)
 	}
 	definition.Formattable = formattable
+	navigator, navigable := handler.(Navigator)
+	if definition.Navigable && !navigable {
+		return Family{}, fmt.Errorf("file type %q declares navigation without a Navigator", definition.ID)
+	}
+	if navigable && navigator.NavigationGroup() == "" {
+		return Family{}, fmt.Errorf("file type %q needs a navigation group", definition.ID)
+	}
+	definition.Navigable = navigable
 	switch definition.PreviewKind {
 	case "", PreviewMarkdown, PreviewImage:
 	default:
@@ -197,6 +210,9 @@ func newFamily(handler Handler) (Family, error) {
 	family := Family{handler: handler, definition: definition}
 	if formattable {
 		family.formatter = formatter
+	}
+	if navigable {
+		family.navigator = navigator
 	}
 	return family, nil
 }

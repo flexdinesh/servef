@@ -149,7 +149,7 @@ test("browsing opens folders, which stay listed until forgotten", async ({ page 
   await expect(picker(page).getByRole("listbox", { name: "Folders" })).toBeVisible()
   await expect(pickerInput(page)).toHaveValue(`${root}/`)
   const folders = picker(page).getByRole("group", { name: "Folders" }).getByRole("option")
-  await expect(folders).toHaveText([/assets/, /code/, /config/, /guides/, /reference/])
+  await expect(folders).toHaveText([/assets/, /code/, /config/, /guides/, /navigation/, /reference/])
 
   await pickerInput(page).pressSequentially("con")
   await pickerInput(page).press("Tab")

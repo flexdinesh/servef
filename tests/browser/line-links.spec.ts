@@ -108,7 +108,7 @@ test("a line anchor scrolls its line into view and clamps to the document", asyn
   const source = Array.from({ length: 300 }, (_, index) => `line ${index + 1}`).join("\n") + "\n"
   const type = {
     id: "text", label: "Plain text", extensions: [".txt"], filenames: [], language: "plaintext",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=long.txt`, (route) => route.fulfill({ json: {
     content: "", source, sourceLines: [], empty: false, error: "", fileCount: 1, fileSize: source.length,
