@@ -140,7 +140,8 @@
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
-    "formattable": false
+    "formattable": false,
+    "navigable": false
   },
   "binary": false,
   "tooLarge": true,

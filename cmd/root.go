@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -46,8 +47,16 @@ type options struct {
 
 type runner func(context.Context, options, io.Reader, io.Writer, io.Writer) error
 
+// defaultMemoryLimit is the soft heap limit when GOMEMLIMIT is unset. Code
+// navigation parsing churns garbage; the limit makes the collector reclaim
+// it sooner instead of letting the heap double, at a small CPU cost.
+const defaultMemoryLimit = 1 << 30
+
 // Execute runs the root command until the server exits or receives a signal.
 func Execute() error {
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(defaultMemoryLimit)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	return newRootCommand(run).ExecuteContext(ctx)

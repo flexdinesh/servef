@@ -8,7 +8,7 @@ import { DocumentPreview } from "./DocumentPreview.tsx"
 import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
 import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
-import { SourceDocument, type LineSelection } from "./SourceDocument.tsx"
+import { SourceDocument, type LineSelection, type SourceNavigation } from "./SourceDocument.tsx"
 import type { PageData } from "./page-data.ts"
 import { projectUrl } from "./project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
@@ -24,6 +24,8 @@ interface DocumentPaneProps {
   onChooseProject(): void
   page: PageData
   retry(): void
+  // sourceNavigation is set when Source supports code navigation.
+  sourceNavigation?: SourceNavigation
   view: DocumentView
 }
 
@@ -31,7 +33,7 @@ function fileName(path: string): string {
   return path.split("/").at(-1) || path
 }
 
-export function DocumentPane({ hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, view }: DocumentPaneProps) {
+export function DocumentPane({ hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceNavigation, view }: DocumentPaneProps) {
   const viewKind = loadError || page.error ? "none" : view.kind
   const label = page.documentType?.label ?? "File"
 
@@ -81,7 +83,7 @@ export function DocumentPane({ hasData, image, isLoading, lineSelection, loadErr
           {page.previewDisabled && <LargeFileNotice size={page.fileSize} searchExcluded={page.searchExcluded} />}
           {view.formatError && <FormatErrorNotice reason={view.formatError} />}
           <SourceDocument key={page.selected} source={page.source} highlightedLines={page.sourceLines} label={`${label} source`}
-            selection={lineSelection} />
+            selection={lineSelection} navigation={sourceNavigation} />
         </div>
       ) : hasData ? (
         <div className="empty">

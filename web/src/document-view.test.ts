@@ -18,7 +18,7 @@ const emptyPage: PageData = {
 function fileType(overrides: Partial<FileType>): FileType {
   return {
     id: "text", label: "Plain text", extensions: [], filenames: [], language: "plaintext",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, ...overrides,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false, ...overrides,
   }
 }
 

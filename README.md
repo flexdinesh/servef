@@ -23,7 +23,11 @@ else.
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
-- Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar
+- Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar;
+  gitignored files are skipped
+- Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12) across
+  files in Go, JavaScript, JSX, TypeScript, and TSX source, VS Code-style;
+  name-based, indexed in memory in the background, gitignored files skipped
 - Show document details in the status bar; disclose process CPU/RAM from Ready
 - Choose a theme (system, light, dark, editor palettes) and interface font size
   in Settings (gear in the status bar, Cmd/Ctrl+,); saved in the browser

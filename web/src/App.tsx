@@ -6,6 +6,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
@@ -27,7 +28,13 @@ import {
 import { SearchDialog } from "./SearchDialog.tsx"
 import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
 import { CommandPalette } from "./CommandPalette.tsx"
+import type { NavigationKind } from "./code-navigation.ts"
 import type { CommandAction } from "./commands.ts"
+import type { NavigationLocation } from "./navigation-contract.ts"
+import { NavigationDialog } from "./NavigationDialog.tsx"
+import type { SourceNavigation } from "./SourceDocument.tsx"
+import type { SourceTarget } from "./source-position.ts"
+import { useCodeNavigation } from "./use-code-navigation.ts"
 import { SidebarResizer } from "./SidebarResizer.tsx"
 import { StatusBar } from "./StatusBar.tsx"
 import { TabBar } from "./TabBar.tsx"
@@ -88,8 +95,11 @@ export function App({ project }: AppProps) {
   const registerCommands = useCallback((open: (() => void) | null) => {
     openCommands.current = open ?? (() => {})
   }, [])
+  const runNavigation = useRef<(kind: NavigationKind) => void>(() => {})
   const runCommand = useCallback((action: CommandAction) => {
-    openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
+    if (action.kind === "go-to-definition") runNavigation.current("definition")
+    else if (action.kind === "find-references") runNavigation.current("references")
+    else openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
   }, [])
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
@@ -132,6 +142,37 @@ export function App({ project }: AppProps) {
     void navigate({ to: "/view", search: { project, path: page.selected }, hash: range ? lineAnchor(range) : "", replace: true })
   }, [navigate, page.selected, project])
   const showSource = view.kind === "source" && !loadError && !page.error
+
+  // The name last clicked in Source, per file, for F12 and the palette.
+  const caret = useRef<{ path: string; target: SourceTarget } | null>(null)
+  const openLocation = useCallback((location: NavigationLocation) => {
+    caret.current = { path: location.path, target: { position: { line: location.line, column: location.column }, word: null, text: "" } }
+    prepareDocumentNavigation()
+    void navigate({ to: "/view", search: { project, path: location.path }, hash: lineAnchor({ start: location.line, end: location.line }) })
+  }, [navigate, prepareDocumentNavigation, project])
+  const codeNavigation = useCodeNavigation(project, openLocation)
+  const { request: requestNavigation, explain: explainNavigation, close: closeNavigation } = codeNavigation
+  const openNavigationResult = useCallback((location: NavigationLocation) => {
+    closeNavigation()
+    openLocation(location)
+  }, [closeNavigation, openLocation])
+  // Files past the preview limit are not parsed, like they are not highlighted.
+  const navigable = showSource && page.documentType?.navigable === true && !page.previewDisabled
+  const sourceNavigation = useMemo((): SourceNavigation | undefined => navigable ? {
+    onPoint(target) {
+      caret.current = { path: page.selected, target }
+    },
+    onNavigate(kind, target) {
+      if (target) caret.current = { path: page.selected, target }
+      const remembered = caret.current?.path === page.selected ? caret.current.target : null
+      if (remembered) requestNavigation(kind, page.selected, remembered)
+      else explainNavigation(kind, "Click a name in the code first, then try again.")
+    },
+  } : undefined, [explainNavigation, navigable, page.selected, requestNavigation])
+  runNavigation.current = (kind) => {
+    if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
+    else explainNavigation(kind, "Code navigation works in the Source view of supported code files.")
+  }
   const selectedLines = showSource && lineRange ? clampLineRange(lineRange, splitSourceLines(page.source).length) : null
 
   const switchProject = useCallback((next: string) => {
@@ -212,6 +253,7 @@ export function App({ project }: AppProps) {
             onChooseProject={chooseProject}
             page={page}
             retry={() => { void router.invalidate() }}
+            sourceNavigation={sourceNavigation}
             view={view}
           />
         </section>
@@ -231,6 +273,7 @@ export function App({ project }: AppProps) {
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
       <SettingsDialog registerOpen={registerSettings} />
       <CommandPalette registerOpen={registerCommands} onRun={runCommand} />
+      <NavigationDialog panel={codeNavigation.panel} onClose={closeNavigation} onOpen={openNavigationResult} />
     </>
   )
 }

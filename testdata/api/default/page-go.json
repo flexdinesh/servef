@@ -1,0 +1,110 @@
+{
+  "roots": [
+    "/home/user/markdown"
+  ],
+  "project": "/home/user/markdown",
+  "projectUnavailable": false,
+  "rootName": "markdown",
+  "repository": "",
+  "projectKind": "folder",
+  "branch": "",
+  "worktrees": 0,
+  "tree": [
+    {
+      "fileType": "",
+      "name": "navigation",
+      "path": "navigation",
+      "isDir": true,
+      "open": true,
+      "selected": false,
+      "children": [
+        {
+          "fileType": "",
+          "name": "web",
+          "path": "navigation/web",
+          "isDir": true,
+          "open": false,
+          "selected": false,
+          "children": [
+            {
+              "fileType": "tsx",
+              "name": "app.tsx",
+              "path": "navigation/web/app.tsx",
+              "isDir": false,
+              "open": false,
+              "selected": false,
+              "children": []
+            },
+            {
+              "fileType": "typescript",
+              "name": "label.ts",
+              "path": "navigation/web/label.ts",
+              "isDir": false,
+              "open": false,
+              "selected": false,
+              "children": []
+            }
+          ]
+        },
+        {
+          "fileType": "go",
+          "name": "format.go",
+          "path": "navigation/format.go",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": []
+        },
+        {
+          "fileType": "go",
+          "name": "greet.go",
+          "path": "navigation/greet.go",
+          "isDir": false,
+          "open": false,
+          "selected": true,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "selected": "navigation/greet.go",
+  "content": "",
+  "source": "// Package navigation is a code navigation sample: Cmd/Ctrl+click Format.\npackage navigation\n\n// Greet welcomes someone by name.\nfunc Greet(name string) string {\n\treturn Format(\"hello\", name)\n}\n",
+  "fileSize": 194,
+  "fileCount": 4,
+  "hasFile": true,
+  "empty": false,
+  "error": "",
+  "warnings": [],
+  "filenamePatterns": [
+    "*"
+  ],
+  "documentType": {
+    "id": "go",
+    "label": "Go",
+    "extensions": [
+      ".go"
+    ],
+    "filenames": [],
+    "language": "go",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false,
+    "navigable": true
+  },
+  "binary": false,
+  "tooLarge": false,
+  "previewDisabled": false,
+  "searchExcluded": false,
+  "sourceLines": [
+    "<span class=\"syntax-c1\">// Package navigation is a code navigation sample: Cmd/Ctrl+click Format.</span><span class=\"syntax-w\"></span>",
+    "<span class=\"syntax-kn\">package</span><span class=\"syntax-w\"> </span><span class=\"syntax-nx\">navigation</span><span class=\"syntax-w\"></span>",
+    "",
+    "<span class=\"syntax-c1\">// Greet welcomes someone by name.</span><span class=\"syntax-w\"></span>",
+    "<span class=\"syntax-kd\">func</span><span class=\"syntax-w\"> </span><span class=\"syntax-nf\">Greet</span><span class=\"syntax-p\">(</span><span class=\"syntax-nx\">name</span><span class=\"syntax-w\"> </span><span class=\"syntax-kt\">string</span><span class=\"syntax-p\">)</span><span class=\"syntax-w\"> </span><span class=\"syntax-kt\">string</span><span class=\"syntax-w\"> </span><span class=\"syntax-p\">{</span><span class=\"syntax-w\"></span>",
+    "<span class=\"syntax-w\">\t</span><span class=\"syntax-k\">return</span><span class=\"syntax-w\"> </span><span class=\"syntax-nf\">Format</span><span class=\"syntax-p\">(</span><span class=\"syntax-s\">&#34;hello&#34;</span><span class=\"syntax-p\">,</span><span class=\"syntax-w\"> </span><span class=\"syntax-nx\">name</span><span class=\"syntax-p\">)</span><span class=\"syntax-w\"></span>",
+    "<span class=\"syntax-p\">}</span><span class=\"syntax-w\"></span>"
+  ],
+  "previewError": ""
+}

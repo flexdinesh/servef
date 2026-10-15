@@ -52,6 +52,7 @@ type Index struct {
 
 	root    string
 	fileSet map[string]struct{}
+	ignored map[string]struct{}
 	accepts func(string) bool
 }
 
@@ -89,6 +90,7 @@ func Scan(root string, maxDepth int, excluded []string, accepts func(string) boo
 		Files:   make([]string, 0),
 		root:    canonicalRoot,
 		fileSet: make(map[string]struct{}),
+		ignored: make(map[string]struct{}),
 		accepts: accepts,
 	}
 	index.Tree = Entry{Name: filepath.Base(canonicalRoot), IsDir: true}
@@ -101,10 +103,22 @@ func Scan(root string, maxDepth int, excluded []string, accepts func(string) boo
 		}
 	}
 
-	if err := index.scanDirectory(&index.Tree, 0, maxDepth, excludedNames); err != nil {
+	if err := index.scanDirectory(&index.Tree, 0, maxDepth, excludedNames, rootIgnoreRules(canonicalRoot), false); err != nil {
 		return nil, fmt.Errorf("read scan root: %w", err)
 	}
 	return index, nil
+}
+
+// Ignored reports whether an indexed file is excluded by gitignore rules: the
+// .gitignore files from the root down and the root repository's
+// .git/info/exclude. Ignored files stay browsable; content search and code
+// navigation skip them.
+func (i *Index) Ignored(name string) bool {
+	if i == nil {
+		return false
+	}
+	_, ok := i.ignored[name]
+	return ok
 }
 
 // RootPath returns the absolute, symlink-evaluated directory used by the scan.
@@ -150,7 +164,10 @@ func (i *Index) Resolve(name string) (string, error) {
 	return resolved, nil
 }
 
-func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[string]struct{}) error {
+// scanDirectory indexes node's directory. rules are the gitignore patterns
+// inherited from its ancestors; inIgnored reports that an ancestor directory
+// is ignored, which git never re-includes below.
+func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[string]struct{}, rules ignoreRules, inIgnored bool) error {
 	dirPath := i.root
 	if node.Path != "" {
 		dirPath = filepath.Join(i.root, filepath.FromSlash(node.Path))
@@ -179,6 +196,15 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		}
 		i.Warnings = append(i.Warnings, Warning{Path: node.Path, Err: err})
 		return nil
+	}
+
+	if !inIgnored {
+		for _, dirEntry := range entries {
+			if dirEntry.Name() == ".gitignore" && dirEntry.Type().IsRegular() {
+				rules = rules.with(filepath.Join(dirPath, ".gitignore"), domainOf(node.Path))
+				break
+			}
+		}
 	}
 
 	children := make([]scannedEntry, 0, len(entries))
@@ -229,7 +255,8 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		childNode := &node.Children[len(node.Children)-1]
 		if child.isDir {
 			// Nested failures are recorded as warnings so other siblings remain usable.
-			_ = i.scanDirectory(childNode, depth+1, maxDepth, excluded)
+			ignored := inIgnored || rules.ignores(child.path, true)
+			_ = i.scanDirectory(childNode, depth+1, maxDepth, excluded, rules, ignored)
 			if len(childNode.Children) == 0 {
 				node.Children = node.Children[:len(node.Children)-1]
 			}
@@ -237,6 +264,9 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		}
 		i.Files = append(i.Files, child.path)
 		i.fileSet[child.path] = struct{}{}
+		if inIgnored || rules.ignores(child.path, false) {
+			i.ignored[child.path] = struct{}{}
+		}
 	}
 	return nil
 }

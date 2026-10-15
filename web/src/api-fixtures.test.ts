@@ -4,6 +4,7 @@ import test from "node:test"
 
 import { parseFeatureValue } from "./features.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
+import { isNavigationResult } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
 import { isSearchDocumentsResponse } from "./search-documents.ts"
@@ -26,12 +27,15 @@ test("frontend API fixtures satisfy runtime contracts", async () => {
   assert.equal(isDirectoriesResponse(await fixture("directories.json")), true)
   for (const name of [
     "page-index.json", "page-document.json", "page-missing.json", "page-json.json",
-    "page-json-broken.json", "page-image.json", "page-binary.json", "page-large.json", "page-too-large.json",
+    "page-json-broken.json", "page-image.json", "page-binary.json", "page-large.json", "page-too-large.json", "page-go.json",
   ]) {
     assert.equal(isPageData(await fixture(name)), true, name)
   }
   assert.equal(isFormatResult(await fixture("format-settings.json")), true)
   assert.equal(isFormatResult(await fixture("format-error.json")), false)
+  assert.equal(isNavigationResult(await fixture("definition.json")), true)
+  assert.equal(isNavigationResult(await fixture("references.json")), true)
+  assert.equal(isNavigationResult(await fixture("error-not-found.json")), false)
 })
 
 async function page(name: string): Promise<PageData> {

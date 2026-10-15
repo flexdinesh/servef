@@ -98,7 +98,7 @@ func TestPageContractShape(t *testing.T) {
 	if err := json.Unmarshal(contract["documentType"], &fileType); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"id": `"json"`, "label": `"JSON"`, "extensions": `[".json"]`, "filenames": `[]`, "language": `"json"`, "previewKind": `""`, "previewLabel": `""`, "defaultMode": `"source"`, "formattable": `true`}
+	want := map[string]string{"id": `"json"`, "label": `"JSON"`, "extensions": `[".json"]`, "filenames": `[]`, "language": `"json"`, "previewKind": `""`, "previewLabel": `""`, "defaultMode": `"source"`, "formattable": `true`, "navigable": `false`}
 	if len(fileType) != len(want) {
 		t.Fatalf("documentType = %v", fileType)
 	}

@@ -260,10 +260,12 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const input = palette.getByRole("combobox", { name: "Command" })
   await expect(input).toBeFocused()
   const options = palette.getByRole("option")
-  await expect(options).toHaveCount(3)
+  await expect(options).toHaveCount(5)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
   await expect(options.nth(1)).toHaveAccessibleName("Settings: Theme, System")
   await expect(options.nth(2)).toHaveAccessibleName("Settings: Font Size, 13px")
+  await expect(options.nth(3)).toHaveAccessibleName("Navigation: Go to Definition, F12")
+  await expect(options.nth(4)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
   await expect(options.first()).toHaveAttribute("aria-selected", "true")
 
   await input.fill("nothing here")
@@ -581,7 +583,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("22 files")
+  await expect(status).toContainText("26 files")
   await expect(status.locator(".status-file-type")).toHaveText("Markdown")
   await status.locator("summary").click()
   if (process.platform === "linux") {

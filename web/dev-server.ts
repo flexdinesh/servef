@@ -30,6 +30,7 @@ const mockPages: ReadonlyMap<string, string> = new Map([
   ["guides/getting-started.md", "page-document.json"],
   ["logs/enormous.log", "page-too-large.json"],
   ["logs/huge.log", "page-large.json"],
+  ["navigation/greet.go", "page-go.json"],
 ])
 
 const mockFormats: ReadonlyMap<string, MockFixture> = new Map([
@@ -112,6 +113,11 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return mockFormats.get(url.searchParams.get("path") ?? "") ?? notFound
     case "/raw":
       return mockRaw.get(url.searchParams.get("path") ?? "") ?? notFound
+    // One navigation scenario: Format in navigation/greet.go.
+    case "/definition":
+      return { name: "definition.json", status: 200 }
+    case "/references":
+      return { name: "references.json", status: 200 }
     default:
       return undefined
   }

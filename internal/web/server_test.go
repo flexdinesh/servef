@@ -29,7 +29,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
-	if got, want := landingData.FileCount, 22; got != want {
+	if got, want := landingData.FileCount, 26; got != want {
 		t.Fatalf("file count = %d, want %d", got, want)
 	}
 	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "images.md", "api.markdown", "search.md", "notes.txt", "main.go", "Dockerfile", "servef.toml", "sample.bin", "preview.png")
@@ -92,7 +92,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Raster images and sample.bin are binary and excluded from search.
-	if got, want := len(searchData.Documents), 19; got != want {
+	if got, want := len(searchData.Documents), 23; got != want {
 		t.Fatalf("search documents = %d, want %d", got, want)
 	}
 	foundSearchFixture := false

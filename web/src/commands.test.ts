@@ -8,12 +8,15 @@ const sample: readonly Command[] = [
   { id: "b", category: "Settings", title: "Font Size", action: { kind: "open-setting", setting: "fontSize" } },
 ]
 
-test("Open Settings comes first, then every setting opens Settings at it", () => {
+test("Open Settings comes first, then every setting opens Settings at it, then navigation", () => {
   assert.deepEqual(commands.map((command) => [command.category, command.title, command.action]), [
     ["Preferences", "Open Settings", { kind: "open-settings" }],
     ["Settings", "Theme", { kind: "open-setting", setting: "theme" }],
     ["Settings", "Font Size", { kind: "open-setting", setting: "fontSize" }],
+    ["Navigation", "Go to Definition", { kind: "go-to-definition" }],
+    ["Navigation", "Find All References", { kind: "find-references" }],
   ])
+  assert.deepEqual(commands.slice(3).map((command) => command.shortcut), ["F12", "Shift+F12"])
 })
 
 test("an empty query lists every command in order", () => {

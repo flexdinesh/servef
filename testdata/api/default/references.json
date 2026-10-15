@@ -1,0 +1,20 @@
+{
+  "symbol": "Format",
+  "indexing": false,
+  "locations": [
+    {
+      "path": "navigation/greet.go",
+      "line": 6,
+      "column": 8,
+      "kind": "reference",
+      "snippet": "return Format(\"hello\", name)"
+    },
+    {
+      "path": "navigation/format.go",
+      "line": 6,
+      "column": 5,
+      "kind": "definition",
+      "snippet": "func Format(words ...string) string {"
+    }
+  ]
+}

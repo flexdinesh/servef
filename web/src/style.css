@@ -1379,6 +1379,17 @@ article {
   white-space: pre;
 }
 
+/* Ctrl/Cmd over a name: a link to its definition, as in VS Code. */
+.source-document.navigation-linking .source-document-line-content {
+  cursor: pointer;
+}
+
+::highlight(servef-navigation-link) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .source-stack {
   display: flex;
   min-height: 100%;
@@ -2867,4 +2878,67 @@ article hr {
     width: 32px;
     height: 32px;
   }
+}
+
+/* Navigation results reuse the search dialog, with file headings shown and
+   one row per location. Declared last to override the search layout. */
+.navigation-dialog .navigation-field {
+  justify-content: space-between;
+}
+
+.navigation-dialog .navigation-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigation-dialog .navigation-results {
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  outline: 0;
+}
+
+.navigation-dialog .navigation-group-title {
+  display: block;
+  color: var(--color-text-secondary);
+  letter-spacing: 0;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.navigation-dialog .navigation-result {
+  display: flex;
+  min-height: 2rem;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+}
+
+.navigation-dialog .navigation-result-line {
+  flex: none;
+  min-width: 3.5rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.navigation-dialog .navigation-result-snippet {
+  min-width: 0;
+  margin-top: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigation-dialog .navigation-result-kind {
+  flex: none;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }

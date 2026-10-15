@@ -10,9 +10,10 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
 - `cmd/` owns CLI validation, session configuration, and application startup.
-- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
+- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
-- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, document-link policy, and per-language syntax navigation (tree-sitter). Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/navigation/` owns the in-memory per-project symbol index, definition ranking, and reference matching. It reads files through a `Source` and delegates syntax to `document.Navigator`.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
 - React owns interaction and presentation. Use server metadata for file families and view capabilities; never duplicate extension detection in the UI.
@@ -27,15 +28,16 @@ Key files:
 | Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go` |
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
-| HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, all scoped by `project`; `/api/projects`, `/api/directories`) |
-| Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
+| HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, all scoped by `project`; `/api/projects`, `/api/directories`) |
+| Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
+| Code navigation | `internal/document/navigation.go`, `syntax.go`, `navigation_go.go`, `navigation_javascript.go`, `internal/navigation/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0015-code-navigation.md` |
 | Explorer filter | `web/src/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
 
 ## Patterns
 
 - Scope vs presentation: `--filename` decides which files exist; the registry decides how they render. Never couple them.
-- Capabilities over type switches: the server declares `previewKind`, `formattable`, `binary`, `previewDisabled`, `searchExcluded`, `tooLarge`; the UI derives modes and views from them in `document-view.ts`.
+- Capabilities over type switches: the server declares `previewKind`, `formattable`, `navigable`, `binary`, `previewDisabled`, `searchExcluded`, `tooLarge`; the UI derives modes and views from them in `document-view.ts`.
 - Optional interfaces: add behavior as a small interface (e.g. `Formatter`) that the registry detects and reports, not as flags handlers must remember.
 - One composition point: `Builtins()` lists every family explicitly; a family's metadata is data, its behavior is its handler.
 - Fail closed at startup: invalid registrations panic in `Builtins()`; invalid CLI input errors before serving.
@@ -44,7 +46,7 @@ Key files:
 
 ## Contracts
 
-- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it.
+- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Code navigation is the optional `document.Navigator` capability; the registry derives `navigable` from it.
 - Declare extensions/filenames, language, preview kind/label, and default mode explicitly. Preview kinds are `markdown` and `image`; types without one default to Source.
 - Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, unknown Chroma languages, and invalid view policies.
 - Treat handler output as a contract: escape file text in preview/highlight HTML; leave input bytes unchanged; preserve source and search access on preview errors.
@@ -72,6 +74,8 @@ Key files:
 - Malformed files remain readable and searchable. Highlighting falls back to escaped text when a language is unknown or tokenization fails or panics.
 - Binary files (NUL in the first 8000 bytes) send no source and skip search. Over 4 MiB: no highlighting, format, or non-image preview. Over 8 MiB: also skip search. Over 32 MiB (non-image): not read; `tooLarge` note only.
 - CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
+- Gitignored files stay browsable in the tree but are excluded from content search and the navigation index.
+- Code navigation is Source-only and name-based (no type checking); follow VS Code bindings. Over 4 MiB or binary: no symbols. Keep parse concurrency bounded; tree-sitter garbage dominates memory.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 
@@ -91,7 +95,8 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
    - `web/src/page-contract.ts` `previewKind` union and validator.
    - `web/src/document-view.ts` view kinds and `DocumentPane.tsx` rendering.
    - `testdata/api/default/` fixtures, `web/dev-server.ts` mocks, and a decision record.
-6. Binary formats with a viewer: declare an empty `Language` only for image-like families and extend `Type.HasTextSource`/`/api/raw` deliberately; never serve raw bytes for text families.
+6. Code navigation: give the family a `syntaxNavigator` (grammar import from `gotreesitter/grammars/<lang>`, model builder, `Provides`, `Shares`) via `navigableSource`/`navigableCode`; `navigable` follows. Import one grammar package per language; no build tags.
+7. Binary formats with a viewer: declare an empty `Language` only for image-like families and extend `Type.HasTextSource`/`/api/raw` deliberately; never serve raw bytes for text families.
 
 For every addition:
 
