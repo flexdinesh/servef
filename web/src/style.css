@@ -1562,6 +1562,39 @@ article hr {
   color: var(--color-text-muted);
 }
 
+/* The branch sits beside the project name; the name yields space first. */
+.explorer-header .project-trigger:has(+ .project-branch) {
+  flex: 0 1 auto;
+}
+
+.explorer-header .project-branch {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  max-width: 50%;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: auto;
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 400;
+}
+
+.explorer-header .project-branch span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-header .project-branch svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
+}
+
 .project-prefix {
   max-width: 40%;
   flex: none;
@@ -1612,10 +1645,6 @@ article hr {
   color: var(--color-text-primary);
   font-size: var(--text-sm);
   cursor: pointer;
-}
-
-.project-option.nested {
-  padding-left: calc(var(--space-2) + 1.375rem);
 }
 
 .project-option.active {
@@ -1724,6 +1753,72 @@ article hr {
 .project-forget svg {
   width: 0.875rem;
   height: 0.875rem;
+}
+
+.project-option-row.drillable .project-option {
+  padding-right: 2rem;
+}
+
+.project-drill {
+  position: absolute;
+  top: 50%;
+  right: var(--space-1);
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.project-drill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.project-drill svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.project-option-branch {
+  flex: none;
+  max-width: 30%;
+  overflow: hidden;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-right: 0;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.project-back:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.project-back svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .error code {
@@ -1912,6 +2007,15 @@ article hr {
     width: 2.75rem;
     height: 2.75rem;
     opacity: 1;
+  }
+
+  .project-drill {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .project-option-row.drillable .project-option {
+    padding-right: 3rem;
   }
 }
 

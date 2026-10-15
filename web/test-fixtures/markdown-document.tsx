@@ -11,6 +11,9 @@ import "../src/style.css"
 
 window.EXCALIDRAW_ASSET_PATH = "/assets/excalidraw/"
 
+// Search reads the project named by ?project=, an absolute served path.
+const project = new URLSearchParams(window.location.search).get("project") ?? ""
+
 const originalHTML = '<pre><code class="language-mermaid">graph LR\nA --> B</code></pre><pre><code>original code</code></pre>'
 const replacementHTML = '<h1>Replacement</h1><pre><code class="language-json syntax-highlight">{"updated":true}</code></pre>'
 
@@ -30,7 +33,7 @@ function LifecycleFixture() {
       {visible && <DocumentPreview html={html} navigate={() => {}} />}
       {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} />}
       <SearchDialog
-        project="."
+        project={project}
         navigate={(path) => setNavigation(`${navigationPrefix}:${path}`)}
         registerOpen={(open) => { openSearch.current = open }}
       />

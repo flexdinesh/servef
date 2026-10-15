@@ -1,12 +1,16 @@
 {
-  "servedRoot": "/home/user/workspace",
-  "rootName": "workspace",
+  "roots": [
+    { "path": "/home/user/markdown", "name": "markdown", "isRepo": false },
+    { "path": "/home/user/personal", "name": "personal", "isRepo": false }
+  ],
   "projects": [
-    { "id": ".", "name": "workspace", "path": ".", "kind": "folder", "group": "", "available": true },
-    { "id": "notes", "name": "notes", "path": "notes", "kind": "repo", "group": "", "available": true },
-    { "id": "servef/main", "name": "main", "path": "servef/main", "kind": "repo", "group": "servef/main", "available": true },
-    { "id": "servef/wt-feat-project-picker", "name": "wt-feat-project-picker", "path": "servef/wt-feat-project-picker", "kind": "worktree", "group": "servef/main", "available": true },
-    { "id": "", "name": "hotfix", "path": "/tmp/servef-hotfix", "kind": "worktree", "group": "servef/main", "available": false }
+    { "id": "/home/user/markdown", "name": "markdown", "path": "/home/user/markdown", "kind": "folder", "group": "", "root": "/home/user/markdown", "branch": "", "available": true },
+    { "id": "/home/user/markdown/notes", "name": "notes", "path": "/home/user/markdown/notes", "kind": "repo", "group": "", "root": "/home/user/markdown", "branch": "main", "available": true },
+    { "id": "/home/user/markdown/servef/main", "name": "main", "path": "/home/user/markdown/servef/main", "kind": "repo", "group": "/home/user/markdown/servef/main", "root": "/home/user/markdown", "branch": "main", "available": true },
+    { "id": "/home/user/markdown/servef/wt-feat-project-picker", "name": "wt-feat-project-picker", "path": "/home/user/markdown/servef/wt-feat-project-picker", "kind": "worktree", "group": "/home/user/markdown/servef/main", "root": "/home/user/markdown", "branch": "feat-project-picker", "available": true },
+    { "id": "/tmp/servef-hotfix", "name": "servef-hotfix", "path": "/tmp/servef-hotfix", "kind": "worktree", "group": "/home/user/markdown/servef/main", "root": "/home/user/markdown", "branch": "hotfix", "available": true },
+    { "id": "/home/user/personal", "name": "personal", "path": "/home/user/personal", "kind": "folder", "group": "", "root": "/home/user/personal", "branch": "", "available": true },
+    { "id": "/home/user/personal/blog", "name": "blog", "path": "/home/user/personal/blog", "kind": "repo", "group": "", "root": "/home/user/personal", "branch": "draft", "available": true }
   ],
   "warnings": []
 }

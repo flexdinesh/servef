@@ -4,6 +4,10 @@ import test from "node:test"
 
 import {
   browseRows,
+  browseStart,
+  browseTarget,
+  canDrill,
+  currentGroup,
   matchScore,
   parentInput,
   projectSections,
@@ -19,46 +23,84 @@ async function projects(): Promise<ProjectsResponse> {
   return value
 }
 
+const workspace = "/home/user/markdown"
+const servef = `${workspace}/servef/main`
+
 function summary(sections: readonly PickerSection[]) {
   return sections.map((section) => [section.title, section.rows.map((row) => {
     if (row.kind !== "project") return row.kind
-    return `${row.nested ? "  " : ""}${row.path}${row.current ? " *" : ""}${row.disabled ? ` (${row.note})` : ""}`
+    const extras = [
+      row.repository && `in ${row.repository}`,
+      row.branch && `@${row.branch}`,
+      row.worktrees > 1 && `${row.worktrees} worktrees`,
+      row.current && "*",
+      row.disabled && `(${row.note})`,
+    ].filter(Boolean)
+    return [row.name, ...extras].join(" ")
   })])
 }
 
-test("projects nest worktrees under their main worktree and mark the current one", async () => {
-  assert.deepEqual(summary(projectSections(await projects(), [], "servef/main", "")), [
-    ["Projects", [
-      ".",
-      "notes",
-      "servef/main *",
-      "  servef/wt-feat-project-picker",
-      "  /tmp/servef-hotfix (Outside workspace)",
-    ]],
+test("projects list each root's folder and repositories, a repository with worktrees as one row", async () => {
+  assert.deepEqual(summary(projectSections(await projects(), [], `${workspace}/servef/wt-feat-project-picker`, "")), [
+    ["markdown", ["markdown", "notes @main", "main @main 3 worktrees *"]],
+    ["personal", ["personal", "blog @draft"]],
     ["", ["browse"]],
   ])
 })
 
-test("opened folders list remembered projects that discovery does not", async () => {
-  const sections = projectSections(await projects(), ["notes", "docs/2026", ".", "servef/main"], "docs/2026", "")
-  assert.deepEqual(summary(sections)[1], ["Opened folders", ["docs/2026 *"]])
-  const opened = sections[1]?.rows[0]
-  assert.equal(opened?.kind === "project" && opened.name, "2026")
+test("a repository row opens its last-used worktree", async () => {
+  const response = await projects()
+  const remembered = [`${workspace}/notes`, "/tmp/servef-hotfix", servef]
+  const row = projectSections(response, remembered, "", "")[0]?.rows[2]
+  assert.ok(row?.kind === "project")
+  assert.equal(row.id, "/tmp/servef-hotfix")
+  assert.equal(row.branch, "hotfix")
+  assert.ok(canDrill(row))
+  const fresh = projectSections(response, [], "", "")[0]?.rows[2]
+  assert.equal(fresh?.kind === "project" && fresh.id, servef)
 })
 
-test("a query ranks matches flat, name prefixes first", async () => {
-  assert.deepEqual(summary(projectSections(await projects(), ["notes/wt"], ".", "wt")), [
-    ["Projects", ["servef/wt-feat-project-picker"]],
-    ["Opened folders", ["notes/wt"]],
+test("a repository's worktree list shows branches, main first", async () => {
+  const response = await projects()
+  assert.deepEqual(summary(projectSections(response, [], servef, "", servef)), [
+    ["main worktrees", ["main @main *", "feat-project-picker @feat-project-picker", "hotfix @hotfix"]],
+  ])
+  assert.deepEqual(summary(projectSections(response, [], servef, "hot", servef)), [["main worktrees", ["hotfix @hotfix"]]])
+  assert.deepEqual(projectSections(response, [], servef, "zzz", servef), [])
+  assert.equal(currentGroup(response, "/tmp/servef-hotfix"), servef)
+  assert.equal(currentGroup(response, `${workspace}/notes`), "")
+})
+
+test("unavailable worktrees are listed but not selectable", async () => {
+  const response = await projects()
+  const hotfix = response.projects.find((project) => project.path === "/tmp/servef-hotfix")
+  assert.ok(hotfix)
+  const unavailable: ProjectsResponse = {
+    ...response,
+    projects: response.projects.map((project) => project === hotfix ? { ...project, id: "", root: "", available: false } : project),
+  }
+  const sections = projectSections(unavailable, [], "", "", servef)
+  assert.deepEqual(summary(sections)[0]?.[1], ["main @main", "feat-project-picker @feat-project-picker", "hotfix @hotfix (Outside served folders)"])
+  assert.equal(selectableRows(sections).length, 2)
+})
+
+test("opened folders list remembered folders in the roots that discovery does not", async () => {
+  const opened = `${workspace}/docs/2026`
+  const sections = projectSections(await projects(), [`${workspace}/notes`, opened, "/elsewhere/old", workspace], opened, "")
+  assert.deepEqual(summary(sections)[2], ["Opened folders", ["2026 *"]])
+})
+
+test("a query ranks matches flat, including each worktree by branch", async () => {
+  assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "feat")), [
+    ["Projects", ["feat-project-picker in main @feat-project-picker"]],
     ["", ["browse"]],
   ])
-  assert.deepEqual(summary(projectSections(await projects(), [], ".", "zzz")), [["", ["browse"]]])
-})
-
-test("unavailable projects are listed but not selectable", async () => {
-  const rows = selectableRows(projectSections(await projects(), [], ".", ""))
-  assert.equal(rows.some((row) => row.kind === "project" && row.disabled), false)
-  assert.equal(rows.at(-1)?.kind, "browse")
+  assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "wt")), [
+    ["Projects", ["feat-project-picker in main @feat-project-picker"]],
+    ["Opened folders", ["wt"]],
+    ["", ["browse"]],
+  ])
+  assert.deepEqual(summary(projectSections(await projects(), [], "", "zzz")), [["", ["browse"]]])
 })
 
 test("matchScore prefers names over paths and requires characters in order", () => {
@@ -70,28 +112,41 @@ test("matchScore prefers names over paths and requires characters in order", () 
   assert.equal(matchScore("  ", "a", "a"), 0)
 })
 
-test("browse input splits into the listed folder and a partial name", () => {
-  assert.deepEqual(splitBrowseInput(""), { folder: ".", partial: "" })
-  assert.deepEqual(splitBrowseInput("ap"), { folder: ".", partial: "ap" })
-  assert.deepEqual(splitBrowseInput("work/"), { folder: "work", partial: "" })
-  assert.deepEqual(splitBrowseInput("./work/ap"), { folder: "work", partial: "ap" })
-  assert.deepEqual(splitBrowseInput("/work/api/x"), { folder: "work/api", partial: "x" })
-  assert.equal(parentInput("work/api/"), "work/")
-  assert.equal(parentInput("work/"), "")
-  assert.equal(parentInput(""), "")
+test("browse input splits into a folder within the roots and a partial name", () => {
+  const roots = ["/w", "/home/p"]
+  assert.deepEqual(splitBrowseInput("", roots), { folder: "", partial: "" })
+  assert.deepEqual(splitBrowseInput("wo", roots), { folder: "", partial: "wo" })
+  assert.deepEqual(splitBrowseInput("/home/", roots), { folder: "", partial: "/home/" })
+  assert.deepEqual(splitBrowseInput("/w/", roots), { folder: "/w", partial: "" })
+  assert.deepEqual(splitBrowseInput("/w/work/ap", roots), { folder: "/w/work", partial: "ap" })
+  assert.deepEqual(splitBrowseInput("/wx/a", roots), { folder: "", partial: "/wx/a" })
+  assert.equal(parentInput("/w/work/api/", roots), "/w/work/")
+  assert.equal(parentInput("/w/work/", roots), "/w/")
+  assert.equal(parentInput("/w/", roots), "")
+  assert.equal(parentInput("", roots), "")
+  assert.equal(browseStart(["/w"]), "/w/")
+  assert.equal(browseStart(roots), "")
 })
 
-test("browse rows open the folder first, then matching children", () => {
+test("browse rows open the folder first, then matching children; repositories open whole", () => {
   const directories = [
-    { name: ".github", path: "work/.github", isProject: false },
-    { name: "api", path: "work/api", isProject: true },
-    { name: "apps", path: "work/apps", isProject: false },
-    { name: "web", path: "work/web", isProject: true },
+    { name: ".github", path: "/w/work/.github", isProject: false },
+    { name: "api", path: "/w/work/api", isProject: true },
+    { name: "apps", path: "/w/work/apps", isProject: false },
+    { name: "web", path: "/w/work/web", isProject: true },
   ]
-  const sections = browseRows("work", "ap", directories)
+  const sections = browseRows("/w/work", "ap", directories)
   assert.deepEqual(sections.map((section) => section.rows.map((row) => row.kind === "directory" ? row.path : row.kind)), [
     ["open"],
-    ["work/api", "work/apps"],
+    ["/w/work/api", "/w/work/apps"],
   ])
-  assert.equal(browseRows("work", "zz", directories).length, 1)
+  assert.equal(browseRows("/w/work", "zz", directories).length, 1)
+  const rows = selectableRows(sections)
+  assert.equal(browseTarget(rows, rows[1])?.path, "/w/work/apps")
+  assert.equal(browseTarget(rows, rows[2])?.path, "/w/work/apps")
+})
+
+test("the root list offers no folder to open", () => {
+  const sections = browseRows("", "", [{ name: "w", path: "/w", isProject: false }, { name: "repo", path: "/repo", isProject: true }])
+  assert.deepEqual(sections.map((section) => [section.title, section.rows.map((row) => row.kind)]), [["Served folders", ["directory", "directory"]]])
 })

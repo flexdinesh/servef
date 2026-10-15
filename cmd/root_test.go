@@ -26,7 +26,7 @@ func TestRootCommandDefaults(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got.path != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
+	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen || len(got.exclusions) != 0 || got.features.BrowserData().MermaidTldraw {
 		t.Fatalf("default options = %+v", got)
 	}
 }
@@ -73,7 +73,7 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got.path != "docs" || got.depth != 3 || got.host != "192.0.2.10" || got.port != 8080 || !got.portSet || !got.noOpen {
+	if strings.Join(got.paths, ",") != "docs" || got.depth != 3 || got.host != "192.0.2.10" || got.port != 8080 || !got.portSet || !got.noOpen {
 		t.Fatalf("parsed options = %+v", got)
 	}
 	if strings.Join(got.exclusions, ",") != "drafts,generated" {
@@ -81,6 +81,30 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 	}
 	if !got.features.BrowserData().MermaidTldraw {
 		t.Fatal("mermaid-tldraw feature not enabled")
+	}
+}
+
+func TestRootCommandMergesPaths(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--path", "work", "--path", "personal"}, "work,personal"},
+		{[]string{"docs", "--path", "work"}, "docs,work"},
+		{[]string{"--path", "work", "docs"}, "docs,work"},
+	} {
+		var got options
+		command := newRootCommand(func(_ context.Context, opts options, _ io.Reader, _, _ io.Writer) error {
+			got = opts
+			return nil
+		})
+		command.SetArgs(test.args)
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if paths := strings.Join(got.paths, ","); paths != test.want {
+			t.Errorf("Execute(%v) paths = %s, want %s", test.args, paths, test.want)
+		}
 	}
 }
 
@@ -125,7 +149,7 @@ func TestRunSelectsFreePortAndStopsWithContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var stdout, stderr bytes.Buffer
-	if err := run(ctx, options{path: root, depth: 5, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &stderr); err != nil {
+	if err := run(ctx, options{paths: []string{root}, depth: 5, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	localPort := ""
@@ -187,7 +211,7 @@ func TestWriteStartup(t *testing.T) {
 	var output bytes.Buffer
 	writeStartup(&output, startupInfo{
 		Version:      "servef 1.2.3",
-		Directory:    "/tmp/notes",
+		Directories:  []string{"/tmp/notes"},
 		URL:          "http://localhost:4173/",
 		ProjectCount: 12,
 		Discovery:    42 * time.Millisecond,
@@ -201,6 +225,12 @@ func TestWriteStartup(t *testing.T) {
 		"  ctrl-c to stop.\n"
 	if output.String() != want {
 		t.Fatalf("output = %q, want %q", output.String(), want)
+	}
+
+	output.Reset()
+	writeStartup(&output, startupInfo{Version: "servef 1.2.3", Directories: []string{"/tmp/a", "/tmp/b"}, URL: "http://localhost:4173/"})
+	if got := output.String(); !strings.Contains(got, "  serving directories:  /tmp/a\n                        /tmp/b\n") {
+		t.Fatalf("multi-root output = %q", got)
 	}
 }
 
@@ -235,7 +265,7 @@ func TestRunReportsOccupiedExplicitPort(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 	root := t.TempDir()
-	err = run(context.Background(), options{path: root, depth: 5, host: "127.0.0.1", port: port, portSet: true, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	err = run(context.Background(), options{paths: []string{root}, depth: 5, host: "127.0.0.1", port: port, portSet: true, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "listen on 127.0.0.1 port") {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -326,11 +356,37 @@ func TestRunDiscoversProjects(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var stdout bytes.Buffer
-	if err := run(ctx, options{path: root, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
+	if err := run(ctx, options{paths: []string{root}, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
 	// The root folder plus api and web; deep/a/b/c is beyond --scan-depth.
 	if !strings.Contains(stdout.String(), "  projects discovered: 3  (") {
 		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunServesEveryPathAndRejectsOverlap(t *testing.T) {
+	disableColor(t)
+	parent := t.TempDir()
+	work, personal := filepath.Join(parent, "work"), filepath.Join(parent, "personal")
+	for _, repo := range []string{filepath.Join(work, "api"), filepath.Join(personal, "blog")} {
+		if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var stdout bytes.Buffer
+	if err := run(ctx, options{paths: []string{work, personal, work}, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := stdout.String(); !strings.Contains(got, "serving directories:  ") || !strings.Contains(got, "  projects discovered: 4  (") {
+		t.Fatalf("stdout = %q", got)
+	}
+
+	stdout.Reset()
+	err := run(context.Background(), options{paths: []string{parent, work}, depth: 5, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "overlap") || stdout.Len() != 0 {
+		t.Fatalf("run(nested roots) = %v, stdout %q; want overlap error before serving", err, stdout.String())
 	}
 }

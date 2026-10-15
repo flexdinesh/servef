@@ -29,10 +29,10 @@ var noticeAssets = map[string]string{
 }
 
 // Config controls project discovery and the live file scan performed for each
-// request. Root confines every project; ScanDepth bounds repository discovery;
+// request. Roots confine every project; ScanDepth bounds repository discovery;
 // Depth bounds the file scan within a project.
 type Config struct {
-	Root       string
+	Roots      []string
 	ScanDepth  int
 	Depth      int
 	Exclusions []string
@@ -45,20 +45,22 @@ type Config struct {
 // App composes discovery and document handlers into the HTTP API.
 type App struct {
 	config Config
-	// servedRoot is the absolute root; the browser keys stored state by it.
-	servedRoot string
-	metrics    metricsCollector
-	openFile   func(string) (fs.File, error)
-	shell      string
+	// roots are the canonical served roots; the browser keys stored state by
+	// them.
+	roots    []string
+	metrics  metricsCollector
+	openFile func(string) (fs.File, error)
+	shell    string
 }
 
 type pageData struct {
-	ServedRoot string `json:"servedRoot"`
-	Project    string `json:"project"`
+	Roots   []string `json:"roots"`
+	Project string   `json:"project"`
 	// ProjectUnavailable reports that the project itself could not be
 	// resolved, as opposed to a file within it.
 	ProjectUnavailable bool           `json:"projectUnavailable"`
 	RootName           string         `json:"rootName"`
+	Branch             string         `json:"branch"`
 	Tree               []treeNode     `json:"tree"`
 	Selected           string         `json:"selected"`
 	Content            string         `json:"content"`
@@ -109,10 +111,9 @@ type errorResponse struct {
 }
 
 type projectsResponse struct {
-	ServedRoot string             `json:"servedRoot"`
-	RootName   string             `json:"rootName"`
-	Projects   []projects.Project `json:"projects"`
-	Warnings   []string           `json:"warnings"`
+	Roots    []projects.Root    `json:"roots"`
+	Projects []projects.Project `json:"projects"`
+	Warnings []string           `json:"warnings"`
 }
 
 type directoriesResponse struct {
@@ -129,6 +130,7 @@ type workspace struct {
 const (
 	noProjectMessage          = "No project was selected."
 	projectUnavailableMessage = "Project unavailable."
+	insideRepositoryMessage   = "Project unavailable: folders inside a repository open with the repository."
 )
 
 // indexedFile is a read of an indexed file. Binary files keep only the sniffed
@@ -153,14 +155,12 @@ func New(config Config) (*App, error) {
 	if len(config.Filenames.Patterns()) == 0 {
 		config.Filenames = files.AllNames()
 	}
-	servedRoot, err := filepath.Abs(config.Root)
+	roots, err := projects.CanonicalRoots(config.Roots)
 	if err != nil {
 		return nil, err
 	}
-	if resolved, err := filepath.EvalSymlinks(servedRoot); err == nil {
-		servedRoot = resolved
-	}
-	return &App{config: config, servedRoot: servedRoot, openFile: openFile, shell: string(shell)}, nil
+	config.Roots = roots
+	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell)}, nil
 }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
@@ -285,14 +285,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.serveShell(w, status, &data)
 }
 
-// project resolves a request's project ID within the root.
+// project resolves a request's project ID within the roots.
 func (a *App) project(id string) (workspace, int, string) {
 	if id == "" {
 		return workspace{}, http.StatusBadRequest, noProjectMessage
 	}
-	root, err := projects.Resolve(a.config.Root, id, a.config.Exclusions)
+	root, err := projects.Resolve(a.roots, id, a.config.Exclusions)
 	if errors.Is(err, files.ErrPathEscape) {
 		return workspace{}, http.StatusBadRequest, projectUnavailableMessage
+	}
+	if errors.Is(err, projects.ErrInsideRepository) {
+		return workspace{}, http.StatusNotFound, insideRepositoryMessage
 	}
 	if err != nil {
 		return workspace{}, http.StatusNotFound, projectUnavailableMessage
@@ -303,29 +306,27 @@ func (a *App) project(id string) (workspace, int, string) {
 func (a *App) serveProjects(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	discovery, err := projects.Discover(a.config.Root, a.config.ScanDepth, a.config.Exclusions)
+	discovery, err := projects.Discover(a.roots, a.config.ScanDepth, a.config.Exclusions)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, projectsResponse{
-		ServedRoot: a.servedRoot,
-		RootName:   filepath.Base(a.servedRoot),
-		Projects:   discovery.Projects,
-		Warnings:   warningStrings(discovery.Warnings),
+		Roots:    projects.Roots(a.roots),
+		Projects: discovery.Projects,
+		Warnings: warningStrings(discovery.Warnings),
 	})
 }
 
 func (a *App) serveDirectories(w http.ResponseWriter, id string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	if id == "" {
-		id = projects.RootID
-	}
-	directories, err := projects.Directories(a.config.Root, id, a.config.Exclusions)
+	directories, err := projects.Directories(a.roots, id, a.config.Exclusions)
 	switch {
 	case errors.Is(err, files.ErrPathEscape):
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "That folder is outside the served directory."})
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "That folder is outside the served folders."})
+	case errors.Is(err, projects.ErrInsideRepository):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Repositories open whole; their folders can't be browsed."})
 	case errors.Is(err, projects.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "That folder is unavailable."})
 	case err != nil:
@@ -632,7 +633,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		return pageData{
-			ServedRoot:         a.servedRoot,
+			Roots:              a.roots,
 			Project:            projectID,
 			ProjectUnavailable: true,
 			Selected:           selected,
@@ -646,9 +647,10 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
-			ServedRoot:       a.servedRoot,
+			Roots:            a.roots,
 			Project:          project.id,
 			RootName:         filepath.Base(project.root),
+			Branch:           projects.Branch(project.root),
 			Tree:             []treeNode{},
 			FilenamePatterns: a.config.Filenames.Patterns(),
 			SourceLines:      []string{},
@@ -657,9 +659,10 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		ServedRoot:       a.servedRoot,
+		Roots:            a.roots,
 		Project:          project.id,
 		RootName:         filepath.Base(index.RootPath()),
+		Branch:           projects.Branch(project.root),
 		Selected:         selected,
 		FileCount:        len(index.Files),
 		Empty:            len(index.Files) == 0,

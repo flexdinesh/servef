@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -213,7 +214,7 @@ func TestAppServesAndBootstrapsFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := New(Config{Root: t.TempDir(), Depth: 5, Features: set})
+	app, err := New(Config{Roots: []string{t.TempDir()}, Depth: 5, Features: set})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -666,15 +667,22 @@ func TestAppRejectsUnknownRoutesAndMethods(t *testing.T) {
 
 func newTestApp(t *testing.T, root string) *App {
 	t.Helper()
-	app, err := New(Config{Root: root, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}})
+	app, err := New(Config{Roots: []string{root}, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return app
 }
 
+// rootProject matches project "." in a test target: tests address the first
+// served root by it.
+var rootProject = regexp.MustCompile(`project=\.(&|#|$)`)
+
 func request(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
 	t.Helper()
+	if app, ok := handler.(*App); ok {
+		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
+	}
 	req := httptest.NewRequest(http.MethodGet, target, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
@@ -687,6 +695,10 @@ func requestPageData(t *testing.T, handler http.Handler, target string) (*httpte
 	var data pageData
 	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
 		t.Fatal(err)
+	}
+	if app, ok := handler.(*App); ok {
+		// Links in previews name the first root as ".", as targets do.
+		data.Content = strings.ReplaceAll(data.Content, "project="+url.QueryEscape(app.roots[0])+"&amp;", "project=.&amp;")
 	}
 	return response, data
 }

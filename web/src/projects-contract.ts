@@ -1,19 +1,29 @@
 export type ProjectKind = "folder" | "repo" | "worktree"
 
-// Project mirrors projects.Project. Unavailable projects lie outside the served
-// root: their id is empty and path is absolute.
+// Root mirrors projects.Root, a served root directory.
+export interface Root {
+  path: string
+  name: string
+  isRepo: boolean
+}
+
+// Project mirrors projects.Project. The id is the absolute path, or empty for
+// a project that cannot be opened. Members of one repository share group, the
+// path of its main worktree; root is the served root it, or its repository,
+// lives in.
 export interface Project {
   id: string
   name: string
   path: string
   kind: ProjectKind
   group: string
+  root: string
+  branch: string
   available: boolean
 }
 
 export interface ProjectsResponse {
-  servedRoot: string
-  rootName: string
+  roots: Root[]
   projects: Project[]
   warnings: string[]
 }
@@ -40,6 +50,8 @@ function isProject(value: unknown): value is Project {
     && typeof value.path === "string"
     && (value.kind === "folder" || value.kind === "repo" || value.kind === "worktree")
     && typeof value.group === "string"
+    && typeof value.root === "string"
+    && typeof value.branch === "string"
     && typeof value.available === "boolean"
     && (value.available === (value.id !== ""))
 }
@@ -51,10 +63,17 @@ function isDirectory(value: unknown): value is Directory {
     && typeof value.isProject === "boolean"
 }
 
+function isRoot(value: unknown): value is Root {
+  return isRecord(value)
+    && typeof value.path === "string"
+    && typeof value.name === "string"
+    && typeof value.isRepo === "boolean"
+}
+
 export function isProjectsResponse(value: unknown): value is ProjectsResponse {
   return isRecord(value)
-    && typeof value.servedRoot === "string"
-    && typeof value.rootName === "string"
+    && Array.isArray(value.roots)
+    && value.roots.every(isRoot)
     && Array.isArray(value.projects)
     && value.projects.every(isProject)
     && Array.isArray(value.warnings)

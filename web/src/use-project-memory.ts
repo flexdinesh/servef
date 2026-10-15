@@ -9,6 +9,8 @@ import {
   updateMemory,
 } from "./workspace-memory.ts"
 
+const noRoots: readonly string[] = []
+
 interface ProjectMemoryOptions {
   project: string
   // page is the loaded page for project, or null while loading or failed.
@@ -23,20 +25,20 @@ interface ProjectMemoryOptions {
 export function useProjectMemory({ project, page, tabs, restore, openRemembered }: ProjectMemoryOptions) {
   const restored = useRef(false)
   const ready = page !== null && !page.error && page.project === project
-  const root = page?.servedRoot ?? ""
+  const roots = page?.roots ?? noRoots
   const active = page?.hasFile ? page.selected : ""
   const files = useMemo(() => new Set(page ? filePaths(page.tree) : []), [page])
 
   useEffect(() => {
     if (restored.current || !ready) return
     restored.current = true
-    const remembered = restoreTabs(projectMemory(readMemory(), root, project), files)
+    const remembered = restoreTabs(projectMemory(readMemory(), project), files)
     restore(remembered.tabs)
     if (!active && remembered.active) openRemembered(remembered.active)
-  }, [active, files, openRemembered, project, ready, restore, root])
+  }, [active, files, openRemembered, project, ready, restore])
 
   useEffect(() => {
     if (!restored.current || !ready) return
-    updateMemory((memory) => rememberProject(memory, root, project, tabs, active))
-  }, [active, project, ready, root, tabs])
+    updateMemory((memory) => rememberProject(memory, roots, project, tabs, active))
+  }, [active, project, ready, roots, tabs])
 }

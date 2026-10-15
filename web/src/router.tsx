@@ -8,7 +8,7 @@ import {
 
 import { App } from "./App.tsx"
 import { loadPage } from "./page-data.ts"
-import { fetchDirectories, fetchProjects, landingProject, requestLandingPick, rootProject } from "./projects-data.ts"
+import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
 import { readMemory } from "./workspace-memory.ts"
 
 interface PageSearch {
@@ -31,6 +31,10 @@ function withProject(search: PageSearch, project: string): PageSearch {
   return { project, ...rest }
 }
 
+function isAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError"
+}
+
 function RoutedApp() {
   // Committed (not pending) search: the workspace switches once the new
   // project's page has loaded, then remounts without the old project's state.
@@ -46,22 +50,24 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   validateSearch,
-  // Without a project, reopen the last one; /view links stay root-relative.
+  // Without a project, reopen the last one, else the first served root. When
+  // projects cannot be listed, the page reports that no project is selected.
   beforeLoad: async ({ search, abortController }) => {
     if (search.project) return
-    let project = rootProject
+    let project = ""
     try {
       const landing = landingProject(await fetchProjects(abortController.signal), readMemory())
+      project = landing.fallback
       // An unlisted folder (opened by hand) reopens only while it still exists.
       if (!landing.listed) await fetchDirectories(landing.project, abortController.signal)
       project = landing.project
       if (landing.pick) requestLandingPick()
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === "AbortError") throw error
+      if (isAbort(error)) throw error
     }
-    throw redirect({ to: "/", search: withProject(search, project), replace: true })
+    if (project) throw redirect({ to: "/", search: withProject(search, project), replace: true })
   },
-  loaderDeps: ({ search }) => ({ project: search.project ?? rootProject }),
+  loaderDeps: ({ search }) => ({ project: search.project ?? "" }),
   loader: ({ abortController, deps }) => loadPage({
     pathname: "/",
     project: deps.project,
@@ -74,11 +80,19 @@ const viewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "view",
   validateSearch,
-  beforeLoad: ({ search, location }) => {
+  // A path without a project is relative to the first served root.
+  beforeLoad: async ({ search, location, abortController }) => {
+    if (search.project) return
+    let project = ""
+    try {
+      project = defaultProject(await fetchProjects(abortController.signal))
+    } catch (error: unknown) {
+      if (isAbort(error)) throw error
+    }
     // Keep line anchors (#L12) across the default-project redirect.
-    if (!search.project) throw redirect({ to: "/view", search: withProject(search, rootProject), hash: location.hash, replace: true })
+    if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  loaderDeps: ({ search }) => ({ project: search.project ?? rootProject, selected: search.path ?? "" }),
+  loaderDeps: ({ search }) => ({ project: search.project ?? "", selected: search.path ?? "" }),
   loader: ({ abortController, deps }) => loadPage({
     pathname: "/view",
     project: deps.project,

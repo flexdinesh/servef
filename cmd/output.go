@@ -13,7 +13,7 @@ import (
 
 type startupInfo struct {
 	Version      string
-	Directory    string
+	Directories  []string
 	URL          string
 	ProjectCount int
 	Discovery    time.Duration
@@ -30,7 +30,16 @@ func writeStartup(output io.Writer, info startupInfo) {
 
 	_, _ = fmt.Fprint(output, "  ")
 	_, _ = heading.Fprintln(output, info.Version)
-	writeStartupValue(output, label, path, "serving directory:  ", info.Directory)
+	name := "serving directory:  "
+	if len(info.Directories) > 1 {
+		name = "serving directories:  "
+	}
+	for i, directory := range info.Directories {
+		if i > 0 {
+			name = strings.Repeat(" ", len(name))
+		}
+		writeStartupValue(output, label, path, name, directory)
+	}
 	writeStartupValue(output, label, url, "url:  ", info.URL)
 	_, _ = fmt.Fprintln(output)
 	writeDiscovery(output, label, count, duration, info)
