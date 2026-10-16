@@ -64,7 +64,7 @@ interface AppProps {
 }
 
 // App is one project's workspace. Mount it keyed by project so switching
-// projects discards tabs, scroll, explorer, format, and search state.
+// projects resets transient state, then restores remembered tabs and folders.
 export function App({ project }: AppProps) {
   const navigate = useNavigate()
   const router = useRouter()
@@ -197,10 +197,14 @@ export function App({ project }: AppProps) {
   }
 
   function closeTab(path: string) {
-    const closed = workspace.closeDocument(path)
+    closeTabs([path])
+  }
+
+  function closeTabs(paths: readonly string[]) {
+    const closed = workspace.closeDocuments(paths, page.selected)
     if (!closed) return
-    forgetDocumentScroll(path)
-    if (page.selected !== path) return
+    for (const path of closed.paths) forgetDocumentScroll(path)
+    if (!closed.paths.includes(page.selected)) return
     if (closed.replacement) {
       navigateToDocument(closed.replacement)
     } else {
@@ -242,6 +246,7 @@ export function App({ project }: AppProps) {
               activePath={page.selected}
               tabs={workspace.tabs}
               onClose={closeTab}
+              onCloseMany={closeTabs}
               onSelect={navigateToDocument}
             />
             <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}

@@ -2,7 +2,7 @@ import { RotateCcwIcon, SearchIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 
 import { Button } from "./components/ui/button.tsx"
-import { matchSettings, type SettingId } from "./settings.ts"
+import { matchSettings, settingDefinitions, type SettingId } from "./settings.ts"
 import { useSettingValues, type SettingValue } from "./use-setting-values.ts"
 
 export const settingsShortcutLabel = navigator.platform.includes("Mac") ? "⌘," : "Ctrl+,"
@@ -13,9 +13,10 @@ export const REVEAL_MS = 1600
 interface SettingItemProps {
   setting: SettingValue
   revealed: boolean
+  onReset(): void
 }
 
-function SettingItem({ setting, revealed }: SettingItemProps) {
+function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
   const { definition, modified } = setting
   const id = useId()
   const control = useRef<HTMLElement | null>(null)
@@ -51,6 +52,7 @@ function SettingItem({ setting, revealed }: SettingItemProps) {
                 setting.reset()
                 // The reset control disappears; keep focus on the setting.
                 control.current?.focus()
+                onReset()
               }}
             >
               <RotateCcwIcon aria-hidden="true" />
@@ -111,15 +113,29 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
   const search = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const [query, setQuery] = useState("")
+  const [category, setCategory] = useState<string | null>(null)
+  const [onlyModified, setOnlyModified] = useState(false)
+  const modifiedFilter = useRef<HTMLButtonElement>(null)
   const [resetKey, setResetKey] = useState(0)
   // token re-runs the reveal when the same setting is opened again.
   const [revealed, setRevealed] = useState<{ setting: SettingId; token: number } | null>(null)
-  const results = matchSettings(query)
+  const matches = matchSettings(query).filter((definition) => !onlyModified || values[definition.id].modified)
+  const results = matches.filter((definition) => category === null || definition.category === category)
   const categories = [...new Set(results.map((definition) => definition.category))]
+  const allCategories = [...new Set(settingDefinitions.map((definition) => definition.category))]
+
+  function clearFilters() {
+    setQuery("")
+    setCategory(null)
+    setOnlyModified(false)
+    search.current?.focus()
+  }
 
   const show = useCallback((setting?: SettingId) => {
     if (!dialog.current) return
     setQuery("")
+    setCategory(null)
+    setOnlyModified(false)
     if (!dialog.current.open) dialog.current.showModal()
     if (setting) setRevealed((current) => ({ setting, token: (current?.token ?? 0) + 1 }))
     else search.current?.focus()
@@ -156,6 +172,13 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
       ref={dialog}
       className="settings-dialog"
       aria-labelledby="settings-title"
+      onCancel={(event) => {
+        if (query) {
+          event.preventDefault()
+          setQuery("")
+          search.current?.focus()
+        }
+      }}
       onClick={(event) => { if (event.target === dialog.current) dialog.current.close() }}
       onClose={() => setRevealed(null)}
     >
@@ -175,7 +198,10 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
             aria-label="Search settings"
             aria-controls="settings-list"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setCategory(null)
+            }}
             onKeyDown={(event) => {
               // Escape clears a query before it closes the dialog.
               if (event.key === "Escape" && query) {
@@ -184,19 +210,42 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
               }
             }}
           />
+          {query && <button type="button" className="settings-search-clear" aria-label="Clear settings search"
+            onClick={() => { setQuery(""); search.current?.focus() }}><XIcon aria-hidden="true" /></button>}
         </div>
-        <div ref={list} className="settings-list" id="settings-list">
-          {results.length ? categories.map((category) => (
-            <section key={category} aria-label={category}>
-              <h3 className="settings-group-title">{category}</h3>
-              {results.filter((definition) => definition.category === category).map((definition) => (
-                <SettingItem key={`${definition.id}-${resetKey}`} setting={values[definition.id]}
-                  revealed={revealed?.setting === definition.id} />
-              ))}
-            </section>
-          )) : (
-            <p className="settings-empty">No settings match “{query.trim()}”.</p>
-          )}
+        <div className="settings-tools">
+          <span role="status">{results.length} {results.length === 1 ? "setting" : "settings"}</span>
+          <button ref={modifiedFilter} type="button" className="settings-modified-filter" aria-pressed={onlyModified}
+            aria-label="Show modified settings"
+            onClick={() => setOnlyModified((current) => !current)}>Show modified <span>{modifiedCount}</span></button>
+        </div>
+        <div className="settings-body">
+          <nav className="settings-categories" aria-label="Settings categories">
+            {[null, ...allCategories].map((item) => (
+              <button key={item ?? "all"} type="button" aria-current={category === item ? "true" : undefined}
+                aria-controls="settings-list" onClick={() => { setCategory(item); list.current?.scrollTo(0, 0) }}>
+                <span>{item ?? "All settings"}</span>
+                <span className="settings-category-count">{item === null ? matches.length : matches.filter((definition) => definition.category === item).length}</span>
+              </button>
+            ))}
+          </nav>
+          <div ref={list} className="settings-list" id="settings-list">
+            {results.length ? categories.map((category) => (
+              <section key={category} aria-label={category}>
+                <h3 className="settings-group-title">{category}</h3>
+                {results.filter((definition) => definition.category === category).map((definition) => (
+                  <SettingItem key={`${definition.id}-${resetKey}`} setting={values[definition.id]}
+                    revealed={revealed?.setting === definition.id}
+                    onReset={() => { if (onlyModified) modifiedFilter.current?.focus() }} />
+                ))}
+              </section>
+            )) : (
+              <div className="settings-empty">
+                <p>{query.trim() ? `No settings match “${query.trim()}”.` : onlyModified ? "No modified settings in this category." : "No settings in this category."}</p>
+                <button type="button" onClick={clearFilters}>Clear filters</button>
+              </div>
+            )}
+          </div>
         </div>
         <footer className="settings-footer">
           <span>Saved in this browser. Changes apply immediately.</span>

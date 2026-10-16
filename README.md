@@ -19,9 +19,10 @@ else.
 - Serve several directories at once; switch between the git repositories found
   under them, pick a repository's worktree by branch, or open a folder outside
   any repository, with Cmd/Ctrl+O; each switch reads the file system afresh and
-  restores that project's tabs
+  restores that project's tabs and expanded folders, including after reloads
 - Navigate files in a compact, resizable tree
-- Keep visited documents in an editor-style tab bar
+- Keep visited documents in an editor-style tab bar; right-click a tab to close it,
+  other tabs, tabs to its right, or all tabs
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
 - Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar;
   gitignored files are skipped
@@ -35,7 +36,8 @@ else.
   missing or unsupported servers explicitly.
 - Show document details in the status bar; disclose process CPU/RAM from Ready
 - Choose a theme (system, light, dark, editor palettes) and interface font size
-  in Settings (gear in the status bar, Cmd/Ctrl+,); saved in the browser
+  in Settings (gear in the status bar, Cmd/Ctrl+,); search, browse categories,
+  or filter modified preferences. Changes apply immediately and save in the browser
 - Run commands from a VS Code-style command palette (Cmd/Ctrl+Shift+P or F1);
   each setting is a command that opens Settings at it
 - Render Mermaid diagrams with Excalidraw

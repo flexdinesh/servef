@@ -41,17 +41,19 @@ export function useDocumentWorkspace(page: PageData | null) {
     })
   }, [])
 
-  function closeDocument(path: string) {
-    const index = workspace.tabs.indexOf(path)
-    if (index < 0) return null
-    const remaining = workspace.tabs.filter((tab) => tab !== path)
+  function closeDocuments(paths: readonly string[], activePath: string) {
+    const closed = workspace.tabs.filter((tab) => paths.includes(tab))
+    if (closed.length === 0) return null
+    const index = workspace.tabs.indexOf(activePath)
+    const replacement = workspace.tabs.slice(index + 1).find((tab) => !closed.includes(tab))
+      ?? workspace.tabs.slice(0, index).reverse().find((tab) => !closed.includes(tab))
     setWorkspace((current) => {
       const modes = new Map(current.modes)
-      modes.delete(path)
-      return { tabs: current.tabs.filter((tab) => tab !== path), modes }
+      for (const path of closed) modes.delete(path)
+      return { tabs: current.tabs.filter((tab) => !closed.includes(tab)), modes }
     })
-    return { replacement: remaining[Math.min(index, remaining.length - 1)] }
+    return { paths: closed, replacement }
   }
 
-  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocument, restore }
+  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocuments, restore }
 }
