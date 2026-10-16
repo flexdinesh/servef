@@ -15,5 +15,6 @@
       "kind": "definition",
       "snippet": "func Format(words ...string) string {"
     }
-  ]
+  ],
+  "provider": "syntax"
 }

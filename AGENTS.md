@@ -14,6 +14,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
 - `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, document-link policy, and per-language syntax navigation (tree-sitter). Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/navigation/` owns the in-memory per-project symbol index, definition ranking, and reference matching. It reads files through a `Source` and delegates syntax to `document.Navigator`.
+- `internal/lsp/` owns language-server data (`Builtins()`), binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` maps them to project files and falls back to syntax navigation.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
 - React owns interaction and presentation. Use server metadata for file families and view capabilities; never duplicate extension detection in the UI.
@@ -32,6 +33,7 @@ Key files:
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
 | Code navigation | `internal/document/navigation.go`, `syntax.go`, `navigation_go.go`, `navigation_javascript.go`, `internal/navigation/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0015-code-navigation.md` |
+| Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0017-language-servers.md` |
 | Explorer filter | `web/src/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
 
 ## Patterns
@@ -76,6 +78,7 @@ Key files:
 - CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
 - Gitignored files stay browsable in the tree but are excluded from content search and the navigation index.
 - Code navigation is Source-only and name-based (no type checking); follow VS Code bindings. Over 4 MiB or binary: no symbols. Minified files (a line over 1000 bytes early on): no symbols. Index on first use; keep no file text in the index; keep parse concurrency bounded and release parser memory and grammars when idle (tree-sitter arenas dominate memory). Memory footprint is a priority: measure RSS before and after navigation changes.
+- Language servers are opt-in per browser (`X-Servef-Language-Servers: on`), never started by status requests, stopped when idle, and always backed by syntax navigation. Keep only in-project, indexed, non-ignored locations.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 
@@ -96,7 +99,8 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
    - `web/src/document-view.ts` view kinds and `DocumentPane.tsx` rendering.
    - `testdata/api/default/` fixtures, `web/dev-server.ts` mocks, and a decision record.
 6. Code navigation: give the family a `syntaxNavigator` (grammar import from `gotreesitter/grammars/<lang>`, model builder, `Provides`, `Shares`) via `navigableSource`/`navigableCode`; `navigable` follows. Import one grammar package per language; no build tags.
-7. Binary formats with a viewer: declare an empty `Language` only for image-like families and extend `Type.HasTextSource`/`/api/raw` deliberately; never serve raw bytes for text families.
+7. Language server: add an entry to `lsp.Builtins()` (binary, args, install commands, docs, family to LSP language ID) only for families that already navigate; `web.New` rejects others. No HTTP or frontend change is needed.
+8. Binary formats with a viewer: declare an empty `Language` only for image-like families and extend `Type.HasTextSource`/`/api/raw` deliberately; never serve raw bytes for text families.
 
 For every addition:
 

@@ -2620,6 +2620,106 @@ article hr {
   display: block;
 }
 
+.status-navigation summary {
+  color: var(--color-text-muted);
+}
+
+.status-navigation summary[data-provider="language-server"] {
+  color: var(--color-text-primary);
+}
+
+.status-navigation summary[data-state="failed"] {
+  color: var(--color-destructive);
+}
+
+.status-navigation-panel {
+  right: 0;
+  left: auto;
+  width: min(26rem, calc(100vw - var(--space-4)));
+}
+
+.navigation-installs {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navigation-install {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.status-process-panel .navigation-install-label {
+  display: inline;
+  color: var(--color-text-muted);
+}
+
+.navigation-install code {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navigation-install-copy {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.navigation-install-copy:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.navigation-install-copy[data-status="copied"] {
+  color: var(--color-success);
+}
+
+.navigation-install-copy[data-status="failed"] {
+  color: var(--color-destructive);
+}
+
+.navigation-install-copy svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.navigation-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.navigation-status-actions button,
+.navigation-status-actions a {
+  padding: 0;
+  border: 0;
+  color: var(--color-accent);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.navigation-status-actions button:hover,
+.navigation-status-actions a:hover {
+  text-decoration: underline;
+}
+
 .search-dialog {
   width: min(38rem, calc(100vw - var(--space-6)));
   margin-top: var(--space-7);
@@ -2884,6 +2984,13 @@ article hr {
    one row per location. Declared last to override the search layout. */
 .navigation-dialog .navigation-field {
   justify-content: space-between;
+}
+
+.navigation-dialog .navigation-provider {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 .navigation-dialog .navigation-title {

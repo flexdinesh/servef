@@ -28,6 +28,10 @@ else.
 - Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12) across
   files in Go, JavaScript, JSX, TypeScript, and TSX source, VS Code-style;
   name-based, indexed in memory on first use, gitignored and minified files skipped
+- Optionally use installed language servers (gopls, typescript-language-server)
+  for compiler-accurate navigation: off by default (Settings), started on first
+  use, stopped after 10 idle minutes, syntax navigation as fallback; the status
+  bar shows who answers and how to install a missing server
 - Show document details in the status bar; disclose process CPU/RAM from Ready
 - Choose a theme (system, light, dark, editor palettes) and interface font size
   in Settings (gear in the status bar, Cmd/Ctrl+,); saved in the browser

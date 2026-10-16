@@ -4,7 +4,7 @@ import test from "node:test"
 
 import { parseFeatureValue } from "./features.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
-import { isNavigationResult } from "./navigation-contract.ts"
+import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
 import { isSearchDocumentsResponse } from "./search-documents.ts"
@@ -36,6 +36,8 @@ test("frontend API fixtures satisfy runtime contracts", async () => {
   assert.equal(isNavigationResult(await fixture("definition.json")), true)
   assert.equal(isNavigationResult(await fixture("references.json")), true)
   assert.equal(isNavigationResult(await fixture("error-not-found.json")), false)
+  assert.equal(isNavigationStatus(await fixture("navigation-status.json")), true)
+  assert.equal(isNavigationStatus(await fixture("definition.json")), false)
 })
 
 async function page(name: string): Promise<PageData> {
@@ -90,6 +92,20 @@ test("contract validators reject removed and malformed fields", async () => {
   assert.equal(isPageData({ ...value, documentType: null }), false)
   assert.equal(isPageData({ ...value, documentType: { ...value.documentType, previewLabel: "" } }), false)
   assert.equal(isFormatResult({ formattedLines: ["ok", 1] }), false)
+})
+
+test("navigation contract validators reject unknown providers and states", async () => {
+  const definition = await fixture("definition.json")
+  assert.ok(isNavigationResult(definition))
+  assert.equal(isNavigationResult({ ...definition, provider: "lsp" }), false)
+  assert.equal(isNavigationResult({ ...definition, server: 1 }), false)
+  assert.equal(isNavigationResult({ ...definition, provider: "language-server", server: "gopls" }), true)
+  const status = await fixture("navigation-status.json")
+  assert.ok(isNavigationStatus(status))
+  assert.ok(status.server)
+  assert.equal(isNavigationStatus({ ...status, server: { ...status.server, state: "running" } }), false)
+  assert.equal(isNavigationStatus({ ...status, server: { ...status.server, install: [{ label: "Go" }] } }), false)
+  assert.equal(isNavigationStatus({ ...status, provider: "", server: null }), true)
 })
 
 test("project contract validators reject inconsistent availability", async () => {

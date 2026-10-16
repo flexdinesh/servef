@@ -111,3 +111,70 @@ test("files without navigation ignore Ctrl/Cmd+click", async ({ page }) => {
   await expect(page.getByRole("dialog")).toHaveCount(0)
   expect(requests).toBe(0)
 })
+
+const missingGopls = {
+  navigable: true,
+  languageServers: false,
+  provider: "syntax",
+  server: {
+    name: "gopls",
+    language: "Go",
+    state: "missing",
+    message: "",
+    install: [{ label: "Go", command: "go install golang.org/x/tools/gopls@latest" }],
+    docs: "https://go.dev/gopls/",
+    memory: 0,
+    idleMinutes: 10,
+  },
+}
+
+test("the status bar explains how to install a missing language server", async ({ page }) => {
+  const refreshes: string[] = []
+  await page.route("**/api/navigation-status?*", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("refresh") === "1") refreshes.push(route.request().url())
+    await route.fulfill({ json: missingGopls })
+  })
+  await page.goto("/view?path=navigation%2Fgreet.go")
+  const provider = page.getByRole("group", { name: "Document status" }).getByText("Syntax", { exact: true })
+  await provider.click()
+  await expect(page.getByText("gopls is not installed.")).toBeVisible()
+  await expect(page.getByText("go install golang.org/x/tools/gopls@latest")).toBeVisible()
+  await page.getByRole("button", { name: "Check again" }).click()
+  await expect.poll(() => refreshes.length).toBe(1)
+
+  await page.getByRole("button", { name: "Turn on in Settings" }).click()
+  const settings = page.getByRole("dialog", { name: "Settings" })
+  await expect(settings.getByRole("combobox", { name: "Code Navigation: Language Servers" })).toBeFocused()
+})
+
+test("files without navigation show no navigation status", async ({ page }) => {
+  await page.goto("/view?path=config%2Fsettings.json")
+  await expect(page.getByRole("group", { name: "Document status" })).toContainText("JSON")
+  await expect(page.locator(".status-navigation")).toHaveCount(0)
+})
+
+test("turning on language servers opts navigation requests in and shows who answered", async ({ page }) => {
+  const headers: (string | undefined)[] = []
+  await page.route("**/api/references?*", async (route) => {
+    headers.push(route.request().headers()["x-servef-language-servers"])
+    const response = await route.fetch()
+    const body: unknown = await response.json()
+    await route.fulfill({ json: typeof body === "object" && body !== null ? { ...body, provider: "language-server", server: "gopls" } : body })
+  })
+  await page.goto("/view?path=navigation%2Fformat.go")
+  const format = word(source(page, "Go source"), 6, "Format")
+  await format.click({ modifiers: ["ControlOrMeta"] })
+  const dialog = page.getByRole("dialog", { name: "2 references to Format" })
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press("Escape")
+  expect(headers).toEqual([undefined])
+
+  await page.keyboard.press("ControlOrMeta+,")
+  const settings = page.getByRole("dialog", { name: "Settings" })
+  await settings.getByRole("combobox", { name: "Code Navigation: Language Servers" }).selectOption("on")
+  await settings.getByRole("button", { name: "Close settings" }).click()
+  await expect(settings).toBeHidden()
+  await format.click({ modifiers: ["ControlOrMeta"] })
+  await expect(dialog.getByText("gopls", { exact: true })).toBeVisible()
+  expect(headers).toEqual([undefined, "on"])
+})

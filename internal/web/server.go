@@ -17,6 +17,7 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/navigation"
 	"github.com/flexdinesh/servef/internal/projects"
 )
@@ -41,6 +42,10 @@ type Config struct {
 	// Types decides presentation; Filenames decides which files are in scope.
 	Types     *document.Registry
 	Filenames files.NameFilter
+	// LanguageServers runs language servers for requests that opt in; nil
+	// uses the built-in servers for Types' navigable families. The App
+	// closes it.
+	LanguageServers *lsp.Manager
 }
 
 // App composes discovery and document handlers into the HTTP API.
@@ -53,6 +58,7 @@ type App struct {
 	openFile   func(string) (fs.File, error)
 	shell      string
 	navigation *navigation.Index
+	servers    *lsp.Manager
 }
 
 type pageData struct {
@@ -165,8 +171,46 @@ func New(config Config) (*App, error) {
 		return nil, err
 	}
 	config.Roots = roots
-	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell), navigation: navigation.New(config.Types)}, nil
+	if config.LanguageServers == nil {
+		config.LanguageServers = lsp.NewManager(builtinServers(config.Types), lsp.Options{})
+	}
+	if err := checkLanguageServers(config.LanguageServers.Servers(), config.Types); err != nil {
+		return nil, err
+	}
+	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell), navigation: navigation.New(config.Types), servers: config.LanguageServers}, nil
 }
+
+// builtinServers lists the built-in servers whose families types navigates,
+// so custom registries get only the servers they can use.
+func builtinServers(types *document.Registry) []lsp.Server {
+	var servers []lsp.Server
+	for _, server := range lsp.Builtins() {
+		if checkLanguageServers([]lsp.Server{server}, types) == nil {
+			servers = append(servers, server)
+		}
+	}
+	return servers
+}
+
+// checkLanguageServers fails closed on servers for families servef does not
+// navigate: servers add precision to syntax navigation, never new families.
+func checkLanguageServers(servers []lsp.Server, types *document.Registry) error {
+	navigable := map[string]bool{}
+	for _, documentType := range types.Types() {
+		navigable[documentType.ID] = documentType.Navigable
+	}
+	for _, server := range servers {
+		for family := range server.Families {
+			if !navigable[family] {
+				return fmt.Errorf("language server %s serves %q, which is not a navigable family", server.Name, family)
+			}
+		}
+	}
+	return nil
+}
+
+// Close stops running language servers.
+func (a *App) Close() { a.servers.Close() }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
 
@@ -256,6 +300,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/raw" {
 		a.serveRaw(w, projectID, query.Get("path"))
+		return
+	}
+	if r.URL.Path == "/api/navigation-status" {
+		a.serveNavigationStatus(w, r, projectID, query.Get("path"), query.Get("refresh") == "1")
 		return
 	}
 	if r.URL.Path == "/api/definition" || r.URL.Path == "/api/references" {

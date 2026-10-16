@@ -8,5 +8,6 @@
       "kind": "function",
       "snippet": "func Format(words ...string) string {"
     }
-  ]
+  ],
+  "provider": "syntax"
 }

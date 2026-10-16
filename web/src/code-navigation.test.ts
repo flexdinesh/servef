@@ -8,8 +8,8 @@ function location(path: string, line: number, column: number, kind = "function")
   return { path, line, column, kind, snippet: "" }
 }
 
-function result(locations: NavigationLocation[], overrides: Partial<NavigationResult> = {}): NavigationResult {
-  return { symbol: "Format", locations, ...overrides }
+function result(locations: NavigationLocation[], symbol = "Format"): NavigationResult {
+  return { symbol, locations, provider: "syntax" }
 }
 
 test("identifierAt finds the word under a column, including its trailing edge", () => {
@@ -57,5 +57,5 @@ test("navigation queries and messages", () => {
   assert.equal(navigationTitle("definition", "Format", 1), "1 definition of Format")
   assert.equal(emptyMessage("definition", result([])), "No definition found for Format.")
   assert.equal(emptyMessage("references", result([])), "No references found for Format.")
-  assert.match(emptyMessage("definition", result([], { symbol: "" })), /No symbol here/)
+  assert.match(emptyMessage("definition", result([], "")), /No symbol here/)
 })

@@ -134,7 +134,7 @@ func TestDefinitionResolvesAcrossGoFiles(t *testing.T) {
 	index := ready(t, source)
 	definition := func(marker string, nth int) Result {
 		t.Helper()
-		result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", marker, nth))
+		result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", marker, nth), true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -172,7 +172,7 @@ func TestDefinitionResolvesJavaScriptModules(t *testing.T) {
 	index := ready(t, source)
 	definition := func(marker string) Result {
 		t.Helper()
-		result, err := index.Definition("project", source, "src/app.tsx", position(t, source, "src/app.tsx", marker, 0))
+		result, err := index.Definition("project", source, "src/app.tsx", position(t, source, "src/app.tsx", marker, 0), true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -192,12 +192,12 @@ func TestFirstUseIndexesAndAnswersBeforeTheBuildFinishes(t *testing.T) {
 	// Hold the background build so the first answers come without it.
 	building := index.project("project")
 	building.refresh.Lock()
-	definition, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0))
+	definition, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	expect(t, source, definition, target{"internal/files/scan.go", "Scan", 0})
-	references, err := index.References(context.Background(), "project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0))
+	references, err := index.References(context.Background(), "project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestDefinitionSeesEditedFiles(t *testing.T) {
 	source := goProject()
 	index := ready(t, source)
 	source.write("app/helper.go", "package app\n\n// moved\n\nfunc helper() string { return \"\" }\n")
-	result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "helper()", 0))
+	result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "helper()", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,10 +228,10 @@ func TestDefinitionSeesEditedFiles(t *testing.T) {
 
 func TestDefinitionRejectsFilesWithoutNavigation(t *testing.T) {
 	source := newSource(map[string]string{"notes.md": "# Notes\n"})
-	if _, err := New(document.Builtins()).Definition("project", source, "notes.md", document.Position{Line: 1}); err != ErrNotNavigable {
+	if _, err := New(document.Builtins()).Definition("project", source, "notes.md", document.Position{Line: 1}, true); err != ErrNotNavigable {
 		t.Fatalf("error = %v, want ErrNotNavigable", err)
 	}
-	if _, err := New(document.Builtins()).Definition("project", source, "gone.go", document.Position{Line: 1}); err != ErrUnavailable {
+	if _, err := New(document.Builtins()).Definition("project", source, "gone.go", document.Position{Line: 1}, true); err != ErrUnavailable {
 		t.Fatalf("error = %v, want ErrUnavailable", err)
 	}
 }
@@ -241,7 +241,7 @@ func TestReferencesFindProjectUsesBySymbol(t *testing.T) {
 	index := ready(t, source)
 	references := func(name, marker string, nth int) Result {
 		t.Helper()
-		result, err := index.References(context.Background(), "project", source, name, position(t, source, name, marker, nth))
+		result, err := index.References(context.Background(), "project", source, name, position(t, source, name, marker, nth), true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -277,7 +277,7 @@ func TestReferencesFollowImportedNames(t *testing.T) {
 		"b.ts": "export function make() {}\nmake()\n",
 		"c.ts": "const make = 1\nconsole.log(make, 'make')\n",
 	})
-	result, err := ready(t, source).References(context.Background(), "project", source, "a.ts", position(t, source, "a.ts", "build()", 0))
+	result, err := ready(t, source).References(context.Background(), "project", source, "a.ts", position(t, source, "a.ts", "build()", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,12 +309,12 @@ func TestMinifiedBundlesAreNotIndexed(t *testing.T) {
 		"src/render.js": "export function render() {}\n",
 	})
 	index := ready(t, source)
-	result, err := index.Definition("project", source, "src/use.js", position(t, source, "src/use.js", "render", 0))
+	result, err := index.Definition("project", source, "src/use.js", position(t, source, "src/use.js", "render", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	expect(t, source, result, target{"src/render.js", "render", 0})
-	references, err := index.References(context.Background(), "project", source, "src/render.js", position(t, source, "src/render.js", "render", 0))
+	references, err := index.References(context.Background(), "project", source, "src/render.js", position(t, source, "src/render.js", "render", 0), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,5 +322,36 @@ func TestMinifiedBundlesAreNotIndexed(t *testing.T) {
 		if location.Path == "dist/app.js" {
 			t.Fatalf("references include the minified bundle: %+v", location)
 		}
+	}
+}
+
+func TestWithoutBuildingProjectsAreScannedNotIndexed(t *testing.T) {
+	source := goProject()
+	index := New(document.Builtins())
+	result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, source, result, target{"internal/files/scan.go", "Scan", 0})
+	time.Sleep(20 * time.Millisecond)
+	if index.Ready("project") {
+		t.Fatal("a request without build indexed the project")
+	}
+}
+
+func TestWordAtFindsNamesByUTF16Column(t *testing.T) {
+	text := []byte("package a\n\tvar 𝒳, héllo_1 = $x\n")
+	for _, test := range []struct {
+		column int
+		want   string
+	}{
+		{1, "var"}, {5, "𝒳"}, {9, "héllo_1"}, {15, "héllo_1"}, {19, "$x"}, {8, ""},
+	} {
+		if got := WordAt(text, document.Position{Line: 2, Column: test.column}); got != test.want {
+			t.Errorf("column %d = %q, want %q", test.column, got, test.want)
+		}
+	}
+	if got := WordAt(text, document.Position{Line: 9, Column: 0}); got != "" {
+		t.Errorf("past the end = %q", got)
 	}
 }
