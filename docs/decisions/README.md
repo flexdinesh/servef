@@ -24,3 +24,4 @@ rewriting history; update `Status` on the old record.
 | [0016](0016-navigation-memory.md) | Navigation memory | Superseded by 0018 |
 | [0017](0017-language-servers.md) | Language servers for code navigation | Superseded by 0018 |
 | [0018](0018-lsp-only-navigation.md) | LSP-only navigation and host-specific availability | Accepted |
+| [0019](0019-workspace-settings-and-memory.md) | Settings navigation and project explorer memory | Accepted |

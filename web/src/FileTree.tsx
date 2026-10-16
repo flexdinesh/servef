@@ -10,6 +10,7 @@ import { openDirectoryPaths, type PageData, type TreeNode } from "./page-data.ts
 import { projectShortcutLabel } from "./ProjectPicker.tsx"
 import { useSettings } from "./components/SettingsProvider.tsx"
 import { uiScale } from "./settings.ts"
+import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "./workspace-memory.ts"
 
 function treePaths(nodes: readonly TreeNode[]): string[] {
   return nodes.flatMap((node) => node.isDir
@@ -37,7 +38,11 @@ export function FileTree(props: FileTreeProps) {
   const filter = useFilenameFilter()
   const dialog = useRef<HTMLDialogElement>(null)
   const page = useRef(props.page)
-  const state = useRef<ExplorerState>({ model: null, expanded: null, search: null })
+  const [rememberedExpanded] = useState(() => restoreExpanded(
+    projectMemory(readMemory(), props.page.project),
+    new Set(treePaths(props.page.tree).filter((path) => path.endsWith("/"))),
+  ))
+  const state = useRef<ExplorerState>({ model: null, expanded: rememberedExpanded ?? null, search: null })
   const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 48rem)").matches)
   const scale = uiScale(useSettings().settings)
   const [rowScale, setRowScale] = useState(scale)
@@ -47,11 +52,15 @@ export function FileTree(props: FileTreeProps) {
     const model = state.current.model
     if (!model) return
     const expanded = new Set(state.current.expanded)
-    for (const path of treePaths(page.current.tree)) {
-      const item = model.getItem(path)
-      if (item && "isExpanded" in item) {
-        if (item.isExpanded()) expanded.add(path)
-        else expanded.delete(path)
+    // Filename search expands matches temporarily. Preserve the underlying
+    // folder state when a responsive or font-size change remounts the model.
+    if (!model.getSearchValue()) {
+      for (const path of treePaths(page.current.tree)) {
+        const item = model.getItem(path)
+        if (item && "isExpanded" in item) {
+          if (item.isExpanded()) expanded.add(path)
+          else expanded.delete(path)
+        }
       }
     }
     state.current.expanded = [...expanded]
@@ -93,7 +102,9 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
   const visibleCount = useMemo(() => countFiles(visibleTree), [visibleTree])
   const paths = useMemo(() => treePaths(visibleTree), [visibleTree])
   const directoryPaths = useMemo(() => treePaths(page.tree).filter((path) => path.endsWith("/")), [page.tree])
+  const directories = useMemo(() => new Set(directoryPaths), [directoryPaths])
   const expandedPaths = useRef(new Set(state.current.expanded ?? openDirectoryPaths(page.tree).map((path) => `${path}/`)))
+  const rememberedExpanded = useRef<readonly string[] | null>(null)
   const [hasExpanded, setHasExpanded] = useState(expandedPaths.current.size > 0)
   const previousPaths = useRef(paths)
   const previousSelected = useRef(page.selected)
@@ -126,6 +137,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
     if (search.isOpen) searchInput.current?.focus()
   }, [search.isOpen])
   const syncExpandedPaths = useCallback(() => {
+    if (model.getSearchValue()) return
     for (const path of directoryPaths) {
       const item = model.getItem(path)
       if (item && "isExpanded" in item) {
@@ -133,9 +145,16 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
         else expandedPaths.current.delete(path)
       }
     }
-    state.current.expanded = [...expandedPaths.current]
+    const expanded = [...expandedPaths.current].filter((path) => directories.has(path))
+    const previous = rememberedExpanded.current
+    state.current.expanded = expanded
+    if (hasData && !page.error && page.project && (previous === null
+      || expanded.length !== previous.length || expanded.some((path, index) => path !== previous[index]))) {
+      updateMemory((memory) => rememberExpanded(memory, page.project, expanded))
+      rememberedExpanded.current = expanded
+    }
     setHasExpanded(directoryPaths.some((path) => expandedPaths.current.has(path)))
-  }, [directoryPaths, model, state])
+  }, [directories, directoryPaths, hasData, model, page.error, page.project, state])
 
   useLayoutEffect(() => { current.current = { onNavigate, page } }, [onNavigate, page])
 
@@ -146,11 +165,13 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
     const changed = paths.length !== previousPaths.current.length
       || paths.some((path, index) => path !== previousPaths.current[index])
     if (changed) {
-      for (const path of previousPaths.current) {
-        const item = model.getItem(path)
-        if (item && "isExpanded" in item) {
-          if (item.isExpanded()) expandedPaths.current.add(path)
-          else expandedPaths.current.delete(path)
+      if (!model.getSearchValue()) {
+        for (const path of previousPaths.current) {
+          const item = model.getItem(path)
+          if (item && "isExpanded" in item) {
+            if (item.isExpanded()) expandedPaths.current.add(path)
+            else expandedPaths.current.delete(path)
+          }
         }
       }
       state.current.expanded = [...expandedPaths.current]
@@ -199,9 +220,8 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
         else item.collapse()
       }
     }
-    state.current.expanded = [...expandedPaths.current]
-    setHasExpanded(expand)
     syncing.current = false
+    syncExpandedPaths()
   }
 
   const focusFirstRow = () => {

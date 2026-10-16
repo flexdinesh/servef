@@ -7,9 +7,11 @@ import {
   lastProject,
   parseMemory,
   projectMemory,
+  rememberExpanded,
   rememberProject,
   rememberedProjects,
   restoreTabs,
+  restoreExpanded,
 } from "./workspace-memory.ts"
 
 test("memory shares a project's tabs across sessions and keeps the last project per set of roots", () => {
@@ -65,4 +67,38 @@ test("parseMemory ignores malformed stored data", () => {
   const hostile = parseMemory(JSON.parse('{"last": {"__proto__": "x"}, "projects": {"__proto__": {"tabs": ["t"]}}}'))
   assert.equal(projectMemory(hostile, "constructor"), undefined)
   assert.equal(lastProject(hostile, ["toString"]), "")
+})
+
+test("folder expansion and tabs preserve each other when saved independently", () => {
+  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", ["README.md"], "README.md")
+  memory = rememberExpanded(memory, "/a/api", ["src/", "src/", "docs/"])
+  memory = rememberExpanded(memory, "/a/web", [])
+  memory = rememberProject(memory, ["/a"], "/a/api", ["main.go"], "main.go")
+  assert.deepEqual(projectMemory(memory, "/a/api"), {
+    tabs: ["main.go"], active: "main.go", expanded: ["src/", "docs/"],
+  })
+  assert.deepEqual(projectMemory(memory, "/a/web"), { tabs: [], active: "", expanded: [] })
+  assert.equal(lastProject(memory, ["/a"]), "/a/api")
+  assert.equal(projectMemory(forgetProject(memory, "/a/web"), "/a/web"), undefined)
+})
+
+test("restoring expansion validates fresh directories and preserves all-collapsed preference", () => {
+  const directories = new Set(["src/", "docs/"])
+  assert.deepEqual(restoreExpanded({ tabs: [], active: "", expanded: ["src/", "gone/", "../outside/", "main.go", "src/"] }, directories), ["src/"])
+  assert.deepEqual(restoreExpanded({ tabs: [], active: "", expanded: [] }, directories), [])
+  assert.equal(restoreExpanded({ tabs: [], active: "" }, directories), undefined)
+  assert.equal(restoreExpanded(undefined, directories), undefined)
+})
+
+test("stored expansion is optional for existing memories and rejects malformed values", () => {
+  const memory = parseMemory({ projects: {
+    old: { tabs: ["a.md"], active: "a.md" },
+    collapsed: { expanded: [] },
+    mixed: { expanded: ["src/", 3, null] },
+    invalid: { expanded: "src/" },
+  } })
+  assert.deepEqual(projectMemory(memory, "old"), { tabs: ["a.md"], active: "a.md" })
+  assert.deepEqual(projectMemory(memory, "collapsed"), { tabs: [], active: "", expanded: [] })
+  assert.deepEqual(projectMemory(memory, "mixed")?.expanded, ["src/"])
+  assert.equal(projectMemory(memory, "invalid")?.expanded, undefined)
 })

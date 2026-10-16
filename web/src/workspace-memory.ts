@@ -1,5 +1,5 @@
 // Browser memory of project workspaces. Projects are absolute paths, so each
-// project's tabs are shared by every servef session that serves it; the last
+// project's tabs and folder expansion are shared by sessions that serve it; the last
 // project is kept per set of served roots. Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
@@ -11,6 +11,8 @@ const maxSessions = 20
 export interface ProjectMemory {
   tabs: string[]
   active: string
+  // Absent uses the server's initial expansion; [] remembers all collapsed.
+  expanded?: string[]
 }
 
 export interface WorkspaceMemory {
@@ -31,7 +33,11 @@ function stringArray(value: unknown): string[] {
 
 function parseProject(value: unknown): ProjectMemory | null {
   if (!isRecord(value)) return null
-  return { tabs: stringArray(value.tabs), active: typeof value.active === "string" ? value.active : "" }
+  return {
+    tabs: stringArray(value.tabs),
+    active: typeof value.active === "string" ? value.active : "",
+    ...(Array.isArray(value.expanded) ? { expanded: stringArray(value.expanded) } : {}),
+  }
 }
 
 function entries(value: unknown): [string, unknown][] {
@@ -76,11 +82,29 @@ function withEntry<T>(record: Record<string, T>, key: string, value: T, max: num
 export function rememberProject(memory: WorkspaceMemory, roots: readonly string[], project: string, tabs: readonly string[], active: string): WorkspaceMemory {
   return {
     last: withEntry(memory.last, rootsKey(roots), project, maxSessions),
-    projects: withEntry(memory.projects, project, { tabs: [...tabs], active: tabs.includes(active) ? active : "" }, maxProjects),
+    projects: withEntry(memory.projects, project, {
+      ...projectMemory(memory, project),
+      tabs: [...tabs],
+      active: tabs.includes(active) ? active : "",
+    }, maxProjects),
   }
 }
 
-// forgetProject drops a project's remembered tabs; a forgotten last project
+// Folder and tab updates preserve one another, including when saved by
+// different components during the same render.
+export function rememberExpanded(memory: WorkspaceMemory, project: string, expanded: readonly string[]): WorkspaceMemory {
+  return {
+    ...memory,
+    projects: withEntry(memory.projects, project, {
+      tabs: [],
+      active: "",
+      ...projectMemory(memory, project),
+      expanded: [...new Set(expanded)],
+    }, maxProjects),
+  }
+}
+
+// forgetProject drops a project's workspace; a forgotten last project
 // no longer reopens on landing.
 export function forgetProject(memory: WorkspaceMemory, project: string): WorkspaceMemory {
   const { [project]: _forgotten, ...projects } = memory.projects
@@ -98,6 +122,12 @@ export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySe
   const tabs = (memory?.tabs ?? []).filter((tab, index, all) => files.has(tab) && all.indexOf(tab) === index)
   const active = memory && tabs.includes(memory.active) ? memory.active : ""
   return { tabs, active }
+}
+
+// Only restore directories still present in the fresh project tree. Keep an
+// absent preference distinct from the explicit all-collapsed state.
+export function restoreExpanded(memory: ProjectMemory | undefined, directories: ReadonlySet<string>): string[] | undefined {
+  return memory?.expanded?.filter((path, index, all) => directories.has(path) && all.indexOf(path) === index)
 }
 
 export function readMemory(): WorkspaceMemory {

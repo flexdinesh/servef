@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { filePaths, type PageData } from "./page-data.ts"
 import {
@@ -23,22 +23,27 @@ interface ProjectMemoryOptions {
 // useProjectMemory restores a project's remembered tabs once its first page
 // loads, checked against the fresh tree, then remembers tabs as they change.
 export function useProjectMemory({ project, page, tabs, restore, openRemembered }: ProjectMemoryOptions) {
-  const restored = useRef(false)
+  const [restored, setRestored] = useState<{ opening: boolean } | null>(null)
   const ready = page !== null && !page.error && page.project === project
   const roots = page?.roots ?? noRoots
   const active = page?.hasFile ? page.selected : ""
   const files = useMemo(() => new Set(page ? filePaths(page.tree) : []), [page])
 
   useEffect(() => {
-    if (restored.current || !ready) return
-    restored.current = true
+    if (restored || !ready) return
     const remembered = restoreTabs(projectMemory(readMemory(), project), files)
     restore(remembered.tabs)
-    if (!active && remembered.active) openRemembered(remembered.active)
-  }, [active, files, openRemembered, project, ready, restore])
+    const opening = !active && remembered.active !== ""
+    setRestored({ opening })
+    if (opening) openRemembered(remembered.active)
+  }, [active, files, openRemembered, project, ready, restore, restored])
 
   useEffect(() => {
-    if (!restored.current || !ready) return
+    // Restoration schedules tab state and possibly navigation. Wait for those
+    // updates before saving, so mounting never erases the remembered workspace.
+    if (!restored || !ready || (restored.opening && !active)) return
+    if (active && !tabs.includes(active)) return
+    if (restored.opening) setRestored({ opening: false })
     updateMemory((memory) => rememberProject(memory, roots, project, tabs, active))
-  }, [active, project, ready, roots, tabs])
+  }, [active, project, ready, restored, roots, tabs])
 }

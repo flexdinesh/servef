@@ -339,7 +339,7 @@ test("font size setting scales the interface, persists, and resets", async ({ pa
   await expect(selected).toHaveCSS("font-size", "16px")
   // The status bar keeps its 12:13 ratio to the base size.
   await expect.poll(() => status.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeCloseTo(12 * 16 / 13)
-  await expect(dialog.getByText("Modified")).toBeVisible()
+  await expect(dialog.getByText("Modified", { exact: true })).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem("servef-settings"))).toBe('{"fontSize":16}')
 
   await fontSize.fill("40")
