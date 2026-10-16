@@ -393,3 +393,16 @@ func TestNavigationToleratesMalformedSource(t *testing.T) {
 		t.Errorf("invalid UTF-8 error = %v", err)
 	}
 }
+
+func TestNavigationParsesAgainAfterGrammarsUnload(t *testing.T) {
+	navigator := goNavigator()
+	source := []byte("package a\n\nfunc A() {}\n")
+	if symbols, err := navigator.Symbols(source); err != nil || len(symbols) != 1 {
+		t.Fatalf("symbols = %v, %v", symbols, err)
+	}
+	ReleaseSyntaxMemory()
+	UnloadGrammars()
+	if symbols, err := navigator.Symbols(source); err != nil || len(symbols) != 1 || symbols[0].Name != "A" {
+		t.Fatalf("after unload symbols = %v, %v", symbols, err)
+	}
+}

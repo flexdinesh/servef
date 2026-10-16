@@ -658,8 +658,6 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		}, status
 	}
 	checkout := projects.Inspect(project.root)
-	// Opening a project starts its navigation index in the background.
-	a.navigation.Warm(project.root, a.navigationSource(project.root))
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{

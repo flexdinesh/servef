@@ -7,33 +7,22 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/flexdinesh/servef/internal/navigation"
 )
 
-// navigate requests a navigation endpoint, waiting out the first index
-// build.
+// navigate requests a navigation endpoint.
 func navigate(t *testing.T, app *App, target string) navigation.Result {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		response := request(t, app, target)
-		if response.Code != http.StatusOK {
-			t.Fatalf("%s status = %d: %s", target, response.Code, response.Body.String())
-		}
-		var result navigation.Result
-		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
-			t.Fatal(err)
-		}
-		if !result.Indexing {
-			return result
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("%s still indexing", target)
-		}
-		time.Sleep(5 * time.Millisecond)
+	response := request(t, app, target)
+	if response.Code != http.StatusOK {
+		t.Fatalf("%s status = %d: %s", target, response.Code, response.Body.String())
 	}
+	var result navigation.Result
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	return result
 }
 
 func TestNavigationResolvesAcrossSampleFiles(t *testing.T) {

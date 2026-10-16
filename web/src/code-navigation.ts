@@ -88,6 +88,5 @@ export function navigationTitle(kind: NavigationKind, symbol: string, count: num
 // emptyMessage explains a result without locations.
 export function emptyMessage(kind: NavigationKind, result: NavigationResult): string {
   if (result.symbol === "") return "No symbol here. Ctrl/Cmd+click a name in code."
-  if (result.indexing) return `Still indexing this project. Try ${result.symbol} again in a moment.`
   return kind === "definition" ? `No definition found for ${result.symbol}.` : `No references found for ${result.symbol}.`
 }

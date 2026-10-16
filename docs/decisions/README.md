@@ -21,4 +21,4 @@ rewriting history; update `Status` on the old record.
 | [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted |
 | [0014](0014-command-palette.md) | Command palette | Accepted |
 | [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Partially superseded by 0016 |
-| [0016](0016-navigation-memory.md) | Navigation memory release | Accepted |
+| [0016](0016-navigation-memory.md) | Navigation memory | Accepted |

@@ -42,8 +42,10 @@ const (
 	// tens of megabytes at peak, which small projects need not pay.
 	bytesPerWorker = 2 << 20
 	// releaseDelay is how long navigation stays idle before parser memory,
-	// which dwarfs the index, is returned to the OS.
+	// which dwarfs the index, is returned to the OS; after unloadDelay the
+	// grammars go too.
 	releaseDelay = 2 * time.Second
+	unloadDelay  = 5 * time.Minute
 	// A line longer than minifiedLine within the first minifiedWindow bytes
 	// marks a minified or generated bundle: costly to parse, useless to
 	// navigate. Hand-written code stays far below it.
@@ -76,11 +78,9 @@ type Location struct {
 }
 
 // Result answers a navigation request. Symbol is empty when no identifier is
-// at the position; Indexing reports that the first index build is still
-// running, so definitions may be missing.
+// at the position.
 type Result struct {
 	Symbol    string     `json:"symbol"`
-	Indexing  bool       `json:"indexing"`
 	Locations []Location `json:"locations"`
 }
 
@@ -91,11 +91,12 @@ type Index struct {
 	mu       sync.Mutex
 	projects map[string]*project
 
-	// active counts running builds and requests; release fires once it
-	// stays zero for releaseDelay.
+	// active counts running builds and requests; release and unload fire
+	// once it stays zero for their delays.
 	activity sync.Mutex
 	active   int
 	release  *time.Timer
+	unload   *time.Timer
 }
 
 // New returns an empty index over the registry's navigable families.
@@ -103,10 +104,11 @@ func New(registry *document.Registry) *Index {
 	return &Index{registry: registry, interval: refreshInterval, projects: make(map[string]*project)}
 }
 
+// entry is an indexed definition. Snippets are read when answering, so the
+// index never holds file text.
 type entry struct {
-	path    string
-	symbol  document.Symbol
-	snippet string
+	path   string
+	symbol document.Symbol
 }
 
 type indexedFile struct {
@@ -120,7 +122,7 @@ type project struct {
 	refresh  sync.Mutex // serializes rebuilds
 	mu       sync.RWMutex
 	files    map[string]indexedFile
-	byName   map[string]map[string][]entry // group, name
+	byName   map[string]map[string][]*entry // group, name
 	ready    bool
 	building bool
 	checked  time.Time
@@ -131,15 +133,15 @@ func (x *Index) project(key string) *project {
 	defer x.mu.Unlock()
 	p, ok := x.projects[key]
 	if !ok {
-		p = &project{files: make(map[string]indexedFile), byName: make(map[string]map[string][]entry)}
+		p = &project{files: make(map[string]indexedFile), byName: make(map[string]map[string][]*entry)}
 		x.projects[key] = p
 	}
 	return p
 }
 
-// Warm starts building a project's index in the background unless it is
+// warm starts building a project's index in the background unless it is
 // built or building.
-func (x *Index) Warm(key string, source Source) {
+func (x *Index) warm(key string, source Source) {
 	p := x.project(key)
 	p.mu.Lock()
 	start := !p.ready && !p.building
@@ -168,7 +170,7 @@ func (x *Index) fresh(key string, source Source) bool {
 	ready, stale := p.ready, time.Since(p.checked) >= x.interval
 	p.mu.RUnlock()
 	if !ready {
-		x.Warm(key, source)
+		x.warm(key, source)
 		return false
 	}
 	if stale {
@@ -220,24 +222,25 @@ func (x *Index) update(p *project, source Source) error {
 		}
 		navigator, _ := x.registry.Lookup(file.Path).Navigator()
 		symbols, _ := navigator.Symbols(source)
-		lines := splitLines(source)
 		indexed.entries = make([]entry, 0, len(symbols))
 		for _, symbol := range symbols {
-			indexed.entries = append(indexed.entries, entry{path: file.Path, symbol: symbol, snippet: snippet(lines, symbol.Position.Line)})
+			indexed.entries = append(indexed.entries, entry{path: file.Path, symbol: symbol})
 		}
 		return indexed
 	})
 	for index, file := range changed {
 		next[file.Path] = parsed[index]
 	}
-	byName := make(map[string]map[string][]entry)
+	// byName points into each file's entries rather than copying them.
+	byName := make(map[string]map[string][]*entry)
 	for _, file := range next {
 		names := byName[file.group]
 		if names == nil {
-			names = make(map[string][]entry)
+			names = make(map[string][]*entry)
 			byName[file.group] = names
 		}
-		for _, e := range file.entries {
+		for index := range file.entries {
+			e := &file.entries[index]
 			names[e.symbol.Name] = append(names[e.symbol.Name], e)
 		}
 	}
@@ -259,21 +262,27 @@ func (x *Index) busy() func() {
 		if x.active > 0 {
 			return
 		}
-		if x.release == nil {
-			x.release = time.AfterFunc(releaseDelay, x.releaseIdle)
-		} else {
-			x.release.Reset(releaseDelay)
-		}
+		x.release = restart(x.release, releaseDelay, func() { x.whenIdle(document.ReleaseSyntaxMemory) })
+		x.unload = restart(x.unload, unloadDelay, func() { x.whenIdle(document.UnloadGrammars) })
 	}
 }
 
-// releaseIdle frees parser memory when no navigation work is running.
-func (x *Index) releaseIdle() {
+func restart(timer *time.Timer, delay time.Duration, fire func()) *time.Timer {
+	if timer == nil {
+		return time.AfterFunc(delay, fire)
+	}
+	timer.Reset(delay)
+	return timer
+}
+
+// whenIdle runs free and returns the memory to the OS when no navigation
+// work is running.
+func (x *Index) whenIdle(free func()) {
 	x.activity.Lock()
 	idle := x.active == 0
 	x.activity.Unlock()
 	if idle {
-		document.ReleaseSyntaxMemory()
+		free()
 		// Pooled parsers survive one collection in sync.Pool's victim
 		// cache; the second, inside FreeOSMemory, frees them.
 		runtime.GC()
@@ -303,11 +312,98 @@ func parallel[T, R any](items []T, workers int, work func(T) R) []R {
 	return results
 }
 
+// finder lists a group's definitions of a name, within the paths a filter
+// accepts (nil accepts all).
+type finder func(name string, within func(path string) bool) []entry
+
+// finder reads the project index. Until the first build, which it starts,
+// finishes, it parses the files that mention a name instead, so the first
+// request after opening a project is complete rather than partial. A
+// filter narrows that scan before parsing, so an import parses only the
+// files its module can provide.
+func (x *Index) finder(key string, source Source, navigator document.Navigator) finder {
+	group := navigator.NavigationGroup()
+	if x.fresh(key, source) {
+		return func(name string, within func(string) bool) []entry {
+			return filtered(x.lookup(key, group, name), within)
+		}
+	}
+	// Reference matching calls this from parallel workers.
+	var mu sync.Mutex
+	all := map[string][]entry{}
+	return func(name string, within func(string) bool) []entry {
+		mu.Lock()
+		defer mu.Unlock()
+		if entries, ok := all[name]; ok {
+			return filtered(entries, within)
+		}
+		entries := x.scan(source, group, name, within)
+		if within == nil {
+			all[name] = entries
+		}
+		return entries
+	}
+}
+
+func filtered(entries []entry, within func(string) bool) []entry {
+	if within == nil {
+		return entries
+	}
+	var result []entry
+	for _, e := range entries {
+		if within(e.path) {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// scan parses the group's files within the filter that mention name for its
+// definitions.
+func (x *Index) scan(source Source, group, name string, within func(string) bool) []entry {
+	listed, err := source.Files()
+	if err != nil {
+		return nil
+	}
+	var candidates []File
+	for _, file := range listed {
+		if navigator, ok := x.registry.Lookup(file.Path).Navigator(); ok && navigator.NavigationGroup() == group && (within == nil || within(file.Path)) {
+			candidates = append(candidates, file)
+		}
+	}
+	needle := []byte(name)
+	perFile := parallel(candidates, maxWorkers, func(file File) []entry {
+		text, ok, err := source.Read(file.Path)
+		if err != nil || !ok || minified(text) || !containsWord(text, needle) {
+			return nil
+		}
+		navigator, _ := x.registry.Lookup(file.Path).Navigator()
+		symbols, _ := navigator.Symbols(text)
+		var entries []entry
+		for _, symbol := range symbols {
+			if symbol.Name == name {
+				entries = append(entries, entry{path: file.Path, symbol: symbol})
+			}
+		}
+		return entries
+	})
+	var entries []entry
+	for _, found := range perFile {
+		entries = append(entries, found...)
+	}
+	return entries
+}
+
 func (x *Index) lookup(key, group, name string) []entry {
 	p := x.project(key)
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return append([]entry{}, p.byName[group][name]...)
+	found := p.byName[group][name]
+	result := make([]entry, len(found))
+	for index, e := range found {
+		result[index] = *e
+	}
+	return result
 }
 
 // bind reads the file at name and resolves the identifier at a position.
@@ -348,13 +444,12 @@ func (x *Index) Definition(key string, source Source, name string, at document.P
 	case binding.Definition:
 		return here(binding.Position, "definition"), nil
 	}
-	result.Indexing = !x.fresh(key, source)
-	targets := x.targets(key, navigator, name, binding)
-	if len(targets) == 0 && binding.Import != nil && !result.Indexing {
+	targets := x.targets(x.finder(key, source, navigator), navigator, name, binding)
+	if len(targets) == 0 && binding.Import != nil {
 		// The module is outside the project, such as a standard library.
 		return here(binding.Import.Statement, "import"), nil
 	}
-	result.Locations = locations(targets)
+	result.Locations = locations(source, targets)
 	return result, nil
 }
 
@@ -362,21 +457,15 @@ func (x *Index) Definition(key string, source Source, name string, at document.P
 // Imports resolve through the module, falling back to the name across the
 // project for re-exports (barrel files). Unqualified names prefer
 // definitions the file shares (its package or module).
-func (x *Index) targets(key string, navigator document.Navigator, name string, binding document.Binding) []entry {
-	group := navigator.NavigationGroup()
+func (x *Index) targets(find finder, navigator document.Navigator, name string, binding document.Binding) []entry {
 	if imported := binding.Import; imported != nil {
-		var provided []entry
-		for _, candidate := range x.lookup(key, group, imported.Name) {
-			if navigator.Provides(name, imported.Module, candidate.path) {
-				provided = append(provided, candidate)
-			}
-		}
+		provided := find(imported.Name, func(path string) bool { return navigator.Provides(name, imported.Module, path) })
 		if len(provided) == 0 && imported.Name != "default" {
-			provided = preferMembers(x.lookup(key, group, imported.Name), false)
+			provided = preferMembers(find(imported.Name, nil), false)
 		}
 		return rank(provided, name)
 	}
-	candidates := rank(preferMembers(x.lookup(key, group, binding.Name), binding.Member), name)
+	candidates := rank(preferMembers(find(binding.Name, nil), binding.Member), name)
 	if binding.Member {
 		return candidates
 	}
@@ -438,10 +527,18 @@ func closeness(candidate, from string) int {
 	return shared
 }
 
-func locations(entries []entry) []Location {
+func locations(source Source, entries []entry) []Location {
 	result := make([]Location, 0, min(len(entries), maxDefinitions))
+	lines := map[string][]string{}
 	for _, e := range entries[:min(len(entries), maxDefinitions)] {
-		result = append(result, Location{Path: e.path, Line: e.symbol.Position.Line, Column: e.symbol.Position.Column, Kind: e.symbol.Kind, Snippet: e.snippet})
+		text, ok := lines[e.path]
+		if !ok {
+			if read, readable, err := source.Read(e.path); err == nil && readable {
+				text = splitLines(read)
+			}
+			lines[e.path] = text
+		}
+		result = append(result, Location{Path: e.path, Line: e.symbol.Position.Line, Column: e.symbol.Position.Column, Kind: e.symbol.Kind, Snippet: snippet(text, e.symbol.Position.Line)})
 	}
 	return result
 }
@@ -479,13 +576,13 @@ func (x *Index) References(ctx context.Context, key string, source Source, name 
 	}
 
 	group := navigator.NavigationGroup()
+	find := x.finder(key, source, navigator)
 	var targets []entry
 	if !binding.Member {
-		result.Indexing = !x.fresh(key, source)
 		if binding.Definition {
 			targets = []entry{{path: name, symbol: document.Symbol{Name: symbol, Position: binding.Position}}}
 		} else {
-			targets = x.targets(key, navigator, name, binding)
+			targets = x.targets(find, navigator, name, binding)
 		}
 	}
 	// reaches reports whether an occurrence in file can name one of the
@@ -511,7 +608,7 @@ func (x *Index) References(ctx context.Context, key string, source Source, name 
 			}
 		}
 		// A module that defines nothing by this name may re-export it.
-		return occurrence.Module != "" && !x.moduleDefines(key, navigator, file, occurrence.Module, symbol)
+		return occurrence.Module != "" && !moduleDefines(find, navigator, file, occurrence.Module, symbol)
 	}
 
 	listed, err := source.Files()
@@ -609,8 +706,8 @@ func nameRune(r rune) bool {
 
 // moduleDefines reports whether a module imported from file defines name in
 // an indexed file.
-func (x *Index) moduleDefines(key string, navigator document.Navigator, file, module, name string) bool {
-	for _, candidate := range x.lookup(key, navigator.NavigationGroup(), name) {
+func moduleDefines(find finder, navigator document.Navigator, file, module, name string) bool {
+	for _, candidate := range find(name, nil) {
 		if navigator.Provides(file, module, candidate.path) {
 			return true
 		}
@@ -637,7 +734,7 @@ func snippet(lines []string, line int) string {
 	}
 	text := strings.TrimSpace(strings.TrimSuffix(lines[line-1], "\r"))
 	if utf8.RuneCountInString(text) <= maxSnippet {
-		return text
+		return strings.Clone(text)
 	}
 	return string([]rune(text)[:maxSnippet]) + "…"
 }

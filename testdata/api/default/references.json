@@ -1,6 +1,5 @@
 {
   "symbol": "Format",
-  "indexing": false,
   "locations": [
     {
       "path": "navigation/greet.go",
