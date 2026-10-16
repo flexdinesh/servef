@@ -7,7 +7,7 @@ function documentPage(selected: string, documentType: Record<string, unknown>, o
   return {
     content: "", source: "", sourceLines: [], empty: false, error: "", fileCount: 1, fileSize: 0, hasFile: true,
     roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected, warnings: [], previewError: "", filenamePatterns: ["*"], documentType,
-    binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+    navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name, path: selected, fileType: String(documentType.id), isDir: false, open: false, selected: true, children: [] }],
     ...overrides,
   }
@@ -115,7 +115,7 @@ test("undecodable images explain the failure", async ({ page }) => {
 test("large files show Source with a warning and disable preview", async ({ page }) => {
   const markdown = {
     id: "markdown", label: "Markdown", extensions: [".md"], filenames: [], language: "markdown",
-    previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false, navigable: false,
+    previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=big.md`, (route) => route.fulfill({ json: documentPage("big.md", markdown, {
     source: "# Big\n", sourceLines: ["# Big"], fileSize: 6_500_000, previewDisabled: true,
@@ -134,7 +134,7 @@ test("large files show Source with a warning and disable preview", async ({ page
 test("very large files also note search exclusion and disable Format", async ({ page }) => {
   const json = {
     id: "json", label: "JSON", extensions: [".json"], filenames: [], language: "json",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: true, navigable: false,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
   }
   await page.route(`**/api/page?project=${rootParam}&path=huge.json`, (route) => route.fulfill({ json: documentPage("huge.json", json, {
     source: "{}\n", sourceLines: ["{}"], fileSize: 9_437_184, previewDisabled: true, searchExcluded: true,
@@ -147,7 +147,7 @@ test("very large files also note search exclusion and disable Format", async ({ 
 test("files over the display cap open to a note without views", async ({ page }) => {
   const text = {
     id: "text", label: "Plain text", extensions: [], filenames: [], language: "plaintext",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=enormous.log`, (route) => route.fulfill({ json: documentPage("enormous.log", text, {
     fileSize: 41_943_040, tooLarge: true, previewDisabled: true, searchExcluded: true,

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { definitionOutcome, emptyMessage, groupLocations, identifierAt, navigationQuery, navigationTitle } from "./code-navigation.ts"
+import { definitionOutcome, emptyMessage, groupLocations, identifierAt, navigationQuery, navigationTitle, navigationEligibility, resultNotice } from "./code-navigation.ts"
 import type { NavigationLocation, NavigationResult } from "./navigation-contract.ts"
 
 function location(path: string, line: number, column: number, kind = "function"): NavigationLocation {
-  return { path, line, column, kind, snippet: "" }
+  return { path, line, column, endLine: line, endColumn: column + 6, kind, snippet: "" }
 }
 
 function result(locations: NavigationLocation[], symbol = "Format"): NavigationResult {
-  return { symbol, locations, provider: "syntax" }
+  return { symbol, locations, server: "gopls", filtered: 0, truncated: false }
 }
 
 test("identifierAt finds the word under a column, including its trailing edge", () => {
@@ -28,19 +28,18 @@ test("identifierAt finds the word under a column, including its trailing edge", 
 
 test("one definition opens, several are chosen, none is reported", () => {
   const at = { line: 6, column: 8 }
-  const word = { start: 8, end: 14 }
   const target = location("navigation/format.go", 6, 5)
-  assert.deepEqual(definitionOutcome(result([target]), "navigation/greet.go", at, word), { kind: "open", location: target })
+  assert.deepEqual(definitionOutcome(result([target]), "navigation/greet.go", at), { kind: "open", location: target })
   const several = [target, location("other/format.go", 2, 5)]
-  assert.deepEqual(definitionOutcome(result(several), "navigation/greet.go", at, word), { kind: "choose", locations: several })
-  assert.deepEqual(definitionOutcome(result([]), "navigation/greet.go", at, word), { kind: "none" })
+  assert.deepEqual(definitionOutcome(result(several), "navigation/greet.go", at), { kind: "choose", locations: several })
+  assert.deepEqual(definitionOutcome(result([]), "navigation/greet.go", at), { kind: "none" })
 })
 
 test("a definition at the clicked word shows its references, as VS Code does", () => {
   const self = location("navigation/format.go", 6, 5)
-  assert.deepEqual(definitionOutcome(result([self]), "navigation/format.go", { line: 6, column: 5 }, { start: 5, end: 11 }), { kind: "references" })
+  assert.deepEqual(definitionOutcome(result([self]), "navigation/format.go", { line: 6, column: 5 }), { kind: "references" })
   // Another word on the same line is not the definition itself.
-  assert.deepEqual(definitionOutcome(result([self]), "navigation/format.go", { line: 6, column: 12 }, { start: 12, end: 17 }), { kind: "open", location: self })
+  assert.deepEqual(definitionOutcome(result([self]), "navigation/format.go", { line: 6, column: 12 }), { kind: "open", location: self })
 })
 
 test("groupLocations keeps server order within and across files", () => {
@@ -57,5 +56,26 @@ test("navigation queries and messages", () => {
   assert.equal(navigationTitle("definition", "Format", 1), "1 definition of Format")
   assert.equal(emptyMessage("definition", result([])), "No definition found for Format.")
   assert.equal(emptyMessage("references", result([])), "No references found for Format.")
-  assert.match(emptyMessage("definition", result([], "")), /No symbol here/)
+  assert.match(emptyMessage("definition", result([], "")), /No results at this position/)
+})
+
+test("navigation eligibility follows Source, catalog, settings, and file policy", () => {
+  assert.match(navigationEligibility(false, true, true, null), /Source/)
+  assert.match(navigationEligibility(true, false, true, null), /configured/)
+  assert.match(navigationEligibility(true, true, false, null), /off/)
+  assert.equal(navigationEligibility(true, true, true, null), "")
+  assert.equal(navigationEligibility(true, true, true, { supported: true, enabled: true, eligible: false, reason: "File is ignored.", server: null }), "File is ignored.")
+})
+
+test("filtered and truncated results explain project confinement", () => {
+  const response = { ...result([]), filtered: 2, truncated: true }
+  assert.match(emptyMessage("definition", response), /outside the browsable project scope/)
+  assert.match(resultNotice(response), /2 results.*omitted/)
+  assert.match(resultNotice(response), /truncated/)
+})
+
+test("self-definition uses the language server range, including multiple lines", () => {
+  const target = { ...location("a.go", 2, 4), endLine: 4, endColumn: 3 }
+  assert.deepEqual(definitionOutcome(result([target]), "a.go", { line: 3, column: 0 }), { kind: "references" })
+  assert.deepEqual(definitionOutcome(result([target]), "a.go", { line: 4, column: 3 }), { kind: "open", location: target })
 })

@@ -1,5 +1,7 @@
 {
-  "roots": ["/home/user/markdown"],
+  "roots": [
+    "/home/user/markdown"
+  ],
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
@@ -131,8 +133,7 @@
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
-    "formattable": false,
-    "navigable": false
+    "formattable": false
   },
   "binary": false,
   "tooLarge": false,
@@ -142,5 +143,6 @@
     "2026-10-12T09:00:00Z info server started",
     "2026-10-12T09:00:01Z info indexed 42 files"
   ],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": false
 }

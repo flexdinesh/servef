@@ -1,5 +1,7 @@
 {
-  "roots": ["/home/user/markdown"],
+  "roots": [
+    "/home/user/markdown"
+  ],
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
@@ -133,13 +135,13 @@
     "previewKind": "image",
     "previewLabel": "Preview",
     "defaultMode": "preview",
-    "formattable": false,
-    "navigable": false
+    "formattable": false
   },
   "binary": true,
   "tooLarge": false,
   "previewDisabled": false,
   "searchExcluded": true,
   "sourceLines": [],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": false
 }

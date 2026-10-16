@@ -11,12 +11,9 @@ import (
 )
 
 func NewJavaScript() Handler {
-	return navigableFormattedCode{
-		FormattedCodeHandler: FormattedCodeHandler{
-			CodeHandler:  CodeHandler{Definition: Type{ID: "javascript", Label: "JavaScript", Extensions: []string{".js", ".mjs", ".cjs"}, Language: "javascript", DefaultMode: "source"}},
-			FormatSource: formatJavaScript,
-		},
-		syntaxNavigator: javaScriptNavigator(javaScriptGrammar),
+	return FormattedCodeHandler{
+		CodeHandler:  CodeHandler{Definition: Type{ID: "javascript", Label: "JavaScript", Extensions: []string{".js", ".mjs", ".cjs"}, Language: "javascript", DefaultMode: "source"}},
+		FormatSource: formatJavaScript,
 	}
 }
 

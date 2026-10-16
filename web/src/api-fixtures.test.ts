@@ -94,18 +94,18 @@ test("contract validators reject removed and malformed fields", async () => {
   assert.equal(isFormatResult({ formattedLines: ["ok", 1] }), false)
 })
 
-test("navigation contract validators reject unknown providers and states", async () => {
+test("navigation contract validators reject malformed ranges and states", async () => {
   const definition = await fixture("definition.json")
   assert.ok(isNavigationResult(definition))
-  assert.equal(isNavigationResult({ ...definition, provider: "lsp" }), false)
+  assert.equal(isNavigationResult({ ...definition, filtered: -1 }), false)
   assert.equal(isNavigationResult({ ...definition, server: 1 }), false)
-  assert.equal(isNavigationResult({ ...definition, provider: "language-server", server: "gopls" }), true)
+  assert.equal(isNavigationResult({ ...definition, locations: [{ path: "a.go", line: 0, column: 0, endLine: 1, endColumn: 1, kind: "", snippet: "" }] }), false)
   const status = await fixture("navigation-status.json")
   assert.ok(isNavigationStatus(status))
   assert.ok(status.server)
   assert.equal(isNavigationStatus({ ...status, server: { ...status.server, state: "running" } }), false)
   assert.equal(isNavigationStatus({ ...status, server: { ...status.server, install: [{ label: "Go" }] } }), false)
-  assert.equal(isNavigationStatus({ ...status, provider: "", server: null }), true)
+  assert.equal(isNavigationStatus({ ...status, supported: false, eligible: false, server: null }), true)
 })
 
 test("project contract validators reject inconsistent availability", async () => {

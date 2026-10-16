@@ -1,5 +1,7 @@
 {
-  "roots": ["/home/user/markdown"],
+  "roots": [
+    "/home/user/markdown"
+  ],
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
@@ -127,8 +129,7 @@
     "previewKind": "markdown",
     "previewLabel": "Preview",
     "defaultMode": "source",
-    "formattable": false,
-    "navigable": false
+    "formattable": false
   },
   "binary": false,
   "tooLarge": false,
@@ -139,5 +140,6 @@
     "",
     "This page is served by the frontend-only fixture API."
   ],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": false
 }

@@ -12,9 +12,8 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - `cmd/` owns CLI validation, session configuration, and application startup.
 - `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
-- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, document-link policy, and per-language syntax navigation (tree-sitter). Handlers receive bytes/context; never perform filesystem or HTTP work.
-- `internal/navigation/` owns the in-memory per-project symbol index, definition ranking, and reference matching. It reads files through a `Source` and delegates syntax to `document.Navigator`.
-- `internal/lsp/` owns language-server data (`Builtins()`), binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` maps them to project files and falls back to syntax navigation.
+- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
 - React owns interaction and presentation. Use server metadata for file families and view capabilities; never duplicate extension detection in the UI.
@@ -32,14 +31,14 @@ Key files:
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, all scoped by `project`; `/api/projects`, `/api/directories`) |
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
-| Code navigation | `internal/document/navigation.go`, `syntax.go`, `navigation_go.go`, `navigation_javascript.go`, `internal/navigation/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0015-code-navigation.md` |
-| Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0017-language-servers.md` |
+| Code navigation | `internal/lsp/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
+| Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
 | Explorer filter | `web/src/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
 
 ## Patterns
 
 - Scope vs presentation: `--filename` decides which files exist; the registry decides how they render. Never couple them.
-- Capabilities over type switches: the server declares `previewKind`, `formattable`, `navigable`, `binary`, `previewDisabled`, `searchExcluded`, `tooLarge`; the UI derives modes and views from them in `document-view.ts`.
+- Capabilities over type switches: the server declares `previewKind`, `formattable`, page-level `navigationSupported`, `binary`, `previewDisabled`, `searchExcluded`, `tooLarge`; the UI derives modes and views from them in `document-view.ts`.
 - Optional interfaces: add behavior as a small interface (e.g. `Formatter`) that the registry detects and reports, not as flags handlers must remember.
 - One composition point: `Builtins()` lists every family explicitly; a family's metadata is data, its behavior is its handler.
 - Fail closed at startup: invalid registrations panic in `Builtins()`; invalid CLI input errors before serving.
@@ -48,7 +47,7 @@ Key files:
 
 ## Contracts
 
-- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Code navigation is the optional `document.Navigator` capability; the registry derives `navigable` from it.
+- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Language-server support is composed by web from `lsp.Builtins()` as page-level `navigationSupported`; document handlers know no code-navigation behavior.
 - Declare extensions/filenames, language, preview kind/label, and default mode explicitly. Preview kinds are `markdown` and `image`; types without one default to Source.
 - Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, unknown Chroma languages, and invalid view policies.
 - Treat handler output as a contract: escape file text in preview/highlight HTML; leave input bytes unchanged; preserve source and search access on preview errors.
@@ -65,7 +64,7 @@ Key files:
 
 ## Encapsulation
 
-- Keep parsing, formatting, search extraction, and format-specific navigation inside the owning handler. Share highlighting and code-view behavior through existing document primitives.
+- Keep parsing, formatting, and search extraction inside the owning handler. Keep code intelligence in installed language servers. Share highlighting and code-view behavior through existing document primitives.
 - Keep filesystem safety in `internal/files/`; renderers must not bypass indexed-path resolution.
 - Keep UI filter state separate from server scope and document/tab state. Consume declared capabilities rather than inspecting filenames or inferring behavior from rendered HTML.
 - Expose semantic operations through package/component contracts. Keep parser/renderer internals private; do not widen APIs solely for tests.
@@ -76,9 +75,10 @@ Key files:
 - Malformed files remain readable and searchable. Highlighting falls back to escaped text when a language is unknown or tokenization fails or panics.
 - Binary files (NUL in the first 8000 bytes) send no source and skip search. Over 4 MiB: no highlighting, format, or non-image preview. Over 8 MiB: also skip search. Over 32 MiB (non-image): not read; `tooLarge` note only.
 - CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
-- Gitignored files stay browsable in the tree but are excluded from content search and the navigation index.
-- Code navigation is Source-only and name-based (no type checking); follow VS Code bindings. Over 4 MiB or binary: no symbols. Minified files (a line over 1000 bytes early on): no symbols. Index on first use; keep no file text in the index; keep parse concurrency bounded and release parser memory and grammars when idle (tree-sitter arenas dominate memory). Memory footprint is a priority: measure RSS before and after navigation changes.
-- Language servers are opt-in per browser (`X-Servef-Language-Servers: on`), never started by status requests, stopped when idle, and always backed by syntax navigation. Keep only in-project, indexed, non-ignored locations.
+- Gitignored files stay browsable in the tree but are excluded from content search and returned navigation locations.
+- Code navigation is Source-only and LSP-only. Follow VS Code bindings. Binary files and files over 4 MiB do not navigate. No local parsing, symbol index, import guesses, or syntax fallback. Keep only indexed, in-scope, non-ignored project locations; preserve UTF-16 ranges.
+- Language servers are enabled by default per browser, authorized per request with `X-Servef-Language-Servers: on`, started only by navigation, stopped after 10 idle minutes, and closed with servef. Status requests never start servers. Show unsupported, missing, disabled, starting, ready, and failed states beside the language label; missing servers show host-specific install instructions.
+- Memory footprint is a priority: measure servef RSS and language-server process-tree RSS separately before and after navigation changes. Bound open documents, response sizes, startup/query time, and cancellation.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 
@@ -98,8 +98,8 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
    - `web/src/page-contract.ts` `previewKind` union and validator.
    - `web/src/document-view.ts` view kinds and `DocumentPane.tsx` rendering.
    - `testdata/api/default/` fixtures, `web/dev-server.ts` mocks, and a decision record.
-6. Code navigation: give the family a `syntaxNavigator` (grammar import from `gotreesitter/grammars/<lang>`, model builder, `Provides`, `Shares`) via `navigableSource`/`navigableCode`; `navigable` follows. Import one grammar package per language; no build tags.
-7. Language server: add an entry to `lsp.Builtins()` (binary, args, install commands, docs, family to LSP language ID) only for families that already navigate; `web.New` rejects others. No HTTP or frontend change is needed.
+6. Code navigation: add an explicit `lsp.Builtins()` server entry for registered text families (launch command/args, LSP language IDs, prerequisites, host-specific install recipes, docs). `web.New` validates composition. Use real negotiated definition/reference capabilities; a language server does not imply every method is supported. No handler, HTTP type switch, or frontend extension detection is needed.
+7. Test language-server behavior through `internal/lsp/lsptest` and a real-server smoke test when available. Include missing/failed/starting states, changes on disk, cancellation, and project confinement.
 8. Binary formats with a viewer: declare an empty `Language` only for image-like families and extend `Type.HasTextSource`/`/api/raw` deliberately; never serve raw bytes for text families.
 
 For every addition:
@@ -111,7 +111,7 @@ For every addition:
 ## Distribution
 
 - Production must run from one self-contained Go binary.
-- Node, pnpm, and other JavaScript tooling are build-time only; never require a system JavaScript runtime to run `servef`.
+- Node, pnpm, and other JavaScript tooling are build-time only for servef itself. Optional, user-installed language servers may require their own runtimes; browsing never requires them.
 - Build frontend assets before Go compilation and embed them through `internal/web/dist/`.
 - Bundle runtime assets locally. Do not require a CDN, frontend sidecar, or external asset server.
 

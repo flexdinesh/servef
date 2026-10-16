@@ -28,12 +28,12 @@ func Builtins() *Registry {
 		source("dockerfile", "Dockerfile", "docker", nil, "Dockerfile"),
 		source("makefile", "Makefile", "make", nil, "Makefile", "GNUmakefile"),
 		// Code.
-		navigableSource("go", "Go", "go", []string{".go"}, goNavigator()),
+		source("go", "Go", "go", []string{".go"}),
 		source("python", "Python", "python", []string{".py"}),
 		NewJavaScript(),
-		navigableSource("typescript", "TypeScript", "typescript", []string{".ts"}, javaScriptNavigator(typeScriptGrammar)),
-		navigableSource("tsx", "TSX", "typescript", []string{".tsx"}, javaScriptNavigator(tsxGrammar)),
-		navigableSource("jsx", "JSX", "react", []string{".jsx"}, javaScriptNavigator(javaScriptGrammar)),
+		source("typescript", "TypeScript", "typescript", []string{".ts"}),
+		source("tsx", "TSX", "typescript", []string{".tsx"}),
+		source("jsx", "JSX", "react", []string{".jsx"}),
 		source("rust", "Rust", "rust", []string{".rs"}),
 		source("java", "Java", "java", []string{".java"}),
 		source("kotlin", "Kotlin", "kotlin", []string{".kt"}),
@@ -61,20 +61,4 @@ func source(id, label, language string, extensions []string, filenames ...string
 
 func sourceCode(id, label, language string, extensions []string, filenames ...string) CodeHandler {
 	return CodeHandler{Definition: Type{ID: id, Label: label, Extensions: extensions, Filenames: filenames, Language: language, DefaultMode: "source"}}
-}
-
-// navigableCode is highlighted source with code navigation.
-type navigableCode struct {
-	CodeHandler
-	syntaxNavigator
-}
-
-func navigableSource(id, label, language string, extensions []string, navigator syntaxNavigator) Handler {
-	return navigableCode{CodeHandler: sourceCode(id, label, language, extensions), syntaxNavigator: navigator}
-}
-
-// navigableFormattedCode adds code navigation to formatted source.
-type navigableFormattedCode struct {
-	FormattedCodeHandler
-	syntaxNavigator
 }

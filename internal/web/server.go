@@ -18,7 +18,6 @@ import (
 	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
-	"github.com/flexdinesh/servef/internal/navigation"
 	"github.com/flexdinesh/servef/internal/projects"
 )
 
@@ -43,7 +42,7 @@ type Config struct {
 	Types     *document.Registry
 	Filenames files.NameFilter
 	// LanguageServers runs language servers for requests that opt in; nil
-	// uses the built-in servers for Types' navigable families. The App
+	// uses the built-in servers for Types' text families. The App
 	// closes it.
 	LanguageServers *lsp.Manager
 }
@@ -53,12 +52,11 @@ type App struct {
 	config Config
 	// roots are the canonical served roots; the browser keys stored state by
 	// them.
-	roots      []string
-	metrics    metricsCollector
-	openFile   func(string) (fs.File, error)
-	shell      string
-	navigation *navigation.Index
-	servers    *lsp.Manager
+	roots    []string
+	metrics  metricsCollector
+	openFile func(string) (fs.File, error)
+	shell    string
+	servers  *lsp.Manager
 }
 
 type pageData struct {
@@ -66,30 +64,31 @@ type pageData struct {
 	Project string   `json:"project"`
 	// ProjectUnavailable reports that the project itself could not be
 	// resolved, as opposed to a file within it.
-	ProjectUnavailable bool           `json:"projectUnavailable"`
-	RootName           string         `json:"rootName"`
-	Repository         string         `json:"repository"`
-	ProjectKind        projects.Kind  `json:"projectKind"`
-	Branch             string         `json:"branch"`
-	Worktrees          int            `json:"worktrees"`
-	Tree               []treeNode     `json:"tree"`
-	Selected           string         `json:"selected"`
-	Content            string         `json:"content"`
-	Source             string         `json:"source"`
-	FileSize           int64          `json:"fileSize"`
-	FileCount          int            `json:"fileCount"`
-	HasFile            bool           `json:"hasFile"`
-	Empty              bool           `json:"empty"`
-	Error              string         `json:"error"`
-	Warnings           []string       `json:"warnings"`
-	FilenamePatterns   []string       `json:"filenamePatterns"`
-	DocumentType       *document.Type `json:"documentType"`
-	Binary             bool           `json:"binary"`
-	TooLarge           bool           `json:"tooLarge"`
-	PreviewDisabled    bool           `json:"previewDisabled"`
-	SearchExcluded     bool           `json:"searchExcluded"`
-	SourceLines        []string       `json:"sourceLines"`
-	PreviewError       string         `json:"previewError"`
+	ProjectUnavailable  bool           `json:"projectUnavailable"`
+	RootName            string         `json:"rootName"`
+	Repository          string         `json:"repository"`
+	ProjectKind         projects.Kind  `json:"projectKind"`
+	Branch              string         `json:"branch"`
+	Worktrees           int            `json:"worktrees"`
+	Tree                []treeNode     `json:"tree"`
+	Selected            string         `json:"selected"`
+	Content             string         `json:"content"`
+	Source              string         `json:"source"`
+	FileSize            int64          `json:"fileSize"`
+	FileCount           int            `json:"fileCount"`
+	HasFile             bool           `json:"hasFile"`
+	Empty               bool           `json:"empty"`
+	Error               string         `json:"error"`
+	Warnings            []string       `json:"warnings"`
+	FilenamePatterns    []string       `json:"filenamePatterns"`
+	DocumentType        *document.Type `json:"documentType"`
+	NavigationSupported bool           `json:"navigationSupported"`
+	Binary              bool           `json:"binary"`
+	TooLarge            bool           `json:"tooLarge"`
+	PreviewDisabled     bool           `json:"previewDisabled"`
+	SearchExcluded      bool           `json:"searchExcluded"`
+	SourceLines         []string       `json:"sourceLines"`
+	PreviewError        string         `json:"previewError"`
 }
 
 type treeNode struct {
@@ -177,33 +176,55 @@ func New(config Config) (*App, error) {
 	if err := checkLanguageServers(config.LanguageServers.Servers(), config.Types); err != nil {
 		return nil, err
 	}
-	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell), navigation: navigation.New(config.Types), servers: config.LanguageServers}, nil
+	return &App{config: config, roots: roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers}, nil
 }
 
-// builtinServers lists the built-in servers whose families types navigates,
-// so custom registries get only the servers they can use.
+// builtinServers intersects each built-in server with the registered text families.
 func builtinServers(types *document.Registry) []lsp.Server {
+	text := map[string]bool{}
+	for _, family := range types.Types() {
+		text[family.ID] = family.HasTextSource()
+	}
 	var servers []lsp.Server
 	for _, server := range lsp.Builtins() {
-		if checkLanguageServers([]lsp.Server{server}, types) == nil {
+		families := map[string]string{}
+		for family, language := range server.Families {
+			if text[family] {
+				families[family] = language
+			}
+		}
+		if len(families) > 0 {
+			server.Families = families
 			servers = append(servers, server)
 		}
 	}
 	return servers
 }
 
-// checkLanguageServers fails closed on servers for families servef does not
-// navigate: servers add precision to syntax navigation, never new families.
+// checkLanguageServers rejects unknown, non-text, and ambiguously served families.
 func checkLanguageServers(servers []lsp.Server, types *document.Registry) error {
-	navigable := map[string]bool{}
-	for _, documentType := range types.Types() {
-		navigable[documentType.ID] = documentType.Navigable
+	text := map[string]bool{}
+	for _, family := range types.Types() {
+		text[family.ID] = family.HasTextSource()
 	}
+	covered := map[string]string{}
 	for _, server := range servers {
-		for family := range server.Families {
-			if !navigable[family] {
-				return fmt.Errorf("language server %s serves %q, which is not a navigable family", server.Name, family)
+		if len(server.WorkspaceFiles) > 0 {
+			if _, err := files.NewNameFilter(server.WorkspaceFiles); err != nil {
+				return fmt.Errorf("language server %s workspace files: %w", server.Name, err)
 			}
+		}
+		for family, language := range server.Families {
+			if !text[family] {
+				return fmt.Errorf("language server %s serves %q, which is not a registered text family", server.Name, family)
+			}
+			if language == "" {
+				return fmt.Errorf("language server %s has no language ID for %q", server.Name, family)
+			}
+			if previous, ok := covered[family]; ok {
+				return fmt.Errorf("language servers %s and %s both serve %q", previous, server.Name, family)
+			}
+			covered[family] = server.Name
 		}
 	}
 	return nil
@@ -767,6 +788,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			return data, http.StatusInternalServerError
 		}
 		data.DocumentType = &fileType
+		_, data.NavigationSupported = a.servers.ServerFor(fileType.ID)
 		data.FileSize = file.size
 		data.HasFile = true
 		data.Binary = file.binary

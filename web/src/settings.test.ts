@@ -27,21 +27,21 @@ test("font size accepts whole pixel values within range", () => {
 })
 
 test("stored settings keep valid values and default the rest", () => {
-  const off = { fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }
-  assert.deepEqual(parseSettings(null), off)
-  assert.deepEqual(parseSettings("not json"), off)
-  assert.deepEqual(parseSettings("[]"), off)
-  assert.deepEqual(parseSettings('{"fontSize":15}'), { ...off, fontSize: 15 })
-  assert.deepEqual(parseSettings('{"fontSize":99}'), off)
-  assert.deepEqual(parseSettings('{"fontSize":"15"}'), { ...off, fontSize: 15 })
-  assert.deepEqual(parseSettings('{"languageServers":"on"}'), { ...off, languageServers: "on" })
-  assert.deepEqual(parseSettings('{"languageServers":true}'), off)
+  const defaults = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }
+  assert.deepEqual(parseSettings(null), defaults)
+  assert.deepEqual(parseSettings("not json"), defaults)
+  assert.deepEqual(parseSettings("[]"), defaults)
+  assert.deepEqual(parseSettings('{"fontSize":15}'), { ...defaults, fontSize: 15 })
+  assert.deepEqual(parseSettings('{"fontSize":99}'), defaults)
+  assert.deepEqual(parseSettings('{"fontSize":"15"}'), { ...defaults, fontSize: 15 })
+  assert.deepEqual(parseSettings('{"languageServers":"off"}'), { ...defaults, languageServers: "off" })
+  assert.deepEqual(parseSettings('{"languageServers":true}'), defaults)
 })
 
 test("only values differing from defaults count as modified", () => {
-  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), [])
-  assert.deepEqual(modifiedSettings({ fontSize: 15, languageServers: "off" }), ["fontSize"])
-  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }), ["languageServers"])
+  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }), [])
+  assert.deepEqual(modifiedSettings({ fontSize: 15, languageServers: "on" }), ["fontSize"])
+  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), ["languageServers"])
 })
 
 test("ui scale is relative to the default font size", () => {

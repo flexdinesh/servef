@@ -13,17 +13,22 @@ const gopls: LanguageServerStatus = {
   docs: "",
   memory: 0,
   idleMinutes: 10,
+  capabilities: null,
 }
 
-function status(overrides: Partial<LanguageServerStatus>, provider: NavigationStatus["provider"] = "language-server", languageServers = true): NavigationStatus {
-  return { navigable: true, languageServers, provider, server: { ...gopls, ...overrides } }
+function status(overrides: Partial<LanguageServerStatus>, enabled = true): NavigationStatus {
+  return { supported: true, enabled, eligible: true, reason: "", server: { ...gopls, ...overrides } }
 }
 
-test("the status bar names the server only while it answers", () => {
-  assert.equal(providerLabel(status({ state: "ready" })), "gopls")
-  assert.equal(providerLabel(status({ state: "starting" })), "gopls…")
-  assert.equal(providerLabel(status({ state: "missing" }, "syntax")), "Syntax")
-  assert.equal(providerLabel({ navigable: true, languageServers: true, provider: "syntax", server: null }), "Syntax")
+test("status distinguishes unavailable, missing, disabled, installed and runtime states", () => {
+  assert.equal(providerLabel(null), "LSP unknown")
+  assert.equal(providerLabel(status({ state: "ready" })), "LSP ready")
+  assert.equal(providerLabel(status({ state: "starting" })), "LSP starting…")
+  assert.equal(providerLabel(status({ state: "missing" })), "LSP missing")
+  assert.equal(providerLabel(status({ state: "stopped" })), "LSP available")
+  assert.equal(providerLabel(status({ state: "failed" })), "LSP failed")
+  assert.equal(providerLabel(status({ state: "ready" }, false)), "LSP off")
+  assert.equal(providerLabel({ supported: false, enabled: true, eligible: false, reason: "", server: null }), "LSP unavailable")
 })
 
 test("server summaries explain each state", () => {
@@ -39,7 +44,7 @@ test("status polls only while a server starts or runs", () => {
   assert.equal(pollsServer(status({ state: "ready" })), true)
   assert.equal(pollsServer(status({ state: "starting" })), true)
   assert.equal(pollsServer(status({ state: "stopped" })), false)
-  assert.equal(pollsServer(status({ state: "ready" }, "language-server", false)), false)
+  assert.equal(pollsServer(status({ state: "ready" }, false)), false)
 })
 
 test("status queries ask for a refresh only on Check again", () => {

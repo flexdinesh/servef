@@ -2,19 +2,25 @@
   "symbol": "Format",
   "locations": [
     {
+      "path": "navigation/format.go",
+      "line": 6,
+      "column": 5,
+      "kind": "reference",
+      "snippet": "func Format(words ...string) string {",
+      "endLine": 6,
+      "endColumn": 11
+    },
+    {
       "path": "navigation/greet.go",
       "line": 6,
       "column": 8,
       "kind": "reference",
-      "snippet": "return Format(\"hello\", name)"
-    },
-    {
-      "path": "navigation/format.go",
-      "line": 6,
-      "column": 5,
-      "kind": "definition",
-      "snippet": "func Format(words ...string) string {"
+      "snippet": "return Format(\"hello\", name)",
+      "endLine": 6,
+      "endColumn": 14
     }
   ],
-  "provider": "syntax"
+  "server": "gopls",
+  "filtered": 0,
+  "truncated": false
 }

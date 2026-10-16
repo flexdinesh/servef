@@ -16,6 +16,7 @@ export const emptyPage: PageData = {
   projectUnavailable: false,
   filenamePatterns: [],
   documentType: null,
+  navigationSupported: false,
   binary: false,
   tooLarge: false,
   previewDisabled: false,

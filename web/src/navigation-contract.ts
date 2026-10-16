@@ -4,22 +4,19 @@ export interface NavigationLocation {
   path: string
   line: number
   column: number
+  endLine: number
+  endColumn: number
   kind: string
   snippet: string
 }
 
-// NavigationProvider is who answered: an installed language server, or
-// servef's built-in syntax navigation.
-export type NavigationProvider = "language-server" | "syntax"
-
-// NavigationResult answers /api/definition and /api/references. symbol is
-// empty when no identifier is at the position; server names the language
-// server that answered.
+// NavigationResult answers /api/definition and /api/references.
 export interface NavigationResult {
   symbol: string
   locations: NavigationLocation[]
-  provider: NavigationProvider
-  server?: string
+  server: string
+  filtered: number
+  truncated: boolean
 }
 
 export type LanguageServerState = "missing" | "stopped" | "starting" | "ready" | "failed"
@@ -27,6 +24,8 @@ export type LanguageServerState = "missing" | "stopped" | "starting" | "ready" |
 export interface LanguageServerInstall {
   label: string
   command: string
+  docs?: string
+  prerequisites?: string[]
 }
 
 // LanguageServerStatus describes a file family's language server. memory is
@@ -40,15 +39,14 @@ export interface LanguageServerStatus {
   docs: string
   memory: number
   idleMinutes: number
+  capabilities: { definition: boolean; references: boolean } | null
 }
 
-// NavigationStatus answers /api/navigation-status: who answers navigation
-// for a file. provider is empty when the file has no navigation; server is
-// null when its family has no language server.
 export interface NavigationStatus {
-  navigable: boolean
-  languageServers: boolean
-  provider: NavigationProvider | ""
+  supported: boolean
+  enabled: boolean
+  eligible: boolean
+  reason: string
   server: LanguageServerStatus | null
 }
 
@@ -56,21 +54,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-function isPosition(value: unknown): boolean {
+function isPosition(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
 }
 
 export function isNavigationLocation(value: unknown): value is NavigationLocation {
   return isRecord(value)
     && typeof value.path === "string"
-    && isPosition(value.line)
+    && isPosition(value.line) && value.line > 0
     && isPosition(value.column)
+    && isPosition(value.endLine) && value.endLine >= value.line
+    && isPosition(value.endColumn)
+    && (value.endLine > value.line || value.endColumn >= value.column)
     && typeof value.kind === "string"
     && typeof value.snippet === "string"
-}
-
-function isProvider(value: unknown): value is NavigationProvider {
-  return value === "language-server" || value === "syntax"
 }
 
 export function isNavigationResult(value: unknown): value is NavigationResult {
@@ -78,8 +75,9 @@ export function isNavigationResult(value: unknown): value is NavigationResult {
     && typeof value.symbol === "string"
     && Array.isArray(value.locations)
     && value.locations.every(isNavigationLocation)
-    && isProvider(value.provider)
-    && (value.server === undefined || typeof value.server === "string")
+    && typeof value.server === "string"
+    && isPosition(value.filtered)
+    && typeof value.truncated === "boolean"
 }
 
 function isServerState(value: unknown): value is LanguageServerState {
@@ -88,6 +86,8 @@ function isServerState(value: unknown): value is LanguageServerState {
 
 function isInstall(value: unknown): value is LanguageServerInstall {
   return isRecord(value) && typeof value.label === "string" && typeof value.command === "string"
+    && (value.docs === undefined || typeof value.docs === "string")
+    && (value.prerequisites === undefined || (Array.isArray(value.prerequisites) && value.prerequisites.every((item: unknown) => typeof item === "string")))
 }
 
 function isServerStatus(value: unknown): value is LanguageServerStatus {
@@ -101,12 +101,16 @@ function isServerStatus(value: unknown): value is LanguageServerStatus {
     && typeof value.docs === "string"
     && isPosition(value.memory)
     && isPosition(value.idleMinutes)
+    && (value.capabilities === null || (isRecord(value.capabilities)
+      && typeof value.capabilities.definition === "boolean"
+      && typeof value.capabilities.references === "boolean"))
 }
 
 export function isNavigationStatus(value: unknown): value is NavigationStatus {
   return isRecord(value)
-    && typeof value.navigable === "boolean"
-    && typeof value.languageServers === "boolean"
-    && (value.provider === "" || isProvider(value.provider))
+    && typeof value.supported === "boolean"
+    && typeof value.enabled === "boolean"
+    && typeof value.eligible === "boolean"
+    && typeof value.reason === "string"
     && (value.server === null || isServerStatus(value.server))
 }

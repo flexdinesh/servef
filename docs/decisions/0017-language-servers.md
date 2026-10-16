@@ -1,6 +1,6 @@
 # 0017: Language servers for code navigation
 
-- Status: Accepted
+- Status: Superseded for navigation by [0018](0018-lsp-only-navigation.md)
 - Date: 2026-10-16
 - Amends: [0015](0015-code-navigation.md), [0016](0016-navigation-memory.md)
 

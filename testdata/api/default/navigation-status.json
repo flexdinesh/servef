@@ -1,7 +1,4 @@
 {
-  "navigable": true,
-  "languageServers": true,
-  "provider": "syntax",
   "server": {
     "name": "gopls",
     "language": "Go",
@@ -10,15 +7,20 @@
     "install": [
       {
         "label": "Go",
-        "command": "go install golang.org/x/tools/gopls@latest"
-      },
-      {
-        "label": "Homebrew",
-        "command": "brew install gopls"
+        "command": "go install golang.org/x/tools/gopls@latest",
+        "docs": "https://go.dev/gopls/",
+        "prerequisites": [
+          "Go on PATH; add GOBIN or ~/go/bin to PATH"
+        ]
       }
     ],
     "docs": "https://go.dev/gopls/",
     "memory": 0,
-    "idleMinutes": 10
-  }
+    "idleMinutes": 10,
+    "capabilities": null
+  },
+  "supported": true,
+  "enabled": true,
+  "eligible": true,
+  "reason": ""
 }

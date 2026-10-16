@@ -2410,8 +2410,40 @@ article hr {
     display: none;
   }
 
+  .status-navigation {
+    display: block;
+  }
+
+  .status-navigation .status-navigation-panel {
+    position: fixed;
+    right: var(--space-2);
+    bottom: calc(var(--status-height) + var(--space-1));
+    left: auto;
+    width: calc(100vw - var(--space-4));
+    max-height: calc(100dvh - var(--status-height) - var(--space-4));
+    overflow: auto;
+  }
+
+  .status-navigation .navigation-install-copy {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .status-navigation .navigation-status-actions > * {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
   .status-search {
+    width: var(--status-height);
     min-height: var(--status-height);
+    justify-content: center;
+    padding: 0;
+  }
+
+  .status-search span {
+    display: none;
   }
 
   .status-copy-path {
@@ -2624,7 +2656,8 @@ article hr {
   color: var(--color-text-muted);
 }
 
-.status-navigation summary[data-provider="language-server"] {
+.status-navigation summary[data-state="ready"],
+.status-navigation summary[data-state="stopped"] {
   color: var(--color-text-primary);
 }
 
@@ -2659,10 +2692,15 @@ article hr {
 }
 
 .navigation-install code {
-  overflow: hidden;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--font-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.navigation-install-prerequisites {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
 }
 
 .navigation-install-copy {

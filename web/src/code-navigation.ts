@@ -1,4 +1,4 @@
-import type { NavigationLocation, NavigationResult } from "./navigation-contract.ts"
+import type { NavigationLocation, NavigationResult, NavigationStatus } from "./navigation-contract.ts"
 
 // SourcePosition addresses a character in Source: a 1-based line and a
 // 0-based UTF-16 column into the line's text.
@@ -44,13 +44,13 @@ export type DefinitionOutcome =
 
 // definitionOutcome follows VS Code: one definition opens; several open a
 // list; a definition that is the clicked word itself shows its references.
-export function definitionOutcome(result: NavigationResult, path: string, position: SourcePosition, word: ColumnRange | null): DefinitionOutcome {
+export function definitionOutcome(result: NavigationResult, path: string, position: SourcePosition): DefinitionOutcome {
   const [first, ...rest] = result.locations
   if (!first) return { kind: "none" }
   if (rest.length > 0) return { kind: "choose", locations: result.locations }
-  const start = word?.start ?? position.column
-  const end = word?.end ?? position.column + 1
-  if (first.path === path && first.line === position.line && first.column >= start && first.column < end) {
+  if (first.path === path
+    && (position.line > first.line || (position.line === first.line && position.column >= first.column))
+    && (position.line < first.endLine || (position.line === first.endLine && position.column < first.endColumn))) {
     return { kind: "references" }
   }
   return { kind: "open", location: first }
@@ -82,11 +82,28 @@ export type NavigationKind = "definition" | "references"
 // navigationTitle heads the result list.
 export function navigationTitle(kind: NavigationKind, symbol: string, count: number): string {
   const noun = kind === "definition" ? (count === 1 ? "definition" : "definitions") : (count === 1 ? "reference" : "references")
-  return `${count} ${noun} ${kind === "definition" ? "of" : "to"} ${symbol}`
+  return symbol ? `${count} ${noun} ${kind === "definition" ? "of" : "to"} ${symbol}` : `${count} ${noun}`
 }
 
 // emptyMessage explains a result without locations.
 export function emptyMessage(kind: NavigationKind, result: NavigationResult): string {
-  if (result.symbol === "") return "No symbol here. Ctrl/Cmd+click a name in code."
+  if (result.filtered > 0) return "The language server found results outside the browsable project scope."
+  if (result.symbol === "") return "No results at this position."
   return kind === "definition" ? `No definition found for ${result.symbol}.` : `No references found for ${result.symbol}.`
+}
+
+// Navigation eligibility is independent of a server's installed/running state.
+export function navigationEligibility(source: boolean, supported: boolean, enabled: boolean, status: NavigationStatus | null): string {
+  if (!source) return "Code navigation works in the Source view."
+  if (!supported) return "No language server is configured for this language."
+  if (!enabled) return "Language servers are off. Turn them on in Settings."
+  if (status && !status.eligible) return status.reason || "This file is unavailable for code navigation."
+  return ""
+}
+
+export function resultNotice(result: NavigationResult): string {
+  return [
+    result.filtered > 0 ? `${result.filtered} result${result.filtered === 1 ? "" : "s"} outside the browsable project scope omitted.` : "",
+    result.truncated ? "Results truncated. Narrow the query in your editor for more results." : "",
+  ].filter(Boolean).join(" ")
 }

@@ -1,6 +1,6 @@
 # 0016: Navigation memory
 
-- Status: Partially superseded by 0017
+- Status: Superseded for navigation by [0018](0018-lsp-only-navigation.md)
 - Date: 2026-10-16
 - Amends: [0015](0015-code-navigation.md)
 

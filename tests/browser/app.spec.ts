@@ -264,7 +264,7 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
   await expect(options.nth(1)).toHaveAccessibleName("Settings: Theme, System")
   await expect(options.nth(2)).toHaveAccessibleName("Settings: Font Size, 13px")
-  await expect(options.nth(3)).toHaveAccessibleName("Settings: Language Servers, Off")
+  await expect(options.nth(3)).toHaveAccessibleName("Settings: Language Servers, On")
   await expect(options.nth(4)).toHaveAccessibleName("Navigation: Go to Definition, F12")
   await expect(options.nth(5)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
   await expect(options.first()).toHaveAttribute("aria-selected", "true")
@@ -586,7 +586,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
   await expect(status).toContainText("26 files")
   await expect(status.locator(".status-file-type")).toHaveText("Markdown")
-  await status.locator("summary").click()
+  await status.locator(".status-explorer summary").click()
   if (process.platform === "linux") {
     await expect(status).toContainText("CPU")
     await expect(status).toContainText("Resident RAM")

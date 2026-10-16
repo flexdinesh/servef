@@ -1,8 +1,10 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,17 +13,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
-	"github.com/flexdinesh/servef/internal/navigation"
 )
 
-// navigationSource reads a project's navigable files through one scan, taken
-// on first use: CLI scope applies, gitignored files are left out, and reads
-// stop at the preview limit, past which files are not highlighted or parsed
-// either. Create one per request or index build.
+// navigationSource shares one request's CLI-scoped scan. Every read and
+// returned location passes indexed-path resolution and eligibility checks.
 type navigationSource struct {
 	app   *App
 	root  string
@@ -39,179 +41,267 @@ func (s *navigationSource) scan() (*files.Index, error) {
 	return s.index, s.err
 }
 
-func (s *navigationSource) Files() ([]navigation.File, error) {
+// Passive status and capped results inspect only metadata and the binary prefix.
+func (s *navigationSource) readFile(name string, source bool) ([]byte, string) {
+	if source {
+		text, _, reason := s.snapshot(name)
+		return text, reason
+	}
 	index, err := s.scan()
 	if err != nil {
-		return nil, err
-	}
-	result := make([]navigation.File, 0, len(index.Files))
-	for _, name := range index.Files {
-		if index.Ignored(name) {
-			continue
-		}
-		if _, ok := s.app.config.Types.Lookup(name).Navigator(); !ok {
-			continue
-		}
-		resolved, err := index.Resolve(name)
-		if err != nil {
-			continue
-		}
-		info, err := os.Stat(resolved)
-		if err != nil {
-			continue
-		}
-		result = append(result, navigation.File{Path: name, Size: info.Size(), Modified: info.ModTime()})
-	}
-	return result, nil
-}
-
-func (s *navigationSource) Read(name string) ([]byte, bool, error) {
-	index, err := s.scan()
-	if err != nil {
-		return nil, false, err
-	}
-	if index.Ignored(name) {
-		return nil, false, nil
+		return nil, "Could not scan the project."
 	}
 	resolved, err := index.Resolve(name)
 	if err != nil {
-		return nil, false, nil
+		return nil, "That file is unavailable."
 	}
-	file, err := s.app.readIndexed(resolved, s.app.config.Types.Lookup(name).Type(), document.PreviewLimit)
-	if err != nil || file.binary || file.tooLarge {
-		return nil, false, nil
+	if index.Ignored(name) {
+		return nil, "Gitignored files do not support code navigation."
 	}
-	return file.source, true, nil
+	family := s.app.config.Types.Lookup(name).Type()
+	file, err := s.app.openFile(resolved)
+	if err != nil {
+		return nil, "That file is unavailable."
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, "That file is unavailable."
+	}
+	if info.Size() > document.PreviewLimit {
+		return nil, "Files over 4 MiB do not support code navigation."
+	}
+	if !family.HasTextSource() {
+		return nil, "Binary files do not support code navigation."
+	}
+	prefix, err := io.ReadAll(io.LimitReader(file, document.SniffLength))
+	if err != nil {
+		return nil, "That file is unavailable."
+	}
+	if document.IsBinary(prefix) {
+		return nil, "Binary files do not support code navigation."
+	}
+	return nil, ""
 }
 
-// languageServerHeader opts a request into language servers. It is a header
-// rather than a query parameter so other sites cannot start servers through
-// the browser: sending it cross-origin needs a CORS preflight servef never
-// grants.
+// snapshot pairs text with the descriptor's change stamp. A file changed or
+// replaced while being read is retried, so its overlay never receives newer
+// metadata alongside older bytes.
+func (s *navigationSource) snapshot(name string) ([]byte, lsp.File, string) {
+	index, err := s.scan()
+	if err != nil {
+		return nil, lsp.File{}, "Could not scan the project."
+	}
+	if index.Ignored(name) {
+		return nil, lsp.File{}, "Gitignored files do not support code navigation."
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		resolved, err := index.Resolve(name)
+		if err != nil {
+			return nil, lsp.File{}, "That file is unavailable."
+		}
+		text, stamp, reason, changed := s.readSnapshot(resolved, s.app.config.Types.Lookup(name).Type())
+		if !changed {
+			return text, stamp, reason
+		}
+	}
+	return nil, lsp.File{}, "That file changed while being read. Try again."
+}
+
+func (s *navigationSource) readSnapshot(resolved string, family document.Type) ([]byte, lsp.File, string, bool) {
+	file, err := s.app.openFile(resolved)
+	if err != nil {
+		return nil, lsp.File{}, "That file is unavailable.", false
+	}
+	defer func() { _ = file.Close() }()
+	before, err := file.Stat()
+	if err != nil {
+		return nil, lsp.File{}, "That file is unavailable.", false
+	}
+	if before.Size() > document.PreviewLimit {
+		return nil, lsp.File{}, "Files over 4 MiB do not support code navigation.", false
+	}
+	if !family.HasTextSource() {
+		return nil, lsp.File{}, "Binary files do not support code navigation.", false
+	}
+	text, err := io.ReadAll(io.LimitReader(file, document.PreviewLimit+1))
+	if err != nil {
+		return nil, lsp.File{}, "That file is unavailable.", false
+	}
+	after, err := file.Stat()
+	if err != nil {
+		return nil, lsp.File{}, "That file is unavailable.", false
+	}
+	current, err := os.Stat(resolved)
+	if err != nil {
+		return nil, lsp.File{}, "That file is unavailable.", false
+	}
+	if !os.SameFile(before, current) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) || after.Size() != current.Size() || !after.ModTime().Equal(current.ModTime()) || int64(len(text)) != after.Size() {
+		return nil, lsp.File{}, "", true
+	}
+	if document.IsBinary(text[:min(len(text), document.SniffLength)]) {
+		return nil, lsp.File{}, "Binary files do not support code navigation.", false
+	}
+	return text, lsp.File{Path: resolved, Size: after.Size(), Modified: after.ModTime()}, "", false
+}
+
+// The header authorizes process startup. Cross-origin browser requests need
+// a CORS preflight, which servef never grants.
 const languageServerHeader = "X-Servef-Language-Servers"
 
 const (
-	// serverStartWait is how long a request waits for a starting server
-	// before answering by name; the server keeps starting for later ones.
-	serverStartWait = 2 * time.Second
-	// serverRequestTimeout bounds one query to a ready server.
-	serverRequestTimeout = 10 * time.Second
-	maxServerDefinitions = 50
-	maxServerReferences  = 1000
-)
-
-const (
-	providerServer = "language-server"
-	providerSyntax = "syntax"
+	serverStartWait          = 20 * time.Second
+	serverRequestTimeout     = 10 * time.Second
+	navigationRequestTimeout = 25 * time.Second
+	maxServerDefinitions     = 50
+	maxServerReferences      = 1000
 )
 
 func languageServersEnabled(r *http.Request) bool {
 	return r.Header.Get(languageServerHeader) == "on"
 }
 
-// navigationResponse is a navigation result and who answered it.
-type navigationResponse struct {
-	navigation.Result
-	// Provider is providerServer or providerSyntax.
-	Provider string `json:"provider"`
-	// Server names the language server that answered.
-	Server string `json:"server,omitempty"`
+type navigationLocation struct {
+	Path      string `json:"path"`
+	Line      int    `json:"line"`
+	Column    int    `json:"column"`
+	EndLine   int    `json:"endLine"`
+	EndColumn int    `json:"endColumn"`
+	Kind      string `json:"kind"`
+	Snippet   string `json:"snippet"`
 }
 
-// serveNavigation answers /api/definition and /api/references. line is
-// 1-based; column counts UTF-16 code units from 0, as the browser does.
-// Requests that opt in ask the family's language server first and fall back
-// to syntax navigation when it is missing, starting, failing, or points only
-// outside the project.
+type navigationResponse struct {
+	Symbol    string               `json:"symbol"`
+	Locations []navigationLocation `json:"locations"`
+	Server    string               `json:"server"`
+	Filtered  int                  `json:"filtered"`
+	Truncated bool                 `json:"truncated"`
+}
+
+type navigationError struct {
+	Error string `json:"error"`
+	Code  string `json:"code"`
+}
+
+func navigationFailure(w http.ResponseWriter, status int, code, message string) {
+	writeJSON(w, status, navigationError{Error: message, Code: code})
+}
+
+// serveNavigation answers only from LSP. Empty success means the server
+// returned no eligible results, never a hidden startup or query failure.
 func (a *App) serveNavigation(w http.ResponseWriter, r *http.Request, references bool, projectID, name, lineValue, columnValue string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
-		writeJSON(w, status, errorResponse{Error: message})
+		navigationFailure(w, status, "unavailable", message)
 		return
 	}
 	line, lineErr := strconv.Atoi(lineValue)
 	column, columnErr := strconv.Atoi(columnValue)
 	if lineErr != nil || columnErr != nil || line < 1 || column < 0 || name == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "A file, line, and column are required."})
+		navigationFailure(w, http.StatusBadRequest, "invalid", "A file, line, and column are required.")
 		return
 	}
 	source := a.navigationSource(project.root)
-	at := document.Position{Line: line, Column: column}
+	_, reason := source.readFile(name, false)
+	if reason != "" {
+		navigationFailure(w, http.StatusNotFound, "unavailable", reason)
+		return
+	}
 	family := a.config.Types.Lookup(name).Type().ID
-	useServers := languageServersEnabled(r)
-	if useServers {
-		if response, ok := a.serverNavigation(r.Context(), references, project.root, source, name, family, at); ok {
-			writeJSON(w, http.StatusOK, response)
+	server, supported := a.servers.ServerFor(family)
+	if !supported {
+		navigationFailure(w, http.StatusBadRequest, "unsupported", "No language server is configured for this language.")
+		return
+	}
+	if !languageServersEnabled(r) {
+		navigationFailure(w, http.StatusBadRequest, "disabled", "Language servers are disabled in Settings.")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), navigationRequestTimeout)
+	defer cancel()
+	starting, cancelStart := context.WithTimeout(ctx, serverStartWait)
+	err := a.servers.Start(starting, project.root, family)
+	cancelStart()
+	if err != nil {
+		a.writeNavigationFailure(w, err, true)
+		return
+	}
+	// Startup may take seconds. Re-scan and re-read after readiness, including
+	// changes to gitignore, deletion, replacement, and the document itself.
+	source = a.navigationSource(project.root)
+	text, documentFile, reason := source.snapshot(name)
+	if reason != "" {
+		navigationFailure(w, http.StatusNotFound, "unavailable", reason)
+		return
+	}
+	request := lsp.Request{Root: project.root, Family: family, Text: text, Document: documentFile, At: lsp.Position{Line: line, Column: column}}
+	index, err := source.scan()
+	if err != nil {
+		navigationFailure(w, http.StatusInternalServerError, "unavailable", "Could not scan the project.")
+		return
+	}
+	for _, nameOnDisk := range index.Files {
+		if index.Ignored(nameOnDisk) {
+			continue
+		}
+		if _, served := server.Families[a.config.Types.Lookup(nameOnDisk).Type().ID]; !served {
+			continue
+		}
+		resolved, err := index.Resolve(nameOnDisk)
+		if err != nil {
+			continue
+		}
+		info, err := os.Stat(resolved)
+		if err != nil || info.Size() > document.PreviewLimit {
+			continue
+		}
+		file := lsp.File{Path: resolved, Size: info.Size(), Modified: info.ModTime()}
+		if nameOnDisk == name {
+			file = documentFile
+		}
+		request.Files = append(request.Files, file)
+	}
+	if len(server.WorkspaceFiles) > 0 {
+		contextFilter, err := files.NewNameFilter(server.WorkspaceFiles)
+		if err != nil {
+			navigationFailure(w, http.StatusInternalServerError, "unavailable", "Invalid language server workspace configuration.")
 			return
 		}
-	}
-	// While a server stands by, scan per request instead of building a
-	// syntax index the server makes unnecessary.
-	build := !useServers || !a.servers.Available(project.root, family)
-	var result navigation.Result
-	var err error
-	if references {
-		result, err = a.navigation.References(r.Context(), project.root, source, name, at, build)
-	} else {
-		result, err = a.navigation.Definition(project.root, source, name, at, build)
-	}
-	switch {
-	case errors.Is(err, navigation.ErrNotNavigable):
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: a.config.Types.Lookup(name).Type().Label + " files do not support code navigation."})
-	case errors.Is(err, navigation.ErrUnavailable):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "That file is unavailable."})
-	case err != nil:
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
-	default:
-		writeJSON(w, http.StatusOK, navigationResponse{Result: result, Provider: providerSyntax})
-	}
-}
-
-// serverNavigation asks the family's language server. It reports false
-// when syntax navigation should answer instead.
-func (a *App) serverNavigation(ctx context.Context, references bool, root string, source *navigationSource, name, family string, at document.Position) (navigationResponse, bool) {
-	server, ok := a.servers.ServerFor(family)
-	if !ok || !a.servers.Available(root, family) {
-		return navigationResponse{}, false
-	}
-	listed, err := source.Files()
-	if err != nil {
-		return navigationResponse{}, false
-	}
-	text, readable, err := source.Read(name)
-	if err != nil || !readable {
-		return navigationResponse{}, false
-	}
-	request := lsp.Request{Root: root, Family: family, Text: text, At: lsp.Position{Line: at.Line, Column: at.Column}}
-	found := false
-	for _, file := range listed {
-		if _, served := server.Families[a.config.Types.Lookup(file.Path).Type().ID]; !served {
-			continue
+		contextFiles, err := files.Scan(project.root, a.config.Depth, a.config.Exclusions, contextFilter.Match)
+		if err != nil {
+			navigationFailure(w, http.StatusInternalServerError, "unavailable", "Could not scan workspace configuration.")
+			return
 		}
-		absolute, ok := source.absolute(file.Path)
-		if !ok {
-			continue
+		seen := map[string]bool{}
+		for _, file := range request.Files {
+			seen[file.Path] = true
 		}
-		stamped := lsp.File{Path: absolute, Size: file.Size, Modified: file.Modified}
-		request.Files = append(request.Files, stamped)
-		if file.Path == name {
-			request.Document, found = stamped, true
+		for _, name := range contextFiles.Files {
+			if contextFiles.Ignored(name) {
+				continue
+			}
+			resolved, err := contextFiles.Resolve(name)
+			if err != nil || seen[resolved] {
+				continue
+			}
+			info, err := os.Stat(resolved)
+			if err != nil {
+				continue
+			}
+			request.Files = append(request.Files, lsp.File{Path: resolved, Size: info.Size(), Modified: info.ModTime()})
+			seen[resolved] = true
 		}
 	}
-	if !found {
-		return navigationResponse{}, false
+	if request.Document.Path == "" {
+		navigationFailure(w, http.StatusNotFound, "unavailable", "That file is unavailable.")
+		return
 	}
-
-	starting, cancel := context.WithTimeout(ctx, serverStartWait)
-	err = a.servers.Start(starting, root, family)
-	cancel()
-	if err != nil {
-		return navigationResponse{}, false
-	}
-	querying, cancel := context.WithTimeout(ctx, serverRequestTimeout)
-	defer cancel()
+	querying, cancelQuery := context.WithTimeout(ctx, serverRequestTimeout)
+	defer cancelQuery()
 	var locations []lsp.Location
 	kind, limit := "definition", maxServerDefinitions
 	if references {
@@ -221,70 +311,37 @@ func (a *App) serverNavigation(ctx context.Context, references bool, root string
 		locations, err = a.servers.Definition(querying, request)
 	}
 	if err != nil {
-		return navigationResponse{}, false
+		a.writeNavigationFailure(w, err, false)
+		return
 	}
-	// Servers do not mark the declaration among references; ask for it so
-	// results label it as syntax navigation does.
-	declared := map[lsp.Location]bool{}
-	if references {
-		definitions, _ := a.servers.Definition(querying, request)
-		for _, definition := range definitions {
-			declared[definition] = true
-		}
+	response := source.locations(locations, kind, limit)
+	response.Symbol, response.Server = navigationWord(text, request.At), server.Name
+	if current, ok := a.servers.Status(project.root, family); ok {
+		response.Server = current.Server.Name
 	}
-	places := make([]navigation.Place, 0, len(locations))
-	seen := map[navigation.Place]bool{}
-	for _, location := range locations {
-		relative, ok := source.relative(location.Path)
-		if !ok {
-			continue // Outside the project, ignored, or out of scope.
-		}
-		place := navigation.Place{Path: relative, Position: document.Position{Line: location.Line, Column: location.Column}, Kind: kind}
-		if declared[location] {
-			place.Kind = "definition"
-		}
-		if !seen[place] {
-			seen[place] = true
-			places = append(places, place)
-		}
-	}
-	if !references && len(locations) > 0 && len(places) == 0 {
-		// Defined outside the project; syntax navigation lands on the import.
-		return navigationResponse{}, false
-	}
-	// The requested file first, then path and position order, as syntax
-	// navigation answers.
-	sort.SliceStable(places, func(i, j int) bool {
-		left, right := places[i], places[j]
-		if (left.Path == name) != (right.Path == name) {
-			return left.Path == name
-		}
-		if left.Path != right.Path {
-			return left.Path < right.Path
-		}
-		return left.Position.Before(right.Position)
-	})
-	places = places[:min(len(places), limit)]
-	return navigationResponse{
-		Result:   navigation.Result{Symbol: navigation.WordAt(text, at), Locations: navigation.Locate(source, places)},
-		Provider: providerServer,
-		Server:   server.Name,
-	}, true
+	writeJSON(w, http.StatusOK, response)
 }
 
-// absolute resolves an indexed project path to its file on disk.
-func (s *navigationSource) absolute(name string) (string, bool) {
-	index, err := s.scan()
-	if err != nil {
+func (a *App) writeNavigationFailure(w http.ResponseWriter, err error, starting bool) {
+	switch {
+	case errors.Is(err, lsp.ErrMissing):
+		navigationFailure(w, http.StatusServiceUnavailable, "missing", "The language server is not installed. Open language status for installation instructions.")
+	case errors.Is(err, lsp.ErrNotReady) && starting:
+		navigationFailure(w, http.StatusServiceUnavailable, "starting", "The language server is still starting. Try again shortly.")
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		navigationFailure(w, http.StatusServiceUnavailable, "timeout", "The language server request timed out. Try again.")
+	case errors.Is(err, lsp.ErrUnsupported):
+		navigationFailure(w, http.StatusBadRequest, "unsupported-method", "The language server does not support this navigation action.")
+	default:
+		navigationFailure(w, http.StatusServiceUnavailable, "failed", "Language server failed: "+err.Error())
+	}
+}
+
+// relative rejects outside, ignored, out-of-scope and escaping symlink paths.
+func (s *navigationSource) relative(absolute string) (string, bool) {
+	if !filepath.IsAbs(absolute) {
 		return "", false
 	}
-	resolved, err := index.Resolve(name)
-	return resolved, err == nil
-}
-
-// relative maps a path from a language server to an indexed, in-scope,
-// non-ignored project path.
-func (s *navigationSource) relative(absolute string) (string, bool) {
 	index, err := s.scan()
 	if err != nil {
 		return "", false
@@ -300,70 +357,154 @@ func (s *navigationSource) relative(absolute string) (string, bool) {
 	return relative, true
 }
 
-// navigationStatus tells the UI who answers navigation for a file.
+func (s *navigationSource) locations(found []lsp.Location, kind string, limit int) navigationResponse {
+	response := navigationResponse{Locations: []navigationLocation{}}
+	seen := map[lsp.Location]bool{}
+	type target struct {
+		text   []byte
+		reason string
+	}
+	// At most one target's source stays resident. Result counts are bounded,
+	// and multiple hits in a target avoid repeated filesystem reads.
+	lastName := ""
+	last := target{}
+	for _, location := range found {
+		relative, ok := s.relative(location.Path)
+		if !ok {
+			response.Filtered++
+			continue
+		}
+		if relative != lastName {
+			last.text, last.reason = s.readFile(relative, len(response.Locations) < limit)
+			lastName = relative
+		}
+		if last.reason != "" || location.Line < 1 || location.Column < 0 {
+			response.Filtered++
+			continue
+		}
+		location.Path = relative
+		if seen[location] {
+			continue
+		}
+		seen[location] = true
+		if len(response.Locations) == limit {
+			response.Truncated = true
+			continue
+		}
+		response.Locations = append(response.Locations, navigationLocation{Path: relative, Line: location.Line, Column: location.Column, EndLine: location.End.Line, EndColumn: location.End.Column, Kind: kind, Snippet: navigationSnippet(last.text, location.Line)})
+	}
+	if kind == "reference" {
+		sort.SliceStable(response.Locations, func(i, j int) bool {
+			left, right := response.Locations[i], response.Locations[j]
+			if left.Path != right.Path {
+				return left.Path < right.Path
+			}
+			if left.Line != right.Line {
+				return left.Line < right.Line
+			}
+			return left.Column < right.Column
+		})
+	}
+	return response
+}
+
+func navigationSnippet(text []byte, line int) string {
+	for line > 1 {
+		index := bytes.IndexByte(text, '\n')
+		if index < 0 {
+			return ""
+		}
+		text, line = text[index+1:], line-1
+	}
+	if end := bytes.IndexByte(text, '\n'); end >= 0 {
+		text = text[:end]
+	}
+	// Snippets are display hints. Keep unusually long generated lines bounded.
+	text = bytes.TrimSpace(text)
+	end := 0
+	for count := 0; count < 240 && end < len(text); count++ {
+		_, size := utf8.DecodeRune(text[end:])
+		end += size
+	}
+	return string(text[:end])
+}
+
+// navigationWord supplies a display label only. It never resolves or ranks symbols.
+func navigationWord(text []byte, at lsp.Position) string {
+	for line := 1; line < at.Line; line++ {
+		index := bytes.IndexByte(text, '\n')
+		if index < 0 {
+			return ""
+		}
+		text = text[index+1:]
+	}
+	if end := bytes.IndexByte(text, '\n'); end >= 0 {
+		text = text[:end]
+	}
+	runes := []rune(string(text))
+	index, units := 0, 0
+	for index < len(runes) && units < at.Column {
+		units += utf16.RuneLen(runes[index])
+		index++
+	}
+	if units != at.Column {
+		return ""
+	}
+	name := func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '$' }
+	start, end := index, index
+	for start > 0 && name(runes[start-1]) {
+		start--
+	}
+	for end < len(runes) && name(runes[end]) {
+		end++
+	}
+	return string(runes[start:end])
+}
+
 type navigationStatus struct {
-	Navigable bool `json:"navigable"`
-	// LanguageServers reports the request's opt-in.
-	LanguageServers bool `json:"languageServers"`
-	// Provider is providerServer, providerSyntax, or empty when the file
-	// is not navigable.
-	Provider string        `json:"provider"`
-	Server   *serverStatus `json:"server"`
+	Supported bool          `json:"supported"`
+	Enabled   bool          `json:"enabled"`
+	Eligible  bool          `json:"eligible"`
+	Reason    string        `json:"reason"`
+	Server    *serverStatus `json:"server"`
 }
 
 type serverStatus struct {
-	Name     string        `json:"name"`
-	Language string        `json:"language"`
-	State    lsp.State     `json:"state"`
-	Message  string        `json:"message"`
-	Install  []lsp.Install `json:"install"`
-	Docs     string        `json:"docs"`
-	// Memory is the running server's resident memory in bytes; 0 when
-	// stopped or unknown.
-	Memory      uint64 `json:"memory"`
-	IdleMinutes int    `json:"idleMinutes"`
+	Name         string            `json:"name"`
+	Language     string            `json:"language"`
+	State        lsp.State         `json:"state"`
+	Message      string            `json:"message"`
+	Install      []lsp.Install     `json:"install"`
+	Docs         string            `json:"docs"`
+	Memory       uint64            `json:"memory"`
+	IdleMinutes  int               `json:"idleMinutes"`
+	Capabilities *lsp.Capabilities `json:"capabilities"`
 }
 
-// serveNavigationStatus answers /api/navigation-status without starting
-// servers. refresh looks for newly installed servers and retries failed
-// ones.
+// Status and Check again discover binaries, never start processes.
 func (a *App) serveNavigationStatus(w http.ResponseWriter, r *http.Request, projectID, name string, refresh bool) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
-		writeJSON(w, status, errorResponse{Error: message})
+		navigationFailure(w, status, "unavailable", message)
 		return
 	}
 	if name == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "A file is required."})
+		navigationFailure(w, http.StatusBadRequest, "invalid", "A file is required.")
 		return
 	}
 	if refresh {
 		a.servers.Refresh()
 	}
+	_, reason := a.navigationSource(project.root).readFile(name, false)
+	response := navigationStatus{Enabled: languageServersEnabled(r), Eligible: reason == "", Reason: reason}
 	family := a.config.Types.Lookup(name)
-	enabled := languageServersEnabled(r)
-	response := navigationStatus{LanguageServers: enabled}
-	if _, ok := family.Navigator(); !ok {
-		writeJSON(w, http.StatusOK, response)
-		return
-	}
-	response.Navigable, response.Provider = true, providerSyntax
 	if current, ok := a.servers.Status(project.root, family.Type().ID); ok {
-		response.Server = &serverStatus{
-			Name:        current.Server.Name,
-			Language:    current.Server.Language,
-			State:       current.State,
-			Message:     current.Message,
-			Install:     current.Server.Install,
-			Docs:        current.Server.Docs,
-			Memory:      current.Memory,
-			IdleMinutes: int(a.servers.Idle() / time.Minute),
-		}
-		if enabled && current.State != lsp.StateMissing && current.State != lsp.StateFailed {
-			response.Provider = providerServer
-		}
+		response.Supported = true
+		response.Server = &serverStatus{Name: current.Server.Name, Language: current.Server.Language, State: current.State, Message: current.Message, Install: current.Server.Install, Docs: current.Server.Docs, Memory: current.Memory, IdleMinutes: int(a.servers.Idle() / time.Minute), Capabilities: current.Capabilities}
+	} else if response.Reason == "" {
+		response.Reason = "No language server is configured for this language."
 	}
 	writeJSON(w, http.StatusOK, response)
 }

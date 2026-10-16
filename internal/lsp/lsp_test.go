@@ -94,7 +94,7 @@ func TestDefinitionAndReferencesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Location{Path: filepath.Join(f.root, "target.go"), Position: Position{Line: 5, Column: 2}}
+	want := Location{Path: filepath.Join(f.root, "target.go"), Position: Position{Line: 5, Column: 2}, End: Position{Line: 5, Column: 7}}
 	if len(definitions) != 1 || definitions[0] != want {
 		t.Fatalf("definitions = %+v, want %+v", definitions, want)
 	}

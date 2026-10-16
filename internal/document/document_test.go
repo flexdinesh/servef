@@ -75,10 +75,6 @@ func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
 		if definition.Formattable != formattable {
 			t.Errorf("%s formattable = %t", definition.ID, definition.Formattable)
 		}
-		navigable := map[string]bool{"go": true, "javascript": true, "typescript": true, "tsx": true, "jsx": true}[definition.ID]
-		if definition.Navigable != navigable {
-			t.Errorf("%s navigable = %t", definition.ID, definition.Navigable)
-		}
 		if definition.Language != "" && lexers.Get(definition.Language) == nil {
 			t.Errorf("%s language %q does not resolve", definition.ID, definition.Language)
 		}
@@ -101,7 +97,7 @@ func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"id":"dockerfile","label":"Dockerfile","extensions":[],"filenames":["Dockerfile"],"language":"docker","previewKind":"","previewLabel":"","defaultMode":"source","formattable":false,"navigable":false}`
+	want := `{"id":"dockerfile","label":"Dockerfile","extensions":[],"filenames":["Dockerfile"],"language":"docker","previewKind":"","previewLabel":"","defaultMode":"source","formattable":false}`
 	if string(encoded) != want {
 		t.Fatalf("type JSON = %s, want %s", encoded, want)
 	}
