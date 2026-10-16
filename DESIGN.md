@@ -200,7 +200,7 @@ One base size drives the whole scale: the Font Size setting (default 13px, 10–
 | Explorer / tabs / result names | 13px (= base) | Compact labels |
 | Supporting UI / search input / tables | 14px / 20px | Shared small text role |
 | Footer / metadata | 12px | Sans; footer line-height 1 |
-| Source | 13px / 20px (= base) | Monospace, fixed line rows |
+| Source | 13px / 22px (= base) | Monospace, fixed line rows |
 | Preview code | 13px | Monospace; block line-height 1.6 |
 
 Source matches the explorer so code never looks oversized beside the tree; prose sits one step above. Project name uses 12px and 600 weight. The generic Tailwind scale serves primitives; preview uses `--preview-*` roles.
