@@ -1,5 +1,5 @@
 import { CheckIcon, CopyIcon } from "lucide-react"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
 
 import { useClipboardCopy } from "./clipboard.ts"
 import type { ColumnRange, NavigationKind } from "./code-navigation.ts"
@@ -72,6 +72,14 @@ function LineCopyButton({ reference }: { reference: string }) {
 function modified(event: { metaKey: boolean; ctrlKey: boolean }): boolean {
   return event.metaKey || event.ctrlKey
 }
+
+// Keep text nodes stable during hover and selection updates. Reassigning
+// highlighted HTML clears the browser's native text selection.
+const SourceLineContent = memo(function SourceLineContent({ line, highlighted }: { line: string; highlighted: string | undefined }) {
+  return highlighted !== undefined
+    ? <span className="source-document-line-content" dangerouslySetInnerHTML={{ __html: highlighted }} />
+    : <span className="source-document-line-content">{line}</span>
+})
 
 export function SourceDocument({ source, highlightedLines, label, selection, navigation }: SourceDocumentProps) {
   const lines = splitSourceLines(source)
@@ -235,9 +243,7 @@ export function SourceDocument({ source, highlightedLines, label, selection, nav
                   <LineCopyButton reference={lineReference(selection.path, shown)} />
                 )}
               </span>
-              {highlightedLines[index] !== undefined
-                ? <span className="source-document-line-content" dangerouslySetInnerHTML={{ __html: highlightedLines[index] ?? "" }} />
-                : <span className="source-document-line-content">{line}</span>}
+              <SourceLineContent line={line} highlighted={highlightedLines[index]} />
             </span>
           )
         })}
