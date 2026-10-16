@@ -8,7 +8,7 @@ export type NavigationPanel =
   | { status: "closed" }
   | { status: "loading"; kind: NavigationKind; symbol: string }
   | { status: "results"; kind: NavigationKind; result: NavigationResult }
-  | { status: "message"; kind: NavigationKind; message: string; tone: "info" | "warning" | "error" }
+  | { status: "message"; kind: NavigationKind; message: string; tone: "info" | "error" }
 
 export interface CodeNavigation {
   panel: NavigationPanel
@@ -61,13 +61,13 @@ export function useCodeNavigation(project: string, openLocation: (location: Navi
       if (step === "references") {
         setPanel(result.locations.length
           ? { status: "results", kind: step, result }
-          : { status: "message", kind: step, message: emptyMessage(step, result), tone: result.indexing ? "warning" : "info" })
+          : { status: "message", kind: step, message: emptyMessage(step, result), tone: "info" })
         return
       }
       const outcome = definitionOutcome(result, path, target.position, target.word)
       switch (outcome.kind) {
         case "none":
-          setPanel({ status: "message", kind: step, message: emptyMessage(step, result), tone: result.indexing ? "warning" : "info" })
+          setPanel({ status: "message", kind: step, message: emptyMessage(step, result), tone: "info" })
           return
         case "open":
           setPanel({ status: "closed" })

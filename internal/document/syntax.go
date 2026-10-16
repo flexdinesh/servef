@@ -7,37 +7,71 @@ import (
 	"unicode/utf8"
 
 	"github.com/odvcencio/gotreesitter"
+	grammarruntime "github.com/odvcencio/gotreesitter/grammars/runtime"
 )
 
 // parseTimeoutMicros bounds one parse so a pathological file cannot stall
 // navigation; the tree parsed so far is still used.
 const parseTimeoutMicros = 2_000_000
 
-// grammar loads a tree-sitter language and its parser pool on first use, so
-// startup never pays for grammars that are not navigated.
+// grammar loads a tree-sitter language and its parser pool on use, so
+// startup never pays for grammars that are not navigated, and unloading
+// frees them until the next parse.
 type grammar struct {
 	load func() *gotreesitter.Language
-	once sync.Once
+	mu   sync.Mutex
 	lang *gotreesitter.Language
 	pool *gotreesitter.ParserPool
 }
 
-func newGrammar(load func() *gotreesitter.Language) *grammar { return &grammar{load: load} }
+// grammars lists every grammar so idle servers can unload them.
+var grammars []*grammar
 
-func (g *grammar) init() {
-	g.once.Do(func() {
+func newGrammar(load func() *gotreesitter.Language) *grammar {
+	g := &grammar{load: load}
+	grammars = append(grammars, g)
+	return g
+}
+
+// acquire returns the loaded language and parser pool, loading them first
+// if needed. Parses in flight keep what they acquired across an unload.
+func (g *grammar) acquire() (*gotreesitter.Language, *gotreesitter.ParserPool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.lang == nil {
 		g.lang = g.load()
 		if g.lang != nil {
 			g.pool = gotreesitter.NewParserPool(g.lang, gotreesitter.WithParserPoolTimeoutMicros(parseTimeoutMicros))
 		}
-	})
+	}
+	return g.lang, g.pool
+}
+
+// ReleaseSyntaxMemory drops the parse arenas gotreesitter keeps for reuse.
+// They are strong references the collector never reclaims, so an idle
+// server would otherwise hold tens of megabytes after one parse.
+func ReleaseSyntaxMemory() {
+	gotreesitter.DrainArenaPools()
+}
+
+// UnloadGrammars drops decoded grammars and their parser pools, including
+// gotreesitter's decoded-grammar cache; the next parse reloads them in
+// milliseconds.
+func UnloadGrammars() {
+	for _, g := range grammars {
+		g.mu.Lock()
+		g.lang, g.pool = nil, nil
+		g.mu.Unlock()
+	}
+	grammarruntime.PurgeEmbeddedLanguageCache()
+	gotreesitter.DrainArenaPools()
 }
 
 // analyze parses source and extracts a model with build. Parser panics
 // become errors so malformed input never takes down the server.
 func (g *grammar) analyze(source []byte, build func(*walker, *gotreesitter.Node)) (model syntaxModel, err error) {
-	g.init()
-	if g.pool == nil {
+	lang, pool := g.acquire()
+	if pool == nil {
 		return syntaxModel{}, errors.New("grammar unavailable")
 	}
 	defer func() {
@@ -45,7 +79,7 @@ func (g *grammar) analyze(source []byte, build func(*walker, *gotreesitter.Node)
 			model, err = syntaxModel{}, fmt.Errorf("parse failed: %v", recovered)
 		}
 	}()
-	tree, err := g.pool.Parse(source)
+	tree, err := pool.Parse(source)
 	if err != nil {
 		return syntaxModel{}, err
 	}
@@ -54,7 +88,7 @@ func (g *grammar) analyze(source []byte, build func(*walker, *gotreesitter.Node)
 	if root == nil {
 		return syntaxModel{}, errors.New("parse produced no tree")
 	}
-	w := &walker{lang: g.lang, text: newSourceText(source)}
+	w := &walker{lang: lang, text: newSourceText(source)}
 	build(w, root)
 	return w.model, nil
 }

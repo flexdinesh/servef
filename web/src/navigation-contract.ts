@@ -9,11 +9,9 @@ export interface NavigationLocation {
 }
 
 // NavigationResult answers /api/definition and /api/references. symbol is
-// empty when no identifier is at the position; indexing reports that the
-// project index is still building, so definitions may be missing.
+// empty when no identifier is at the position.
 export interface NavigationResult {
   symbol: string
-  indexing: boolean
   locations: NavigationLocation[]
 }
 
@@ -37,7 +35,6 @@ export function isNavigationLocation(value: unknown): value is NavigationLocatio
 export function isNavigationResult(value: unknown): value is NavigationResult {
   return isRecord(value)
     && typeof value.symbol === "string"
-    && typeof value.indexing === "boolean"
     && Array.isArray(value.locations)
     && value.locations.every(isNavigationLocation)
 }

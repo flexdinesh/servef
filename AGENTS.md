@@ -75,7 +75,7 @@ Key files:
 - Binary files (NUL in the first 8000 bytes) send no source and skip search. Over 4 MiB: no highlighting, format, or non-image preview. Over 8 MiB: also skip search. Over 32 MiB (non-image): not read; `tooLarge` note only.
 - CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
 - Gitignored files stay browsable in the tree but are excluded from content search and the navigation index.
-- Code navigation is Source-only and name-based (no type checking); follow VS Code bindings. Over 4 MiB or binary: no symbols. Keep parse concurrency bounded; tree-sitter garbage dominates memory.
+- Code navigation is Source-only and name-based (no type checking); follow VS Code bindings. Over 4 MiB or binary: no symbols. Minified files (a line over 1000 bytes early on): no symbols. Index on first use; keep no file text in the index; keep parse concurrency bounded and release parser memory and grammars when idle (tree-sitter arenas dominate memory). Memory footprint is a priority: measure RSS before and after navigation changes.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 

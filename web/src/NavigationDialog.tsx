@@ -98,9 +98,6 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
           <div className={`search-status search-status-${panel.tone}`} role="status">{panel.message}</div>
         )}
         {panel.status === "loading" && <div className="search-status" role="status" aria-live="polite">Searching the project…</div>}
-        {panel.status === "results" && panel.result.indexing && (
-          <div className="search-status search-status-warning" role="status">Still indexing; results may be incomplete.</div>
-        )}
         <div
           ref={list}
           className="search-results navigation-results"

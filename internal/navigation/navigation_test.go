@@ -74,7 +74,7 @@ func ready(t *testing.T, source *memorySource) *Index {
 	t.Helper()
 	index := New(document.Builtins())
 	index.interval = 0
-	index.Warm("project", source)
+	index.warm("project", source)
 	deadline := time.Now().Add(10 * time.Second)
 	for !index.Ready("project") {
 		if time.Now().After(deadline) {
@@ -138,9 +138,6 @@ func TestDefinitionResolvesAcrossGoFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if result.Indexing {
-			t.Fatal("indexing after the build finished")
-		}
 		return result
 	}
 
@@ -189,24 +186,33 @@ func TestDefinitionResolvesJavaScriptModules(t *testing.T) {
 	expect(t, source, definition("shared))"), target{"src/lib/shared.js", "shared", 0})
 }
 
-func TestDefinitionReportsIndexingBeforeTheFirstBuild(t *testing.T) {
+func TestFirstUseIndexesAndAnswersBeforeTheBuildFinishes(t *testing.T) {
 	source := goProject()
-	source.gate = make(chan struct{})
 	index := New(document.Builtins())
-	index.Warm("project", source)
-	result, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "helper()", 0))
+	// Hold the background build so the first answers come without it.
+	building := index.project("project")
+	building.refresh.Lock()
+	definition, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.Indexing || len(result.Locations) != 0 {
-		t.Fatalf("result = %+v, want indexing without locations", result)
+	expect(t, source, definition, target{"internal/files/scan.go", "Scan", 0})
+	references, err := index.References(context.Background(), "project", source, "app/main.go", position(t, source, "app/main.go", "Scan", 0))
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Locals need no index.
-	local, err := index.Definition("project", source, "app/main.go", position(t, source, "app/main.go", "server.Run", 0))
-	if err != nil || len(local.Locations) != 1 {
-		t.Fatalf("local = %+v, %v", local, err)
+	expect(t, source, references, target{"app/main.go", "Scan", 0}, target{"internal/files/scan.go", "Scan", 0})
+	if index.Ready("project") {
+		t.Fatal("ready before the build ran")
 	}
-	close(source.gate)
+	building.refresh.Unlock()
+	deadline := time.Now().Add(10 * time.Second)
+	for !index.Ready("project") {
+		if time.Now().After(deadline) {
+			t.Fatal("first use did not start indexing")
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func TestDefinitionSeesEditedFiles(t *testing.T) {
@@ -254,7 +260,7 @@ func TestReferencesFindProjectUsesBySymbol(t *testing.T) {
 		target{"app/main.go", "server :=", 0}, target{"app/main.go", "server.Run", 0})
 	// The definition and the use through its import, not the other package.
 	result := references("internal/files/scan.go", "Scan", 0)
-	if result.Symbol != "Scan" || result.Indexing || result.Locations[0].Kind != "definition" {
+	if result.Symbol != "Scan" || result.Locations[0].Kind != "definition" {
 		t.Fatalf("result = %+v", result)
 	}
 	expect(t, source, result, target{"internal/files/scan.go", "Scan", 0}, target{"app/main.go", "Scan", 0})
@@ -292,5 +298,29 @@ func TestSnippetTrimsAndBoundsLines(t *testing.T) {
 	}
 	if snippet(lines, 0) != "" || snippet(lines, 9) != "" {
 		t.Fatal("out-of-range snippet")
+	}
+}
+
+func TestMinifiedBundlesAreNotIndexed(t *testing.T) {
+	bundle := "function render(){}" + strings.Repeat(";render()", minifiedLine/9+1) + "\n"
+	source := newSource(map[string]string{
+		"dist/app.js":   bundle,
+		"src/use.js":    "render()\n",
+		"src/render.js": "export function render() {}\n",
+	})
+	index := ready(t, source)
+	result, err := index.Definition("project", source, "src/use.js", position(t, source, "src/use.js", "render", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect(t, source, result, target{"src/render.js", "render", 0})
+	references, err := index.References(context.Background(), "project", source, "src/render.js", position(t, source, "src/render.js", "render", 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, location := range references.Locations {
+		if location.Path == "dist/app.js" {
+			t.Fatalf("references include the minified bundle: %+v", location)
+		}
 	}
 }
