@@ -38,7 +38,14 @@ type Status struct {
 	// Message explains a failure.
 	Message string
 	// Memory is the running server's resident memory in bytes, when known.
-	Memory uint64
+	Memory       uint64
+	Capabilities *Capabilities
+}
+
+// Capabilities are the navigation methods negotiated with a running server.
+type Capabilities struct {
+	Definition bool `json:"definition"`
+	References bool `json:"references"`
 }
 
 // Options configure a Manager.
@@ -67,7 +74,8 @@ type Manager struct {
 	lookPath func(string) (string, bool)
 
 	mu       sync.Mutex
-	found    map[string]string // server name to binary, "" when missing
+	found    map[clientKey]ResolvedServer // resolved command by server and project
+	active   map[clientKey]int
 	clients  map[clientKey]*client
 	timers   map[clientKey]*time.Timer
 	failures map[clientKey]failure
@@ -86,7 +94,8 @@ func NewManager(servers []Server, options Options) *Manager {
 		servers:  servers,
 		idle:     options.Idle,
 		lookPath: options.LookPath,
-		found:    make(map[string]string),
+		found:    make(map[clientKey]ResolvedServer),
+		active:   make(map[clientKey]int),
 		clients:  make(map[clientKey]*client),
 		timers:   make(map[clientKey]*time.Timer),
 		failures: make(map[clientKey]failure),
@@ -111,20 +120,18 @@ func (m *Manager) ServerFor(family string) (Server, bool) {
 func (m *Manager) Refresh() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.found = make(map[string]string)
+	m.found = make(map[clientKey]ResolvedServer)
 	m.failures = make(map[clientKey]failure)
 }
 
-func (m *Manager) binary(server Server) (string, bool) {
-	if path, ok := m.found[server.Name]; ok {
-		return path, path != ""
+func (m *Manager) binary(root string, server Server) (ResolvedServer, bool) {
+	key := clientKey{server: server.Name, root: root}
+	if resolved, ok := m.found[key]; ok {
+		return resolved, resolved.Path != ""
 	}
-	path, ok := m.lookPath(server.Name)
-	if !ok {
-		path = ""
-	}
-	m.found[server.Name] = path
-	return path, ok
+	resolved, ok := server.Resolve(root, m.lookPath)
+	m.found[key] = resolved
+	return resolved, ok
 }
 
 // Status reports a family's server for a project root without starting it.
@@ -137,11 +144,16 @@ func (m *Manager) Status(root, family string) (Status, bool) {
 	defer m.mu.Unlock()
 	status := Status{Server: server, State: StateStopped}
 	key := clientKey{server: server.Name, root: root}
-	if _, installed := m.binary(server); !installed {
+	resolved, installed := m.binary(root, server)
+	if !installed {
 		status.State = StateMissing
 		return status, true
 	}
-	if failed, ok := m.failures[key]; ok {
+	status.Server.Name, status.Server.Args = resolved.Name, resolved.Args
+	if c, ok := m.clients[key]; ok && c.failed() != nil {
+		m.dropLocked(key, c)
+	}
+	if failed, ok := m.failures[key]; ok && time.Since(failed.at) < retryAfter {
 		status.State, status.Message = StateFailed, failed.message
 	}
 	if c, ok := m.clients[key]; ok {
@@ -151,6 +163,8 @@ func (m *Manager) Status(root, family string) (Status, bool) {
 		case c.alive():
 			status.State, status.Message = StateReady, ""
 			status.Memory, _ = treeMemory(c.pid())
+			capabilities := c.capabilities(server.Families[family], "")
+			status.Capabilities = &capabilities
 		}
 	}
 	return status, true
@@ -177,7 +191,7 @@ func (m *Manager) acquire(root, family string) (*client, string, error) {
 	key := clientKey{server: server.Name, root: root}
 	if c, ok := m.clients[key]; ok {
 		if c.failed() == nil {
-			m.touch(key)
+			m.acquireLocked(key)
 			return c, server.Families[family], nil
 		}
 		m.dropLocked(key, c)
@@ -185,33 +199,52 @@ func (m *Manager) acquire(root, family string) (*client, string, error) {
 	if failed, ok := m.failures[key]; ok && time.Since(failed.at) < retryAfter {
 		return nil, "", errors.New(failed.message)
 	}
-	path, installed := m.binary(server)
+	resolved, installed := m.binary(root, server)
 	if !installed {
 		return nil, "", ErrMissing
 	}
-	c := newClient(server, root)
+	selected := server
+	selected.Name, selected.Args = resolved.Name, resolved.Args
+	c := newClient(selected, root)
+	c.keyName = server.Name
 	m.clients[key] = c
 	delete(m.failures, key)
-	c.start(path)
-	m.touch(key)
+	c.start(resolved.Path)
+	m.acquireLocked(key)
 	return c, server.Families[family], nil
 }
 
 // ErrMissing reports a server that is not installed.
 var ErrMissing = errors.New("language server is not installed")
 
-// touch restarts a client's idle timer; m.mu is held.
-func (m *Manager) touch(key clientKey) {
-	if timer, ok := m.timers[key]; ok {
-		timer.Reset(m.idle)
-		return
+// acquireLocked keeps an active request from being stopped by an idle timer.
+func (m *Manager) acquireLocked(key clientKey) {
+	m.active[key]++
+	if timer := m.timers[key]; timer != nil {
+		timer.Stop()
+		delete(m.timers, key)
 	}
-	m.timers[key] = time.AfterFunc(m.idle, func() { m.expire(key) })
+}
+
+func (m *Manager) release(c *client) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := clientKey{server: c.keyName, root: c.root}
+	if m.active[key] > 0 {
+		m.active[key]--
+	}
+	if m.active[key] == 0 && m.clients[key] == c {
+		m.timers[key] = time.AfterFunc(m.idle, func() { m.expire(key) })
+	}
 }
 
 func (m *Manager) expire(key clientKey) {
 	m.mu.Lock()
 	c, ok := m.clients[key]
+	if m.active[key] > 0 {
+		m.mu.Unlock()
+		return
+	}
 	if ok {
 		delete(m.clients, key)
 	}
@@ -238,10 +271,14 @@ func (m *Manager) dropLocked(key clientKey, c *client) {
 // Start starts a family's server for a root if needed and waits until it is
 // ready or ctx ends, returning ErrNotReady then.
 func (m *Manager) Start(ctx context.Context, root, family string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	c, _, err := m.acquire(root, family)
 	if err != nil {
 		return err
 	}
+	defer m.release(c)
 	if err := c.wait(ctx); err != nil {
 		if !errors.Is(err, ErrNotReady) {
 			m.fail(root, c)
@@ -272,29 +309,39 @@ type Request struct {
 // defined. It waits for a starting server until ctx ends, then returns
 // ErrNotReady.
 func (m *Manager) Definition(ctx context.Context, request Request) ([]Location, error) {
-	return m.query(ctx, request, "textDocument/definition", nil, func(c *client) bool { return c.definition })
+	return m.query(ctx, request, "textDocument/definition", nil)
 }
 
 // References asks the family's server for every use of the symbol at a
 // position, including its declaration.
 func (m *Manager) References(ctx context.Context, request Request) ([]Location, error) {
 	return m.query(ctx, request, "textDocument/references",
-		map[string]any{"context": map[string]bool{"includeDeclaration": true}},
-		func(c *client) bool { return c.references })
+		map[string]any{"context": map[string]bool{"includeDeclaration": true}})
 }
 
-func (m *Manager) query(ctx context.Context, request Request, method string, extra map[string]any, supported func(*client) bool) ([]Location, error) {
+func (m *Manager) query(ctx context.Context, request Request, method string, extra map[string]any) ([]Location, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	c, languageID, err := m.acquire(request.Root, request.Family)
 	if err != nil {
 		return nil, err
 	}
+	defer m.release(c)
 	if err := c.wait(ctx); err != nil {
 		if !errors.Is(err, ErrNotReady) {
 			m.fail(request.Root, c)
 		}
 		return nil, err
 	}
-	if !supported(c) {
+	select {
+	case c.queries <- struct{}{}:
+		defer func() { <-c.queries }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	capabilities := c.capabilities(languageID, request.Document.Path)
+	if (method == "textDocument/definition" && !capabilities.Definition) || (method == "textDocument/references" && !capabilities.References) {
 		return nil, ErrUnsupported
 	}
 	if err := c.sync(request.Document, languageID, request.Text, request.Files); err != nil {
@@ -311,7 +358,7 @@ func (m *Manager) query(ctx context.Context, request Request, method string, ext
 func (m *Manager) fail(root string, c *client) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	key := clientKey{server: c.server.Name, root: root}
+	key := clientKey{server: c.keyName, root: root}
 	if m.clients[key] == c {
 		m.dropLocked(key, c)
 	}

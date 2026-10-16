@@ -13,8 +13,6 @@ export interface FileType {
   previewLabel: string
   defaultMode: DefaultDocumentMode
   formattable: boolean
-  // navigable files support go to definition and find references in Source.
-  navigable: boolean
 }
 
 export interface TreeNode {
@@ -34,6 +32,7 @@ export interface PageData {
   projectUnavailable: boolean
   filenamePatterns: string[]
   documentType: FileType | null
+  navigationSupported: boolean
   binary: boolean
   tooLarge: boolean
   previewDisabled: boolean
@@ -87,7 +86,6 @@ export function isFileType(value: unknown): value is FileType {
     && (value.previewKind !== "" || value.defaultMode === "source")
     && (value.previewKind === "" || value.previewLabel !== "")
     && typeof value.formattable === "boolean"
-    && typeof value.navigable === "boolean"
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -116,6 +114,7 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.project === "string"
     && typeof value.projectUnavailable === "boolean"
     && isStringArray(value.filenamePatterns)
+    && typeof value.navigationSupported === "boolean"
     && typeof value.binary === "boolean"
     && typeof value.tooLarge === "boolean"
     && typeof value.previewDisabled === "boolean"

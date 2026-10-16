@@ -128,13 +128,13 @@ test("source-only capabilities drive the UI without extension-specific component
   await page.route(`**/api/page?project=${rootParam}&path=main.go`, async (route) => {
     const fileType = {
       id: "go", label: "Go", extensions: [".go"], filenames: [], language: "go",
-      previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false,
+      previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
     }
     await route.fulfill({ json: {
       content: "", source: "package main\n", sourceLines: ['<span class="syntax-kn">package</span> main'],
       empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "main.go",
       warnings: [], previewError: "", filenamePatterns: ["*"], documentType: fileType,
-      binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+      navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
       tree: [{ name: "main.go", path: "main.go", fileType: "go", isDir: false, open: false, selected: true, children: [] }],
     } })
   })

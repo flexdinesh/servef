@@ -11,12 +11,19 @@ export function navigationStatusQuery(project: string, path: string, refresh: bo
   return query.toString()
 }
 
-// providerLabel is the status bar's short name for who answers navigation.
-export function providerLabel(status: NavigationStatus): string {
-  if (status.provider === "language-server" && status.server) {
-    return status.server.state === "starting" ? `${status.server.name}…` : status.server.name
+// providerLabel keeps availability visible beside every text language.
+export function providerLabel(status: NavigationStatus | null): string {
+  if (!status) return "LSP unknown"
+  if (!status.supported) return "LSP unavailable"
+  if (!status.enabled) return "LSP off"
+  switch (status.server?.state) {
+    case "missing": return "LSP missing"
+    case "stopped": return "LSP available"
+    case "starting": return "LSP starting…"
+    case "ready": return "LSP ready"
+    case "failed": return "LSP failed"
+    default: return "LSP unavailable"
   }
-  return "Syntax"
 }
 
 // serverSummary explains a language server's state in a sentence.
@@ -27,7 +34,7 @@ export function serverSummary(server: LanguageServerStatus, enabled: boolean): s
     case "stopped":
       return enabled ? `${server.name} starts on the next navigation.` : `${server.name} is installed.`
     case "starting":
-      return `${server.name} is starting; syntax navigation answers meanwhile.`
+      return `${server.name} is starting.`
     case "ready":
       return server.memory > 0 ? `${server.name} is running, using ${formatBytes(server.memory)}.` : `${server.name} is running.`
     case "failed":
@@ -38,5 +45,5 @@ export function serverSummary(server: LanguageServerStatus, enabled: boolean): s
 // pollsServer reports whether a status changes on its own: a running
 // server's memory and idle stop, or a start in progress.
 export function pollsServer(status: NavigationStatus | null): boolean {
-  return status !== null && status.languageServers && (status.server?.state === "starting" || status.server?.state === "ready")
+  return status !== null && status.enabled && (status.server?.state === "starting" || status.server?.state === "ready")
 }

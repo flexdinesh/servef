@@ -1,5 +1,7 @@
 {
-  "roots": ["/home/user/markdown"],
+  "roots": [
+    "/home/user/markdown"
+  ],
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
@@ -126,8 +128,7 @@
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
-    "formattable": true,
-    "navigable": false
+    "formattable": true
   },
   "binary": false,
   "tooLarge": false,
@@ -136,5 +137,6 @@
   "sourceLines": [
     "<span class=\"syntax-p\">{</span><span class=\"syntax-nt\">&#34;name&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-s2\">&#34;malformed-search-marker&#34;</span><span class=\"syntax-p\">,</span>"
   ],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": false
 }

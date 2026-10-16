@@ -5,9 +5,13 @@
       "path": "navigation/format.go",
       "line": 6,
       "column": 5,
-      "kind": "function",
-      "snippet": "func Format(words ...string) string {"
+      "kind": "definition",
+      "snippet": "func Format(words ...string) string {",
+      "endLine": 6,
+      "endColumn": 11
     }
   ],
-  "provider": "syntax"
+  "server": "gopls",
+  "filtered": 0,
+  "truncated": false
 }

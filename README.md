@@ -25,13 +25,14 @@ else.
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
 - Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar;
   gitignored files are skipped
-- Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12) across
-  files in Go, JavaScript, JSX, TypeScript, and TSX source, VS Code-style;
-  name-based, indexed in memory on first use, gitignored and minified files skipped
-- Optionally use installed language servers (gopls, typescript-language-server)
-  for compiler-accurate navigation: off by default (Settings), started on first
-  use, stopped after 10 idle minutes, syntax navigation as fallback; the status
-  bar shows who answers and how to install a missing server
+- Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12)
+  through installed language servers, with project-scoped results and VS Code-style
+  shortcuts. Servers start on first navigation and stop after 10 idle minutes;
+  disable navigation in Settings to prevent new server requests.
+- Check LSP availability beside the language in the status bar. Missing servers
+  show install commands for the machine running servef, prerequisites, docs,
+  and Check again. Browsing works without language servers; navigation reports
+  missing or unsupported servers explicitly.
 - Show document details in the status bar; disclose process CPU/RAM from Ready
 - Choose a theme (system, light, dark, editor palettes) and interface font size
   in Settings (gear in the status bar, Cmd/Ctrl+,); saved in the browser
@@ -158,6 +159,48 @@ See all options:
 ```sh
 servef --help
 ```
+
+## Code navigation
+
+Navigation uses installed language servers, enabled by default in Settings.
+The first definition or references action starts a server; opening a file or
+checking status does not. Servers stop after 10 idle minutes. Results stay
+within the browsable project, CLI filename scope, and non-ignored files.
+Binary files and source files over 4 MiB do not navigate.
+
+| Language | Server |
+| --- | --- |
+| Go | gopls |
+| JavaScript, JSX, TypeScript, TSX | Native TypeScript 7+ (`tsc --lsp --stdio`, `tsgo`), or typescript-language-server |
+| Python | pyright-langserver |
+| Rust | rust-analyzer |
+| C, C++ | clangd |
+| Java | jdtls |
+| Kotlin | kotlin-lsp / intellij-server |
+| Ruby | ruby-lsp |
+| PHP | phpactor |
+| Lua | lua-language-server |
+| Swift | sourcekit-lsp |
+| CSS, SCSS | vscode-css-language-server |
+
+The bottom-right LSP status shows availability for every text language.
+Click it for the selected server, errors, runtime prerequisites, documentation,
+and install commands tailored to the machine running servef. Copy a command,
+install the server in a terminal, then choose **Check again**. Some servers
+require a download or a language toolchain; their status links to the install
+instructions. Other languages show **LSP unavailable**.
+
+Project-local tools take precedence where supported. Native TypeScript
+discovery checks package metadata so a classic `tsc` is never launched as an
+LSP. The classic TypeScript adapter requires a tsserver-bearing TypeScript
+release; its install recipe uses `typescript@6`. Availability does not imply
+every server implements both definitions and references; the status panel
+shows negotiated support once running.
+
+Language servers are optional external tools with their own runtime and memory
+requirements. servef remains a self-contained binary for browsing. Disabling
+Language Servers in Settings prevents this browser from requesting them;
+another browser can continue using a shared server until it becomes idle.
 
 ## Adding a file type
 

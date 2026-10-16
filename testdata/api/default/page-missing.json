@@ -1,5 +1,7 @@
 {
-  "roots": ["/home/user/markdown"],
+  "roots": [
+    "/home/user/markdown"
+  ],
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",
@@ -121,5 +123,6 @@
   "previewDisabled": false,
   "searchExcluded": false,
   "sourceLines": [],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": false
 }

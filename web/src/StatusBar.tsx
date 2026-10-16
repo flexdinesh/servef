@@ -75,7 +75,7 @@ export function StatusBar({ detail, isLoading, error, lines, navigation, onSearc
             {pathCopy.status === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
           </button>
         )}
-        <button className="status-search" type="button" aria-keyshortcuts="Control+Shift+F Meta+Shift+F" onClick={onSearch}>
+        <button className="status-search" type="button" aria-label="Find in files" title="Find in files" aria-keyshortcuts="Control+Shift+F Meta+Shift+F" onClick={onSearch}>
           <SearchIcon aria-hidden="true" />
           <span>Find in files</span>
           <kbd>{navigator.platform.includes("Mac") ? "⌘⇧F" : "Ctrl+Shift+F"}</kbd>

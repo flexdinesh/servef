@@ -10,7 +10,7 @@ const emptyPage: PageData = {
   branch: "",
   project: ".",
   projectUnavailable: false,
-  filenamePatterns: ["*"], documentType: null, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+  filenamePatterns: ["*"], documentType: null, navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
   sourceLines: [], previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
   hasFile: false, rootName: "", repository: "", projectKind: "folder", worktrees: 0, selected: "", source: "", tree: [], warnings: [],
 }
@@ -18,7 +18,7 @@ const emptyPage: PageData = {
 function fileType(overrides: Partial<FileType>): FileType {
   return {
     id: "text", label: "Plain text", extensions: [], filenames: [], language: "plaintext",
-    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, navigable: false, ...overrides,
+    previewKind: "", previewLabel: "", defaultMode: "source", formattable: false, ...overrides,
   }
 }
 

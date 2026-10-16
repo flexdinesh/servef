@@ -51,6 +51,7 @@ export function useCodeNavigation(project: string, languageServers: boolean, ope
   }, [])
 
   const explain = useCallback((kind: NavigationKind, message: string) => {
+    controller.current?.abort()
     setPanel({ status: "message", kind, message, tone: "info" })
   }, [])
 
@@ -59,17 +60,21 @@ export function useCodeNavigation(project: string, languageServers: boolean, ope
     const current = new AbortController()
     controller.current = current
     const run = async (step: NavigationKind) => {
-      if (step === "references") setPanel({ status: "loading", kind: step, symbol: target.text })
+      setPanel({ status: "loading", kind: step, symbol: target.text })
       const result = await fetchNavigation(step, project, path, target, languageServers, current.signal)
-      settled()
       if (current.signal.aborted) return
+      settled()
       if (step === "references") {
         setPanel(result.locations.length
           ? { status: "results", kind: step, result }
           : { status: "message", kind: step, message: emptyMessage(step, result), tone: "info" })
         return
       }
-      const outcome = definitionOutcome(result, path, target.position, target.word)
+      if (result.locations.length > 0 && (result.filtered > 0 || result.truncated)) {
+        setPanel({ status: "results", kind: step, result })
+        return
+      }
+      const outcome = definitionOutcome(result, path, target.position)
       switch (outcome.kind) {
         case "none":
           setPanel({ status: "message", kind: step, message: emptyMessage(step, result), tone: "info" })
@@ -87,6 +92,7 @@ export function useCodeNavigation(project: string, languageServers: boolean, ope
     }
     run(kind).catch((error: unknown) => {
       if (current.signal.aborted) return
+      settled()
       setPanel({ status: "message", kind, message: error instanceof Error ? error.message : "Code navigation failed.", tone: "error" })
     })
   }, [languageServers, openLocation, project, settled])

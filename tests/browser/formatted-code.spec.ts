@@ -3,7 +3,7 @@ import { fixtureRoot, rootParam } from "./fixture-root.ts"
 
 const customType = {
   id: "custom", label: "Custom", extensions: [".custom"], filenames: [], language: "plaintext",
-  previewKind: "", previewLabel: "", defaultMode: "source", formattable: true, navigable: false,
+  previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
 }
 
 function customPage(source: string) {
@@ -11,7 +11,7 @@ function customPage(source: string) {
     content: "", source, sourceLines: [source.trimEnd()],
     empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "sample.custom",
     warnings: [], previewError: "", filenamePatterns: ["*"], documentType: customType,
-    binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+    navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name: "sample.custom", path: "sample.custom", fileType: "custom", isDir: false, open: false, selected: true, children: [] }],
   }
 }

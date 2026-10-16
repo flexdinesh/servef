@@ -33,7 +33,7 @@ export const DEFAULT_FONT_SIZE = 13
 export const FONT_SIZE_MIN = 10
 export const FONT_SIZE_MAX = 20
 
-export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }
+export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }
 
 interface SettingBase {
   id: SettingId
@@ -80,7 +80,7 @@ export const settingDefinitions: readonly SettingDefinition[] = [
     kind: "select",
     category: "Code Navigation",
     title: "Language Servers",
-    description: "Use installed language servers, such as gopls and typescript-language-server, for go to definition and find references. Each starts on first use, can take hundreds of MB, and stops after 10 idle minutes. Off uses built-in syntax navigation.",
+    description: "Use installed language servers, such as gopls and typescript-language-server, for go to definition and find references. Each starts on first use, can take hundreds of MB, and stops after 10 idle minutes. Off disables code navigation.",
     options: languageServerOptions,
   },
 ]

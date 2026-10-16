@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
-import { groupLocations, navigationTitle } from "./code-navigation.ts"
+import { groupLocations, navigationTitle, resultNotice } from "./code-navigation.ts"
 import type { NavigationLocation } from "./navigation-contract.ts"
 import { highlightedParts } from "./search-highlights.ts"
 import type { NavigationPanel } from "./use-code-navigation.ts"
@@ -72,7 +72,7 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
   const heading = panel.status === "results"
     ? navigationTitle(kind, symbol, locations.length)
     : panel.status === "loading"
-      ? `Finding references${symbol ? ` to ${symbol}` : ""}…`
+      ? `Finding ${kind === "definition" ? "definition" : "references"}${symbol ? ` for ${symbol}` : ""}…`
       : kind === "definition" ? "Go to Definition" : "Find All References"
   let offset = 0
   const groups = groupLocations(locations).map((group) => {
@@ -93,13 +93,14 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
         <div className="search-field navigation-field">
           <h2 id="navigation-title" className="navigation-title">{heading}</h2>
           {panel.status === "results" && (
-            <span className="navigation-provider" title="Answered by">{panel.result.server ?? "Syntax"}</span>
+            <span className="navigation-provider" title="Answered by">{panel.result.server}</span>
           )}
           <kbd>Esc</kbd>
         </div>
         {panel.status === "message" && (
           <div className={`search-status search-status-${panel.tone}`} role="status">{panel.message}</div>
         )}
+        {panel.status === "results" && resultNotice(panel.result) && <div className="search-status" role="status">{resultNotice(panel.result)}</div>}
         {panel.status === "loading" && <div className="search-status" role="status" aria-live="polite">Searching the project…</div>}
         <div
           ref={list}

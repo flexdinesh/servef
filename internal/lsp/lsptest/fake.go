@@ -81,8 +81,26 @@ func Serve() {
 			}
 			_ = json.Unmarshal(request.Params, &params)
 			root = params.RootURI
-			send(request.ID, map[string]any{"capabilities": map[string]any{"definitionProvider": true, "referencesProvider": map[string]any{}}})
+			capabilities := map[string]any{"definitionProvider": true, "referencesProvider": map[string]any{}, "textDocumentSync": 1}
+			if value := os.Getenv("SERVEF_FAKE_LSP_ENCODING"); value != "" {
+				capabilities["positionEncoding"] = value
+			}
+			if value := os.Getenv("SERVEF_FAKE_LSP_SYNC"); value != "" {
+				var sync any
+				_ = json.Unmarshal([]byte(value), &sync)
+				capabilities["textDocumentSync"] = sync
+			}
+			if os.Getenv("SERVEF_FAKE_LSP_UNSUPPORTED") == "1" {
+				capabilities["definitionProvider"], capabilities["referencesProvider"] = false, false
+			}
+			send(request.ID, map[string]any{"capabilities": capabilities})
+		case "initialized":
+			body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": "watch-registration", "method": "client/registerCapability", "params": map[string]any{"registrations": []any{map[string]any{"id": "watch-all", "method": "workspace/didChangeWatchedFiles", "registerOptions": map[string]any{"watchers": []any{map[string]any{"globPattern": "**/*"}}}}}}})
+			fmt.Printf("Content-Length: %d\r\n\r\n%s", len(body), body)
 		case "textDocument/definition":
+			if delay, err := time.ParseDuration(os.Getenv("SERVEF_FAKE_LSP_QUERY_SLOW")); err == nil {
+				time.Sleep(delay)
+			}
 			if os.Getenv("SERVEF_FAKE_LSP_CRASH") == "1" {
 				fmt.Fprintln(os.Stderr, "fake server crashed")
 				os.Exit(3)
@@ -90,7 +108,7 @@ func Serve() {
 			send(request.ID, []map[string]any{{
 				"targetUri":            root + "/" + filepath.ToSlash(target),
 				"targetRange":          map[string]any{"start": map[string]int{"line": 0, "character": 0}},
-				"targetSelectionRange": map[string]any{"start": map[string]int{"line": 4, "character": 2}},
+				"targetSelectionRange": map[string]any{"start": map[string]int{"line": 4, "character": 2}, "end": map[string]int{"line": 4, "character": 7}},
 			}})
 		case "textDocument/references":
 			var params struct {
@@ -104,14 +122,14 @@ func Serve() {
 			}
 			_ = json.Unmarshal(request.Params, &params)
 			send(request.ID, []map[string]any{
-				{"uri": params.TextDocument.URI, "range": map[string]any{"start": params.Position}},
-				{"uri": "file:///outside/of/the/project.go", "range": map[string]any{"start": params.Position}},
+				{"uri": params.TextDocument.URI, "range": map[string]any{"start": params.Position, "end": map[string]int{"line": params.Position.Line, "character": params.Position.Character + 5}}},
+				{"uri": "file:///outside/of/the/project.go", "range": map[string]any{"start": params.Position, "end": map[string]int{"line": params.Position.Line, "character": params.Position.Character + 5}}},
 			})
 		case "shutdown":
 			send(request.ID, nil)
 		case "exit":
 			return
-		case "textDocument/didOpen", "textDocument/didChange":
+		case "textDocument/didOpen", "textDocument/didChange", "textDocument/didClose":
 			var params struct {
 				TextDocument struct {
 					URI     string `json:"uri"`
@@ -120,6 +138,12 @@ func Serve() {
 			}
 			_ = json.Unmarshal(request.Params, &params)
 			record("%s %s %d", request.Method, filepath.Base(params.TextDocument.URI), params.TextDocument.Version)
+			if request.Method == "textDocument/didOpen" {
+				record("open %s", request.Params)
+			}
+			if request.Method == "textDocument/didChange" {
+				record("change %s", request.Params)
+			}
 		case "workspace/didChangeWatchedFiles":
 			var params struct {
 				Changes []struct {

@@ -1,7 +1,7 @@
 import { identifierAt, type ColumnRange, type SourcePosition } from "./code-navigation.ts"
 
-// SourceTarget is the word under the pointer in Source. position points at
-// the word's start when there is one, so the server sees the whole name.
+// SourceTarget preserves the actual caret position for the language server.
+// word and text supply hover feedback only.
 export interface SourceTarget {
   position: SourcePosition
   word: ColumnRange | null
@@ -46,7 +46,7 @@ export function targetAt(root: Element, x: number, y: number): SourceTarget | nu
   const text = found.content.textContent ?? ""
   const word = identifierAt(text, column)
   return {
-    position: { line: found.line, column: word?.start ?? column },
+    position: { line: found.line, column },
     word,
     text: word ? text.slice(word.start, word.end) : "",
   }

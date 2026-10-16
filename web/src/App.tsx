@@ -28,7 +28,7 @@ import {
 import { SearchDialog } from "./SearchDialog.tsx"
 import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
 import { CommandPalette } from "./CommandPalette.tsx"
-import type { NavigationKind } from "./code-navigation.ts"
+import { navigationEligibility, type NavigationKind } from "./code-navigation.ts"
 import type { CommandAction } from "./commands.ts"
 import type { NavigationLocation } from "./navigation-contract.ts"
 import { NavigationDialog } from "./NavigationDialog.tsx"
@@ -153,15 +153,15 @@ export function App({ project }: AppProps) {
     void navigate({ to: "/view", search: { project, path: location.path }, hash: lineAnchor({ start: location.line, end: location.line }) })
   }, [navigate, prepareDocumentNavigation, project])
   const languageServers = useSettings().settings.languageServers === "on"
-  const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && page.documentType?.navigable === true, languageServers)
+  const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary, languageServers)
   const codeNavigation = useCodeNavigation(project, languageServers, openLocation, navigationStatus.refresh)
   const { request: requestNavigation, explain: explainNavigation, close: closeNavigation } = codeNavigation
   const openNavigationResult = useCallback((location: NavigationLocation) => {
     closeNavigation()
     openLocation(location)
   }, [closeNavigation, openLocation])
-  // Files past the preview limit are not parsed, like they are not highlighted.
-  const navigable = showSource && page.documentType?.navigable === true && !page.previewDisabled
+  const navigationReason = navigationEligibility(showSource && documentMode === "source", page.navigationSupported, languageServers, navigationStatus.status)
+  const navigable = navigationReason === ""
   const sourceNavigation = useMemo((): SourceNavigation | undefined => navigable ? {
     onPoint(target) {
       caret.current = { path: page.selected, target }
@@ -175,8 +175,10 @@ export function App({ project }: AppProps) {
   } : undefined, [explainNavigation, navigable, page.selected, requestNavigation])
   runNavigation.current = (kind) => {
     if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
-    else explainNavigation(kind, "Code navigation works in the Source view of supported code files.")
+    else explainNavigation(kind, navigationReason)
   }
+  useEffect(() => { closeNavigation() }, [closeNavigation, page.selected, documentMode, languageServers])
+  useEffect(() => { if (isLoading) closeNavigation() }, [closeNavigation, isLoading])
   const selectedLines = showSource && lineRange ? clampLineRange(lineRange, splitSourceLines(page.source).length) : null
 
   const switchProject = useCallback((next: string) => {
@@ -267,7 +269,7 @@ export function App({ project }: AppProps) {
           ? `${image.width} × ${image.height} · ${image.percent}%`
           : undefined}
         lines={selectedLines}
-        navigation={navigationStatus.status ? {
+        navigation={page.hasFile && !page.binary ? {
           status: navigationStatus.status,
           onCheck: navigationStatus.check,
           onOpenSetting: () => openSettings.current("languageServers"),

@@ -86,7 +86,7 @@ func TestPageContractShape(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &contract); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"filenamePatterns", "binary", "previewDisabled", "searchExcluded", "documentType"} {
+	for _, key := range []string{"filenamePatterns", "binary", "previewDisabled", "searchExcluded", "documentType", "navigationSupported"} {
 		if _, ok := contract[key]; !ok {
 			t.Errorf("missing %q", key)
 		}
@@ -98,7 +98,7 @@ func TestPageContractShape(t *testing.T) {
 	if err := json.Unmarshal(contract["documentType"], &fileType); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"id": `"json"`, "label": `"JSON"`, "extensions": `[".json"]`, "filenames": `[]`, "language": `"json"`, "previewKind": `""`, "previewLabel": `""`, "defaultMode": `"source"`, "formattable": `true`, "navigable": `false`}
+	want := map[string]string{"id": `"json"`, "label": `"JSON"`, "extensions": `[".json"]`, "filenames": `[]`, "language": `"json"`, "previewKind": `""`, "previewLabel": `""`, "defaultMode": `"source"`, "formattable": `true`}
 	if len(fileType) != len(want) {
 		t.Fatalf("documentType = %v", fileType)
 	}

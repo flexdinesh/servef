@@ -90,8 +90,7 @@
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
-    "formattable": false,
-    "navigable": true
+    "formattable": false
   },
   "binary": false,
   "tooLarge": false,
@@ -106,5 +105,6 @@
     "<span class=\"syntax-w\">\t</span><span class=\"syntax-k\">return</span><span class=\"syntax-w\"> </span><span class=\"syntax-nf\">Format</span><span class=\"syntax-p\">(</span><span class=\"syntax-s\">&#34;hello&#34;</span><span class=\"syntax-p\">,</span><span class=\"syntax-w\"> </span><span class=\"syntax-nx\">name</span><span class=\"syntax-p\">)</span><span class=\"syntax-w\"></span>",
     "<span class=\"syntax-p\">}</span><span class=\"syntax-w\"></span>"
   ],
-  "previewError": ""
+  "previewError": "",
+  "navigationSupported": true
 }
