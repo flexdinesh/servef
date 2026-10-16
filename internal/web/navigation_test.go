@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/navigation"
 )
 
@@ -100,16 +101,40 @@ func TestNavigationFixturesMatchServer(t *testing.T) {
 		"definition.json": "/api/definition?project=.&path=navigation%2Fgreet.go&line=6&column=8",
 		"references.json": "/api/references?project=.&path=navigation%2Fgreet.go&line=6&column=8",
 	} {
-		content, err := os.ReadFile(filepath.Join("..", "..", "testdata", "api", "default", name))
-		if err != nil {
+		var fixture, served navigationResponse
+		readFixture(t, name, &fixture)
+		if err := json.Unmarshal(request(t, app, target).Body.Bytes(), &served); err != nil {
 			t.Fatal(err)
 		}
-		var fixture navigation.Result
-		if err := json.Unmarshal(content, &fixture); err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if served := navigate(t, app, target); !reflect.DeepEqual(fixture, served) {
+		if !reflect.DeepEqual(fixture, served) {
 			t.Errorf("%s = %+v, server = %+v", name, fixture, served)
 		}
+	}
+}
+
+func TestNavigationStatusFixtureMatchesServer(t *testing.T) {
+	// The fixture shows gopls missing, with its real install instructions.
+	servers := lsp.NewManager(lsp.Builtins(), lsp.Options{LookPath: func(string) (string, bool) { return "", false }})
+	app, err := New(Config{Roots: []string{filepath.Join("..", "..", "testdata", "markdown")}, Depth: 5, LanguageServers: servers})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	var fixture navigationStatus
+	readFixture(t, "navigation-status.json", &fixture)
+	served := requestStatus(t, app, "/api/navigation-status?project=.&path=navigation%2Fgreet.go", true)
+	if !reflect.DeepEqual(fixture, served) {
+		t.Errorf("fixture = %+v, server = %+v", fixture, served)
+	}
+}
+
+func readFixture(t *testing.T, name string, value any) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join("..", "..", "testdata", "api", "default", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(content, value); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 }

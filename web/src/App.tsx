@@ -35,6 +35,8 @@ import { NavigationDialog } from "./NavigationDialog.tsx"
 import type { SourceNavigation } from "./SourceDocument.tsx"
 import type { SourceTarget } from "./source-position.ts"
 import { useCodeNavigation } from "./use-code-navigation.ts"
+import { useNavigationStatus } from "./use-navigation-status.ts"
+import { useSettings } from "./components/SettingsProvider.tsx"
 import { SidebarResizer } from "./SidebarResizer.tsx"
 import { StatusBar } from "./StatusBar.tsx"
 import { TabBar } from "./TabBar.tsx"
@@ -150,7 +152,9 @@ export function App({ project }: AppProps) {
     prepareDocumentNavigation()
     void navigate({ to: "/view", search: { project, path: location.path }, hash: lineAnchor({ start: location.line, end: location.line }) })
   }, [navigate, prepareDocumentNavigation, project])
-  const codeNavigation = useCodeNavigation(project, openLocation)
+  const languageServers = useSettings().settings.languageServers === "on"
+  const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && page.documentType?.navigable === true, languageServers)
+  const codeNavigation = useCodeNavigation(project, languageServers, openLocation, navigationStatus.refresh)
   const { request: requestNavigation, explain: explainNavigation, close: closeNavigation } = codeNavigation
   const openNavigationResult = useCallback((location: NavigationLocation) => {
     closeNavigation()
@@ -263,6 +267,11 @@ export function App({ project }: AppProps) {
           ? `${image.width} × ${image.height} · ${image.percent}%`
           : undefined}
         lines={selectedLines}
+        navigation={navigationStatus.status ? {
+          status: navigationStatus.status,
+          onCheck: navigationStatus.check,
+          onOpenSetting: () => openSettings.current("languageServers"),
+        } : undefined}
         onSearch={() => openSearch.current()}
         onSettings={() => openSettings.current()}
         onHome={() => {

@@ -118,6 +118,8 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return { name: "definition.json", status: 200 }
     case "/references":
       return { name: "references.json", status: 200 }
+    case "/navigation-status":
+      return { name: "navigation-status.json", status: 200 }
     default:
       return undefined
   }

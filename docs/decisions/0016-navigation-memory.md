@@ -1,6 +1,6 @@
 # 0016: Navigation memory
 
-- Status: Accepted
+- Status: Partially superseded by 0017
 - Date: 2026-10-16
 - Amends: [0015](0015-code-navigation.md)
 

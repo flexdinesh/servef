@@ -2,6 +2,9 @@ import { useSettings } from "./components/SettingsProvider.tsx"
 import { useTheme } from "./components/ThemeProvider.tsx"
 import {
   DEFAULT_FONT_SIZE,
+  defaultSettings,
+  isLanguageServerSetting,
+  languageServerOptions,
   modifiedSettings,
   parseFontSize,
   settingDefinitions,
@@ -32,6 +35,10 @@ function definition(id: SettingId): SettingDefinition {
   const found = settingDefinitions.find((candidate) => candidate.id === id)
   if (!found) throw new Error(`Unknown setting ${id}`)
   return found
+}
+
+function languageServerLabel(value: string): string {
+  return languageServerOptions.find((option) => option.value === value)?.label ?? value
 }
 
 function themeLabel(value: string): string {
@@ -73,6 +80,19 @@ export function useSettingValues(): SettingValues {
           return true
         },
         reset() { resetSetting("fontSize") },
+      },
+      languageServers: {
+        definition: definition("languageServers"),
+        value: settings.languageServers,
+        label: languageServerLabel(settings.languageServers),
+        defaultLabel: languageServerLabel(defaultSettings.languageServers),
+        modified: settings.languageServers !== defaultSettings.languageServers,
+        set(value) {
+          if (!isLanguageServerSetting(value)) return false
+          setSetting("languageServers", value)
+          return true
+        },
+        reset() { resetSetting("languageServers") },
       },
     },
     modifiedCount: modifiedSettings(settings).length + (themeModified ? 1 : 0),

@@ -1,6 +1,6 @@
 # 0015: Code navigation
 
-- Status: Partially superseded by 0016
+- Status: Partially superseded by 0016 and 0017
 - Date: 2026-10-16
 
 ## Context

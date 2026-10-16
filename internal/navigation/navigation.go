@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/flexdinesh/servef/internal/document"
@@ -321,9 +322,9 @@ type finder func(name string, within func(path string) bool) []entry
 // request after opening a project is complete rather than partial. A
 // filter narrows that scan before parsing, so an import parses only the
 // files its module can provide.
-func (x *Index) finder(key string, source Source, navigator document.Navigator) finder {
+func (x *Index) finder(key string, source Source, navigator document.Navigator, build bool) finder {
 	group := navigator.NavigationGroup()
-	if x.fresh(key, source) {
+	if (build || x.Ready(key)) && x.fresh(key, source) {
 		return func(name string, within func(string) bool) []entry {
 			return filtered(x.lookup(key, group, name), within)
 		}
@@ -426,7 +427,10 @@ func (x *Index) bind(source Source, name string, at document.Position) (document
 // Definition finds where the identifier at a position in a file is defined.
 // A definition site resolves to itself, so the caller can show its
 // references instead, as editors do.
-func (x *Index) Definition(key string, source Source, name string, at document.Position) (Result, error) {
+// Definition finds where the name at a position is defined. build starts the
+// project index when it is missing; without it, as when a language server
+// stands by, an unbuilt project is scanned per request instead.
+func (x *Index) Definition(key string, source Source, name string, at document.Position, build bool) (Result, error) {
 	defer x.busy()()
 	navigator, text, binding, found, err := x.bind(source, name, at)
 	if err != nil || !found {
@@ -444,7 +448,7 @@ func (x *Index) Definition(key string, source Source, name string, at document.P
 	case binding.Definition:
 		return here(binding.Position, "definition"), nil
 	}
-	targets := x.targets(x.finder(key, source, navigator), navigator, name, binding)
+	targets := x.targets(x.finder(key, source, navigator, build), navigator, name, binding)
 	if len(targets) == 0 && binding.Import != nil {
 		// The module is outside the project, such as a standard library.
 		return here(binding.Import.Statement, "import"), nil
@@ -528,19 +532,62 @@ func closeness(candidate, from string) int {
 }
 
 func locations(source Source, entries []entry) []Location {
-	result := make([]Location, 0, min(len(entries), maxDefinitions))
-	lines := map[string][]string{}
+	places := make([]Place, 0, min(len(entries), maxDefinitions))
 	for _, e := range entries[:min(len(entries), maxDefinitions)] {
-		text, ok := lines[e.path]
+		places = append(places, Place{Path: e.path, Position: e.symbol.Position, Kind: e.symbol.Kind})
+	}
+	return Locate(source, places)
+}
+
+// Place is a position in a project file, answered by any provider.
+type Place struct {
+	Path     string
+	Position document.Position
+	Kind     string
+}
+
+// Locate turns places into locations with snippets, reading each file once.
+func Locate(source Source, places []Place) []Location {
+	result := make([]Location, 0, len(places))
+	lines := map[string][]string{}
+	for _, place := range places {
+		text, ok := lines[place.Path]
 		if !ok {
-			if read, readable, err := source.Read(e.path); err == nil && readable {
+			if read, readable, err := source.Read(place.Path); err == nil && readable {
 				text = splitLines(read)
 			}
-			lines[e.path] = text
+			lines[place.Path] = text
 		}
-		result = append(result, Location{Path: e.path, Line: e.symbol.Position.Line, Column: e.symbol.Position.Column, Kind: e.symbol.Kind, Snippet: snippet(text, e.symbol.Position.Line)})
+		result = append(result, Location{Path: place.Path, Line: place.Position.Line, Column: place.Position.Column, Kind: place.Kind, Snippet: snippet(text, place.Position.Line)})
 	}
 	return result
+}
+
+// WordAt returns the identifier at a 1-based line and UTF-16 column, or ""
+// when there is none. Languages differ in details; this matches names in
+// every navigable family.
+func WordAt(text []byte, at document.Position) string {
+	lines := splitLines(text)
+	if at.Line < 1 || at.Line > len(lines) {
+		return ""
+	}
+	runes := []rune(lines[at.Line-1])
+	index, units := 0, 0
+	for index < len(runes) && units < at.Column {
+		units += utf16.RuneLen(runes[index])
+		index++
+	}
+	start, end := index, index
+	for start > 0 && nameRune(runes[start-1]) {
+		start--
+	}
+	for end < len(runes) && nameRune(runes[end]) {
+		end++
+	}
+	if start == end || unicode.IsDigit(runes[start]) {
+		return ""
+	}
+	return string(runes[start:end])
 }
 
 // References finds every use of the identifier at a position, including its
@@ -550,7 +597,7 @@ func locations(source Source, entries []entry) []Location {
 // within the package or module that defines it.
 // References lists occurrences of the name at a position that resolve to
 // the same symbol. It stops at maxReferences or when ctx ends.
-func (x *Index) References(ctx context.Context, key string, source Source, name string, at document.Position) (Result, error) {
+func (x *Index) References(ctx context.Context, key string, source Source, name string, at document.Position, build bool) (Result, error) {
 	defer x.busy()()
 	navigator, text, binding, found, err := x.bind(source, name, at)
 	if err != nil || !found {
@@ -576,7 +623,7 @@ func (x *Index) References(ctx context.Context, key string, source Source, name 
 	}
 
 	group := navigator.NavigationGroup()
-	find := x.finder(key, source, navigator)
+	find := x.finder(key, source, navigator, build)
 	var targets []entry
 	if !binding.Member {
 		if binding.Definition {

@@ -141,6 +141,8 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
+	// Stops language servers after the HTTP server shuts down.
+	defer app.Close()
 	controlDir := opts.controlDir
 	if controlDir == "" {
 		controlDir, err = control.DefaultDirectory()

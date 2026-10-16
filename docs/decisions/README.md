@@ -20,5 +20,6 @@ rewriting history; update `Status` on the old record.
 | [0012](0012-repository-names-and-worktree-header.md) | Repository names and worktree header | Accepted |
 | [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted |
 | [0014](0014-command-palette.md) | Command palette | Accepted |
-| [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Partially superseded by 0016 |
-| [0016](0016-navigation-memory.md) | Navigation memory | Accepted |
+| [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Partially superseded by 0016 and 0017 |
+| [0016](0016-navigation-memory.md) | Navigation memory | Partially superseded by 0017 |
+| [0017](0017-language-servers.md) | Language servers for code navigation | Accepted |

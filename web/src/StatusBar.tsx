@@ -6,11 +6,14 @@ import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useClipboardCopy } from "./clipboard.ts"
 import { lineRangeLabel, type LineRange } from "./line-selection.ts"
 import { settingsShortcutLabel } from "./SettingsDialog.tsx"
+import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./NavigationStatusPanel.tsx"
 
 interface StatusBarProps {
   detail?: string
   isLoading: boolean
   lines?: LineRange | null
+  // navigation shows who answers code navigation for the open file.
+  navigation?: NavigationStatusPanelProps
   page: PageData
   error: string
   onSearch(): void
@@ -18,7 +21,7 @@ interface StatusBarProps {
   onHome?(): void
 }
 
-export function StatusBar({ detail, isLoading, error, lines, onSearch, onSettings, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, isLoading, error, lines, navigation, onSearch, onSettings, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
   const pathCopy = useClipboardCopy()
   const processTitle = metrics
@@ -81,6 +84,7 @@ export function StatusBar({ detail, isLoading, error, lines, onSearch, onSetting
         {page.hasFile && lines && <span className="status-lines">{lineRangeLabel(lines)}</span>}
         {page.hasFile && detail && <span className="status-document-detail">{detail}</span>}
         {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
+        {page.hasFile && navigation && <NavigationStatusPanel {...navigation} />}
         {page.hasFile && page.documentType && (
           <span className="status-file-type">
             {page.binary && !page.documentType.previewKind ? "Binary" : page.documentType.label}

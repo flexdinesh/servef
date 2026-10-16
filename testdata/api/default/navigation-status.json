@@ -1,0 +1,24 @@
+{
+  "navigable": true,
+  "languageServers": true,
+  "provider": "syntax",
+  "server": {
+    "name": "gopls",
+    "language": "Go",
+    "state": "missing",
+    "message": "",
+    "install": [
+      {
+        "label": "Go",
+        "command": "go install golang.org/x/tools/gopls@latest"
+      },
+      {
+        "label": "Homebrew",
+        "command": "brew install gopls"
+      }
+    ],
+    "docs": "https://go.dev/gopls/",
+    "memory": 0,
+    "idleMinutes": 10
+  }
+}

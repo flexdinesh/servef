@@ -92,6 +92,9 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
       <div className="search-shell">
         <div className="search-field navigation-field">
           <h2 id="navigation-title" className="navigation-title">{heading}</h2>
+          {panel.status === "results" && (
+            <span className="navigation-provider" title="Answered by">{panel.result.server ?? "Syntax"}</span>
+          )}
           <kbd>Esc</kbd>
         </div>
         {panel.status === "message" && (

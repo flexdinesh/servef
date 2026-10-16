@@ -4,6 +4,20 @@ export const SETTINGS_STORAGE_KEY = "servef-settings"
 
 export interface Settings {
   fontSize: number
+  languageServers: LanguageServerSetting
+}
+
+// LanguageServerSetting opts code navigation into installed language
+// servers. Off by default: servers cost hundreds of MB while running.
+export type LanguageServerSetting = "off" | "on"
+
+export const languageServerOptions: readonly { label: string; value: LanguageServerSetting }[] = [
+  { label: "Off", value: "off" },
+  { label: "On", value: "on" },
+]
+
+export function isLanguageServerSetting(value: unknown): value is LanguageServerSetting {
+  return value === "off" || value === "on"
 }
 
 // SettingKey names values stored under SETTINGS_STORAGE_KEY. Theme is a
@@ -11,7 +25,7 @@ export interface Settings {
 export type SettingKey = keyof Settings
 export type SettingId = SettingKey | "theme"
 
-const storedKeys: readonly SettingKey[] = ["fontSize"]
+const storedKeys: readonly SettingKey[] = ["fontSize", "languageServers"]
 
 // The UI type scale is authored for a 13px base: explorer, tabs, and source
 // text are 0.8125rem, so 1rem is 16px at the default.
@@ -19,7 +33,7 @@ export const DEFAULT_FONT_SIZE = 13
 export const FONT_SIZE_MIN = 10
 export const FONT_SIZE_MAX = 20
 
-export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE }
+export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }
 
 interface SettingBase {
   id: SettingId
@@ -61,6 +75,14 @@ export const settingDefinitions: readonly SettingDefinition[] = [
     max: FONT_SIZE_MAX,
     unit: "px",
   },
+  {
+    id: "languageServers",
+    kind: "select",
+    category: "Code Navigation",
+    title: "Language Servers",
+    description: "Use installed language servers, such as gopls and typescript-language-server, for go to definition and find references. Each starts on first use, can take hundreds of MB, and stops after 10 idle minutes. Off uses built-in syntax navigation.",
+    options: languageServerOptions,
+  },
 ]
 
 // parseSettingValue accepts whole numbers, or numeric text, within the
@@ -84,8 +106,12 @@ export function parseSettings(raw: string | null): Settings {
   } catch {
     return defaultSettings
   }
-  const fontSize = typeof data === "object" && data !== null && "fontSize" in data ? parseFontSize(data.fontSize) : null
-  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE }
+  const stored = typeof data === "object" && data !== null && !Array.isArray(data) ? data : {}
+  const fontSize = "fontSize" in stored ? parseFontSize(stored.fontSize) : null
+  const languageServers = "languageServers" in stored && isLanguageServerSetting(stored.languageServers)
+    ? stored.languageServers
+    : defaultSettings.languageServers
+  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE, languageServers }
 }
 
 export function modifiedSettings(settings: Settings): SettingKey[] {

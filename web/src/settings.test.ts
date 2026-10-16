@@ -27,26 +27,31 @@ test("font size accepts whole pixel values within range", () => {
 })
 
 test("stored settings keep valid values and default the rest", () => {
-  assert.deepEqual(parseSettings(null), { fontSize: DEFAULT_FONT_SIZE })
-  assert.deepEqual(parseSettings("not json"), { fontSize: DEFAULT_FONT_SIZE })
-  assert.deepEqual(parseSettings("[]"), { fontSize: DEFAULT_FONT_SIZE })
-  assert.deepEqual(parseSettings('{"fontSize":15}'), { fontSize: 15 })
-  assert.deepEqual(parseSettings('{"fontSize":99}'), { fontSize: DEFAULT_FONT_SIZE })
-  assert.deepEqual(parseSettings('{"fontSize":"15"}'), { fontSize: 15 })
+  const off = { fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }
+  assert.deepEqual(parseSettings(null), off)
+  assert.deepEqual(parseSettings("not json"), off)
+  assert.deepEqual(parseSettings("[]"), off)
+  assert.deepEqual(parseSettings('{"fontSize":15}'), { ...off, fontSize: 15 })
+  assert.deepEqual(parseSettings('{"fontSize":99}'), off)
+  assert.deepEqual(parseSettings('{"fontSize":"15"}'), { ...off, fontSize: 15 })
+  assert.deepEqual(parseSettings('{"languageServers":"on"}'), { ...off, languageServers: "on" })
+  assert.deepEqual(parseSettings('{"languageServers":true}'), off)
 })
 
 test("only values differing from defaults count as modified", () => {
-  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE }), [])
-  assert.deepEqual(modifiedSettings({ fontSize: 15 }), ["fontSize"])
+  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), [])
+  assert.deepEqual(modifiedSettings({ fontSize: 15, languageServers: "off" }), ["fontSize"])
+  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }), ["languageServers"])
 })
 
 test("ui scale is relative to the default font size", () => {
-  assert.equal(uiScale({ fontSize: DEFAULT_FONT_SIZE }), 1)
-  assert.equal(uiScale({ fontSize: 26 }), 2)
+  assert.equal(uiScale({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), 1)
+  assert.equal(uiScale({ fontSize: 26, languageServers: "off" }), 2)
 })
 
 test("setting search matches every term across category, title, and description", () => {
-  assert.deepEqual(matchSettings("").map((definition) => definition.id), ["theme", "fontSize"])
+  assert.deepEqual(matchSettings("").map((definition) => definition.id), ["theme", "fontSize", "languageServers"])
+  assert.deepEqual(matchSettings("gopls").map((definition) => definition.id), ["languageServers"])
   assert.deepEqual(matchSettings("font").map((definition) => definition.id), ["fontSize"])
   assert.deepEqual(matchSettings("APPEARANCE size").map((definition) => definition.id), ["fontSize"])
   assert.deepEqual(matchSettings("dark").map((definition) => definition.id), ["theme"])

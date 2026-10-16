@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { definitionOutcome, emptyMessage, navigationQuery, type NavigationKind } from "./code-navigation.ts"
 import { isNavigationResult, type NavigationLocation, type NavigationResult } from "./navigation-contract.ts"
+import { LANGUAGE_SERVER_HEADER } from "./navigation-status.ts"
 import type { SourceTarget } from "./source-position.ts"
 
 export type NavigationPanel =
@@ -25,9 +26,10 @@ function errorMessage(value: unknown): string {
     : "Code navigation failed."
 }
 
-async function fetchNavigation(kind: NavigationKind, project: string, path: string, target: SourceTarget, signal: AbortSignal): Promise<NavigationResult> {
+async function fetchNavigation(kind: NavigationKind, project: string, path: string, target: SourceTarget, languageServers: boolean, signal: AbortSignal): Promise<NavigationResult> {
   const endpoint = kind === "definition" ? "/api/definition" : "/api/references"
-  const response = await fetch(`${endpoint}?${navigationQuery(project, path, target.position)}`, { signal })
+  const headers: Record<string, string> = languageServers ? { [LANGUAGE_SERVER_HEADER]: "on" } : {}
+  const response = await fetch(`${endpoint}?${navigationQuery(project, path, target.position)}`, { headers, signal })
   const body: unknown = await response.json()
   if (!response.ok) throw new Error(errorMessage(body))
   if (!isNavigationResult(body)) throw new Error("The server sent an unexpected navigation response.")
@@ -35,8 +37,10 @@ async function fetchNavigation(kind: NavigationKind, project: string, path: stri
 }
 
 // useCodeNavigation runs go to definition and find references. One
-// request is live at a time; a newer one cancels it.
-export function useCodeNavigation(project: string, openLocation: (location: NavigationLocation) => void): CodeNavigation {
+// request is live at a time; a newer one cancels it. languageServers opts
+// requests into language servers; settled runs after each request, which
+// may have started one.
+export function useCodeNavigation(project: string, languageServers: boolean, openLocation: (location: NavigationLocation) => void, settled: () => void): CodeNavigation {
   const [panel, setPanel] = useState<NavigationPanel>({ status: "closed" })
   const controller = useRef<AbortController | null>(null)
   useEffect(() => () => controller.current?.abort(), [])
@@ -56,7 +60,8 @@ export function useCodeNavigation(project: string, openLocation: (location: Navi
     controller.current = current
     const run = async (step: NavigationKind) => {
       if (step === "references") setPanel({ status: "loading", kind: step, symbol: target.text })
-      const result = await fetchNavigation(step, project, path, target, current.signal)
+      const result = await fetchNavigation(step, project, path, target, languageServers, current.signal)
+      settled()
       if (current.signal.aborted) return
       if (step === "references") {
         setPanel(result.locations.length
@@ -84,7 +89,7 @@ export function useCodeNavigation(project: string, openLocation: (location: Navi
       if (current.signal.aborted) return
       setPanel({ status: "message", kind, message: error instanceof Error ? error.message : "Code navigation failed.", tone: "error" })
     })
-  }, [openLocation, project])
+  }, [languageServers, openLocation, project, settled])
 
   return { panel, request, explain, close }
 }
