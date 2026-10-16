@@ -103,6 +103,37 @@ test("holding Ctrl/Cmd over a name marks it as a link", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => CSS.highlights.has("servef-navigation-link"))).toBe(false)
 })
 
+for (const modifier of ["Control", "Meta"]) {
+  test(`${modifier} hover preserves selected source text for copying`, async ({ page }) => {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+    await page.goto("/view?path=navigation%2Fgreet.go")
+    const greet = source(page, "Go source")
+    await greet.focus()
+    await word(greet, 6, "Format").hover()
+    const selected = await greet.locator('[data-line="6"] .source-document-line-content').evaluate((line) => {
+      const selection = window.getSelection()
+      if (!selection) throw new Error("Text selection unavailable")
+      // Select backwards across syntax spans, as when dragging over source.
+      selection.setBaseAndExtent(line, line.childNodes.length, line, 0)
+      return selection.toString()
+    })
+    expect(selected).toContain('return Format("hello", name)')
+    const readSelection = () => page.evaluate(() => window.getSelection()?.toString())
+
+    await page.keyboard.down(modifier)
+    await expect(greet).toHaveClass(/navigation-linking/)
+    await expect.poll(readSelection).toBe(selected)
+    await word(greet, 5, "Greet").hover()
+    await expect.poll(() => page.evaluate(() => [...CSS.highlights.get("servef-navigation-link") ?? []].map(String).join())).toBe("Greet")
+    await expect.poll(readSelection).toBe(selected)
+    await page.keyboard.up(modifier)
+    await expect(greet).not.toHaveClass(/navigation-linking/)
+    await expect.poll(readSelection).toBe(selected)
+    await page.keyboard.press("ControlOrMeta+c")
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(selected)
+  })
+}
+
 test("files without navigation ignore Ctrl/Cmd+click", async ({ page }) => {
   await page.goto("/view?path=config%2Fsettings.json")
   let requests = 0
