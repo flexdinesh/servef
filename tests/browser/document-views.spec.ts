@@ -131,6 +131,28 @@ test("large files show Source with a warning and disable preview", async ({ page
   await expect(page.locator("article")).toHaveCount(0)
 })
 
+test("markdown preview lists show bullets and numbers", async ({ page }) => {
+  const markdown = {
+    id: "markdown", label: "Markdown", extensions: [".md"], filenames: [], language: "markdown",
+    previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false,
+  }
+  await page.route(`**/api/page?project=${rootParam}&path=lists.md`, (route) => route.fulfill({ json: documentPage("lists.md", markdown, {
+    content: [
+      "<ul><li>Bullet<ul><li>Nested</li></ul></li></ul>",
+      "<ol><li>Number</li></ol>",
+      "<ul><li><input checked=\"\" disabled=\"\" type=\"checkbox\"> Task</li></ul>",
+    ].join(""),
+  }) }))
+  await page.goto("/view?path=lists.md")
+  const article = page.locator("article")
+  const listStyle = (text: string) => article.locator("li").filter({ hasText: text }).last()
+    .evaluate((element) => getComputedStyle(element).listStyleType)
+  await expect.poll(() => listStyle("Bullet")).toBe("disc")
+  await expect.poll(() => listStyle("Nested")).toBe("circle")
+  await expect.poll(() => listStyle("Number")).toBe("decimal")
+  await expect.poll(() => listStyle("Task")).toBe("none")
+})
+
 test("very large files also note search exclusion and disable Format", async ({ page }) => {
   const json = {
     id: "json", label: "JSON", extensions: [".json"], filenames: [], language: "json",

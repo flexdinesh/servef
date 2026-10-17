@@ -1668,6 +1668,22 @@ article ol {
   padding-left: var(--space-5);
 }
 
+article ul {
+  list-style: disc;
+}
+
+article ol {
+  list-style: decimal;
+}
+
+article li ul {
+  list-style: circle;
+}
+
+article li:has(> input[type="checkbox"]:first-child) {
+  list-style: none;
+}
+
 article li + li {
   margin-top: var(--space-1);
 }
