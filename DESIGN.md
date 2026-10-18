@@ -162,7 +162,7 @@ components:
 
 **Creative North Star: "VS Code editor"**
 
-servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
+servef follows familiar editor conventions: an activity bar, a compact explorer and search sidebar, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
 
 Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
 
@@ -207,13 +207,13 @@ Source matches the explorer so code never looks oversized beside the tree; prose
 
 ## Layout
 
-Desktop: full-height explorer beside the tabbed document workspace, above a 28px footer split at the sidebar boundary. Its two sections track the resizable explorer and document columns. No app header. Explorer defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The 1px separator has a wider pointer hit area and supports arrow keys. Explorer and document scroll independently.
+Desktop: a 2.5rem activity bar, then the full-height sidebar (Explorer or Search) beside the tabbed document workspace, above a 28px footer split at the sidebar boundary. Its two sections track the activity bar plus resizable sidebar, and the document column; with the sidebar hidden the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The 1px separator has a wider pointer hit area and supports arrow keys. Explorer and document scroll independently.
 
 Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, document fills the workspace. Files open in a native modal drawer, `min(85vw, 22rem)` wide, with toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
+At `max-width: 48rem`, document fills the workspace. The sidebar opens in a native modal drawer, `min(85vw, 22rem)` wide, with the activity bar (44px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
 
-Content palette: maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer.
+Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
 Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 
@@ -238,6 +238,10 @@ Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. T
 ### Buttons
 
 Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height, 4px radius, 14px medium label, 12px horizontal padding; compact sizes 32px. Hover changes color/surface without layout shift. Disabled controls suppress interaction and reduce opacity. Icon-only actions require accessible names. Footer overrides use square transparent 28px controls, 44px on mobile.
+
+### Activity bar
+
+A 2.5rem column on `surface-secondary` with a 1px right border: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items are square, 20px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a 2px accent bar on its left edge with `aria-pressed`. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 44px items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -338,7 +342,11 @@ Ctrl/Cmd+Shift+P or F1 opens a VS Code-style command palette on the content-pale
 
 ### Content search
 
-Ctrl/Cmd+Shift+F or footer opens a separate dialog. Field: 14px text, accent bottom boundary on focus. Results: 13px names, 12px paths/snippets, 2px radius, hover surface, accent-subtle active fill; warning-subtle matches. Preserve focus, arrow navigation, Enter, Escape, and loading/error feedback.
+Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field, seeding it from a single-line document selection. The 32px header reads “Search” (12px, 600) with Refresh, Clear Search Results, and Collapse All/Expand All icon actions (Close on mobile). The field matches the filename filter (1.75rem, 1px border, 2px radius, accent focus ring; 40px mobile), placeholder “Search”, with inline 22px toggles: Match Case, Match Whole Word, Use Regular Expression (Alt+C/W/R); pressed toggles use accent text, accent border, and `accent-subtle` fill. A right-aligned “…” Toggle Search Details reveals “files to include” and “files to exclude” (12px labels, same field style, placeholders “e.g. *.ts, src/**/include”). Invalid regexes or globs mark the field `aria-invalid` with a destructive bottom boundary and a 12px destructive message.
+
+A 2px accent progress bar runs after 150ms while searching; previous results stay until new ones arrive. A polite 12px message reads “3 results in 2 files” (“2,000+ results” when truncated), then any notice: “No results found[ in '…' excluding '…'].”, unreadable-file warnings, the truncation advice, or “Search is unavailable.” with Retry search.
+
+Results are a `role="tree"` with 22px rows (40px mobile): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses `surface-raised`; keyboard focus a 1px inset accent outline; the opened match `accent-subtle`. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
 
 ### Markdown, code, diagrams
 
@@ -351,7 +359,7 @@ One prose system across documents. Tables: 14px, neutral headers, horizontal ove
 - Do reuse semantic CSS tokens and shared primitives across every theme.
 - Do retain 14px desktop / 15px mobile prose (at the 13px base), 75ch measure, and left alignment.
 - Do size new UI in rem so it follows the Font Size setting; reserve px for 1–2px borders and offsets.
-- Do keep file/path search separate from content search.
+- Do keep file/path search (Explorer) separate from content search (Search view).
 - Do preserve keyboard focus, accessible labels, modal behavior, and reduced motion.
 - Do keep fonts, icons, and runtime assets local to the embedded Go distribution.
 - Do review shadcn-generated code against this system and strict TypeScript: no `any`, non-null assertions, or type assertions.

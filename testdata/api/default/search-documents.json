@@ -13,7 +13,7 @@
     {
       "path": "guides/getting-started.md",
       "name": "getting-started.md",
-      "content": "Getting started frontend-only fixture API"
+      "content": "# Getting started\n\nA frontend-only fixture for the mock API.\n"
     }
   ],
   "warnings": []

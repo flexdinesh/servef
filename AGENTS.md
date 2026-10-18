@@ -12,7 +12,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - `cmd/` owns CLI validation, session configuration, and application startup.
 - `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
-- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, search text, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
@@ -28,6 +28,7 @@ Key files:
 | Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go` |
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
+| Sidebar and search | `web/src/Sidebar.tsx`, `use-sidebar.ts`, `SearchView.tsx`, `use-search-session.ts`, `search-controller.ts`, `search-engine.ts` (pure matching), `search-scope.ts` (include/exclude globs), `search-results.ts`, `docs/decisions/0020-activity-bar-and-search-view.md` |
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, all scoped by `project`; `/api/projects`, `/api/directories`) |
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
@@ -47,7 +48,7 @@ Key files:
 
 ## Contracts
 
-- Define families through `document.Type` and behavior through `document.Handler`: `Type`, `Preview`, and `SearchText`. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Language-server support is composed by web from `lsp.Builtins()` as page-level `navigationSupported`; document handlers know no code-navigation behavior.
+- Define families through `document.Type` and behavior through `document.Handler`: `Type` and `Preview`. Content search reads original source; handlers know nothing about it. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Language-server support is composed by web from `lsp.Builtins()` as page-level `navigationSupported`; document handlers know no code-navigation behavior.
 - Declare extensions/filenames, language, preview kind/label, and default mode explicitly. Preview kinds are `markdown` and `image`; types without one default to Source.
 - Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, unknown Chroma languages, and invalid view policies.
 - Treat handler output as a contract: escape file text in preview/highlight HTML; leave input bytes unchanged; preserve source and search access on preview errors.
@@ -64,7 +65,7 @@ Key files:
 
 ## Encapsulation
 
-- Keep parsing, formatting, and search extraction inside the owning handler. Keep code intelligence in installed language servers. Share highlighting and code-view behavior through existing document primitives.
+- Keep parsing and formatting inside the owning handler. Keep code intelligence in installed language servers. Share highlighting and code-view behavior through existing document primitives.
 - Keep filesystem safety in `internal/files/`; renderers must not bypass indexed-path resolution.
 - Keep UI filter state separate from server scope and document/tab state. Consume declared capabilities rather than inspecting filenames or inferring behavior from rendered HTML.
 - Expose semantic operations through package/component contracts. Keep parser/renderer internals private; do not widen APIs solely for tests.
@@ -92,7 +93,7 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
    - No HTTP, contract, or frontend change is needed.
 2. Files identified by name (`Dockerfile`, `Makefile`): pass filenames as trailing args to `source(...)`. Without a Chroma lexer, add them to the `text` family instead.
 3. Read-only Format: use `FormattedCodeHandler` with a `FormatSource` that copies input and preserves meaningful values. `formattable` and the Format button follow automatically.
-4. New preview of an existing kind (`markdown`, `image`): implement `document.Handler` and register it. Escape HTML; keep `SearchText` working on malformed input.
+4. New preview of an existing kind (`markdown`, `image`): implement `document.Handler` and register it. Escape HTML; keep Source available on preview errors.
 5. New preview kind (e.g. table): this is a contract change. Update together:
    - `internal/document/registry.go` preview-kind constants and validation.
    - `web/src/page-contract.ts` `previewKind` union and validator.

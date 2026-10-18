@@ -12,14 +12,13 @@ import (
 )
 
 // CodeHandler is reusable for explicitly registered source languages and image
-// families: highlighted source, raw-text search, and no HTML preview.
+// families: highlighted source and no HTML preview.
 type CodeHandler struct {
 	Definition Type
 }
 
-func (h CodeHandler) Type() Type                               { return h.Definition }
-func (h CodeHandler) SearchText(source []byte) (string, error) { return string(source), nil }
-func (h CodeHandler) Preview([]byte, Context) (string, error)  { return "", nil }
+func (h CodeHandler) Type() Type                              { return h.Definition }
+func (h CodeHandler) Preview([]byte, Context) (string, error) { return "", nil }
 
 // FormattedCodeHandler adds an on-demand, read-only formatted view to
 // highlighted source. FormatSource receives a copy of the file bytes.

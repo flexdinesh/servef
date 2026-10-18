@@ -25,3 +25,4 @@ rewriting history; update `Status` on the old record.
 | [0017](0017-language-servers.md) | Language servers for code navigation | Superseded by 0018 |
 | [0018](0018-lsp-only-navigation.md) | LSP-only navigation and host-specific availability | Accepted |
 | [0019](0019-workspace-settings-and-memory.md) | Settings navigation and project explorer memory | Accepted |
+| [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |

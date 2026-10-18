@@ -1,4 +1,4 @@
-import { createSearchEngine, type SearchDocument } from "./search-engine.ts"
+import { createSearchEngine, type SearchDocument, type SearchQuery } from "./search-engine.ts"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -9,6 +9,16 @@ function isSearchDocument(value: unknown): value is SearchDocument {
     && typeof value.path === "string"
     && typeof value.name === "string"
     && typeof value.content === "string"
+}
+
+function isSearchQuery(value: unknown): value is SearchQuery {
+  return isRecord(value)
+    && typeof value.pattern === "string"
+    && typeof value.include === "string"
+    && typeof value.exclude === "string"
+    && typeof value.matchCase === "boolean"
+    && typeof value.wholeWord === "boolean"
+    && typeof value.regex === "boolean"
 }
 
 const engine = createSearchEngine()
@@ -22,9 +32,8 @@ self.addEventListener("message", (event: MessageEvent<unknown>) => {
       const documents = Array.isArray(message.documents) ? message.documents.filter(isSearchDocument) : []
       engine.initialize(documents)
       self.postMessage({ type: "ready" })
-    } else if (message.type === "search" && typeof message.query === "string") {
-      const results = engine.search(message.query)
-      self.postMessage({ type: "results", requestId: message.requestId, ...results })
+    } else if (message.type === "search" && isSearchQuery(message.query)) {
+      self.postMessage({ type: "results", requestId: message.requestId, outcome: engine.search(message.query) })
     }
   } catch {
     self.postMessage({ type: "error", requestId: message.requestId })

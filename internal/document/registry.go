@@ -46,14 +46,13 @@ type Context struct {
 	Supports func(string) bool
 }
 
-// Handler owns presentation and searchable text, never filesystem access.
+// Handler owns presentation, never filesystem access. Content search reads
+// original source, so handlers know nothing about it.
 // Preview returns escaped HTML, or an error without making source unavailable.
-// Handlers without an HTML preview return empty HTML. SearchText must also
-// handle malformed input so a preview failure does not remove a file from search.
+// Handlers without an HTML preview return empty HTML.
 type Handler interface {
 	Type() Type
 	Preview(source []byte, context Context) (string, error)
-	SearchText(source []byte) (string, error)
 }
 
 // Formatter is an optional Handler capability for a read-only formatted view.
@@ -78,8 +77,6 @@ func (f Family) Type() Type { return cloneType(f.definition) }
 func (f Family) Preview(source []byte, context Context) (string, error) {
 	return f.handler.Preview(source, context)
 }
-
-func (f Family) SearchText(source []byte) (string, error) { return f.handler.SearchText(source) }
 
 // FormatLines formats a copy of source and returns escaped, highlighted HTML
 // per formatted line.

@@ -41,41 +41,6 @@ func (a *markdownHandler) Preview(source []byte, context Context) (string, error
 	return rendered.String(), nil
 }
 
-func (a *markdownHandler) SearchText(source []byte) (string, error) {
-	document := a.markdown.Parser().Parse(text.NewReader(source))
-	parts := make([]string, 0)
-	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-		switch value := node.(type) {
-		case *ast.Text:
-			parts = append(parts, string(value.Value(source)))
-		case *ast.String:
-			parts = append(parts, string(value.Value))
-		case *ast.AutoLink:
-			parts = append(parts, string(value.Text(source)))
-		case *ast.CodeBlock:
-			parts = append(parts, string(value.Lines().Value(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.FencedCodeBlock:
-			parts = append(parts, string(value.Lines().Value(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.RawHTML:
-			parts = append(parts, string(value.Text(source)))
-			return ast.WalkSkipChildren, nil
-		case *ast.HTMLBlock:
-			parts = append(parts, string(value.Text(source)))
-			return ast.WalkSkipChildren, nil
-		}
-		return ast.WalkContinue, nil
-	})
-	if err != nil {
-		return "", err
-	}
-	return strings.Join(strings.Fields(strings.Join(parts, " ")), " "), nil
-}
-
 func (a *markdownHandler) renderMarkdown(source []byte, context Context, output *bytes.Buffer) error {
 	source = markdownPreviewSource(source)
 	document := a.markdown.Parser().Parse(text.NewReader(source))

@@ -26,6 +26,10 @@ interface FileTreeProps {
   onOpenWorktrees(): void
   page: PageData
   registerOpen(open: (() => void) | null): void
+  // onReveal shows the Explorer view, opening the mobile drawer.
+  onReveal(): void
+  // onDismiss closes the mobile drawer after a file opens.
+  onDismiss(): void
 }
 
 interface ExplorerState {
@@ -36,7 +40,6 @@ interface ExplorerState {
 
 export function FileTree(props: FileTreeProps) {
   const filter = useFilenameFilter()
-  const dialog = useRef<HTMLDialogElement>(null)
   const page = useRef(props.page)
   const [rememberedExpanded] = useState(() => restoreExpanded(
     projectMemory(readMemory(), props.page.project),
@@ -83,18 +86,14 @@ export function FileTree(props: FileTreeProps) {
   }, [saveState])
 
   const itemHeight = mobile ? Math.max(40, Math.round(40 * rowScale)) : Math.round(24 * rowScale)
-  const explorer = <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
-    itemHeight={itemHeight} filter={filter} dialog={dialog} state={state} />
-  return mobile ? <dialog ref={dialog} className="explorer-drawer" aria-label="Files" onClick={(event) => {
-    if (event.target === dialog.current) dialog.current.close()
-  }}>{explorer}</dialog> : explorer
+  return <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
+    itemHeight={itemHeight} filter={filter} state={state} />
 }
 
-function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, registerOpen, mobile, itemHeight, dialog, state, filter }: FileTreeProps & {
+function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReveal, onDismiss, page, registerOpen, mobile, itemHeight, state, filter }: FileTreeProps & {
   mobile: boolean
   itemHeight: number
   filter: FilenameFilterState
-  dialog: RefObject<HTMLDialogElement | null>
   state: RefObject<ExplorerState>
 }) {
   const visibleTree = useMemo(() => filterTreeByFilename(page.tree, filter.matcher), [page.tree, filter.matcher])
@@ -111,7 +110,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
   const searchInput = useRef<HTMLInputElement>(null)
   const searchButton = useRef<HTMLButtonElement>(null)
   const syncing = useRef(false)
-  const current = useRef({ onNavigate, page })
+  const current = useRef({ onNavigate, onDismiss, page })
   const { model } = useFileTree({
     paths,
     initialExpandedPaths: state.current.expanded ?? openDirectoryPaths(page.tree),
@@ -128,7 +127,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
       const focused = model.getFocusedPath()
       const path = focused && selected.includes(focused) ? focused : selected.at(-1)
       if (!path || model.getItem(path)?.isDirectory()) return
-      dialog.current?.close()
+      current.current.onDismiss()
       if (path !== current.current.page.selected) current.current.onNavigate(path)
     },
   })
@@ -156,7 +155,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
     setHasExpanded(directoryPaths.some((path) => expandedPaths.current.has(path)))
   }, [directories, directoryPaths, hasData, model, page.error, page.project, state])
 
-  useLayoutEffect(() => { current.current = { onNavigate, page } }, [onNavigate, page])
+  useLayoutEffect(() => { current.current = { onNavigate, onDismiss, page } }, [onDismiss, onNavigate, page])
 
   useLayoutEffect(() => { state.current.model = model }, [model, state])
 
@@ -237,7 +236,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
 
   useEffect(() => {
     const open = () => {
-      if (mobile && !dialog.current?.open) dialog.current?.showModal()
+      onReveal()
       if (model.isSearchOpen()) searchInput.current?.focus()
     }
     registerOpen(open)
@@ -254,7 +253,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
       registerOpen(null)
       document.removeEventListener("keydown", shortcut)
     }
-  }, [mobile, model, registerOpen])
+  }, [model, onReveal, registerOpen])
 
   // A linked worktree shows a colored fork; other checkouts show a branch.
   const projectName = page.repository || page.rootName || page.project
@@ -295,7 +294,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
           onClick={toggleDirectories}>
           {hasExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
         </button>
-        {mobile && <button type="button" aria-label="Close files" onClick={() => dialog.current?.close()}><XIcon aria-hidden="true" /></button>}
+        {mobile && <button type="button" aria-label="Close files" onClick={onDismiss}><XIcon aria-hidden="true" /></button>}
       </div>
       {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
         totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
@@ -327,7 +326,7 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, page, 
         </p>
         : <PierreFileTree model={model} className="file-tree-host" aria-label="Files" onClick={() => {
           const focused = model.getFocusedPath()
-          if (focused && !model.getItem(focused)?.isDirectory() && model.getSelectedPaths().includes(focused)) dialog.current?.close()
+          if (focused && !model.getItem(focused)?.isDirectory() && model.getSelectedPaths().includes(focused)) onDismiss()
         }} />}
       {page.warnings.length > 0 && (
         <details className="warnings">
