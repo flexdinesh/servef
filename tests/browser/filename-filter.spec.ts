@@ -34,9 +34,9 @@ test("filename globs narrow the tree without closing tabs and intersect filename
   await fileSearch.press("Escape")
 
   await page.getByRole("button", { name: /^Find in files/ }).click()
-  await page.getByPlaceholder("Search document content…").fill("config-search-marker")
-  await expect(page.getByRole("option").filter({ hasText: "settings.json" })).toBeVisible()
-  await page.keyboard.press("Escape")
+  await page.getByRole("textbox", { name: "Search", exact: true }).fill("config-search-marker")
+  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "settings.json" })).toBeVisible()
+  await page.getByRole("button", { name: "Explorer" }).click()
 
   await files.getByRole("button", { name: "Clear filter" }).click()
   await expect(filter).toHaveValue("")

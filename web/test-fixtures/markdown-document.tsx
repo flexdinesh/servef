@@ -1,10 +1,12 @@
-import { StrictMode, useRef, useState } from "react"
+import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
 import { FeatureProvider } from "../src/components/FeatureProvider.tsx"
 import { ThemeProvider } from "../src/components/ThemeProvider.tsx"
 import { DocumentPreview } from "../src/DocumentPreview.tsx"
-import { SearchDialog } from "../src/SearchDialog.tsx"
+import type { SearchMatch } from "../src/search-engine.ts"
+import { SearchView } from "../src/SearchView.tsx"
+import { useSearchSession } from "../src/use-search-session.ts"
 import { StatusBar } from "../src/StatusBar.tsx"
 import { emptyPage } from "../src/page-data.ts"
 import "../src/style.css"
@@ -23,6 +25,12 @@ function LifecycleFixture() {
   const [navigationPrefix, setNavigationPrefix] = useState("original")
   const [navigation, setNavigation] = useState("")
   const openSearch = useRef<(() => void) | null>(null)
+  const pane = useRef<HTMLElement>(null)
+  const openMatch = useCallback((path: string, match: SearchMatch) => {
+    setNavigation(`${navigationPrefix}:${path}:${match.line}`)
+  }, [navigationPrefix])
+  const registerOpen = useCallback((open: (() => void) | null) => { openSearch.current = open }, [])
+  const session = useSearchSession({ documentPane: pane, openMatch, project, registerOpen, reveal: () => {} })
   return (
     <>
       <button type="button" onClick={() => setHTML(replacementHTML)}>Update Markdown</button>
@@ -32,11 +40,7 @@ function LifecycleFixture() {
       <output aria-label="Navigation">{navigation}</output>
       {visible && <DocumentPreview html={html} navigate={() => {}} />}
       {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} onSettings={() => {}} />}
-      <SearchDialog
-        project={project}
-        navigate={(path) => setNavigation(`${navigationPrefix}:${path}`)}
-        registerOpen={(open) => { openSearch.current = open }}
-      />
+      <SearchView mobile={false} onDismiss={() => {}} onLeave={() => {}} session={session} />
     </>
   )
 }

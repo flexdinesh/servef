@@ -1,30 +1,30 @@
-import type { SearchDocument, SearchGroups, SearchResult } from "./search-engine.ts"
+import type { SearchDocument, SearchOutcome, SearchQuery } from "./search-engine.ts"
 import type { SearchDocumentsResponse } from "./search-documents.ts"
+import { isSearchOutcome } from "./search-results.ts"
 
 export type { SearchDocumentsResponse } from "./search-documents.ts"
 
+export type SearchResults = Extract<SearchOutcome, { kind: "results" }>
+
 export interface SearchStatus {
   detail?: string
-  kind?: "empty" | "error" | "idle" | "loading" | "searching" | "warning"
+  field?: "exclude" | "include" | "pattern"
+  kind?: "empty" | "error" | "idle" | "invalid" | "loading" | "searching" | "warning"
   message?: string
 }
 
 export interface SearchHandlers {
-  onActivate(index?: number): void
-  onClose(): void
-  onInput(query: string): void
-  onMove(delta: number): void
-  onResultClick(index: number): void
+  onInput(query: SearchQuery): void
+  onRefresh(): void
   onRetry(): void
 }
 
 export interface SearchView {
   clearResults(): void
-  close(): void
   focusInput(): void
+  // open reveals the search view; the view may seed the query.
   open(): void
-  renderResults(results: SearchGroups & { activeIndex: number }): void
-  setActive(index: number, scroll?: boolean): void
+  renderResults(results: SearchResults): void
   setHandlers(handlers: SearchHandlers | null): void
   setStatus(status?: SearchStatus): void
 }
@@ -36,7 +36,7 @@ export interface SearchWorker extends EventTarget {
 
 export type SearchWorkerRequest =
   | { documents: SearchDocument[]; type: "init" }
-  | { query: string; requestId: number; type: "search" }
+  | { query: SearchQuery; requestId: number; type: "search" }
 
 type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>
 
@@ -45,11 +45,12 @@ export interface SearchControllerOptions {
   debounceMs?: number
   fetchDocuments: (signal: AbortSignal) => Promise<SearchDocumentsResponse>
   createWorker: () => SearchWorker
-  navigate: (path: string) => void
   setTimer?: (callback: () => void, delay: number) => TimerHandle
   shortcutTarget?: EventTarget
   view: SearchView
 }
+
+export const emptyQuery: SearchQuery = { pattern: "", include: "", exclude: "", matchCase: false, wholeWord: false, regex: false }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -74,24 +75,25 @@ function isShortcutEvent(event: Event): event is Event & {
     && typeof event.shiftKey === "boolean"
 }
 
-function isSearchResult(value: unknown): value is SearchResult {
-  return isRecord(value)
-    && typeof value.path === "string"
-    && typeof value.name === "string"
-    && typeof value.score === "number"
+function scopeDescription(query: SearchQuery): string {
+  const include = query.include.trim()
+  const exclude = query.exclude.trim()
+  if (include && exclude) return ` in '${include}' excluding '${exclude}'`
+  if (include) return ` in '${include}'`
+  if (exclude) return ` excluding '${exclude}'`
+  return ""
 }
 
 export function createSearchController({
   view,
   createWorker,
   fetchDocuments,
-  navigate,
   shortcutTarget = globalThis.document,
-  debounceMs = 120,
+  debounceMs = 150,
   setTimer = globalThis.setTimeout.bind(globalThis),
   clearTimer = globalThis.clearTimeout.bind(globalThis),
 }: SearchControllerOptions) {
-  if (!view || !createWorker || !fetchDocuments || !navigate || !shortcutTarget) {
+  if (!view || !createWorker || !fetchDocuments || !shortcutTarget) {
     throw new TypeError("Search controller dependencies are required")
   }
 
@@ -102,18 +104,19 @@ export function createSearchController({
   let ready = false
   let unavailable = false
   let warnings: string[] = []
-  let query = ""
+  let query = emptyQuery
   let debounceTimer: TimerHandle | undefined
   let nextRequestId = 0
   let activeRequestId = 0
-  let flattenedResults: SearchResult[] = []
-  let activeIndex = -1
+
+  const cancelTimer = (): void => {
+    if (debounceTimer !== undefined) clearTimer(debounceTimer)
+    debounceTimer = undefined
+  }
 
   const renderEmptyQuery = (): void => {
-    flattenedResults = []
-    activeIndex = -1
     view.clearResults()
-    view.setStatus({ kind: "idle", message: "Type to search document content." })
+    view.setStatus({ kind: "idle" })
   }
 
   const fail = (message = "Search is unavailable."): void => {
@@ -123,45 +126,37 @@ export function createSearchController({
     loadController?.abort()
     loading = undefined
     disposeWorker()
-    if (debounceTimer !== undefined) clearTimer(debounceTimer)
-    debounceTimer = undefined
+    cancelTimer()
     activeRequestId = ++nextRequestId
-    flattenedResults = []
-    activeIndex = -1
     view.clearResults()
     view.setStatus({ kind: "error", message })
   }
 
-  const requestSearch = (requestedQuery: string, requestId: number): void => {
-    if (!started || !ready || unavailable || requestId !== activeRequestId || requestedQuery !== query || !requestedQuery.trim()) return
-    view.setStatus({ kind: "searching", message: "Searching…" })
+  const requestSearch = (requested: SearchQuery, requestId: number): void => {
+    if (!started || !ready || unavailable || requestId !== activeRequestId || requested !== query || !requested.pattern) return
     try {
-      worker?.postMessage({ type: "search", requestId, query: requestedQuery })
+      worker?.postMessage({ type: "search", requestId, query: requested })
     } catch {
       fail()
     }
   }
 
-  const scheduleSearch = (nextQuery: string): void => {
+  // scheduleSearch keeps the previous results visible until new ones arrive.
+  const scheduleSearch = (next: SearchQuery): void => {
     if (!started) return
-    query = nextQuery
+    query = next
     activeRequestId = ++nextRequestId
-    if (debounceTimer !== undefined) clearTimer(debounceTimer)
-    debounceTimer = undefined
-    flattenedResults = []
-    activeIndex = -1
-    view.clearResults()
+    cancelTimer()
 
     if (unavailable) {
       view.setStatus({ kind: "error", message: "Search is unavailable." })
       return
     }
-    if (!query.trim()) {
+    if (!query.pattern) {
       renderEmptyQuery()
       return
     }
     if (!ready) {
-      view.clearResults()
       view.setStatus({ kind: "loading", message: "Preparing search…" })
       return
     }
@@ -209,31 +204,25 @@ export function createSearchController({
       return
     }
     void ensureLoaded()
-    if (ready) scheduleSearch(query)
+  }
+
+  // reload fetches documents again, as files may have changed on disk.
+  const reload = (): void => {
+    if (!started) return
+    unavailable = false
+    ready = false
+    loadController?.abort()
+    loading = undefined
+    disposeWorker()
+    cancelTimer()
+    activeRequestId = ++nextRequestId
+    void ensureLoaded()
   }
 
   const retry = (): void => {
     if (!started || !unavailable) return
-    unavailable = false
-    void ensureLoaded()
+    reload()
     view.focusInput()
-  }
-
-  const close = (): void => {
-    if (debounceTimer !== undefined) clearTimer(debounceTimer)
-    debounceTimer = undefined
-    view.close()
-  }
-
-  const moveSelection = (delta: number): void => {
-    if (!flattenedResults.length) return
-    activeIndex = (activeIndex + delta + flattenedResults.length) % flattenedResults.length
-    view.setActive(activeIndex)
-  }
-
-  const activate = (index = activeIndex): void => {
-    const result = flattenedResults[index]
-    if (result) navigate(result.path)
   }
 
   const onShortcut = (event: Event): void => {
@@ -243,13 +232,38 @@ export function createSearchController({
     }
   }
 
+  const presentOutcome = (outcome: SearchOutcome): void => {
+    if (outcome.kind === "invalid") {
+      view.clearResults()
+      view.setStatus({ kind: "invalid", field: outcome.field, message: outcome.message })
+      return
+    }
+    view.renderResults(outcome)
+    if (!outcome.files.length) {
+      view.setStatus({ kind: "empty", message: `No results found${scopeDescription(query)}.` })
+    } else if (warnings.length) {
+      view.setStatus({
+        kind: "warning",
+        message: "Results may be incomplete because some files could not be read.",
+        detail: warnings.join("\n"),
+      })
+    } else if (outcome.truncated) {
+      view.setStatus({
+        kind: "warning",
+        message: "The result set only contains a subset of all matches. Be more specific in your search to narrow down the results.",
+      })
+    } else {
+      view.setStatus({ kind: "idle" })
+    }
+  }
+
   const onWorkerMessage = (event: Event): void => {
     if (!started || event.target !== worker || !(event instanceof MessageEvent) || !isRecord(event.data)) return
     const message = event.data
     if (message.type === "ready") {
       ready = true
       unavailable = false
-      if (query.trim()) scheduleSearch(query)
+      if (query.pattern) scheduleSearch(query)
       else renderEmptyQuery()
       return
     }
@@ -259,26 +273,11 @@ export function createSearchController({
       return
     }
     if (message.type !== "results" || message.requestId !== activeRequestId) return
-
-    const groups = {
-      pathResults: [],
-      contentResults: Array.isArray(message.contentResults) ? message.contentResults.filter(isSearchResult).slice(0, 10) : [],
+    if (!isSearchOutcome(message.outcome)) {
+      fail()
+      return
     }
-    flattenedResults = [...groups.pathResults, ...groups.contentResults]
-    activeIndex = flattenedResults.length ? 0 : -1
-    view.renderResults({ ...groups, activeIndex })
-
-    if (warnings.length) {
-      view.setStatus({
-        kind: "warning",
-        message: "Results may be incomplete because some files could not be read.",
-        detail: warnings.join("\n"),
-      })
-    } else if (!flattenedResults.length) {
-      view.setStatus({ kind: "empty", message: "No matches found." })
-    } else {
-      view.setStatus()
-    }
+    presentOutcome(message.outcome)
   }
 
   const onWorkerError = (): void => fail()
@@ -295,10 +294,7 @@ export function createSearchController({
     started = true
     view.setHandlers({
       onInput: scheduleSearch,
-      onMove: moveSelection,
-      onActivate: activate,
-      onClose: close,
-      onResultClick: activate,
+      onRefresh: reload,
       onRetry: retry,
     })
     shortcutTarget.addEventListener("keydown", onShortcut)
@@ -306,7 +302,7 @@ export function createSearchController({
 
   const destroy = (): void => {
     if (!started) return
-    close()
+    cancelTimer()
     started = false
     loadController?.abort()
     loading = undefined
@@ -317,5 +313,5 @@ export function createSearchController({
     view.setHandlers(null)
   }
 
-  return { start, destroy, open, close }
+  return { start, destroy, open }
 }

@@ -137,9 +137,6 @@ export default defineConfig(({ command, mode }) => ({
     emptyOutDir: true,
     outDir: "../internal/web/dist",
   },
-  optimizeDeps: {
-    include: ["minisearch"],
-  },
   plugins: [react(), tailwindcss(), devServerBanner, devFontAssets, mockApi(mode === "mock"), excalidrawFonts],
   resolve: {
     alias: {

@@ -91,25 +91,127 @@ test("modified tree clicks select files without creating browser tabs", async ({
   expect(context.pages()).toHaveLength(1)
 })
 
-test("searches fixture content and opens the result", async ({ page }) => {
+test("searches fixture content and opens a match at its source line", async ({ page }) => {
   await page.goto("/")
 
-  const search = page.getByPlaceholder("Search document content…")
+  const search = page.getByRole("textbox", { name: "Search", exact: true })
   await expect(page.getByText("Select a file from the folder tree.")).toBeVisible()
   await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
-  await expect(search).toBeVisible()
+  await expect(search).toBeFocused()
   await search.fill("luminous-orchid")
 
-  const result = page.getByRole("option").filter({ hasText: "search.md" })
-  await expect(result).toBeVisible()
+  const file = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "search.md" })
+  await expect(file).toHaveAttribute("aria-expanded", "true")
+  const match = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "phrase **luminous-orchid**" })
   await page.evaluate(() => {
     document.body.dataset.navigationMarker = "preserved"
   })
-  await result.click()
-  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=reference%2Ftopics%2Fsearch.md`))
-  await expect(page.locator("main")).toContainText("luminous-orchid")
-  await expect(page.locator("main")).toBeFocused()
+  // Click previews the match and keeps focus in the results, as in VS Code.
+  await match.click()
+  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=reference%2Ftopics%2Fsearch.md#L3`))
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("luminous-orchid")
+  await expect(match).toBeFocused()
+  await expect(match).toHaveAttribute("aria-selected", "true")
   await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
+  // Enter opens the match and moves focus to the document.
+  await match.press("Enter")
+  await expect(page.locator("main")).toBeFocused()
+})
+
+test("search options, scopes, and keyboard navigation follow VS Code", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: /^Find in files/ }).click()
+  const search = page.getByRole("textbox", { name: "Search", exact: true })
+  const results = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem")
+  await search.fill("Getting started")
+  await expect(results.first()).toBeVisible()
+  const total = await results.count()
+
+  await search.press("Alt+c")
+  await expect(page.getByRole("button", { name: "Match Case" })).toHaveAttribute("aria-pressed", "true")
+  await search.fill("getting STARTED")
+  await expect(page.getByText("No results found.")).toBeVisible()
+  await search.press("Alt+c")
+  await expect(results).toHaveCount(total)
+
+  await page.getByRole("button", { name: "Toggle Search Details" }).click()
+  await page.getByRole("textbox", { name: "files to include" }).fill("guides")
+  await expect(results.filter({ hasText: "README.md" })).toHaveCount(0)
+  await expect(results.filter({ hasText: "getting-started.md" })).toBeVisible()
+  await page.getByRole("textbox", { name: "files to include" }).fill("")
+  await page.getByRole("textbox", { name: "files to exclude" }).fill("[")
+  await expect(page.getByText("Invalid pattern: [")).toBeVisible()
+  await page.getByRole("textbox", { name: "files to exclude" }).fill("")
+
+  await page.getByRole("button", { name: "Use Regular Expression" }).click()
+  await search.fill("Getting (")
+  await expect(page.getByText("Invalid regular expression.")).toBeVisible()
+  await expect(search).toHaveAttribute("aria-invalid", "true")
+  await search.fill("^# Getting")
+  await expect(results.filter({ hasText: "getting-started.md" })).toBeVisible()
+
+  await search.press("ArrowDown")
+  const first = results.first()
+  await expect(first).toBeFocused()
+  await first.press("ArrowLeft")
+  await expect(first).toHaveAttribute("aria-expanded", "false")
+  await first.press("ArrowRight")
+  await expect(first).toHaveAttribute("aria-expanded", "true")
+  await page.getByRole("button", { name: "Collapse All" }).click()
+  await expect(page.getByRole("button", { name: "Expand All" })).toBeVisible()
+  await expect(results.and(page.locator("[aria-level='2']"))).toHaveCount(0)
+
+  // F4 opens the next match, expanding its file.
+  await page.keyboard.press("F4")
+  await expect(page).toHaveURL(/#L1$/)
+  await expect(results.and(page.locator("[aria-selected='true']"))).toHaveCount(1)
+
+  await page.getByRole("button", { name: "Clear Search Results" }).click()
+  await expect(search).toHaveValue("")
+  await expect(search).toBeFocused()
+  await expect(results).toHaveCount(0)
+})
+
+test("Find in files seeds the query from a single-line document selection", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
+  await page.evaluate(() => {
+    const source = document.querySelector(".source-document")
+    const walker = source ? document.createTreeWalker(source, NodeFilter.SHOW_TEXT) : null
+    let node = walker?.nextNode()
+    while (node && !node.textContent?.includes("exercise")) node = walker?.nextNode()
+    if (!node?.textContent) throw new Error("Source text not found")
+    const start = node.textContent.indexOf("exercise")
+    const range = document.createRange()
+    range.setStart(node, start)
+    range.setEnd(node, start + "exercise".length)
+    window.getSelection()?.removeAllRanges()
+    window.getSelection()?.addRange(range)
+  })
+  await page.keyboard.press("ControlOrMeta+Shift+f")
+  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toHaveValue("exercise")
+  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "getting-started.md" })).toBeVisible()
+})
+
+test("activity bar toggles the sidebar and its views", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  const explorer = page.getByRole("button", { name: "Explorer" })
+  const files = page.getByRole("complementary", { name: "Files" })
+  await expect(files).toBeVisible()
+  await explorer.click()
+  await expect(files).toBeHidden()
+  await expect(explorer).toHaveAttribute("aria-pressed", "false")
+  await expect(page.getByRole("separator", { name: "Resize file tree" })).toBeHidden()
+  await page.keyboard.press("ControlOrMeta+b")
+  await expect(files).toBeVisible()
+  await page.getByRole("button", { name: "Search", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeVisible()
+  await expect(files).toBeHidden()
+  await page.keyboard.press("ControlOrMeta+Shift+e")
+  await expect(files).toBeVisible()
+  await expect(files.getByRole("treeitem", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
+  await page.reload()
+  await expect(explorer).toHaveAttribute("aria-pressed", "true")
 })
 
 test("navigates Markdown links and history without losing tree state", async ({ page }) => {
@@ -171,12 +273,9 @@ test("recovers from an invalid page response", async ({ page }) => {
   await page.goto("/")
 
   await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
-  const search = page.getByPlaceholder("Search document content…")
-  await search.fill("getting-started")
-  await page.getByRole("option", {
-    exact: true,
-    name: /getting-started.md guides\/getting-started.md/,
-  }).click()
+  const search = page.getByRole("textbox", { name: "Search", exact: true })
+  await search.fill("exercise GitHub")
+  await page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "exercise GitHub" }).press("Enter")
 
   await expect(page.getByRole("alert")).toContainText("invalid page response")
   await page.getByRole("button", { name: "Try again" }).click()
@@ -209,7 +308,7 @@ test("opens content search from the status bar", async ({ page }) => {
   await page.goto("/")
 
   await page.getByRole("button", { name: /^Find in files/ }).click()
-  await expect(page.getByPlaceholder("Search document content…")).toBeFocused()
+  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeFocused()
 })
 
 // themeSetting opens Settings and returns its Theme select.

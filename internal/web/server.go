@@ -599,15 +599,11 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter, projectID string) {
 		if file.tooLarge || file.binary {
 			continue
 		}
-		content, err := family.SearchText(file.source)
-		if err != nil {
-			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", indexedPath, err))
-			continue
-		}
+		// Search reads original text, as VS Code does, so matches map to source lines.
 		response.Documents = append(response.Documents, searchDocument{
 			Path:    indexedPath,
 			Name:    path.Base(indexedPath),
-			Content: content,
+			Content: string(file.source),
 		})
 	}
 	writeJSON(w, http.StatusOK, response)

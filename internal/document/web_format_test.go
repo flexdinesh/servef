@@ -92,9 +92,6 @@ func TestJavaScriptFormatRejectsJSXAndMalformedInput(t *testing.T) {
 	if _, err := family.FormatLines([]byte(source)); err == nil {
 		t.Fatal("malformed js format succeeded")
 	}
-	if text, err := family.SearchText([]byte(source)); err != nil || text != source {
-		t.Fatalf("search = %q, %v", text, err)
-	}
 }
 
 func TestHTMLFormatIndentsBlocksAndKeepsVerbatimContent(t *testing.T) {

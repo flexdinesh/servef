@@ -9,8 +9,10 @@ import {
   type SearchWorker,
   type SearchWorkerRequest,
   type SearchDocumentsResponse,
+  type SearchResults,
+  emptyQuery,
 } from "./search-controller.ts"
-import type { SearchGroups } from "./search-engine.ts"
+import type { SearchQuery } from "./search-engine.ts"
 
 class ShortcutEvent extends Event {
   readonly altKey: boolean
@@ -87,22 +89,18 @@ function setup({ warnings = [], fetchDocuments }: {
   const timers: Array<() => void> = []
   const scheduledTimers = new Map<number, () => void>()
   let timerID = 0
-  const navigations: string[] = []
-  const rendered: Array<SearchGroups & { activeIndex: number }> = []
+  const rendered: SearchResults[] = []
   const statuses: SearchStatus[] = []
-  const activeSelections: number[] = []
   const calls: string[] = []
   let fetchCount = 0
   let currentHandlers: SearchHandlers | null = null
   const view: SearchView = {
     setHandlers(handlers) { currentHandlers = handlers },
     open() { calls.push("open") },
-    close() { calls.push("close") },
     focusInput() { calls.push("focus") },
     clearResults() { calls.push("clear") },
     setStatus(status = {}) { statuses.push(status) },
     renderResults(results) { rendered.push(results) },
-    setActive(index) { activeSelections.push(index) },
   }
   const controller = createSearchController({
     view,
@@ -117,7 +115,6 @@ function setup({ warnings = [], fetchDocuments }: {
       if (fetchDocuments) return fetchDocuments(signal)
       return { documents: [{ path: "guide.md", name: "guide.md", content: "Guide body" }], warnings }
     },
-    navigate: (path) => { navigations.push(path) },
     setTimer: (callback) => {
       timers.push(callback)
       scheduledTimers.set(++timerID, callback)
@@ -134,7 +131,6 @@ function setup({ warnings = [], fetchDocuments }: {
   })
   controller.start()
   return {
-    activeSelections,
     calls,
     controller,
     fetchCount: () => fetchCount,
@@ -142,7 +138,6 @@ function setup({ warnings = [], fetchDocuments }: {
       assert.ok(currentHandlers)
       return currentHandlers
     },
-    navigations,
     rendered,
     statuses,
     target,
@@ -152,7 +147,28 @@ function setup({ warnings = [], fetchDocuments }: {
   }
 }
 
-test("Cmd/Ctrl+Shift+F opens content search and loads documents only once", async () => {
+function query(pattern: string, options: Partial<SearchQuery> = {}): SearchQuery {
+  return { ...emptyQuery, pattern, ...options }
+}
+
+function outcome(paths: string[], truncated = false): SearchResults {
+  return {
+    kind: "results",
+    files: paths.map((path) => ({ path, name: path, matches: [{ line: 1, column: 0, endColumn: 1, preview: "x", highlight: { start: 0, end: 1 } }] })),
+    matchCount: paths.length,
+    truncated,
+  }
+}
+
+async function readyHarness(options: Parameters<typeof setup>[0] = {}) {
+  const harness = setup(options)
+  harness.controller.open()
+  await flushPromises()
+  harness.worker.emit({ type: "ready" })
+  return harness
+}
+
+test("Cmd/Ctrl+Shift+F reveals content search and loads documents only once", async () => {
   const harness = setup()
   const meta = new ShortcutEvent({ key: "f", metaKey: true, shiftKey: true })
   const control = new ShortcutEvent({ key: "F", ctrlKey: true, shiftKey: true })
@@ -163,7 +179,7 @@ test("Cmd/Ctrl+Shift+F opens content search and loads documents only once", asyn
   assert.equal(Number(meta.prevented) + Number(control.prevented), 2)
   assert.equal(harness.fetchCount(), 1)
   assert.equal(harness.worker.messages.filter((message) => message.type === "init").length, 1)
-  assert.equal(harness.calls.filter((name) => name === "open").length, 2)
+  assert.deepEqual(harness.calls.filter((name) => name === "open" || name === "focus"), ["open", "focus", "open", "focus"])
 })
 
 test("file shortcuts and unmodified Find do not open content search", () => {
@@ -180,35 +196,64 @@ test("file shortcuts and unmodified Find do not open content search", () => {
   assert.equal(harness.calls.includes("open"), false)
 })
 
-test("changing query prevents activation until current results arrive", async () => {
-  const harness = setup()
-  harness.controller.open()
-  await flushPromises()
-  harness.worker.emit({ type: "ready" })
-  harness.handlers().onInput("guide")
+test("queries carry their options and stale responses are ignored", async () => {
+  const harness = await readyHarness()
+  harness.handlers().onInput(query("guide"))
   nextTimer(harness.timers)
-  const requestId = lastSearchRequest(harness.worker).requestId
-  harness.worker.emit({ type: "results", requestId,
-    pathResults: [], contentResults: [{ path: "guide.md", name: "guide.md", score: 1 }] })
-
-  harness.handlers().onInput("other")
-  harness.handlers().onActivate()
-  harness.handlers().onResultClick(0)
-  assert.deepEqual(harness.navigations, [])
-
+  const first = lastSearchRequest(harness.worker).requestId
+  harness.handlers().onInput(query("guide", { matchCase: true, include: "*.md" }))
   nextTimer(harness.timers)
-  harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId,
-    pathResults: [], contentResults: [{ path: "other.md", name: "other.md", score: 1 }] })
-  harness.handlers().onActivate()
-  assert.deepEqual(harness.navigations, ["other.md"])
+  const second = lastSearchRequest(harness.worker)
+  assert.deepEqual(second.query, query("guide", { matchCase: true, include: "*.md" }))
+
+  harness.worker.emit({ type: "results", requestId: first, outcome: outcome(["stale.md"]) })
+  assert.equal(harness.rendered.length, 0)
+  harness.worker.emit({ type: "results", requestId: second.requestId, outcome: outcome(["guide.md"]) })
+  assert.deepEqual(harness.rendered.map((results) => results.files.map((file) => file.path)), [["guide.md"]])
+  assert.equal(harness.statuses.at(-1)?.kind, "idle")
+})
+
+test("typing keeps previous results until new ones arrive; an empty pattern clears them", async () => {
+  const harness = await readyHarness()
+  harness.handlers().onInput(query("guide"))
+  nextTimer(harness.timers)
+  harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId, outcome: outcome(["guide.md"]) })
+  const clears = harness.calls.filter((name) => name === "clear").length
+  harness.handlers().onInput(query("guides"))
+  assert.equal(harness.calls.filter((name) => name === "clear").length, clears)
+  assert.equal(harness.statuses.at(-1)?.kind, "searching")
+  harness.handlers().onInput(query(""))
+  assert.equal(harness.calls.filter((name) => name === "clear").length, clears + 1)
+  assert.equal(harness.statuses.at(-1)?.kind, "idle")
+})
+
+test("invalid patterns, empty results, truncation, and malformed outcomes report status", async () => {
+  const harness = await readyHarness()
+  const respond = (value: unknown) => {
+    nextTimer(harness.timers)
+    harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId, outcome: value })
+  }
+  harness.handlers().onInput(query("(", { regex: true }))
+  respond({ kind: "invalid", field: "pattern", message: "Invalid regular expression." })
+  assert.deepEqual(harness.statuses.at(-1), { kind: "invalid", field: "pattern", message: "Invalid regular expression." })
+
+  harness.handlers().onInput(query("nothing", { include: "src", exclude: "*.go" }))
+  respond(outcome([]))
+  assert.deepEqual(harness.statuses.at(-1), { kind: "empty", message: "No results found in 'src' excluding '*.go'." })
+
+  harness.handlers().onInput(query("many"))
+  respond(outcome(["a.md"], true))
+  assert.equal(harness.statuses.at(-1)?.kind, "warning")
+  assert.match(harness.statuses.at(-1)?.message ?? "", /subset of all matches/)
+
+  harness.handlers().onInput(query("broken"))
+  respond({ kind: "results" })
+  assert.equal(harness.statuses.at(-1)?.kind, "error")
 })
 
 test("retry replaces a failed worker and preserves the query", async () => {
-  const harness = setup()
-  harness.controller.open()
-  await flushPromises()
-  harness.worker.emit({ type: "ready" })
-  harness.handlers().onInput("guide")
+  const harness = await readyHarness()
+  harness.handlers().onInput(query("guide"))
   harness.worker.dispatchEvent(new Event("error"))
   assert.equal(harness.statuses.at(-1)?.kind, "error")
 
@@ -220,7 +265,7 @@ test("retry replaces a failed worker and preserves the query", async () => {
   assert.notEqual(replacement, harness.worker)
   replacement.emit({ type: "ready" })
   nextTimer(harness.timers)
-  assert.equal(lastSearchRequest(replacement).query, "guide")
+  assert.equal(lastSearchRequest(replacement).query.pattern, "guide")
 })
 
 test("retry fetches again after a transient document failure", async () => {
@@ -238,6 +283,20 @@ test("retry fetches again after a transient document failure", async () => {
   assert.equal(attempts, 2)
   harness.workers.at(-1)?.emit({ type: "ready" })
   assert.equal(harness.statuses.at(-1)?.kind, "idle")
+})
+
+test("refresh fetches documents again and reruns the current query", async () => {
+  const harness = await readyHarness()
+  harness.handlers().onInput(query("guide"))
+  harness.handlers().onRefresh()
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 2)
+  assert.equal(harness.worker.terminated, true)
+  const replacement = harness.workers.at(-1)
+  assert.ok(replacement)
+  replacement.emit({ type: "ready" })
+  nextTimer(harness.timers)
+  assert.equal(lastSearchRequest(replacement).query.pattern, "guide")
 })
 
 test("destroy aborts loading and ignores late settlements", async () => {
@@ -260,76 +319,11 @@ test("destroy aborts loading and ignores late settlements", async () => {
   assert.equal(harness.statuses.length, statusCount)
 })
 
-test("stale responses and path-only hits are ignored; content results are capped at ten", async () => {
-  const harness = setup()
-  harness.controller.open()
-  await flushPromises()
-  harness.worker.emit({ type: "ready" })
-
-  harness.handlers().onInput("guide")
-  nextTimer(harness.timers)
-  const firstRequest = lastSearchRequest(harness.worker).requestId
-  harness.handlers().onInput("guides")
-  nextTimer(harness.timers)
-  const secondRequest = lastSearchRequest(harness.worker).requestId
-
-  harness.worker.emit({
-    type: "results",
-    requestId: firstRequest,
-    pathResults: [{ path: "stale.md", name: "stale.md", score: 1 }],
-    contentResults: [],
-  })
-  assert.equal(harness.rendered.length, 0)
-
-  const pathResults = Array.from({ length: 12 }, (_, index) => ({ path: `path-${index}.md`, name: `path-${index}.md`, score: 1 }))
-  const contentResults = Array.from({ length: 12 }, (_, index) => ({ path: `content-${index}.md`, name: `content-${index}.md`, score: 1 }))
-  harness.worker.emit({ type: "results", requestId: secondRequest, pathResults, contentResults })
-
-  const results = harness.rendered[0]
-  assert.ok(results)
-  assert.equal(results.pathResults.length, 0)
-  assert.equal(results.contentResults.length, 10)
-  assert.equal(results.activeIndex, 0)
-})
-
-test("keyboard selection traverses content results and activation navigates", async () => {
-  const harness = setup()
-  harness.controller.open()
-  await flushPromises()
-  harness.worker.emit({ type: "ready" })
-  harness.handlers().onInput("guide")
-  nextTimer(harness.timers)
-  const requestId = lastSearchRequest(harness.worker).requestId
-  harness.worker.emit({
-    type: "results",
-    requestId,
-    pathResults: [{ path: "guide.md", name: "guide.md", score: 1 }],
-    contentResults: [
-      { path: "guide.md", name: "guide.md", score: 1, snippet: { text: "guide", highlights: [] } },
-      { path: "other.md", name: "other.md", score: 1, snippet: { text: "another guide", highlights: [] } },
-    ],
-  })
-
-  harness.handlers().onMove(1)
-  harness.handlers().onActivate()
-  assert.deepEqual(harness.navigations, ["other.md"])
-  assert.equal(harness.activeSelections.at(-1), 1)
-})
-
 test("partial index warnings are presented after results", async () => {
-  const harness = setup({ warnings: ["unreadable.md: permission denied"] })
-  harness.controller.open()
-  await flushPromises()
-  harness.worker.emit({ type: "ready" })
-  harness.handlers().onInput("guide")
+  const harness = await readyHarness({ warnings: ["unreadable.md: permission denied"] })
+  harness.handlers().onInput(query("guide"))
   nextTimer(harness.timers)
-  const requestId = lastSearchRequest(harness.worker).requestId
-  harness.worker.emit({
-    type: "results",
-    requestId,
-    pathResults: [{ path: "guide.md", name: "guide.md", score: 1 }],
-    contentResults: [],
-  })
+  harness.worker.emit({ type: "results", requestId: lastSearchRequest(harness.worker).requestId, outcome: outcome(["guide.md"]) })
 
   const status = harness.statuses.at(-1)
   assert.ok(status)

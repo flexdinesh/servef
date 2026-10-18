@@ -28,10 +28,6 @@ func TestMarkdownPreviewHidesLeadingFrontmatter(t *testing.T) {
 			if !bytes.Equal(source, original) {
 				t.Fatal("preview changed source bytes")
 			}
-			search, err := handler.SearchText(source)
-			if err != nil || !strings.Contains(search, "hidden metadata") {
-				t.Fatalf("search lost metadata: %q, %v", search, err)
-			}
 		})
 	}
 }
@@ -77,10 +73,6 @@ func TestMarkdownPreviewHidesCommentsAndPreservesSurroundingText(t *testing.T) {
 	}
 	if !bytes.Equal(source, original) {
 		t.Fatal("preview changed source bytes")
-	}
-	search, err := handler.SearchText(source)
-	if err != nil || !strings.Contains(search, "hidden inline") {
-		t.Fatalf("search lost comments: %q, %v", search, err)
 	}
 }
 

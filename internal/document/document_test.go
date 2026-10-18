@@ -217,10 +217,6 @@ func TestMalformedFilesRemainSearchable(t *testing.T) {
 		if _, err := family.FormatLines([]byte(source)); err == nil {
 			t.Fatal("malformed format succeeded")
 		}
-		text, err := family.SearchText([]byte(source))
-		if err != nil || text != source {
-			t.Fatalf("search = %q, %v", text, err)
-		}
 	}
 	for _, source := range []string{"", "# comment only\n"} {
 		lines, err := registry.Lookup("empty.yaml").FormatLines([]byte(source))

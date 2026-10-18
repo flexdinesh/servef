@@ -20,12 +20,17 @@ else.
   under them, pick a repository's worktree by branch, or open a folder outside
   any repository, with Cmd/Ctrl+O; each switch reads the file system afresh and
   restores that project's tabs and expanded folders, including after reloads
+- Switch between Explorer and Search from a VS Code-style activity bar
+  (Cmd/Ctrl+Shift+E, Cmd/Ctrl+Shift+F); click the active item or press
+  Cmd/Ctrl+B to hide the sidebar
 - Navigate files in a compact, resizable tree
 - Keep visited documents in an editor-style tab bar; right-click a tab to close it,
   other tabs, tabs to its right, or all tabs
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)
-- Search document content with Cmd/Ctrl+Shift+F or Find in files in the status bar;
-  gitignored files are skipped
+- Search file content in the Search view (Cmd/Ctrl+Shift+F or Find in files in
+  the status bar) like VS Code: every match grouped by file, Match Case, Match
+  Whole Word, and regular expressions, files to include/exclude globs, and
+  F4/Shift+F4 to step through matches; gitignored files are skipped
 - Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12)
   through installed language servers, with project-scoped results and VS Code-style
   shortcuts. Servers start on first navigation and stop after 10 idle minutes;
@@ -212,7 +217,7 @@ Families are composed in `internal/document.Builtins()`:
 - `internal/files` owns directory traversal, exclusions, depth, the filename
   glob filter, and safe path resolution. It knows no file formats.
 - `internal/document` owns the registry, type metadata, escaped highlighting,
-  previews, formatting, binary/size policy, and searchable text. Handlers
+  previews, formatting, and binary/size policy. Handlers
   receive bytes and navigation context; they never read the filesystem.
   Markdown's parser and link/image rewriting live here, separate from HTTP.
 - `internal/web` reads indexed files and transports results. React uses the
@@ -238,7 +243,8 @@ document.CodeHandler{
 ```
 
 Use `Filenames: []string{"Dockerfile"}` for files identified by name. That
-registration enables highlighted source, tree labels, and raw-text search. An
+registration enables highlighted source and tree labels; content search reads
+every in-scope text file's original source. An
 empty `PreviewKind` hides the view toggle.
 
 For a read-only formatted view, register a `FormattedCodeHandler` with a
@@ -249,7 +255,7 @@ preserve meaningful values.
 
 Implement `document.Handler` for a new specialized preview (`PreviewKind`
 `markdown` or `image`), then register it in `Builtins()`. Preview errors must
-preserve source access; `SearchText` should work on malformed input. Return
+preserve source access. Return
 escaped HTML using the existing preview conventions. The built-in renderers use
 locally embedded assets.
 

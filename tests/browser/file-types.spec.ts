@@ -93,9 +93,9 @@ test("filename filtering preserves open documents, expansion, filename search, a
   await expect(explorer.getByRole("treeitem", { name: "settings.json" })).toBeVisible()
   await filterFiles(page, "*.yaml")
   await page.getByRole("button", { name: /^Find in files/ }).click()
-  const search = page.getByPlaceholder("Search document content…")
+  const search = page.getByRole("textbox", { name: "Search", exact: true })
   await search.fill("config-search-marker")
-  await expect(page.getByRole("option").filter({ hasText: "settings.json" })).toBeVisible()
+  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "settings.json" })).toBeVisible()
 })
 
 test("malformed JSON keeps Source, explains the format failure, and stays searchable", async ({ page }) => {
@@ -108,8 +108,8 @@ test("malformed JSON keeps Source, explains the format failure, and stays search
   await expect(page.getByRole("textbox", { name: "JSON source" })).toContainText("malformed-search-marker")
   await expect(page.getByRole("textbox", { name: "JSON formatted" })).toHaveCount(0)
   await page.getByRole("button", { name: /^Find in files/ }).click()
-  await page.getByPlaceholder("Search document content…").fill("malformed-search-marker")
-  await expect(page.getByRole("option").filter({ hasText: "broken.json" })).toBeVisible()
+  await page.getByRole("textbox", { name: "Search", exact: true }).fill("malformed-search-marker")
+  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "broken.json" })).toBeVisible()
 })
 
 test("mobile filename filter keeps selected document open", async ({ page }) => {

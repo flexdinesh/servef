@@ -25,7 +25,9 @@ import {
   type PageData,
   type PageLoadResult,
 } from "./page-data.ts"
-import { SearchDialog } from "./SearchDialog.tsx"
+import type { SearchMatch } from "./search-engine.ts"
+import { SearchView } from "./SearchView.tsx"
+import { Sidebar } from "./Sidebar.tsx"
 import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./code-navigation.ts"
@@ -46,6 +48,8 @@ import { useDocumentWorkspace } from "./use-document-workspace.ts"
 import { useImageViewer } from "./use-image-viewer.ts"
 import { usePreviewPreference } from "./use-preview-preference.ts"
 import { useProjectMemory } from "./use-project-memory.ts"
+import { useSearchSession } from "./use-search-session.ts"
+import { useSidebar } from "./use-sidebar.ts"
 
 function initialPage(result: PageLoadResult): PageData | null {
   return result.kind === "page" ? result.page : null
@@ -103,6 +107,10 @@ export function App({ project }: AppProps) {
     else if (action.kind === "find-references") runNavigation.current("references")
     else openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
   }, [])
+  const sidebar = useSidebar()
+  const { reveal: revealSidebar } = sidebar
+  const revealExplorer = useCallback(() => revealSidebar("explorer"), [revealSidebar])
+  const revealSearch = useCallback(() => revealSidebar("search"), [revealSidebar])
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
 
@@ -152,6 +160,14 @@ export function App({ project }: AppProps) {
     prepareDocumentNavigation()
     void navigate({ to: "/view", search: { project, path: location.path }, hash: lineAnchor({ start: location.line, end: location.line }) })
   }, [navigate, prepareDocumentNavigation, project])
+  // A search match opens like a navigation location; focus stays in the
+  // results unless the user asked to move to the document.
+  const openSearchMatch = useCallback((path: string, match: SearchMatch, focusDocument: boolean) => {
+    caret.current = { path, target: { position: { line: match.line, column: match.column }, word: null, text: "" } }
+    if (focusDocument) prepareDocumentNavigation()
+    void navigate({ to: "/view", search: { project, path }, hash: lineAnchor({ start: match.line, end: match.line }) })
+  }, [navigate, prepareDocumentNavigation, project])
+  const search = useSearchSession({ documentPane: main, openMatch: openSearchMatch, project, registerOpen: registerSearch, reveal: revealSearch })
   const languageServers = useSettings().settings.languageServers === "on"
   const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary, languageServers)
   const codeNavigation = useCodeNavigation(project, languageServers, openLocation, navigationStatus.refresh)
@@ -223,14 +239,21 @@ export function App({ project }: AppProps) {
       <div className="visually-hidden" role="status" aria-live="polite">
         {isLoading ? "Loading document…" : page.selected ? `${page.selected} loaded.` : ""}
       </div>
-      <div className="layout">
-        <FileTree
-          hasData={hasData}
-          onNavigate={navigateToDocument}
-          onOpenProjects={chooseProject}
-          onOpenWorktrees={chooseWorktree}
-          page={page}
-          registerOpen={registerFiles}
+      <div className="layout" data-sidebar={sidebar.hidden ? "hidden" : "visible"}>
+        <Sidebar
+          sidebar={sidebar}
+          explorer={<FileTree
+            hasData={hasData}
+            onDismiss={sidebar.dismiss}
+            onNavigate={navigateToDocument}
+            onOpenProjects={chooseProject}
+            onOpenWorktrees={chooseWorktree}
+            onReveal={revealExplorer}
+            page={page}
+            registerOpen={registerFiles}
+          />}
+          search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
+            onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
         />
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
@@ -285,7 +308,6 @@ export function App({ project }: AppProps) {
           prepareDocumentNavigation()
           void navigate({ to: "/", search: { project }, hash: "" })
         }} />
-      <SearchDialog project={project} navigate={navigateToDocument} registerOpen={registerSearch} />
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
       <SettingsDialog registerOpen={registerSettings} />
       <CommandPalette registerOpen={registerCommands} onRun={runCommand} />

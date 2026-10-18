@@ -307,9 +307,9 @@ func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 	}
 }
 
-func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
+func TestSearchDocumentsReturnsPathsNamesAndOriginalSource(t *testing.T) {
 	root := t.TempDir()
-	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), strings.Join([]string{
+	source := strings.Join([]string{
 		"# Install Guide",
 		"Read the **setup instructions** and [reference](https://example.com).",
 		"Use `servef`.",
@@ -317,7 +317,8 @@ func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 		"servef docs",
 		"```",
 		"<script>hiddenMarkup()</script>",
-	}, "\n\n"))
+	}, "\n\n")
+	writeMarkdown(t, filepath.Join(root, "docs", "Guide.md"), source)
 	writeMarkdown(t, filepath.Join(root, "node_modules", "ignored.md"), "# Ignored")
 
 	response := request(t, newTestApp(t, root), "/api/search-documents?project=.")
@@ -342,11 +343,12 @@ func TestSearchDocumentsReturnsPathsNamesAndVisibleText(t *testing.T) {
 	if document.Path != "docs/Guide.md" || document.Name != "Guide.md" {
 		t.Fatalf("document identity = %#v", document)
 	}
-	assertContains(t, document.Content, "Install Guide", "setup instructions", "reference", "servef", "servef docs", "hiddenMarkup")
-	for _, unwanted := range []string{"https://example.com", "**", "```", root} {
-		if strings.Contains(document.Content, unwanted) {
-			t.Errorf("search content contains %q: %s", unwanted, document.Content)
-		}
+	// Content search matches source lines, including Markdown markup.
+	if document.Content != source {
+		t.Fatalf("search content = %q, want original source", document.Content)
+	}
+	if strings.Contains(document.Content, root) {
+		t.Fatalf("search content leaks the root: %q", document.Content)
 	}
 }
 

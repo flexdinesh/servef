@@ -52,9 +52,6 @@ importers:
       lucide-react:
         specifier: 1.43.0
         version: 1.43.0(react@19.2.1)
-      minisearch:
-        specifier: 7.2.0
-        version: 7.2.0
       react:
         specifier: 19.2.1
         version: 19.2.1
@@ -2660,9 +2657,6 @@ packages:
 
   mermaid@11.16.1:
     resolution: {integrity: sha512-TQsq6u22fAn3rek5VOubrhKPo1g5hwC3FXUN9hiyupTckcYiGuuKGkNQrKYwGJkXUxZdojwRG46gsSCFZMDp4g==}
-
-  minisearch@7.2.0:
-    resolution: {integrity: sha512-dqT2XBYUOZOiC5t2HRnwADjhNS2cecp9u+TJRiJ1Qp/f5qjkeT5APcGPjHw+bz89Ms8Jp+cG4AlE+QZ/QnDglg==}
 
   multimath@2.0.0:
     resolution: {integrity: sha512-toRx66cAMJ+Ccz7pMIg38xSIrtnbozk0dchXezwQDMgQmbGpfxjtv68H+L00iFL8hxDaVjrmwAFSb3I6bg8Q2g==}
@@ -5562,8 +5556,6 @@ snapshots:
       stylis: 4.4.0
       ts-dedent: 2.3.0
       uuid: 14.0.2
-
-  minisearch@7.2.0: {}
 
   multimath@2.0.0:
     dependencies:
