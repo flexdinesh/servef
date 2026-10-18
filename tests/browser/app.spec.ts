@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
-import { apiOrigin, tldrawApiOrigin } from "./ports.ts"
+import { apiOrigin } from "./ports.ts"
 
 const mermaidCaseCount = 4
 
@@ -721,9 +721,10 @@ test("applies an editor palette while preserving dark rendering", async ({ page 
 test("renders every Mermaid fixture with default Excalidraw", async ({ page }) => {
   const cspFailures: string[] = []
   const fontResponses: number[] = []
-  const remoteFontRequests: string[] = []
+  const remoteRequests: string[] = []
   page.on("request", (request) => {
-    if (request.url().startsWith("https://esm.sh/")) remoteFontRequests.push(request.url())
+    const url = new URL(request.url())
+    if ((url.protocol === "http:" || url.protocol === "https:") && url.origin !== apiOrigin) remoteRequests.push(request.url())
   })
   page.on("requestfailed", (request) => {
     if (request.failure()?.errorText === "csp") cspFailures.push(request.url())
@@ -741,10 +742,9 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
   await expect(page.locator("main .mermaid-excalidraw .excalidraw").first()).toBeVisible()
   await expect(page.locator("main .mermaid-excalidraw [data-testid='main-menu-trigger']").first()).toBeHidden()
   await expect(page.locator("main .mermaid-excalidraw .zoom-actions").first()).toBeHidden()
-  await expect(page.locator("main .tl-container")).toHaveCount(0)
   await expect.poll(() => fontResponses.some((status) => status === 200)).toBe(true)
   expect(cspFailures).toEqual([])
-  expect(remoteFontRequests).toEqual([])
+  expect(remoteRequests).toEqual([])
 
   const canvas = page.locator("main .mermaid-excalidraw canvas").first()
   await canvas.scrollIntoViewIfNeeded()
@@ -771,14 +771,4 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
     deltaY: -1,
   })
   await expect(page.locator("html")).toHaveAttribute("data-excalidraw-pointer", `${pointer.x},${pointer.y}`)
-})
-
-test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => {
-  await page.goto(`${tldrawApiOrigin}/view?path=guides%2Fdiagrams.md`)
-  await showPreview(page)
-  await revealMermaidCases(page)
-
-  await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
-  await expect(page.locator("main .tl-container")).toHaveCount(mermaidCaseCount)
-  await expect(page.locator("main .mermaid-excalidraw")).toHaveCount(0)
 })

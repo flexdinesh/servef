@@ -9,7 +9,6 @@ as one Go binary.
 - `internal/files/`: file discovery, filename-glob scope, and safe path resolution.
 - `internal/document/`: file families, highlighting, previews, formatting, binary/size policy.
 - `internal/control/`: authenticated discovery and shutdown of local servef processes.
-- `internal/features/`: startup feature configuration.
 - `internal/web/`: HTTP API, indexed reads, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
@@ -25,7 +24,7 @@ that index. It binds localhost by default and selects the first free port from
 ## Dependency direction
 
 ```text
-CLI -> HTTP application -> files/features/metrics
+CLI -> HTTP application -> files/metrics
 React -> HTTP API -> HTTP application
 web source -> Vite -> internal/web/dist -> go:embed -> servef binary
 ```

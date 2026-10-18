@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/flexdinesh/servef/internal/document"
-	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
@@ -37,7 +36,6 @@ type Config struct {
 	ScanDepth  int
 	Depth      int
 	Exclusions []string
-	Features   features.Set
 	// Types decides presentation; Filenames decides which files are in scope.
 	Types     *document.Registry
 	Filenames files.NameFilter
@@ -277,7 +275,7 @@ func (a *App) readIndexed(resolved string, fileType document.Type, limit int64) 
 
 // ServeHTTP rescans the configured directory before rendering every response.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != http.MethodGet {
@@ -305,10 +303,6 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/search-documents" {
 		a.serveSearchDocuments(w, projectID)
-		return
-	}
-	if r.URL.Path == "/api/features" {
-		a.serveFeatures(w)
 		return
 	}
 	if r.URL.Path == "/api/metrics" {
@@ -456,21 +450,9 @@ func (a *App) serveShell(w http.ResponseWriter, status int, data *pageData) {
 		return
 	}
 	content := strings.Replace(a.shell, "{{APP_DATA}}", string(encoded), 1)
-	encodedFeatures, err := json.Marshal(a.config.Features.BrowserData())
-	if err != nil {
-		http.Error(w, "could not render page", http.StatusInternalServerError)
-		return
-	}
-	content = strings.Replace(content, "{{FEATURE_DATA}}", string(encodedFeatures), 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(content))
-}
-
-func (a *App) serveFeatures(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, a.config.Features.BrowserData())
 }
 
 func (a *App) serveMetrics(w http.ResponseWriter) {

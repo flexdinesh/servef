@@ -2460,44 +2460,6 @@ article hr {
   display: none;
 }
 
-.mermaid-controls {
-  position: absolute;
-  right: var(--space-2);
-  bottom: var(--space-2);
-  z-index: 10001;
-  display: flex;
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-control);
-}
-
-.mermaid-controls button {
-  min-width: var(--control-height-sm);
-  height: var(--control-height-sm);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-left: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  background: var(--color-surface-raised);
-  cursor: pointer;
-  font-size: var(--text-xs);
-}
-
-.mermaid-controls button:first-child {
-  border-left: 0;
-}
-
-.mermaid-controls button:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-}
-
-.mermaid-controls button:active {
-  color: var(--color-accent);
-}
-
 .mermaid-error {
   color: var(--color-destructive);
   font-size: var(--text-sm);

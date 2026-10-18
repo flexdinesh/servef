@@ -183,7 +183,7 @@ Base Light uses neutral editor surfaces and functional blue. Named themes keep t
 - **Neutral:** `bg` is canvas; `surface` is document; `surface-secondary` is explorer/tabs/footer/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
-Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Theme is chosen in Settings (or via the command palette) and persists under `servef-theme`. Keep `color-scheme`, Mermaid, tldraw, and Excalidraw synchronized with resolved polarity.
+Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Theme is chosen in Settings (or via the command palette) and persists under `servef-theme`. Keep `color-scheme`, Mermaid, and Excalidraw synchronized with resolved polarity.
 
 **The Functional Accent Rule.** Use accent for state and interaction; keep routine prose headings and large surfaces neutral.
 

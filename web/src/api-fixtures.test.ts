@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-import { parseFeatureValue } from "./features.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
@@ -19,7 +18,6 @@ async function fixture(name: string): Promise<unknown> {
 }
 
 test("frontend API fixtures satisfy runtime contracts", async () => {
-  assert.notEqual(parseFeatureValue(await fixture("features.json")), null)
   assert.equal(isProcessMetrics(await fixture("metrics.json")), true)
   assert.equal(isProcessMetrics(await fixture("metrics-go.json")), true)
   assert.equal(isSearchDocumentsResponse(await fixture("search-documents.json")), true)

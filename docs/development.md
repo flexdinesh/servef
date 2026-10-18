@@ -47,8 +47,8 @@ GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@e
 | Run browser tests | `pnpm test:browser` |
 | Run browser tests on other ports | `PORT=18090 pnpm test:browser` |
 
-Browser tests start API servers on `PORT` (default `18080`) and the next two
-ports, plus the Vite server on `15173`.
+Browser tests start API servers on `PORT` (default `18080`) and the next
+port, plus the Vite server on `15173`.
 
 On Linux with unprivileged user namespaces, `pnpm test:browser` runs Playwright,
 its servers, and Chromium in a private loopback-only network namespace. Host
@@ -73,43 +73,12 @@ each fresh clone or worktree first.
 
 ## Web development
 
-`pnpm dev` starts Go on port `8080` and Vite on port `5173`. Stop it before
-starting the comparison setup below. `pnpm dev:mock` runs Vite without Go and
+`pnpm dev` starts Go on port `8080` and Vite on port `5173`. `pnpm dev:mock` runs Vite without Go and
 uses the default API scenario under `testdata/api`.
 
 Frontend source and dependencies live in the `web` workspace. Production builds
 write to `internal/web/dist`, which is embedded in the Go binary and ignored by
 Git.
-
-## Compare feature flags
-
-Flags are fixed when the server starts. Build once, then run one server per flag set on a unique port.
-
-Run this block in one terminal, with `pnpm dev` stopped:
-
-```sh
-# Build the self-contained server.
-pnpm build:web
-go build -o ./bin/servef .
-
-# Stop both background servers when this block exits.
-(
-  trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
-
-  # Default Excalidraw: http://localhost:8080
-  ./bin/servef testdata/markdown --port 8080 --no-open &
-
-  # tldraw: http://localhost:8081
-  ./bin/servef testdata/markdown --port 8081 --no-open \
-    --feature mermaid-tldraw &
-
-  wait
-)
-```
-
-Compare `http://localhost:8080` and `http://localhost:8081`. Press Ctrl-C to stop both. Repeat the server command with a new port for other flag sets.
-
-`--feature` is repeatable. Unknown names fail startup.
 
 ## Release
 

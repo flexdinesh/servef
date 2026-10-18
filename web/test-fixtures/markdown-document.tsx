@@ -1,7 +1,6 @@
 import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
-import { FeatureProvider } from "../src/components/FeatureProvider.tsx"
 import { ThemeProvider } from "../src/components/ThemeProvider.tsx"
 import { DocumentPreview } from "../src/DocumentPreview.tsx"
 import type { SearchMatch } from "../src/search-engine.ts"
@@ -49,11 +48,9 @@ const root = document.getElementById("root")
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <FeatureProvider initialFeatures={{ mermaidTldraw: false }}>
-        <ThemeProvider initialTheme={{ theme: "light", resolvedTheme: "light" }}>
-          <LifecycleFixture />
-        </ThemeProvider>
-      </FeatureProvider>
+      <ThemeProvider initialTheme={{ theme: "light", resolvedTheme: "light" }}>
+        <LifecycleFixture />
+      </ThemeProvider>
     </StrictMode>,
   )
 }
