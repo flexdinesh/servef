@@ -3044,7 +3044,8 @@ article hr {
   text-align: left;
 }
 
-.file-search[hidden] {
+.file-search[hidden],
+.file-tree-host[hidden] {
   display: none;
 }
 

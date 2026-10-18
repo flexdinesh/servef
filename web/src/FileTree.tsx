@@ -132,6 +132,8 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReve
     },
   })
   const search = useFileTreeSearch(model)
+  // Pierre's hide-non-matches mode shows every row when nothing matches; show an empty state instead.
+  const searchUnmatched = search.isOpen && search.value.length > 0 && search.matchingPaths.length === 0
   useLayoutEffect(() => {
     if (search.isOpen) searchInput.current?.focus()
   }, [search.isOpen])
@@ -324,10 +326,19 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReve
           No files match <code>{filter.applied}</code>
           <button type="button" className="explorer-empty-action" onClick={filter.clear}>Clear filter</button>
         </p>
-        : <PierreFileTree model={model} className="file-tree-host" aria-label="Files" onClick={() => {
-          const focused = model.getFocusedPath()
-          if (focused && !model.getItem(focused)?.isDirectory() && model.getSelectedPaths().includes(focused)) onDismiss()
-        }} />}
+        : <>
+          {searchUnmatched && <p className="muted explorer-empty">
+            No files match <code>{search.value}</code>
+            <button type="button" className="explorer-empty-action" onClick={() => {
+              model.setSearch("")
+              searchInput.current?.focus()
+            }}>Clear search</button>
+          </p>}
+          <PierreFileTree model={model} className="file-tree-host" aria-label="Files" hidden={searchUnmatched} onClick={() => {
+            const focused = model.getFocusedPath()
+            if (focused && !model.getItem(focused)?.isDirectory() && model.getSelectedPaths().includes(focused)) onDismiss()
+          }} />
+        </>}
       {page.warnings.length > 0 && (
         <details className="warnings">
           <summary>Some paths could not be read</summary>

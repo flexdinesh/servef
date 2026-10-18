@@ -69,6 +69,22 @@ test("invalid globs keep the last valid filter and unmatched globs offer a clear
   await expect(files.getByRole("treeitem", { name: "README.md" })).toBeVisible()
 })
 
+test("filename search with no matches hides every tree row and offers a clear action", async ({ page }) => {
+  await page.goto("/")
+  const files = explorer(page)
+  await files.getByRole("button", { name: "Search files" }).click()
+  const fileSearch = files.getByRole("textbox", { name: "Search…" })
+  await fileSearch.fill("zzz-no-such-file")
+  await expect(files).toContainText("No files match zzz-no-such-file")
+  await expect(files.getByRole("treeitem")).toHaveCount(0)
+
+  await files.getByRole("button", { name: "Clear search" }).click()
+  await expect(fileSearch).toHaveValue("")
+  await expect(fileSearch).toBeFocused()
+  await expect(files.getByRole("treeitem", { name: "README.md" })).toBeVisible()
+  await expect(files.getByRole("button", { name: "Clear search" })).toHaveCount(0)
+})
+
 test("filter keyboard clears, blurs, and moves into the tree", async ({ page }) => {
   await page.goto("/")
   const files = explorer(page)
