@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -294,6 +295,39 @@ func TestSearchDocumentsReturnsPathsNamesAndOriginalSource(t *testing.T) {
 	}
 	if strings.Contains(document.Content, root) {
 		t.Fatalf("search content leaks the root: %q", document.Content)
+	}
+}
+
+func TestSearchDocumentsSkipFilesGitIgnoresInLinkedWorktree(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	writeMarkdown(t, filepath.Join(home, ".config", "git", "ignore"), "global.md\n")
+
+	parent := t.TempDir()
+	admin := filepath.Join(parent, "main", ".git", "worktrees", "feature")
+	root := filepath.Join(parent, "feature")
+	writeMarkdown(t, filepath.Join(parent, "main", ".git", "info", "exclude"), "local.md\n")
+	writeMarkdown(t, filepath.Join(admin, "commondir"), "../..\n")
+	writeMarkdown(t, filepath.Join(root, ".git"), "gitdir: ../main/.git/worktrees/feature\n")
+	writeMarkdown(t, filepath.Join(root, ".gitignore"), "ignored.md\n")
+	for _, name := range []string{"kept.md", "ignored.md", "local.md", "global.md"} {
+		writeMarkdown(t, filepath.Join(root, name), "# match")
+	}
+
+	response := request(t, newTestApp(t, root), "/api/search-documents?project=.")
+	var payload searchDocumentsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, document := range payload.Documents {
+		paths = append(paths, document.Path)
+	}
+	if want := []string{".gitignore", "kept.md"}; !reflect.DeepEqual(paths, want) {
+		t.Fatalf("searched paths = %v, want %v", paths, want)
 	}
 }
 

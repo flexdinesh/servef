@@ -20,7 +20,7 @@ rewriting history; update `Status` on the old record.
 | [0012](0012-repository-names-and-worktree-header.md) | Repository names and worktree header | Accepted |
 | [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted |
 | [0014](0014-command-palette.md) | Command palette | Accepted |
-| [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Superseded for navigation by 0018 |
+| [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Superseded for navigation by 0018; ignore sources by 0023 |
 | [0016](0016-navigation-memory.md) | Navigation memory | Superseded by 0018 |
 | [0017](0017-language-servers.md) | Language servers for code navigation | Superseded by 0018 |
 | [0018](0018-lsp-only-navigation.md) | LSP-only navigation and host-specific availability | Accepted |
@@ -28,3 +28,4 @@ rewriting history; update `Status` on the old record.
 | [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Accepted |
+| [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | Accepted |

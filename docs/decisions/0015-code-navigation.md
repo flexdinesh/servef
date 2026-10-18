@@ -1,6 +1,6 @@
 # 0015: Code navigation
 
-- Status: Superseded for navigation by [0018](0018-lsp-only-navigation.md)
+- Status: Superseded for navigation by [0018](0018-lsp-only-navigation.md); ignore sources by [0023](0023-git-ignore-sources.md)
 - Date: 2026-10-16
 
 ## Context

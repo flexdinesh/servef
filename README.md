@@ -30,7 +30,8 @@ else.
 - Search file content in the Search view (Cmd/Ctrl+Shift+F or Find in files in
   the status bar) like VS Code: every match grouped by file, Match Case, Match
   Whole Word, and regular expressions, files to include/exclude globs, and
-  F4/Shift+F4 to step through matches; gitignored files are skipped
+  F4/Shift+F4 to step through matches; files git ignores are skipped, including
+  global excludes and linked-worktree excludes
 - Go to definition (Ctrl/Cmd+click or F12) and find references (Shift+F12)
   through installed language servers, with project-scoped results and VS Code-style
   shortcuts. Servers start on first navigation and stop after 10 idle minutes;

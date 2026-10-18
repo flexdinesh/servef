@@ -110,9 +110,9 @@ func Scan(root string, maxDepth int, excluded []string, accepts func(string) boo
 }
 
 // Ignored reports whether an indexed file is excluded by gitignore rules: the
-// .gitignore files from the root down and the root repository's
-// .git/info/exclude. Ignored files stay browsable; content search and code
-// navigation skip them.
+// root repository's core.excludesFile and info/exclude, including for linked
+// worktrees, and the .gitignore files from the root down. Ignored files stay
+// browsable; content search and code navigation skip them.
 func (i *Index) Ignored(name string) bool {
 	if i == nil {
 		return false
@@ -264,7 +264,8 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		}
 		i.Files = append(i.Files, child.path)
 		i.fileSet[child.path] = struct{}{}
-		if inIgnored || rules.ignores(child.path, false) {
+		// Git never tracks a .git entry, such as a linked worktree's .git file.
+		if inIgnored || child.name == ".git" || rules.ignores(child.path, false) {
 			i.ignored[child.path] = struct{}{}
 		}
 	}
