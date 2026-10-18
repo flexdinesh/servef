@@ -2,7 +2,10 @@ package main
 
 import (
 	"math"
+	"os/exec"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -59,6 +62,43 @@ func TestParseSeriesRejectsFullOrPaddedVersions(t *testing.T) {
 			t.Fatalf("parseSeries(%q) succeeded", value)
 		}
 	}
+}
+
+func TestTagsBuiltOnHeadFindsReleaseCommitsOnTopOfHead(t *testing.T) {
+	dir := t.TempDir()
+	git(t, dir, "init", "--quiet")
+	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "older main")
+	git(t, dir, "tag", "v0.1.0")
+	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "main")
+	main := git(t, dir, "rev-parse", "HEAD")
+	git(t, dir, "tag", "v0.1.1")
+	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "release: v0.1.2")
+	git(t, dir, "tag", "v0.1.2")
+	git(t, dir, "checkout", "--quiet", "--detach", main)
+
+	got, err := tagsBuiltOnHead(dir, []string{"v0.1.0", "v0.1.1", "v0.1.2", "missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"v0.1.2"}; !slices.Equal(got, want) {
+		t.Fatalf("tagsBuiltOnHead() = %q, want %q", got, want)
+	}
+}
+
+func git(t *testing.T, dir string, arguments ...string) string {
+	t.Helper()
+	command := exec.Command("git", arguments...)
+	command.Dir = dir
+	command.Env = append(command.Environ(),
+		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1",
+	)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(arguments, " "), err, output)
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func mustParseSeries(t *testing.T, value string) releaseSeries {

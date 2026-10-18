@@ -44,10 +44,11 @@ Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Distribution
 
-Vite writes hashed assets to `internal/web/dist`. The generated directory is
-committed so `go install github.com/flexdinesh/servef@latest` needs no JavaScript
-toolchain. CI rebuilds it and fails if committed output is stale. Installed
-releases contain no Node.js runtime or frontend sidecar.
+Vite writes hashed assets to `internal/web/dist`, which `main` ignores. Release
+tags and the CI-published `edge` branch commit it on top of `main`, so
+`go install github.com/flexdinesh/servef@latest` (or `@edge`) needs no
+JavaScript toolchain. Installed releases contain no Node.js runtime or frontend
+sidecar.
 
 ## Growth rules
 

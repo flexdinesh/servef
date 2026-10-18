@@ -8,6 +8,9 @@
 /test-results/
 /.impeccable/review/
 
+# Built frontend assets; committed only on release tags and edge
+/internal/web/dist/
+
 # Go test and coverage output
 /*.test
 /coverage.out
