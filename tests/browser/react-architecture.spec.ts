@@ -158,7 +158,8 @@ test("diagram module failure offers reload and recovers", async ({ page }) => {
   await expect(page.locator(".mermaid-error").first()).toContainText("Reload to try again.")
   await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
   blocked = false
-  await reload.click()
+  // Wait for the reloaded page so later assertions check it, not the old one.
+  await Promise.all([page.waitForEvent("load"), reload.click()])
   await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(page.locator(".mermaid-diagram.ready").first()).toBeVisible()
   await expect(page.locator(".mermaid-error")).toHaveCount(0)
