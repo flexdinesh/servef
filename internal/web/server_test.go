@@ -14,8 +14,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/flexdinesh/servef/internal/features"
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
@@ -75,7 +73,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		`<pre><code class="language-mermaid">sequenceDiagram`,
 		`User-&gt;&gt;App: Open nested document`,
 		`<pre><code class="language-mermaid">stateDiagram-v2`,
-		`Excalidraw --&gt; Tldraw: feature enabled`,
+		`Source --&gt; Preview: toggle`,
 		`<pre><code class="language-mermaid">gitGraph`,
 		`commit id: &quot;feature&quot;`,
 	)
@@ -206,59 +204,6 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	assertContains(t, shell.Body.String(), `id="root"`, `id="app-data"`, `/assets/`)
 	if strings.Contains(shell.Body.String(), "{{APP_DATA}}") || strings.Contains(shell.Body.String(), "<script>alert") {
 		t.Fatal("shell contains unexpanded or unsafe app data")
-	}
-}
-
-func TestAppServesAndBootstrapsFeatures(t *testing.T) {
-	set, err := features.Parse([]string{features.MermaidTldraw})
-	if err != nil {
-		t.Fatal(err)
-	}
-	app, err := New(Config{Roots: []string{t.TempDir()}, Depth: 5, Features: set})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	response := request(t, app, "/api/features")
-	if response.Code != http.StatusOK {
-		t.Fatalf("features status = %d, want %d", response.Code, http.StatusOK)
-	}
-	if got := response.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
-		t.Fatalf("Content-Type = %q", got)
-	}
-	if got := response.Header().Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("Cache-Control = %q, want no-store", got)
-	}
-	var endpoint features.Data
-	if err := json.Unmarshal(response.Body.Bytes(), &endpoint); err != nil {
-		t.Fatal(err)
-	}
-	if !endpoint.MermaidTldraw {
-		t.Fatalf("features response = %#v", endpoint)
-	}
-
-	shell := request(t, app, "/")
-	match := regexp.MustCompile(`<template id="feature-data">([^<]+)</template>`).FindStringSubmatch(shell.Body.String())
-	if len(match) != 2 {
-		t.Fatalf("feature bootstrap missing: %s", shell.Body.String())
-	}
-	var bootstrap features.Data
-	if err := json.Unmarshal([]byte(match[1]), &bootstrap); err != nil {
-		t.Fatal(err)
-	}
-	if bootstrap != endpoint {
-		t.Fatalf("bootstrap = %#v, endpoint = %#v", bootstrap, endpoint)
-	}
-}
-
-func TestAppDefaultsFeaturesDisabled(t *testing.T) {
-	response := request(t, newTestApp(t, t.TempDir()), "/api/features")
-	var payload features.Data
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatal(err)
-	}
-	if payload.MermaidTldraw {
-		t.Fatal("mermaid-tldraw enabled by default")
 	}
 }
 
@@ -448,7 +393,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	}
 	foundMermaidChunk := false
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), "MermaidCanvas-") && strings.HasSuffix(entry.Name(), ".js") {
+		if strings.HasPrefix(entry.Name(), "ExcalidrawMermaidCanvas-") && strings.HasSuffix(entry.Name(), ".js") {
 			foundMermaidChunk = true
 			if response := request(t, app, "/assets/"+entry.Name()); response.Code != http.StatusOK {
 				t.Errorf("GET Mermaid chunk status = %d", response.Code)
@@ -464,7 +409,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	}
 	assertContains(t, px0License.Body.String(), "MIT License", "Arpit Bhayani")
 	csp := shell.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
+	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}

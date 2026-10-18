@@ -93,8 +93,6 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
   if (method !== "GET") return undefined
   const url = new URL(rawURL, "http://localhost")
   switch (url.pathname) {
-    case "/features":
-      return { name: "features.json", status: 200 }
     case "/metrics":
       return { name: "metrics.json", status: 200 }
     case "/search-documents":

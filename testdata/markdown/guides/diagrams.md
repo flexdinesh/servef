@@ -20,13 +20,13 @@ sequenceDiagram
     Server-->>App: Rendered Markdown
 ```
 
-## Renderer selection
+## Document modes
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Excalidraw
-    Excalidraw --> Tldraw: feature enabled
-    Tldraw --> Excalidraw: restart without feature
+    [*] --> Source
+    Source --> Preview: toggle
+    Preview --> Source: toggle
 ```
 
 ## Unsupported diagram fallback

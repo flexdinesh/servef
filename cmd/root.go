@@ -18,7 +18,6 @@ import (
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
 	"github.com/flexdinesh/servef/internal/document"
-	"github.com/flexdinesh/servef/internal/features"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/version"
@@ -39,7 +38,6 @@ type options struct {
 	portSet    bool
 	noOpen     bool
 	exclusions []string
-	features   features.Set
 	filenames  files.NameFilter
 	controlDir string
 }
@@ -55,7 +53,6 @@ func Execute() error {
 
 func newRootCommand(runCommand runner) *cobra.Command {
 	var opts options
-	var featureNames []string
 	var filenames string
 	command := &cobra.Command{
 		Use:           "servef [path]",
@@ -83,11 +80,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 				return errors.New("--host must be a valid IP address")
 			}
 			opts.portSet = command.Flags().Changed("port")
-			parsedFeatures, err := features.Parse(featureNames)
-			if err != nil {
-				return err
-			}
-			opts.features = parsedFeatures
+			var err error
 			opts.filenames, err = parseFilenames(filenames)
 			if err != nil {
 				return err
@@ -105,7 +98,6 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	command.Flags().IntVar(&opts.port, "port", 0, "port; defaults to the first free port from 7971 to 7980")
 	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
 	command.Flags().StringArrayVar(&opts.exclusions, "exclude", nil, "add a directory name to exclude (repeatable)")
-	command.Flags().StringArrayVar(&featureNames, "feature", nil, "enable an experimental feature (repeatable)")
 	return command
 }
 
@@ -128,7 +120,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Features: opts.features, Types: document.Builtins(), Filenames: filenames})
+	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Types: document.Builtins(), Filenames: filenames})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}

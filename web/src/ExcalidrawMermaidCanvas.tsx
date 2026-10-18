@@ -18,8 +18,8 @@ import {
   padTextBounds,
   type DiagramBounds,
 } from "./diagram.ts"
-import type { MermaidTheme } from "./mermaid-controller.ts"
 import { MermaidSource } from "./MermaidSource.tsx"
+import type { ResolvedTheme } from "./theme.ts"
 
 const renderError = "Could not render Mermaid diagram. Check its source."
 
@@ -28,7 +28,7 @@ interface PreparedDiagram {
   data: ExcalidrawInitialDataState
 }
 
-export default function ExcalidrawMermaidCanvas({ source, theme }: { source: string; theme: MermaidTheme }) {
+export default function ExcalidrawMermaidCanvas({ source, theme }: { source: string; theme: ResolvedTheme }) {
   const host = useRef<HTMLDivElement>(null)
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const mountFrame = useRef<number | null>(null)
