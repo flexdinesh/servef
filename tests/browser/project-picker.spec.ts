@@ -51,6 +51,12 @@ const pickerInput = (page: Page) => picker(page).getByRole("combobox")
 const tree = (page: Page) => page.getByRole("complementary", { name: "Files" })
 const trigger = (page: Page) => tree(page).getByRole("button", { name: /Switch project/ })
 
+// startBrowsing types "/" once projects load: their roots decide where browsing starts.
+async function startBrowsing(page: Page) {
+  await expect(picker(page).getByRole("option").first()).toBeVisible()
+  await pickerInput(page).fill("/")
+}
+
 test("Ctrl+O switches projects and starts a fresh workspace", async ({ page }) => {
   await mockProjects(page)
   await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
@@ -145,7 +151,7 @@ test("browsing opens folders, which stay listed until forgotten", async ({ page 
   await mockProjects(page)
   await page.goto(`/?project=${rootParam}`)
   await trigger(page).click()
-  await pickerInput(page).fill("/")
+  await startBrowsing(page)
   await expect(picker(page).getByRole("listbox", { name: "Folders" })).toBeVisible()
   await expect(pickerInput(page)).toHaveValue(`${root}/`)
   const folders = picker(page).getByRole("group", { name: "Folders" }).getByRole("option")
@@ -187,7 +193,7 @@ test("browsing does not enter repositories but opens them whole", async ({ page 
   })
   await page.goto(`/?project=${rootParam}`)
   await trigger(page).click()
-  await pickerInput(page).fill("/")
+  await startBrowsing(page)
   await pickerInput(page).pressSequentially("gui")
   await expect(picker(page).getByRole("option", { name: /guides/ })).toContainText("git")
   await pickerInput(page).press("Tab")
@@ -198,8 +204,10 @@ test("browsing does not enter repositories but opens them whole", async ({ page 
 
 test("Backspace walks up while browsing and back to projects", async ({ page }) => {
   await page.goto(`/?project=${rootParam}`)
+  // The load event precedes the app's first render; wait for its shortcuts.
+  await expect(trigger(page)).toBeVisible()
   await page.keyboard.press("Control+o")
-  await pickerInput(page).fill("/")
+  await startBrowsing(page)
   await pickerInput(page).pressSequentially("reference/topics/")
   await expect(picker(page).getByRole("option").first()).toHaveAccessibleName(`Open ${root}/reference/topics/`)
   await pickerInput(page).press("Backspace")

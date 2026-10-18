@@ -48,6 +48,13 @@ GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@m
 Browser tests start API servers on `PORT` (default `18080`) and the next two
 ports, plus the Vite server on `15173`.
 
+On Linux with unprivileged user namespaces, `pnpm test:browser` runs Playwright,
+its servers, and Chromium in a private loopback-only network namespace. Host
+interface changes, such as Docker creating container links, otherwise make
+Chromium abort in-flight requests with `ERR_NETWORK_CHANGED` and leave pages
+blank. The namespace also keeps test ports from colliding with host servers.
+Elsewhere it runs Playwright directly; `pnpm exec playwright test` always does.
+
 `pnpm link:local` rebuilds the embedded frontend and installs the current
 checkout with `go install`.
 
