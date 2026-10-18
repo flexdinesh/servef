@@ -2020,6 +2020,7 @@ article hr {
 
 .search-field kbd {
   padding: 0 var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .search-status {
@@ -2194,7 +2195,7 @@ article hr {
   margin-right: calc(var(--space-3) * -1);
   overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
