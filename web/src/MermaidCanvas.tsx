@@ -1,3 +1,4 @@
+import { getAssetUrlsByImport } from "@tldraw/assets/imports.vite"
 import { createMermaidDiagram } from "@tldraw/mermaid"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Tldraw, type Editor } from "tldraw"
@@ -14,6 +15,8 @@ import {
 import { MermaidSource } from "./MermaidSource.tsx"
 
 const renderError = "Could not render Mermaid diagram. Check its source."
+// Bundle tldraw fonts, icons, and translations; never fetch them from its CDN.
+const assetUrls = getAssetUrlsByImport()
 
 function createDiagramResizeObserver(resize: () => void, host: HTMLDivElement) {
   if (typeof ResizeObserver !== "undefined") {
@@ -86,6 +89,7 @@ export default function MermaidCanvas({ source, theme }: { source: string; theme
       {!ready && <MermaidSource source={source} />}
       <div className="mermaid-canvas" aria-label="Mermaid diagram">
         <Tldraw
+          assetUrls={assetUrls}
           autoFocus={false}
           colorScheme={theme}
           hideUi

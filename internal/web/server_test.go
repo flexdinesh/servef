@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -447,7 +448,13 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 		t.Fatal(err)
 	}
 	foundMermaidChunk := false
+	assetTypes := map[string]string{".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2"}
 	for _, entry := range entries {
+		if wantType, ok := assetTypes[path.Ext(entry.Name())]; ok {
+			if got := request(t, app, "/assets/"+entry.Name()).Header().Get("Content-Type"); got != wantType {
+				t.Errorf("GET %s Content-Type = %q, want %q", entry.Name(), got, wantType)
+			}
+		}
 		if strings.HasPrefix(entry.Name(), "MermaidCanvas-") && strings.HasSuffix(entry.Name(), ".js") {
 			foundMermaidChunk = true
 			if response := request(t, app, "/assets/"+entry.Name()); response.Code != http.StatusOK {
@@ -464,7 +471,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	}
 	assertContains(t, px0License.Body.String(), "MIT License", "Arpit Bhayani")
 	csp := shell.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'"
+	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}

@@ -774,6 +774,11 @@ test("renders every Mermaid fixture with default Excalidraw", async ({ page }) =
 })
 
 test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => {
+  const remoteRequests: string[] = []
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if ((url.protocol === "http:" || url.protocol === "https:") && url.origin !== tldrawApiOrigin) remoteRequests.push(request.url())
+  })
   await page.goto(`${tldrawApiOrigin}/view?path=guides%2Fdiagrams.md`)
   await showPreview(page)
   await revealMermaidCases(page)
@@ -781,4 +786,6 @@ test("uses tldraw for Mermaid when the feature is enabled", async ({ page }) => 
   await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
   await expect(page.locator("main .tl-container")).toHaveCount(mermaidCaseCount)
   await expect(page.locator("main .mermaid-excalidraw")).toHaveCount(0)
+  await page.waitForLoadState("networkidle")
+  expect(remoteRequests).toEqual([])
 })

@@ -137,6 +137,10 @@ export default defineConfig(({ command, mode }) => ({
     emptyOutDir: true,
     outDir: "../internal/web/dist",
   },
+  // Pre-bundling cannot resolve the `?url` asset imports in @tldraw/assets.
+  optimizeDeps: {
+    exclude: ["@tldraw/assets"],
+  },
   plugins: [react(), tailwindcss(), devServerBanner, devFontAssets, mockApi(mode === "mock"), excalidrawFonts],
   resolve: {
     alias: {

@@ -277,7 +277,7 @@ func (a *App) readIndexed(resolved string, fileType document.Type, limit int64) 
 
 // ServeHTTP rescans the configured directory before rendering every response.
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://cdn.tldraw.com https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self' https://cdn.tldraw.com; base-uri 'none'; form-action 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != http.MethodGet {
@@ -440,6 +440,10 @@ func (a *App) serveFrontendAsset(w http.ResponseWriter, name string) {
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	case ".js":
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	case ".json":
+		w.Header().Set("Content-Type", "application/json")
+	case ".svg":
+		w.Header().Set("Content-Type", "image/svg+xml")
 	case ".woff2":
 		w.Header().Set("Content-Type", "font/woff2")
 	default:
