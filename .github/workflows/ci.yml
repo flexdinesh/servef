@@ -34,6 +34,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend
+        run: pnpm build:web
+
       - name: Test
         run: |
           go test ./...
@@ -45,7 +48,71 @@ jobs:
         run: go vet ./...
 
       - name: Build
+        run: go build ./...
+
+  edge:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: edge
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build:web
+
+      - name: Publish edge branch
+        shell: bash
         run: |
-          pnpm build:web
-          git diff --exit-code -- internal/web/dist
-          go build ./...
+          set -euo pipefail
+
+          git fetch --tags --force
+          current_edge=""
+          if git fetch origin refs/heads/edge:refs/remotes/origin/edge 2>/dev/null; then
+            current_edge="$(git rev-parse refs/remotes/origin/edge)"
+            edge_source="$(git rev-parse "${current_edge}^1")"
+            if [[ "$edge_source" != "$GITHUB_SHA" ]] && git merge-base --is-ancestor "$GITHUB_SHA" "$edge_source"; then
+              echo "edge already has newer main $edge_source; skipping $GITHUB_SHA."
+              exit 0
+            fi
+          fi
+
+          # Parent the latest release commit too, so Go pseudo-versions on edge
+          # sort after it even though release tags are not on main.
+          parents=(-p "$GITHUB_SHA")
+          mapfile -t release_tags < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+          if [[ ${#release_tags[@]} -gt 0 ]]; then
+            release_commit="$(git rev-parse "${release_tags[0]}^{commit}")"
+            if ! git merge-base --is-ancestor "$release_commit" "$GITHUB_SHA"; then
+              parents+=(-p "$release_commit")
+            fi
+          fi
+
+          git add -f internal/web/dist
+          tree="$(git write-tree)"
+          export GIT_AUTHOR_NAME="github-actions[bot]"
+          export GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
+          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+          export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+          edge_commit="$(git commit-tree "$tree" "${parents[@]}" -m "edge: ${GITHUB_SHA:0:12} with built frontend")"
+
+          git push --force-with-lease="refs/heads/edge:${current_edge}" origin "${edge_commit}:refs/heads/edge"

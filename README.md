@@ -71,7 +71,15 @@ Specific stable version:
 go install github.com/flexdinesh/servef@v0.1.3
 ```
 
-All Go installs include the embedded frontend; Node.js and pnpm are not required.
+Latest `main` that passed CI:
+
+```sh
+go install github.com/flexdinesh/servef@edge
+```
+
+These installs include the embedded frontend; Node.js and pnpm are not required.
+Other branches and commits do not include it and fail to build with
+`go install`.
 
 ## Usage
 

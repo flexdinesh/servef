@@ -6,22 +6,24 @@
 - Node.js 26
 - pnpm 11
 
-## Install from main
+## Install from edge
 
-Install the latest commit directly from `main`:
+Install the latest `main` that passed CI:
 
 ```sh
-go install github.com/flexdinesh/servef@main
+go install github.com/flexdinesh/servef@edge
 ```
 
 The Go install includes the embedded frontend; Node.js and pnpm are not required.
 
-`@main` follows the branch head without waiting for CI; `@latest` selects the
-latest stable version tag. Go module proxies may briefly cache an older branch
-revision. To bypass the proxy for this module:
+`main` does not track `internal/web/dist/`, so `go install ...@main` fails.
+After CI passes on `main`, CI force-pushes `edge`: that `main` commit plus the
+built frontend. `@latest` selects the latest stable version tag. Go module
+proxies may briefly cache an older branch revision. To bypass the proxy for
+this module:
 
 ```sh
-GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@main
+GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@edge
 ```
 
 ## Commands
@@ -56,7 +58,11 @@ Initial setup:
 ```sh
 go mod download
 pnpm install
+pnpm build:web
 ```
+
+Go builds, tests, and vet need `internal/web/dist/`; run `pnpm build:web` in
+each fresh clone or worktree first.
 
 ## Web development
 
@@ -65,8 +71,8 @@ starting the comparison setup below. `pnpm dev:mock` runs Vite without Go and
 uses the default API scenario under `testdata/api`.
 
 Frontend source and dependencies live in the `web` workspace. Production builds
-still write to `internal/web/dist` because those committed files are embedded in
-the Go binary.
+write to `internal/web/dist`, which is embedded in the Go binary and ignored by
+Git.
 
 ## Compare feature flags
 
