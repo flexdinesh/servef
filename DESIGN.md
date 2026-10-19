@@ -3,6 +3,8 @@ name: servef
 description: Compact VS Code-style workspace for browsing local files.
 colors:
   bg: "#f8f8f8"
+  canvas: "#e8e8e8"
+  workspace-chrome: "#eaeaea"
   surface: "#ffffff"
   surface-secondary: "#f3f3f3"
   surface-raised: "#ffffff"
@@ -145,7 +147,7 @@ components:
     height: "24px"
     typography: "{typography.label}"
   document-tab:
-    backgroundColor: "{colors.surface-secondary}"
+    backgroundColor: "{colors.workspace-chrome}"
     textColor: "{colors.text-secondary}"
     height: "2rem"
     typography: "{typography.label}"
@@ -169,7 +171,7 @@ Workspace identity sits above the explorer as the project picker trigger. App id
 **Key Characteristics:**
 
 - Compact editor navigation.
-- Flat, subtle, neutral surfaces.
+- Rounded workspace islands on a neutral canvas; flat internal rows.
 - Left-aligned proportional prose and monospace code.
 - Shared semantic roles across named editor themes.
 
@@ -179,8 +181,8 @@ Implementation authority: `web/src/style.css`, `web/src/FileTree.tsx`, shared pr
 
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
-- **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, active tabs, selected files, and primary actions.
-- **Neutral:** `bg` is canvas; `surface` is document; `surface-secondary` is explorer/tabs/footer/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
+- **Neutral:** `bg` is the theme base; `canvas` mixes `bg` with 8% `text-primary` for the outer workspace and footer; `surface` is document; `surface-secondary` is explorer/code; `workspace-chrome` mixes 80% canvas with 20% secondary surface for the activity rail and tab strip; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Theme is chosen in Settings (or via the command palette) and persists under `servef-theme`. Keep `color-scheme`, Mermaid, and Excalidraw synchronized with resolved polarity.
@@ -207,11 +209,11 @@ Source matches the explorer so code never looks oversized beside the tree; prose
 
 ## Layout
 
-Desktop: a 2.5rem activity bar, then the full-height sidebar (Explorer or Search) beside the tabbed document workspace, above a 28px footer split at the sidebar boundary. Its two sections track the activity bar plus resizable sidebar, and the document column; with the sidebar hidden the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The 1px separator has a wider pointer hit area and supports arrow keys. Explorer and document scroll independently.
+Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer or Search); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--workspace-radius` is 0.625rem (10px). The full-width 28px footer uses the canvas surface, with document status aligned to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
 
-Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
+Tabs and explorer headers are 32px tall at every viewport width and share the workspace-chrome surface. Activity rows use the same height; header labels follow the active tab's 4px top inset. Pierre rows are 24px on desktop. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, document fills the workspace. The sidebar opens in a native modal drawer, `min(85vw, 22rem)` wide, with the activity bar (44px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
+At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a rounded native modal drawer, `min(85vw, 22rem)` wide, with the same outer inset, activity bar (32px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 32px tree/search rows. Tabs and explorer headers stay 32px; the footer remains 44px. Explorer and search fields stay at 28px, following the same rem scale as desktop. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
 
 Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
@@ -219,7 +221,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1
 
 ## Elevation & Depth
 
-Workspace regions are flat. Surface contrast, 1px separators, and the active tab's 2px top accent establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; palettes, theme menus, process panels.
@@ -229,7 +231,7 @@ Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus
 
 ## Shapes
 
-Explorer rows, tabs, and footer actions are square rectangles. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives.
+Navigation and document islands use 10px corners, including the mobile drawer. Explorer rows and footer actions are square rectangles within their shells. Activity selections use a centered 24px-square, 4px-radius tile; tabs use 6px top corners and concave lower shoulders. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives. Keyboard outlines at clipped workspace edges sit inside their controls.
 
 Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family (unmapped icons inherit; unresolved files fall back to a generic file icon). Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
 
@@ -241,11 +243,11 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 ### Activity bar
 
-A 2.5rem column on `surface-secondary` with a 1px right border: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items are square, 20px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a 2px accent bar on its left edge with `aria-pressed`. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 44px items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 32px rows aligned to the workspace header: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items show 18px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a centered 24px-square `surface` tile with 4px corners and `aria-pressed`. The full button remains the click target; keyboard focus retains its accent outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
-Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 40px mobile. The project name sits above as a trigger for the project picker. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
+Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 32px narrow, both scaled by the Font Size setting. The project name sits above as a trigger for the project picker. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
 The filename filter sits below the explorer header, always visible, matching the
 filename search field's width and appearance: funnel icon, placeholder
@@ -299,7 +301,7 @@ project's remembered tabs return. A project that no longer resolves shows
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons are square segments that fill the toolbar height (32px desktop, 44px mobile) with 12px labels and 12px horizontal padding; the pressed one uses `aria-pressed` with accent text on an `accent-subtle` fill spanning the whole segment. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is inset 4px vertically in the 32px toolbar: a 24px-high secondary surface with 6px outer corners, 2px padding/gaps, and 4px button corners. Buttons use 12px labels and 8px horizontal padding (4px on narrow screens); the pressed one uses `aria-pressed`, primary text on the document surface, and the control shadow. Keyboard focus stays inset. Image zoom controls share this compact treatment; narrow screens use 24px minimum zoom-button widths and 24px-wide toolbar icon actions so SVG view/zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 
@@ -319,7 +321,7 @@ Non-image files over 32 MiB use the same layout: “Too large to display”, `na
 
 ### Footer
 
-Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Mobile keeps Copy path and hides selected lines. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
+Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
 
 LSP availability sits beside the document language for every text file, including
 unsupported languages: LSP unavailable, missing, off, available, starting, ready,
@@ -342,11 +344,11 @@ Ctrl/Cmd+Shift+P or F1 opens a VS Code-style command palette on the content-pale
 
 ### Content search
 
-Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field, seeding it from a single-line document selection. The 32px header reads “Search” (12px, 600) with Refresh, Clear Search Results, and Collapse All/Expand All icon actions (Close on mobile). The field matches the filename filter (1.75rem, 1px border, 2px radius, accent focus ring; 40px mobile), placeholder “Search”, with inline 22px toggles: Match Case, Match Whole Word, Use Regular Expression (Alt+C/W/R); pressed toggles use accent text, accent border, and `accent-subtle` fill. A right-aligned “…” Toggle Search Details reveals “files to include” and “files to exclude” (12px labels, same field style, placeholders “e.g. *.ts, src/**/include”). Invalid regexes or globs mark the field `aria-invalid` with a destructive bottom boundary and a 12px destructive message.
+Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field, seeding it from a single-line document selection. The 32px header reads “Search” (12px, 600) with Refresh, Clear Search Results, and Collapse All/Expand All icon actions (Close on mobile). The field matches the filename filter (1.75rem, 1px border, 2px radius, accent focus ring; 28px at every viewport width), placeholder “Search”, with inline 22px toggles: Match Case, Match Whole Word, Use Regular Expression (Alt+C/W/R); pressed toggles use accent text, accent border, and `accent-subtle` fill. A right-aligned “…” Toggle Search Details reveals “files to include” and “files to exclude” (12px labels, same field style, placeholders “e.g. *.ts, src/**/include”). Invalid regexes or globs mark the field `aria-invalid` with a destructive bottom boundary and a 12px destructive message.
 
 A 2px accent progress bar runs after 150ms while searching; previous results stay until new ones arrive. A polite 12px message reads “3 results in 2 files” (“2,000+ results” when truncated), then any notice: “No results found[ in '…' excluding '…'].”, unreadable-file warnings, the truncation advice, or “Search is unavailable.” with Retry search.
 
-Results are a `role="tree"` with 22px rows (40px mobile): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses `surface-raised`; keyboard focus a 1px inset accent outline; the opened match `accent-subtle`. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
+Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses `surface-raised`; keyboard focus a 1px inset accent outline; the opened match `accent-subtle`. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
 
 ### Markdown, code, diagrams
 
@@ -367,7 +369,7 @@ One prose system across documents. Tables: 14px, neutral headers, horizontal ove
 ### Don't:
 
 - Don't add a top app header or logo; keep workspace identity above the explorer and app identity in the footer.
-- Don't restore the mobile split; use the files drawer with 40px rows and 44px toolbar/footer.
+- Don't restore the mobile split; use the files drawer with 32px rows/toolbar and a 44px footer.
 - Don't center preview prose or substitute generic heading/body tokens for the preview scale.
 - Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.
 - Don't rely on color alone for selection, focus, errors, or status.

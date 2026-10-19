@@ -15,11 +15,11 @@ Constraints: local assets, one Go binary, strict TypeScript, existing diagrams/s
 
 THESIS: A compact VS Code-style Markdown workspace. App identity and global actions move into the status bar.
 
-OWN-WORLD: Neutral editor surfaces, flat rectangular rows, subtle borders, compact sans UI, proportional prose, monospace code. All named themes share semantic tokens.
+OWN-WORLD: Neutral editor surfaces on a shared canvas; rounded navigation and document islands, flat rectangular internal rows, subtle borders, compact sans UI, proportional prose, monospace code. All named themes share semantic tokens.
 
 STORY: Browse paths with Pierre, read a document, or search its workspace's content separately.
 
-FIRST VIEWPORT: Workspace name above the left explorer; 32px tabs on the right; 15px prose with 28px H1 and 32px inset. Footer splits at the sidebar boundary: app name/state/count on the left; full relative file path, Find in files, size/theme on the right. Mobile uses a files drawer and 16px prose.
+FIRST VIEWPORT: Activity bar and explorer share one 10px-radius island; the document toolbar and content share another. Canvas insets and resize gutter are 6px, with 4px insets on mobile. Workspace name remains above the left explorer; 32px tabs remain on the right. Footer stays full-width on the canvas, aligned with the document island. Mobile uses a rounded files drawer. Content typography and control placement remain as documented in DESIGN.md.
 
 FORM: User-pinned VS Code conventions and explicitly approved proposal/wireframe; code-first implementation. No unchosen visual alternatives.
 
