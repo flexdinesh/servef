@@ -89,7 +89,7 @@ test("fit never enlarges small images and shrinks large ones", async ({ page }) 
   }).toBe(true)
 })
 
-test("SVG previews as an image and offers Source", async ({ page }) => {
+test("SVG previews as an image and keeps view controls usable on narrow screens", async ({ page }) => {
   await page.goto("/view?path=assets%2Fpreview.svg")
   const view = page.getByRole("group", { name: "Document view" })
   await expect(view.getByRole("button")).toHaveText(["Preview", "Source"])
@@ -97,6 +97,12 @@ test("SVG previews as an image and offers Source", async ({ page }) => {
   await expect(page.getByRole("img", { name: "preview.svg" })).toBeVisible()
   await expect(zoom(page)).toBeVisible()
   await expect(page.locator(".status-document-detail")).toHaveText(/^640 × 180 · \d+%$/)
+  await page.setViewportSize({ width: 320, height: 680 })
+  await expect(view).toBeInViewport({ ratio: 1 })
+  await expect(zoom(page)).toBeInViewport({ ratio: 1 })
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeInViewport({ ratio: 1 })
+  await zoom(page).getByRole("button", { name: "Zoom in" }).click()
+  await expect(zoom(page).getByRole("button", { name: "Fit" })).toHaveAttribute("aria-pressed", "false")
   await view.getByRole("button", { name: "Source" }).click()
   await expect(page.getByRole("textbox", { name: "SVG source" })).toContainText("<svg")
   await expect(zoom(page)).toHaveCount(0)

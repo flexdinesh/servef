@@ -85,7 +85,7 @@ export function FileTree(props: FileTreeProps) {
     return () => query.removeEventListener("change", update)
   }, [saveState])
 
-  const itemHeight = mobile ? Math.max(40, Math.round(40 * rowScale)) : Math.round(24 * rowScale)
+  const itemHeight = Math.round((mobile ? 32 : 24) * rowScale)
   return <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
     itemHeight={itemHeight} filter={filter} state={state} />
 }
