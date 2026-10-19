@@ -3,6 +3,8 @@ name: servef
 description: Compact VS Code-style workspace for browsing local files.
 colors:
   bg: "#f8f8f8"
+  canvas: "#e8e8e8"
+  workspace-chrome: "#eaeaea"
   surface: "#ffffff"
   surface-secondary: "#f3f3f3"
   surface-raised: "#ffffff"
@@ -145,7 +147,7 @@ components:
     height: "24px"
     typography: "{typography.label}"
   document-tab:
-    backgroundColor: "{colors.surface-secondary}"
+    backgroundColor: "{colors.workspace-chrome}"
     textColor: "{colors.text-secondary}"
     height: "2rem"
     typography: "{typography.label}"
@@ -179,8 +181,8 @@ Implementation authority: `web/src/style.css`, `web/src/FileTree.tsx`, shared pr
 
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
-- **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, active tabs, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` mixes `bg` with 8% `text-primary` for the outer workspace and footer; `surface` is document; `surface-secondary` is explorer/tabs/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
+- **Neutral:** `bg` is the theme base; `canvas` mixes `bg` with 8% `text-primary` for the outer workspace and footer; `surface` is document; `surface-secondary` is explorer/code; `workspace-chrome` mixes 80% canvas with 20% secondary surface for the activity rail and tab strip; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Theme is chosen in Settings (or via the command palette) and persists under `servef-theme`. Keep `color-scheme`, Mermaid, and Excalidraw synchronized with resolved polarity.
@@ -219,7 +221,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators and the active tab's 2px top accent establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; palettes, theme menus, process panels.
@@ -229,7 +231,7 @@ Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus
 
 ## Shapes
 
-Navigation and document islands use 10px corners, including the mobile drawer. Explorer rows, tabs, and footer actions are square rectangles within their shells. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives. Keyboard outlines at clipped workspace edges sit inside their controls.
+Navigation and document islands use 10px corners, including the mobile drawer. Explorer rows and footer actions are square rectangles within their shells. Activity selections use an inset 4px-radius tile; tabs use 6px top corners and concave lower shoulders. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives. Keyboard outlines at clipped workspace edges sit inside their controls.
 
 Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family (unmapped icons inherit; unresolved files fall back to a generic file icon). Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
 
@@ -241,7 +243,7 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 ### Activity bar
 
-A 2.5rem column on `surface-secondary` with a 1px right border: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items are square, 20px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a 2px accent bar on its left edge with `aria-pressed`. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 44px items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items are square, 20px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a `surface` tile inset 4px with 4px corners and `aria-pressed`. The full button remains the click target; keyboard focus retains its accent outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 44px items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -299,7 +301,7 @@ project's remembered tabs return. A project that no longer resolves shows
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Active tab shares document surface with 2px top accent. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons are square segments that fill the toolbar height (32px desktop, 44px mobile) with 12px labels and 12px horizontal padding; the pressed one uses `aria-pressed` with accent text on an `accent-subtle` fill spanning the whole segment. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip. The active tab shares the document surface, with 6px top corners and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. Buttons are square segments that fill the toolbar height (32px desktop, 44px mobile) with 12px labels and 12px horizontal padding; the pressed one uses `aria-pressed` with accent text on an `accent-subtle` fill spanning the whole segment. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 
