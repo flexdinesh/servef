@@ -16,8 +16,8 @@ interface SidebarProps {
   sidebar: SidebarState
 }
 
-// Sidebar is the VS Code activity bar plus its views. Desktop lays the dialog
-// out inline (display: contents); mobile opens it as a modal drawer. Both views
+// Sidebar groups the VS Code activity bar and its views into one desktop
+// island; mobile opens it as a modal drawer. Both views
 // stay mounted so switching keeps tree and search state.
 export function Sidebar({ explorer, search, sidebar }: SidebarProps) {
   const { drawer, hidden, mobile, view } = sidebar

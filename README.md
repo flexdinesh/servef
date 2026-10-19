@@ -24,6 +24,7 @@ else.
   (Cmd/Ctrl+Shift+E, Cmd/Ctrl+Shift+F); click the active item or press
   Cmd/Ctrl+B to hide the sidebar
 - Navigate files in a compact, resizable tree
+- Browse in rounded navigation and document panels with slim canvas gutters
 - Keep visited documents in an editor-style tab bar; right-click a tab to close it,
   other tabs, tabs to its right, or all tabs
 - Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias)

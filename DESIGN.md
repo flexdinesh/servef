@@ -169,7 +169,7 @@ Workspace identity sits above the explorer as the project picker trigger. App id
 **Key Characteristics:**
 
 - Compact editor navigation.
-- Flat, subtle, neutral surfaces.
+- Rounded workspace islands on a neutral canvas; flat internal rows.
 - Left-aligned proportional prose and monospace code.
 - Shared semantic roles across named editor themes.
 
@@ -180,7 +180,7 @@ Implementation authority: `web/src/style.css`, `web/src/FileTree.tsx`, shared pr
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, active tabs, selected files, and primary actions.
-- **Neutral:** `bg` is canvas; `surface` is document; `surface-secondary` is explorer/tabs/footer/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` mixes `bg` with 8% `text-primary` for the outer workspace and footer; `surface` is document; `surface-secondary` is explorer/tabs/code; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Light, Dark, Catppuccin Mocha, Gruvbox Dark, Nord, Solarized Light, System. Light and Solarized Light resolve light; other named palettes and Dark resolve dark. System follows `prefers-color-scheme`. Theme is chosen in Settings (or via the command palette) and persists under `servef-theme`. Keep `color-scheme`, Mermaid, and Excalidraw synchronized with resolved polarity.
@@ -207,11 +207,11 @@ Source matches the explorer so code never looks oversized beside the tree; prose
 
 ## Layout
 
-Desktop: a 2.5rem activity bar, then the full-height sidebar (Explorer or Search) beside the tabbed document workspace, above a 28px footer split at the sidebar boundary. Its two sections track the activity bar plus resizable sidebar, and the document column; with the sidebar hidden the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The 1px separator has a wider pointer hit area and supports arrow keys. Explorer and document scroll independently.
+Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer or Search); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--workspace-radius` is 0.625rem (10px). The full-width 28px footer uses the canvas surface, with document status aligned to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
 
 Tabs and explorer header are 32px tall; Pierre rows are 24px. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, document fills the workspace. The sidebar opens in a native modal drawer, `min(85vw, 22rem)` wide, with the activity bar (44px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide.
+At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a rounded native modal drawer, `min(85vw, 22rem)` wide, with the same outer inset, activity bar (44px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 40px rows. Tabs, explorer header, and footer become 44px tall. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
 
 Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
@@ -219,7 +219,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1
 
 ## Elevation & Depth
 
-Workspace regions are flat. Surface contrast, 1px separators, and the active tab's 2px top accent establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators and the active tab's 2px top accent establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; palettes, theme menus, process panels.
@@ -229,7 +229,7 @@ Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus
 
 ## Shapes
 
-Explorer rows, tabs, and footer actions are square rectangles. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives.
+Navigation and document islands use 10px corners, including the mobile drawer. Explorer rows, tabs, and footer actions are square rectangles within their shells. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives. Keyboard outlines at clipped workspace edges sit inside their controls.
 
 Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family (unmapped icons inherit; unresolved files fall back to a generic file icon). Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
 
@@ -319,7 +319,7 @@ Non-image files over 32 MiB use the same layout: “Too large to display”, `na
 
 ### Footer
 
-Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Mobile keeps Copy path and hides selected lines. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
+Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role. Mobile keeps Copy path and hides selected lines. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
 
 LSP availability sits beside the document language for every text file, including
 unsupported languages: LSP unavailable, missing, off, available, starting, ready,
