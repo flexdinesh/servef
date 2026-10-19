@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/textproto"
+	"os"
 	"strconv"
 	"sync"
 )
@@ -83,9 +84,9 @@ func (c *conn) read(in *bufio.Reader) {
 	for {
 		message, err := readMessage(in)
 		if err != nil {
-			// At EOF the server is exiting; whoever waits on the process
-			// closes with its exit status and stderr.
-			if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			// At EOF or when Wait closes stdout, the server is exiting;
+			// the process waiter closes with its exit status and stderr.
+			if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, os.ErrClosed) {
 				c.close(err)
 			}
 			return
