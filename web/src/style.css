@@ -586,6 +586,7 @@ main.image-mode {
   display: flex;
   min-width: 0;
   flex: 1;
+  column-gap: calc(var(--space-1) / 2);
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--color-workspace-chrome);
