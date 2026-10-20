@@ -1,6 +1,6 @@
 export const THEME_STORAGE_KEY = "servef-theme"
 
-export type Theme = "system" | "light" | "dark" | "gruvbox-dark" | "catppuccin-mocha" | "nord" | "solarized-light"
+export type Theme = "system" | "light" | "dark" | "dracula" | "gruvbox-dark" | "catppuccin-mocha" | "nord" | "solarized-light"
 export type ResolvedTheme = "light" | "dark"
 
 export interface ThemeSnapshot {
@@ -20,6 +20,7 @@ export const themeOptions: readonly ThemeOption[] = [
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
   { label: "Catppuccin Mocha", value: "catppuccin-mocha" },
+  { label: "Dracula", value: "dracula" },
   { label: "Gruvbox Dark", value: "gruvbox-dark" },
   { label: "Nord", value: "nord" },
   { label: "Solarized Light", value: "solarized-light" },
@@ -29,6 +30,7 @@ export function isTheme(value: unknown): value is Theme {
   return value === "system"
     || value === "light"
     || value === "dark"
+    || value === "dracula"
     || value === "gruvbox-dark"
     || value === "catppuccin-mocha"
     || value === "nord"
