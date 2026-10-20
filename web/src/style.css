@@ -176,6 +176,38 @@
   }
 }
 
+:root[data-theme="dracula"] {
+  --color-bg: #191a21;
+  --color-surface: #282a36;
+  --color-surface-secondary: #21222c;
+  --color-surface-raised: #343746;
+  --color-text-primary: #f8f8f2;
+  --color-text-secondary: #d6d6e0;
+  --color-text-muted: #9ea8d0;
+  --color-border: #343746;
+  --color-border-strong: #6272a4;
+  --color-accent: #bd93f9;
+  --color-accent-hover: #ff79c6;
+  --color-accent-subtle: #3d3557;
+  --color-on-accent: #282a36;
+  --color-success: #50fa7b;
+  --color-warning: #ffb86c;
+  --color-warning-subtle: #4a3a2c;
+  --color-destructive: #ff5555;
+  --color-destructive-subtle: #4a2a33;
+  --color-overlay: rgb(25 26 33 / 70%);
+  --color-syntax-comment: #6272a4;
+  --color-syntax-keyword: #ff79c6;
+  --color-syntax-type: #8be9fd;
+  --color-syntax-function: #50fa7b;
+  --color-syntax-variable: #f8f8f2;
+  --color-syntax-string: #f1fa8c;
+  --color-syntax-number: #bd93f9;
+  --color-syntax-operator: #ff79c6;
+  --shadow-control: 0 1px 2px rgb(25 26 33 / 35%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(25 26 33 / 65%);
+}
+
 :root[data-theme="gruvbox-dark"] {
   --color-bg: #1d2021;
   --color-surface: #282828;
