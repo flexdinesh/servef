@@ -83,6 +83,7 @@ test("a repository opens into its worktrees, which open and are remembered", asy
   await mockProjects(page)
   await page.goto(`/?project=${rootParam}`)
   await trigger(page).click()
+  await expect(picker(page).getByRole("option", { name: /^reference/ })).toBeVisible()
   await pickerInput(page).press("ArrowDown")
   await pickerInput(page).press("ArrowDown")
   await pickerInput(page).press("ArrowRight")

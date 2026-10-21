@@ -582,6 +582,8 @@ test("switches document modes and remembers mode per open tab", async ({ page })
 
   const tree = page.getByRole("complementary", { name: "Files" })
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
+  // Wait for the new document; the toggle applies to the one displayed.
+  await expect(page.getByRole("heading", { level: 1, name: "Mermaid diagrams" })).toBeVisible()
   await expect(preview).toHaveAttribute("aria-pressed", "true")
   await source.click()
   await expect(source).toHaveAttribute("aria-pressed", "true")
@@ -667,6 +669,7 @@ test("resets per-tab document mode after reload", async ({ page }) => {
   const view = page.getByRole("group", { name: "Document view" })
   await view.getByRole("button", { name: "Preview" }).click()
   await page.getByRole("complementary", { name: "Files" }).getByRole("treeitem", { name: "diagrams.md" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Mermaid diagrams" })).toBeVisible()
   await view.getByRole("button", { name: "Source" }).click()
   await page.getByRole("tablist", { name: "Open documents" }).getByRole("tab", { name: "getting-started.md" }).click()
   await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
