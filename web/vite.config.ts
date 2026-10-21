@@ -99,6 +99,25 @@ const devFontAssets: Plugin = {
   },
 }
 
+// @pierre/diffs imports Shiki's full bundle and every Pierre and Shiki theme.
+// Production builds resolve those imports to local subsets so only the
+// grammars servef maps ship (decision 0024; src/diff-grammars.ts).
+const diffsSubsets: ReadonlyMap<string, string> = new Map([
+  ["shiki", "./src/shiki-subset.ts"],
+  ["shiki/wasm", "./src/shiki-wasm-subset.ts"],
+  ["@pierre/theming/themes", "./src/pierre-themes-subset.ts"],
+].map(([source, subset]) => [source, fileURLToPath(new URL(subset, import.meta.url))]))
+
+const diffsSubset: Plugin = {
+  name: "servef-diffs-subset",
+  apply: "build",
+  enforce: "pre",
+  resolveId(source, importer) {
+    if (importer === undefined || !importer.replaceAll("\\", "/").includes("/@pierre/diffs/")) return null
+    return diffsSubsets.get(source) ?? null
+  },
+}
+
 const mockFixturesDirectory = fileURLToPath(
   new URL("../testdata/api/default", import.meta.url),
 )
@@ -137,7 +156,7 @@ export default defineConfig(({ command, mode }) => ({
     emptyOutDir: true,
     outDir: "../internal/web/dist",
   },
-  plugins: [react(), tailwindcss(), devServerBanner, devFontAssets, mockApi(mode === "mock"), excalidrawFonts],
+  plugins: [diffsSubset, react(), tailwindcss(), devServerBanner, devFontAssets, mockApi(mode === "mock"), excalidrawFonts],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -151,5 +170,8 @@ export default defineConfig(({ command, mode }) => ({
     proxy: mode === "mock" ? undefined : {
       "/api": process.env.SERVEF_API_TARGET || "http://127.0.0.1:8080",
     },
+  },
+  worker: {
+    plugins: () => [diffsSubset],
   },
 }))

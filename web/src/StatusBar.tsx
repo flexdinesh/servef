@@ -7,9 +7,18 @@ import { useClipboardCopy } from "./clipboard.ts"
 import { lineRangeLabel, type LineRange } from "./line-selection.ts"
 import { settingsShortcutLabel } from "./SettingsDialog.tsx"
 import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./NavigationStatusPanel.tsx"
+import { diffStatsLabel, type DiffStats } from "./diff-stats.ts"
+
+// DiffStatus describes the active diff tab, which replaces document status.
+export interface DiffStatus {
+  path: string
+  stats: DiffStats | null
+  typeLabel: string
+}
 
 interface StatusBarProps {
   detail?: string
+  diff?: DiffStatus
   isLoading: boolean
   lines?: LineRange | null
   // navigation shows who answers code navigation for the open file.
@@ -21,7 +30,7 @@ interface StatusBarProps {
   onHome?(): void
 }
 
-export function StatusBar({ detail, isLoading, error, lines, navigation, onSearch, onSettings, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, diff, isLoading, error, lines, navigation, onSearch, onSettings, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
   const pathCopy = useClipboardCopy()
   const processTitle = metrics
@@ -60,17 +69,17 @@ export function StatusBar({ detail, isLoading, error, lines, navigation, onSearc
         <span className="status-file-count">{page.fileCount.toLocaleString()} files</span>
       </div>
       <div className="status-document" role="group" aria-label="Document status">
-        <span className="status-path" title={page.selected || page.rootName}>
-          {page.selected || page.rootName || "servef"}
+        <span className="status-path" title={diff?.path || page.selected || page.rootName}>
+          {diff?.path || page.selected || page.rootName || "servef"}
         </span>
-        {page.hasFile && page.selected && (
+        {(diff || (page.hasFile && page.selected)) && (
           <button
             className="status-copy-path"
             type="button"
             aria-label="Copy path"
             title={pathCopy.status === "failed" ? "Copy failed" : "Copy path"}
             data-status={pathCopy.status}
-            onClick={() => { void pathCopy.copy(page.selected) }}
+            onClick={() => { void pathCopy.copy(diff?.path ?? page.selected) }}
           >
             {pathCopy.status === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
           </button>
@@ -81,15 +90,22 @@ export function StatusBar({ detail, isLoading, error, lines, navigation, onSearc
           <kbd>{navigator.platform.includes("Mac") ? "⌘⇧F" : "Ctrl+Shift+F"}</kbd>
         </button>
         <span className="status-grow" />
-        {page.hasFile && lines && <span className="status-lines">{lineRangeLabel(lines)}</span>}
-        {page.hasFile && detail && <span className="status-document-detail">{detail}</span>}
-        {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
-        {page.hasFile && navigation && <NavigationStatusPanel {...navigation} />}
-        {page.hasFile && page.documentType && (
-          <span className="status-file-type">
-            {page.binary && !page.documentType.previewKind ? "Binary" : page.documentType.label}
-          </span>
-        )}
+        {diff ? <>
+          {diff.stats && <span className="status-diff-stats" title={`${diff.stats.additions.toLocaleString()} added, ${diff.stats.deletions.toLocaleString()} deleted lines`}>
+            {diffStatsLabel(diff.stats)}
+          </span>}
+          {diff.typeLabel && <span className="status-file-type">{diff.typeLabel}</span>}
+        </> : <>
+          {page.hasFile && lines && <span className="status-lines">{lineRangeLabel(lines)}</span>}
+          {page.hasFile && detail && <span className="status-document-detail">{detail}</span>}
+          {page.hasFile && <span className="status-file-size">{formatBytes(page.fileSize)}</span>}
+          {page.hasFile && navigation && <NavigationStatusPanel {...navigation} />}
+          {page.hasFile && page.documentType && (
+            <span className="status-file-type">
+              {page.binary && !page.documentType.previewKind ? "Binary" : page.documentType.label}
+            </span>
+          )}
+        </>}
         <button
           className="status-settings"
           type="button"

@@ -2,6 +2,7 @@ import {
   useNavigate,
   useRouter,
   useRouterState,
+  useSearch,
 } from "@tanstack/react-router"
 import {
   useCallback,
@@ -28,6 +29,16 @@ import {
 import type { SearchMatch } from "./search-engine.ts"
 import { SearchView } from "./SearchView.tsx"
 import { Sidebar } from "./Sidebar.tsx"
+import { SourceControlView } from "./SourceControlView.tsx"
+import { DiffDocument } from "./DiffDocument.tsx"
+import { DiffToolbar } from "./DiffToolbar.tsx"
+import { diffContent } from "./diff-content.ts"
+import { diffStats } from "./diff-stats.ts"
+import { useChanges } from "./use-changes.ts"
+import { useDiffOptions } from "./use-diff-options.ts"
+import { releaseDiffResources, useParsedDiff } from "./use-parsed-diff.ts"
+import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
+import { includesTab, tabName, type WorkspaceTab } from "./workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./code-navigation.ts"
@@ -76,6 +87,8 @@ export function App({ project }: AppProps) {
   const result = routed?.kind === "page" && routed.page.project !== project ? null : routed
   const isLoading = useRouterState({ select: (state) => state.isLoading })
   const lineRange = parseLineAnchor(useRouterState({ select: (state) => state.location.hash }))
+  // A diff tab routes as /view?path=…&diff=1; its page carries only the tree.
+  const diffPath = useSearch({ strict: false, select: (search) => search.diff === 1 && typeof search.path === "string" ? search.path : "" })
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
@@ -111,21 +124,30 @@ export function App({ project }: AppProps) {
   const { reveal: revealSidebar } = sidebar
   const revealExplorer = useCallback(() => revealSidebar("explorer"), [revealSidebar])
   const revealSearch = useCallback(() => revealSidebar("search"), [revealSidebar])
+  const changes = useChanges(project, !sidebar.hidden && sidebar.view === "source-control")
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
 
   const page = result?.kind === "page" ? result.page : lastPage ?? emptyPage
   const hasData = result?.kind === "page" || lastPage !== null
   const loadError = result?.kind === "failure" ? result.message : ""
-  const workspace = useDocumentWorkspace(result?.kind === "page" ? result.page : null)
+  const routedPage = result?.kind === "page" ? result.page : null
+  const routedKind = diffPath ? "diff" : routedPage?.hasFile ? "document" : ""
+  const routedPath = diffPath || (routedPage?.hasFile ? routedPage.selected : "")
+  const routedTab = useMemo((): WorkspaceTab | null => routedKind && routedPath ? { kind: routedKind, path: routedPath } : null, [routedKind, routedPath])
+  const activeKind = diffPath ? "diff" : page.hasFile ? "document" : ""
+  const activePath = diffPath || (page.hasFile ? page.selected : "")
+  const activeTab = useMemo((): WorkspaceTab | null => activeKind && activePath ? { kind: activeKind, path: activePath } : null, [activeKind, activePath])
+  const workspace = useDocumentWorkspace(routedTab)
   const { setDocumentMode } = workspace
   const previewPreference = usePreviewPreference(project)
-  const openRemembered = useCallback((path: string) => {
-    void navigate({ to: "/view", search: { project, path }, hash: "", replace: true })
+  const openRemembered = useCallback((tab: WorkspaceTab) => {
+    void navigate({ to: "/view", search: tab.kind === "diff" ? { project, path: tab.path, diff: 1 } : { project, path: tab.path }, hash: "", replace: true })
   }, [navigate, project])
   useProjectMemory({
     project,
-    page: result?.kind === "page" ? result.page : null,
+    page: routedPage,
+    active: routedTab,
     tabs: workspace.tabs,
     restore: workspace.restore,
     openRemembered,
@@ -146,6 +168,41 @@ export function App({ project }: AppProps) {
   }, [needsFormat, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
+
+  // The open diff tab: its sides, parsed hunks, and toolbar options.
+  const diffOptions = useDiffOptions()
+  const changedFile = diffPath ? changes.byPath.get(diffPath) : undefined
+  const workingDiff = useWorkingTreeDiff(project, diffPath, changedFile?.oldPath ?? "")
+  const diffState = workingDiff.state
+  const content = useMemo(() => diffState.kind === "ready" ? diffContent(diffState.diff) : null, [diffState])
+  const parsedDiff = useParsedDiff(diffPath, content, diffOptions.options.ignoreWhitespace)
+  const hasDiffTabs = workspace.tabs.some((tab) => tab.kind === "diff")
+  // Closing the last diff tab frees its workers and caches until the next one.
+  useEffect(() => {
+    if (!hasDiffTabs) releaseDiffResources()
+  }, [hasDiffTabs])
+  const { fileDiff } = parsedDiff
+  const diffSlow = useDelayedFlag(workingDiff.loading || parsedDiff.parsing, 150)
+  const diffDeleted = (diffState.kind === "ready" ? diffState.diff.status : changedFile?.status) === "deleted"
+  const isDeleted = useCallback((path: string) => changes.byPath.get(path)?.status === "deleted"
+    || (path === diffPath && diffDeleted), [changes.byPath, diffDeleted, diffPath])
+  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, tab.kind === "diff" && isDeleted(tab.path)), [isDeleted])
+  const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
+
+  // openDiff opens a change's diff tab. Click keeps focus in Source Control;
+  // Enter and double-click move it to the diff, as in Search.
+  const openDiff = useCallback((path: string, focusDocument: boolean) => {
+    if (path === diffPath) {
+      if (focusDocument) main.current?.focus({ preventScroll: true })
+      return
+    }
+    if (focusDocument) prepareDocumentNavigation()
+    void navigate({ to: "/view", search: { project, path, diff: 1 }, hash: "" })
+  }, [diffPath, main, navigate, prepareDocumentNavigation, project])
+  const selectTab = useCallback((tab: WorkspaceTab) => {
+    if (tab.kind === "diff") openDiff(tab.path, true)
+    else navigateToDocument(tab.path)
+  }, [navigateToDocument, openDiff])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
@@ -212,37 +269,40 @@ export function App({ project }: AppProps) {
     resetDocumentScroll(page.selected)
   }
 
-  function closeTab(path: string) {
-    closeTabs([path])
+  function closeTab(tab: WorkspaceTab) {
+    closeTabs([tab])
   }
 
-  function closeTabs(paths: readonly string[]) {
-    const closed = workspace.closeDocuments(paths, page.selected)
+  function closeTabs(tabs: readonly WorkspaceTab[]) {
+    const closed = workspace.closeTabs(tabs, activeTab)
     if (!closed) return
-    for (const path of closed.paths) forgetDocumentScroll(path)
-    if (!closed.paths.includes(page.selected)) return
+    for (const tab of closed.tabs) if (tab.kind === "document") forgetDocumentScroll(tab.path)
+    if (!activeTab || !includesTab(closed.tabs, activeTab)) return
     if (closed.replacement) {
-      navigateToDocument(closed.replacement)
+      selectTab(closed.replacement)
     } else {
       prepareDocumentNavigation()
       void navigate({ to: "/", search: { project }, hash: "" })
     }
   }
 
+  const documentTitle = activeTab ? nameTab(activeTab).title : ""
   useEffect(() => {
-    document.title = `${page.selected ? `${page.selected} · ` : ""}servef`
-  }, [page.selected])
+    document.title = `${documentTitle ? `${documentTitle} · ` : ""}servef`
+  }, [documentTitle])
 
   return (
     <>
       <div className={`navigation-progress${isLoading ? " active" : ""}`} aria-hidden="true" />
       <div className="visually-hidden" role="status" aria-live="polite">
-        {isLoading ? "Loading document…" : page.selected ? `${page.selected} loaded.` : ""}
+        {isLoading ? "Loading document…" : documentTitle ? `${documentTitle} loaded.` : ""}
       </div>
       <div className="layout" data-sidebar={sidebar.hidden ? "hidden" : "visible"}>
         <Sidebar
           sidebar={sidebar}
+          pendingChanges={changes.result?.files.length ?? 0}
           explorer={<FileTree
+            gitStatus={gitStatus}
             hasData={hasData}
             onDismiss={sidebar.dismiss}
             onNavigate={navigateToDocument}
@@ -254,6 +314,8 @@ export function App({ project }: AppProps) {
           />}
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
+          sourceControl={<SourceControlView changes={changes} activePath={diffPath} mobile={sidebar.mobile}
+            onDismiss={sidebar.dismiss} onOpen={openDiff} />}
         />
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
@@ -266,17 +328,27 @@ export function App({ project }: AppProps) {
               <FolderGit2Icon aria-hidden="true" />
             </button>
             <TabBar
-              activePath={page.selected}
+              active={activeTab}
               tabs={workspace.tabs}
+              name={nameTab}
               onClose={closeTab}
               onCloseMany={closeTabs}
-              onSelect={navigateToDocument}
+              onSelect={selectTab}
             />
-            <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
-              onChange={changeDocumentMode} />
-            {showImage && <ImageZoomControls viewer={image} />}
+            {diffPath ? (
+              <DiffToolbar options={diffOptions.options} narrow={sidebar.mobile} onChange={diffOptions.change}
+                openFileReason={diffDeleted ? "This file was deleted; there's no working copy to open" : ""}
+                onOpenFile={() => navigateToDocument(diffPath)} />
+            ) : <>
+              <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
+                onChange={changeDocumentMode} />
+              {showImage && <ImageZoomControls viewer={image} />}
+            </>}
           </div>
           <DocumentPane
+            diff={diffPath ? <DiffDocument content={content} fileDiff={fileDiff} narrow={sidebar.mobile}
+              options={diffOptions.options} parseFailed={parsedDiff.failed} path={diffPath} scrollRoot={main} state={diffState}
+              onOpenFile={() => navigateToDocument(diffPath)} onRetry={workingDiff.retry} /> : undefined}
             hasData={hasData}
             image={image}
             isLoading={isLoading}
@@ -292,7 +364,12 @@ export function App({ project }: AppProps) {
           />
         </section>
       </div>
-      <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page}
+      <StatusBar isLoading={isLoading || formatSlow || diffSlow} error={loadError || page.error} page={page}
+        diff={diffPath ? {
+          path: diffPath,
+          stats: fileDiff ? diffStats(fileDiff) : null,
+          typeLabel: diffState.kind === "ready" ? diffState.diff.documentType.label : "",
+        } : undefined}
         detail={showImage && image.status === "ready" && image.width > 0
           ? `${image.width} × ${image.height} · ${image.percent}%`
           : undefined}

@@ -1,0 +1,26 @@
+{
+  "path": "code/app.js",
+  "status": "added",
+  "documentType": {
+    "id": "javascript",
+    "label": "JavaScript",
+    "extensions": [
+      ".js",
+      ".mjs",
+      ".cjs"
+    ],
+    "filenames": [],
+    "language": "javascript",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": true
+  },
+  "original": null,
+  "modified": {
+    "content": "// js-search-token\nconst items=document.querySelectorAll(\".card li\");for(const item of items){item.addEventListener(\"click\",()=>{item.classList.toggle(`active-${item.dataset.id ?? 0}`)})}if(items.length===0){console.warn(\"no items\")}else{console.log(/li$/i.test(items[0].tagName))}\n",
+    "size": 282,
+    "binary": false,
+    "tooLarge": false
+  }
+}

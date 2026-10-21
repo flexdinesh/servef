@@ -1,0 +1,25 @@
+{
+  "path": "guides/new-guide.md",
+  "status": "untracked",
+  "documentType": {
+    "id": "markdown",
+    "label": "Markdown",
+    "extensions": [
+      ".md",
+      ".markdown"
+    ],
+    "filenames": [],
+    "language": "markdown",
+    "previewKind": "markdown",
+    "previewLabel": "Preview",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": null,
+  "modified": {
+    "content": "# New guide\n\nA draft guide that is not tracked yet.\n\n- Write the outline.\n- Add examples.\n",
+    "size": 90,
+    "binary": false,
+    "tooLarge": false
+  }
+}

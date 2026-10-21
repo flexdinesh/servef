@@ -1,28 +1,37 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
-export type SidebarView = "explorer" | "search"
+export type SidebarView = "explorer" | "search" | "source-control"
 
 const storageKey = "servef-sidebar"
 const mobileQuery = "(max-width: 48rem)"
 
-interface StoredSidebar {
+export interface StoredSidebar {
   hidden: boolean
   view: SidebarView
 }
 
+const defaultSidebar: StoredSidebar = { view: "explorer", hidden: false }
+
+function isSidebarView(value: unknown): value is SidebarView {
+  return value === "explorer" || value === "search" || value === "source-control"
+}
+
+// parseSidebar reads stored sidebar state; unknown views open the Explorer.
+export function parseSidebar(value: unknown): StoredSidebar {
+  if (typeof value !== "object" || value === null || !("view" in value) || !("hidden" in value)) return defaultSidebar
+  return {
+    view: isSidebarView(value.view) ? value.view : "explorer",
+    hidden: value.hidden === true,
+  }
+}
+
 function readSidebar(): StoredSidebar {
   try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? "null")
-    if (typeof value === "object" && value !== null && "view" in value && "hidden" in value) {
-      return {
-        view: value.view === "search" ? "search" : "explorer",
-        hidden: value.hidden === true,
-      }
-    }
+    return parseSidebar(JSON.parse(window.localStorage.getItem(storageKey) ?? "null"))
   } catch {
     // Fall back to the defaults when storage is unavailable or malformed.
+    return defaultSidebar
   }
-  return { view: "explorer", hidden: false }
 }
 
 function isModifiedShortcut(event: KeyboardEvent, key: string, shift: boolean): boolean {
@@ -62,7 +71,15 @@ export function useSidebar() {
   const reveal = useCallback((next: SidebarView) => {
     setView(next)
     setHidden(false)
-    if (mobileRef.current && !drawer.current?.open) drawer.current?.showModal()
+    if (mobileRef.current && !drawer.current?.open) {
+      drawer.current?.showModal()
+      // showModal focuses the first activity item; move that focus to the
+      // revealed view's item unless the view already took it, as Search does.
+      requestAnimationFrame(() => {
+        if (!document.activeElement?.closest(".activity-bar")) return
+        drawer.current?.querySelector<HTMLElement>(`.activity-item[data-view="${next}"]`)?.focus()
+      })
+    }
   }, [])
 
   const dismiss = useCallback(() => {
@@ -84,6 +101,7 @@ export function useSidebar() {
     const shortcut = (event: KeyboardEvent) => {
       if (isModifiedShortcut(event, "b", false)) toggle()
       else if (isModifiedShortcut(event, "e", true)) reveal("explorer")
+      else if (isModifiedShortcut(event, "g", true)) reveal("source-control")
       else return
       event.preventDefault()
     }

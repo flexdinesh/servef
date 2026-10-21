@@ -325,6 +325,14 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveNavigation(w, r, r.URL.Path == "/api/references", projectID, query.Get("path"), query.Get("line"), query.Get("column"))
 		return
 	}
+	if r.URL.Path == "/api/changes" {
+		a.serveChanges(w, r, projectID)
+		return
+	}
+	if r.URL.Path == "/api/diff" {
+		a.serveDiff(w, r, projectID, query.Get("path"), query.Get("oldPath"))
+		return
+	}
 	if r.URL.Path == "/api/format" {
 		a.serveFormat(w, projectID, query.Get("path"))
 		return

@@ -13,10 +13,13 @@ import {
   restoreTabs,
   restoreExpanded,
 } from "./workspace-memory.ts"
+import { diffTab, documentTab } from "./workspace-tabs.ts"
+
+const docs = (...paths: string[]) => paths.map(documentTab)
 
 test("memory shares a project's tabs across sessions and keeps the last project per set of roots", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", ["README.md", "go.mod"], "go.mod")
-  memory = rememberProject(memory, ["/a", "/b"], "/b/web", ["other.md"], "other.md")
+  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md", "go.mod"), documentTab("go.mod"))
+  memory = rememberProject(memory, ["/a", "/b"], "/b/web", docs("other.md"), documentTab("other.md"))
   assert.deepEqual(projectMemory(memory, "/a/api"), { tabs: ["README.md", "go.mod"], active: "go.mod" })
   assert.deepEqual(projectMemory(memory, "/b/web"), { tabs: ["other.md"], active: "other.md" })
   assert.equal(lastProject(memory, ["/a"]), "/a/api")
@@ -26,14 +29,14 @@ test("memory shares a project's tabs across sessions and keeps the last project 
 })
 
 test("remembering a project drops an active tab that is not open", () => {
-  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", ["README.md"], "closed.md")
+  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md"), documentTab("closed.md"))
   assert.equal(projectMemory(memory, "/a/api")?.active, "")
 })
 
 test("remembered projects list most recent first and can be forgotten", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/web", [], "")
-  memory = rememberProject(memory, ["/a"], "/a/notes", ["a.md"], "a.md")
-  memory = rememberProject(memory, ["/a"], "/a/web", [], "")
+  let memory = rememberProject(emptyMemory, ["/a"], "/a/web", [], null)
+  memory = rememberProject(memory, ["/a"], "/a/notes", docs("a.md"), documentTab("a.md"))
+  memory = rememberProject(memory, ["/a"], "/a/web", [], null)
   assert.deepEqual(rememberedProjects(memory), ["/a/web", "/a/notes"])
   memory = forgetProject(memory, "/a/web")
   assert.deepEqual(memory, { last: {}, projects: { "/a/notes": { tabs: ["a.md"], active: "a.md" } } })
@@ -43,7 +46,7 @@ test("remembered projects list most recent first and can be forgotten", () => {
 
 test("memory caps remembered projects", () => {
   let memory = emptyMemory
-  for (let index = 0; index < 110; index++) memory = rememberProject(memory, ["/a"], `/a/p-${index}`, [], "")
+  for (let index = 0; index < 110; index++) memory = rememberProject(memory, ["/a"], `/a/p-${index}`, [], null)
   const projects = rememberedProjects(memory)
   assert.equal(projects.length, 100)
   assert.equal(projects[0], "/a/p-109")
@@ -53,10 +56,10 @@ test("memory caps remembered projects", () => {
 test("restored tabs keep only files in the fresh tree", () => {
   const files = new Set(["README.md", "src/main.go"])
   assert.deepEqual(restoreTabs({ tabs: ["README.md", "gone.md", "src/main.go", "README.md"], active: "gone.md" }, files),
-    { tabs: ["README.md", "src/main.go"], active: "" })
+    { tabs: docs("README.md", "src/main.go"), active: null })
   assert.deepEqual(restoreTabs({ tabs: ["src/main.go"], active: "src/main.go" }, files),
-    { tabs: ["src/main.go"], active: "src/main.go" })
-  assert.deepEqual(restoreTabs(undefined, files), { tabs: [], active: "" })
+    { tabs: docs("src/main.go"), active: documentTab("src/main.go") })
+  assert.deepEqual(restoreTabs(undefined, files), { tabs: [], active: null })
 })
 
 test("parseMemory ignores malformed stored data", () => {
@@ -70,10 +73,10 @@ test("parseMemory ignores malformed stored data", () => {
 })
 
 test("folder expansion and tabs preserve each other when saved independently", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", ["README.md"], "README.md")
+  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md"), documentTab("README.md"))
   memory = rememberExpanded(memory, "/a/api", ["src/", "src/", "docs/"])
   memory = rememberExpanded(memory, "/a/web", [])
-  memory = rememberProject(memory, ["/a"], "/a/api", ["main.go"], "main.go")
+  memory = rememberProject(memory, ["/a"], "/a/api", docs("main.go"), documentTab("main.go"))
   assert.deepEqual(projectMemory(memory, "/a/api"), {
     tabs: ["main.go"], active: "main.go", expanded: ["src/", "docs/"],
   })
@@ -101,4 +104,31 @@ test("stored expansion is optional for existing memories and rejects malformed v
   assert.deepEqual(projectMemory(memory, "collapsed"), { tabs: [], active: "", expanded: [] })
   assert.deepEqual(projectMemory(memory, "mixed")?.expanded, ["src/"])
   assert.equal(projectMemory(memory, "invalid")?.expanded, undefined)
+})
+
+test("diff tabs are remembered beside legacy document paths", () => {
+  const tabs = [documentTab("README.md"), diffTab("README.md"), diffTab("removed.md")]
+  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, diffTab("removed.md"))
+  assert.deepEqual(projectMemory(memory, "/a/api"), {
+    tabs: ["README.md", { diff: "README.md" }, { diff: "removed.md" }], active: { diff: "removed.md" },
+  })
+  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, diffTab("closed.md")), "/a/api")?.active, "")
+})
+
+test("restored diff tabs need no tree entry; documents still do", () => {
+  const files = new Set(["README.md"])
+  assert.deepEqual(restoreTabs({
+    tabs: ["README.md", { diff: "README.md" }, { diff: "removed.md" }, "removed.md", { diff: "removed.md" }],
+    active: { diff: "removed.md" },
+  }, files), { tabs: [documentTab("README.md"), diffTab("README.md"), diffTab("removed.md")], active: diffTab("removed.md") })
+  assert.deepEqual(restoreTabs({ tabs: [{ diff: "a.md" }], active: "a.md" }, files), { tabs: [diffTab("a.md")], active: null })
+})
+
+test("stored tabs migrate legacy strings and drop malformed diff entries", () => {
+  const memory = parseMemory({ projects: { p: {
+    tabs: ["a.md", { diff: "b.md" }, { diff: 3 }, { diff: "" }, "", { path: "c.md" }, ["d.md"], null],
+    active: { diff: "b.md" },
+  }, q: { tabs: [], active: { diff: null } } } })
+  assert.deepEqual(projectMemory(memory, "p"), { tabs: ["a.md", { diff: "b.md" }], active: { diff: "b.md" } })
+  assert.deepEqual(projectMemory(memory, "q"), { tabs: [], active: "" })
 })

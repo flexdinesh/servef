@@ -20,9 +20,15 @@ else.
   under them, pick a repository's worktree by branch, or open a folder outside
   any repository, with Cmd/Ctrl+O; each switch reads the file system afresh and
   restores that project's tabs and expanded folders, including after reloads
-- Switch between Explorer and Search from a VS Code-style activity bar
-  (Cmd/Ctrl+Shift+E, Cmd/Ctrl+Shift+F); click the active item or press
-  Cmd/Ctrl+B to hide the sidebar
+- Switch between Explorer, Search, and Source Control from a VS Code-style
+  activity bar (Cmd/Ctrl+Shift+E, Cmd/Ctrl+Shift+F, Cmd/Ctrl+Shift+G); click
+  the active item or press Cmd/Ctrl+B to hide the sidebar
+- Review uncommitted changes in Source Control: every modified, added,
+  untracked, deleted, or renamed file in the checkout since the last commit,
+  with a count badge and Explorer decorations. Each opens as a highlighted
+  diff tab with split or unified view, wrap, ignore whitespace, word or
+  character inline changes, and expand unchanged. Reads git data directly;
+  `git` need not be installed
 - Navigate files in a compact, resizable tree
 - Browse in rounded navigation and document panels with slim canvas gutters
 - Keep visited documents in an editor-style tab bar; right-click a tab to close it,
@@ -142,6 +148,8 @@ navigation, and content search. The explorer's filename filter accepts the same
 patterns and only changes tree visibility, preserving open documents. Global
 content search covers every in-scope text file regardless of the tree filter.
 Markdown image dependencies remain available within the served root.
+Source Control ignores the CLI scope: it lists and diffs every change in the
+repository checkout, regardless of `--filename`, `--depth`, and `--exclude`.
 
 How a file is shown depends on its type, not on the scope:
 

@@ -1,0 +1,32 @@
+{
+  "path": "assets/sample.bin",
+  "status": "modified",
+  "documentType": {
+    "id": "text",
+    "label": "Plain text",
+    "extensions": [
+      ".txt",
+      ".log",
+      ".adoc"
+    ],
+    "filenames": [
+      ".gitignore",
+      ".dockerignore"
+    ],
+    "language": "plaintext",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "size": 12288,
+    "binary": true,
+    "tooLarge": false
+  },
+  "modified": {
+    "size": 14336,
+    "binary": true,
+    "tooLarge": false
+  }
+}

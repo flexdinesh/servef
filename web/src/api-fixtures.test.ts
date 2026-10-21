@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
+import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
@@ -117,4 +118,39 @@ test("project contract validators reject inconsistent availability", async () =>
   assert.ok(isPageData(page))
   const { project: _project, ...withoutProject } = page
   assert.equal(isPageData(withoutProject), false)
+})
+
+async function diff(name: string): Promise<DiffResponse> {
+  const value = await fixture(name)
+  assert.ok(isDiffResponse(value), name)
+  return value
+}
+
+test("source control fixtures satisfy runtime contracts", async () => {
+  const changes = await fixture("changes.json")
+  assert.ok(isChangesResponse(changes))
+  assert.equal(changes.repository, true)
+  assert.deepEqual(changes.files.map((file) => file.path), changes.files.map((file) => file.path).toSorted())
+  assert.ok(changes.files.some((file) => file.status === "renamed" && file.oldPath))
+  const folder = await fixture("changes-not-repo.json")
+  assert.ok(isChangesResponse(folder))
+  assert.equal(folder.repository, false)
+  assert.deepEqual(folder.files, [])
+
+  const modified = await diff("diff-modified.json")
+  assert.equal(typeof modified.original?.content, "string")
+  assert.equal(typeof modified.modified?.content, "string")
+  assert.equal((await diff("diff-added.json")).original, null)
+  assert.equal((await diff("diff-deleted.json")).modified, null)
+  const untracked = await diff("diff-untracked.json")
+  assert.equal(untracked.status, "untracked")
+  assert.equal(untracked.original, null)
+  assert.ok((await diff("diff-renamed.json")).oldPath)
+  const binary = await diff("diff-binary.json")
+  assert.equal(binary.original?.binary, true)
+  assert.equal(binary.modified?.content, undefined)
+  const large = await diff("diff-too-large.json")
+  assert.equal(large.modified?.tooLarge, true)
+  assert.equal(large.modified?.content, undefined)
+  assert.equal(isDiffResponse(await fixture("error-not-found.json")), false)
 })

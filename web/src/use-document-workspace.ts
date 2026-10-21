@@ -1,26 +1,29 @@
 import { useCallback, useEffect, useState } from "react"
 
 import type { DocumentMode } from "./DocumentModeToggle.tsx"
-import type { PageData } from "./page-data.ts"
+import { includesTab, sameTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 interface DocumentWorkspace {
-  tabs: string[]
+  tabs: WorkspaceTab[]
   modes: ReadonlyMap<string, DocumentMode>
 }
 
-export function useDocumentWorkspace(page: PageData | null) {
-  const selected = page?.hasFile ? page.selected : ""
+// useDocumentWorkspace owns open tabs; the routed active tab joins them.
+export function useDocumentWorkspace(active: WorkspaceTab | null) {
   const [workspace, setWorkspace] = useState<DocumentWorkspace>(() => ({
-    tabs: selected ? [selected] : [],
+    tabs: active ? [active] : [],
     modes: new Map(),
   }))
+  const activeKind = active?.kind
+  const activePath = active?.path
 
   useEffect(() => {
-    if (!selected) return
-    setWorkspace((current) => current.tabs.includes(selected)
+    if (!activeKind || !activePath) return
+    const tab: WorkspaceTab = { kind: activeKind, path: activePath }
+    setWorkspace((current) => includesTab(current.tabs, tab)
       ? current
-      : { ...current, tabs: [...current.tabs, selected] })
-  }, [selected])
+      : { ...current, tabs: [...current.tabs, tab] })
+  }, [activeKind, activePath])
 
   const setDocumentMode = useCallback((path: string, mode: DocumentMode) => {
     setWorkspace((current) => {
@@ -32,28 +35,29 @@ export function useDocumentWorkspace(page: PageData | null) {
   }, [])
 
   // restore opens remembered tabs ahead of the ones opened this session.
-  const restore = useCallback((tabs: readonly string[]) => {
+  const restore = useCallback((tabs: readonly WorkspaceTab[]) => {
     setWorkspace((current) => {
-      const merged = [...tabs, ...current.tabs.filter((tab) => !tabs.includes(tab))]
-      return merged.length === current.tabs.length && merged.every((tab, index) => tab === current.tabs[index])
+      const merged = [...tabs, ...current.tabs.filter((tab) => !includesTab(tabs, tab))]
+      return merged.length === current.tabs.length && merged.every((tab, index) => sameTab(tab, current.tabs[index] ?? null))
         ? current
         : { ...current, tabs: merged }
     })
   }, [])
 
-  function closeDocuments(paths: readonly string[], activePath: string) {
-    const closed = workspace.tabs.filter((tab) => paths.includes(tab))
+  function closeTabs(closing: readonly WorkspaceTab[], activeTab: WorkspaceTab | null) {
+    const closed = workspace.tabs.filter((tab) => includesTab(closing, tab))
     if (closed.length === 0) return null
-    const index = workspace.tabs.indexOf(activePath)
-    const replacement = workspace.tabs.slice(index + 1).find((tab) => !closed.includes(tab))
-      ?? workspace.tabs.slice(0, index).reverse().find((tab) => !closed.includes(tab))
+    const index = workspace.tabs.findIndex((tab) => sameTab(tab, activeTab))
+    const replacement = workspace.tabs.slice(index + 1).find((tab) => !includesTab(closed, tab))
+      ?? workspace.tabs.slice(0, Math.max(index, 0)).reverse().find((tab) => !includesTab(closed, tab))
     setWorkspace((current) => {
       const modes = new Map(current.modes)
-      for (const path of closed) modes.delete(path)
-      return { tabs: current.tabs.filter((tab) => !closed.includes(tab)), modes }
+      // Modes belong to documents; a document's mode outlives its diff tab.
+      for (const tab of closed) if (tab.kind === "document") modes.delete(tab.path)
+      return { tabs: current.tabs.filter((tab) => !includesTab(closed, tab)), modes }
     })
-    return { paths: closed, replacement }
+    return { tabs: closed, replacement: replacement ?? null }
   }
 
-  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeDocuments, restore }
+  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeTabs, restore }
 }

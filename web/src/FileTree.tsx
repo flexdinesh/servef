@@ -1,4 +1,4 @@
-import type { FileTree as FileTreeModel } from "@pierre/trees"
+import type { FileTree as FileTreeModel, GitStatusEntry } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree, useFileTreeSearch } from "@pierre/trees/react"
 import { ChevronDownIcon, FoldVerticalIcon, GitBranchIcon, GitForkIcon, SearchIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
@@ -19,6 +19,8 @@ function treePaths(nodes: readonly TreeNode[]): string[] {
 }
 
 interface FileTreeProps {
+  // gitStatus decorates changed files; entries outside the tree are ignored.
+  gitStatus: readonly GitStatusEntry[]
   hasData: boolean
   onNavigate(path: string): void
   onOpenProjects(): void
@@ -90,7 +92,7 @@ export function FileTree(props: FileTreeProps) {
     itemHeight={itemHeight} filter={filter} state={state} />
 }
 
-function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReveal, onDismiss, page, registerOpen, mobile, itemHeight, state, filter }: FileTreeProps & {
+function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReveal, onDismiss, page, registerOpen, mobile, itemHeight, state, filter }: FileTreeProps & {
   mobile: boolean
   itemHeight: number
   filter: FilenameFilterState
@@ -160,6 +162,12 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReve
   useLayoutEffect(() => { current.current = { onNavigate, onDismiss, page } }, [onDismiss, onNavigate, page])
 
   useLayoutEffect(() => { state.current.model = model }, [model, state])
+
+  // Only paths the tree shows carry a decoration; Source Control lists the rest.
+  const shownPaths = useMemo(() => new Set(paths), [paths])
+  useLayoutEffect(() => {
+    model.setGitStatus(gitStatus.filter((entry) => shownPaths.has(entry.path)))
+  }, [gitStatus, model, shownPaths])
 
   useLayoutEffect(() => {
     syncing.current = true

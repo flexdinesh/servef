@@ -1,0 +1,31 @@
+{
+  "path": "guides/getting-started.md",
+  "oldPath": "guides/intro.md",
+  "status": "renamed",
+  "documentType": {
+    "id": "markdown",
+    "label": "Markdown",
+    "extensions": [
+      ".md",
+      ".markdown"
+    ],
+    "filenames": [],
+    "language": "markdown",
+    "previewKind": "markdown",
+    "previewLabel": "Preview",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![servef preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `servef testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nservef testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
+    "size": 362,
+    "binary": false,
+    "tooLarge": false
+  },
+  "modified": {
+    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![servef preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `servef testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nservef testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
+    "size": 362,
+    "binary": false,
+    "tooLarge": false
+  }
+}
