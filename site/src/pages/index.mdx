@@ -1,0 +1,29 @@
+# servef
+
+Browse any file in a local directory: rendered Markdown, image previews,
+formatted JSON/YAML/HTML/CSS/JavaScript, and highlighted source for everything
+else.
+
+```sh
+servef .
+```
+
+servef is a single Go binary. It serves a local, read-only browser UI; original
+files stay unchanged.
+
+## Features
+
+- Render Markdown content and local images
+- Preview PNG, JPEG, GIF, WebP, AVIF, ICO, BMP, and SVG images
+- Switch each open document between preview and highlighted, read-only source
+- Format JSON, YAML, HTML, CSS, and JavaScript on demand for reading
+- Highlight common languages and config files; show other text as plain text
+- Serve several directories at once and switch between their git repositories
+  and worktrees
+- Search file content like VS Code, skipping files git ignores
+- Review uncommitted changes as highlighted diffs in Source Control
+- Go to definition and find references through installed language servers
+- Choose a theme and interface font size; run commands from a command palette
+- Render Mermaid diagrams as themed SVG
+
+Start with [Getting started](/getting-started).

@@ -1,5 +1,6 @@
 packages:
   - "web"
+  - "site"
 
 engineStrict: true
 includeWorkspaceRoot: true
@@ -11,4 +12,6 @@ minimumReleaseAgeExclude:
   - ondine@0.0.3
 
 allowBuilds:
+  es5-ext: false
   esbuild: true
+  vue-demi: false

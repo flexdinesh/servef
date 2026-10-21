@@ -14,6 +14,7 @@ as one Go binary.
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
 - `docs/decisions/`: decision records for scope, file types, views, and limits.
+- `site/`: static Vocs user docs; build-time only, not part of the binary.
 - `tests/browser/`: browser tests across the Go/React boundary.
 
 The filesystem root passed to the CLI is the primary runtime trust boundary.

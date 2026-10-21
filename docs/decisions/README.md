@@ -31,3 +31,4 @@ rewriting history; update `Status` on the old record.
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | Accepted |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Accepted |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
+| [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |

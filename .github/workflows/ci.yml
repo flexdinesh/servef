@@ -44,6 +44,9 @@ jobs:
           pnpm test:release
           pnpm typecheck
 
+      - name: Build docs site
+        run: pnpm build:site
+
       - name: Vet
         run: go vet ./...
 

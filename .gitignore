@@ -4,6 +4,8 @@
 /bin/
 /node_modules/
 /web/node_modules/
+/site/node_modules/
+/site/dist/
 /playwright-report/
 /test-results/
 /.impeccable/review/
