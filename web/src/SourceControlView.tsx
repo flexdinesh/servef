@@ -56,10 +56,12 @@ export function SourceControlView({ activeCommit, activePath, changes, commits, 
   const itemHeight = Math.round((mobile ? 32 : 24) * scale)
   const [anyExpanded, setAnyExpanded] = useState(true)
   const [collapseRequest, setCollapseRequest] = useState<{ expand: boolean; id: number } | null>(null)
+  const [expandedCommits, setExpandedCommits] = useState<ReadonlySet<string>>(() => new Set())
   const sections = useRef<HTMLDivElement>(null)
   const count = files?.length ?? 0
   const repository = !result || result.repository
   const history = commits.result
+  const anyCommitExpanded = history?.commits.some((commit) => expandedCommits.has(commit.hash)) ?? false
   const bothOpen = !layout.changesCollapsed && !layout.commitsCollapsed
   // Open sections share the height; the desktop split weights them.
   const share = mobile || !bothOpen ? 0.5 : layout.changesShare
@@ -145,10 +147,14 @@ export function SourceControlView({ activeCommit, activePath, changes, commits, 
                 <button type="button" aria-pressed={layout.range === "all"} title="All history of HEAD"
                   onClick={() => layout.setRange("all")}>All</button>
               </div>
+              <button type="button" className="source-control-group-action" aria-label="Collapse All Commits" title="Collapse All Commits"
+                disabled={layout.commitsCollapsed || !anyCommitExpanded} onClick={() => setExpandedCommits(new Set())}>
+                <FoldVerticalIcon aria-hidden="true" />
+              </button>
             </div>
             <div id="source-control-commits" className="source-control-section-body" hidden={layout.commitsCollapsed}>
-              <CommitsView commits={commits} range={layout.range} active={activeCommit} mobile={mobile} onDismiss={onDismiss}
-                onOpen={onOpenCommit} onShowAll={() => layout.setRange("all")} />
+              <CommitsView commits={commits} range={layout.range} active={activeCommit} expanded={expandedCommits} mobile={mobile}
+                onDismiss={onDismiss} onExpandedChange={setExpandedCommits} onOpen={onOpenCommit} onShowAll={() => layout.setRange("all")} />
             </div>
           </div>
         </div>

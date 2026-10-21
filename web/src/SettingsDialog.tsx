@@ -1,7 +1,6 @@
-import { RotateCcwIcon, SearchIcon, XIcon } from "lucide-react"
+import { ChevronDownIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 
-import { Button } from "./components/ui/button.tsx"
 import { matchSettings, settingDefinitions, type SettingId } from "./settings.ts"
 import { useSettingValues, type SettingValue } from "./use-setting-values.ts"
 
@@ -84,10 +83,13 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
             <span className="setting-unit">{definition.unit}</span>
           </>
         ) : (
-          <select ref={setControl} id={id} value={setting.value} aria-describedby={describedBy}
-            onChange={(event) => { setting.set(event.target.value) }}>
-            {definition.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <span className="setting-select">
+            <select ref={setControl} id={id} value={setting.value} aria-describedby={describedBy}
+              onChange={(event) => { setting.set(event.target.value) }}>
+              {definition.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <ChevronDownIcon aria-hidden="true" />
+          </span>
         )}
       </div>
       {invalid && definition.kind === "number" && (
@@ -249,10 +251,9 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
         </div>
         <footer className="settings-footer">
           <span>Saved in this browser. Changes apply immediately.</span>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
+            className="settings-reset-all"
             disabled={modifiedCount === 0}
             onClick={() => {
               resetAll()
@@ -263,7 +264,7 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
           >
             <RotateCcwIcon aria-hidden="true" />
             Reset all
-          </Button>
+          </button>
         </footer>
       </div>
     </dialog>

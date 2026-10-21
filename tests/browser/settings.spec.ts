@@ -40,6 +40,41 @@ test("settings categories, global search, and modified filter compose and recove
   await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeFocused()
 })
 
+test("settings footer matches the header and categories align with search", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Settings", exact: true })
+  const box = async (selector: string) => {
+    const bounds = await dialog.locator(selector).first().boundingBox()
+    expect(bounds).not.toBeNull()
+    return bounds ?? { x: 0, y: 0, width: 0, height: 0 }
+  }
+  expect((await box(".settings-footer")).height).toBeCloseTo((await box(".settings-header")).height, 0)
+  const search = await box(".settings-search")
+  const rail = await box(".settings-categories")
+  const selected = await box(".settings-categories [aria-current]")
+  // The selection starts at the search field's edge and fills to the rail's border.
+  expect(selected.x).toBeCloseTo(search.x, 0)
+  expect(selected.x + selected.width).toBeCloseTo(rail.x + rail.width - 1, 0)
+  // The select's chevron ink is inset from the right as far as its text is from the left.
+  const inset = await dialog.getByRole("combobox", { name: "Appearance: Theme" }).evaluate((select) => {
+    const icon = select.parentElement?.querySelector("svg")
+    const path = icon?.querySelector("path")
+    if (!icon || !(path instanceof SVGGraphicsElement)) return null
+    const box = icon.getBoundingClientRect()
+    const scale = box.width / icon.viewBox.baseVal.width
+    const ink = path.getBBox()
+    const inkRight = box.left + (ink.x + ink.width + parseFloat(getComputedStyle(path).strokeWidth) / 2) * scale
+    const style = getComputedStyle(select)
+    return {
+      left: parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+      right: select.getBoundingClientRect().right - inkRight,
+    }
+  })
+  expect(inset).not.toBeNull()
+  if (inset) expect(Math.abs(inset.right - inset.left)).toBeLessThan(0.5)
+})
+
 test("settings keeps controls and footer reachable on short desktop and mobile", async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 480 }, { width: 390, height: 667 }]) {
     await page.setViewportSize(viewport)

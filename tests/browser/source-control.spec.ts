@@ -393,6 +393,44 @@ test("Commits works from the keyboard", async ({ page }) => {
   await expect(page.getByRole("main")).toBeFocused()
 })
 
+test("Collapse All Commits closes every open commit", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  const collapse = sourceControl(page).getByRole("button", { name: "Collapse All Commits" })
+  const commit = commitRow(page, featureSubject)
+  await expect(commit).toBeVisible()
+  await expect(collapse).toBeDisabled()
+  await commit.click()
+  await expect(commit).toHaveAttribute("aria-expanded", "true")
+  await collapse.click()
+  await expect(commit).toHaveAttribute("aria-expanded", "false")
+  await expect(commits(page).getByRole("treeitem", { level: 2 })).toHaveCount(0)
+  await expect(collapse).toBeDisabled()
+})
+
+test("sidebar and section headers center their contents", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(commitRow(page, featureSubject)).toBeVisible()
+  const middle = (selector: string) => sourceControl(page).locator(selector).first().evaluate((element) => {
+    const bounds = element.getBoundingClientRect()
+    return bounds.top + bounds.height / 2
+  })
+  const header = await middle(".sidebar-header")
+  expect(await middle(".sidebar-title")).toBeCloseTo(header, 0)
+  expect(await middle(".sidebar-header button")).toBeCloseTo(header, 0)
+  for (const name of ["Changes", "Commits"]) {
+    const toggle = sourceControl(page).getByRole("button", { name, exact: true })
+    const offsets = await toggle.evaluate((element) => {
+      const section = element.closest(".source-control-section")
+      const row = element.getBoundingClientRect()
+      const top = section ? section.getBoundingClientRect().top + parseFloat(getComputedStyle(section).borderTopWidth) : row.top
+      return row.top - top
+    })
+    expect(offsets).toBeCloseTo(0, 0)
+  }
+})
+
 test("Changes and Commits collapse and resize, and the layout is remembered", async ({ page }) => {
   await page.goto(`${gitApiOrigin}/?project=${project}`)
   await page.keyboard.press("ControlOrMeta+Shift+g")
