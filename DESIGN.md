@@ -215,7 +215,7 @@ Tabs and explorer headers are 32px tall at every viewport width and share the wo
 
 At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a rounded native modal drawer, `min(85vw, 22rem)` wide, with the same outer inset, activity bar (32px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 32px tree/search rows. Tabs and explorer headers stay 32px; the footer remains 44px. Explorer and search fields stay at 28px, following the same rem scale as desktop. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
 
-Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
+Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. The full-width input field is 32px tall, matching tabs, headers, and rows, with a 14px input and accent underline on focus. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
 Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 

@@ -3044,8 +3044,9 @@ article hr {
   font-size: var(--text-sm);
 }
 
+/* Quick-pick fields share the 32px chrome height of tabs, headers, and rows. */
 .search-field {
-  padding: var(--space-2);
+  padding: 0 var(--space-2);
   min-height: 0;
   gap: var(--space-2);
 }
