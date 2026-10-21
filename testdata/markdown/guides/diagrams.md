@@ -6,6 +6,7 @@
 flowchart LR
     Browser --> Vite
     Vite --> GoAPI["Go API & renderer"]
+    click Browser href "https://example.com/" "Open example"
 ```
 
 ## Page load
@@ -29,7 +30,7 @@ stateDiagram-v2
     Preview --> Source: toggle
 ```
 
-## Unsupported diagram fallback
+## Git graph
 
 ```mermaid
 gitGraph
@@ -37,4 +38,12 @@ gitGraph
     branch experiment
     checkout experiment
     commit id: "feature"
+```
+
+## Syntax error fallback
+
+```mermaid
+flowchart LR
+    A --> B
+    B --> [broken
 ```

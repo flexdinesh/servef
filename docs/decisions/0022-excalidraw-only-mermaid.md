@@ -1,6 +1,6 @@
 # 0022: Excalidraw-only Mermaid; no feature flags
 
-- Status: Accepted
+- Status: Superseded for the renderer by [0025](0025-ondine-mermaid.md)
 - Date: 2026-10-18
 
 ## Context

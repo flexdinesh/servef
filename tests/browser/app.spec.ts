@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test"
 import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
 import { apiOrigin } from "./ports.ts"
 
-const mermaidCaseCount = 4
+const mermaidCaseCount = 5
+const mermaidDiagramCount = 4
 
 // showPreview renders the open document; Markdown opens in Source by default.
 async function showPreview(page: Page) {
@@ -721,57 +722,110 @@ test("applies an editor palette while preserving dark rendering", async ({ page 
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(29, 32, 33)")
 })
 
-test("renders every Mermaid fixture with default Excalidraw", async ({ page }) => {
+test("renders every Mermaid fixture with ondine", async ({ page }) => {
   const cspFailures: string[] = []
-  const fontResponses: number[] = []
+  const moduleRequests: string[] = []
   const remoteRequests: string[] = []
+  const excalidrawRequests: string[] = []
   page.on("request", (request) => {
     const url = new URL(request.url())
     if ((url.protocol === "http:" || url.protocol === "https:") && url.origin !== apiOrigin) remoteRequests.push(request.url())
+    if (url.pathname.endsWith(".wasm")) moduleRequests.push(url.pathname)
+    if (url.pathname.includes("excalidraw")) excalidrawRequests.push(url.pathname)
   })
   page.on("requestfailed", (request) => {
     if (request.failure()?.errorText === "csp") cspFailures.push(request.url())
   })
-  page.on("response", (response) => {
-    const url = new URL(response.url())
-    if (url.pathname.startsWith("/assets/excalidraw/fonts/")) fontResponses.push(response.status())
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("Content Security Policy")) cspFailures.push(message.text())
   })
   await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
   await showPreview(page)
   await revealMermaidCases(page)
 
-  await expect(page.locator("main .mermaid-diagram.ready")).toHaveCount(mermaidCaseCount)
-  await expect(page.locator("main .mermaid-excalidraw")).toHaveCount(mermaidCaseCount)
-  await expect(page.locator("main .mermaid-excalidraw .excalidraw").first()).toBeVisible()
-  await expect(page.locator("main .mermaid-excalidraw [data-testid='main-menu-trigger']").first()).toBeHidden()
-  await expect(page.locator("main .mermaid-excalidraw .zoom-actions").first()).toBeHidden()
-  await expect.poll(() => fontResponses.some((status) => status === 200)).toBe(true)
+  const diagrams = page.locator("main .mermaid-diagram")
+  await expect(diagrams.locator("svg.ondine")).toHaveCount(mermaidDiagramCount)
+  for (const type of ["flowchart", "sequence", "state", "gitGraph"]) {
+    await expect(diagrams.locator(`svg.ondine-${type}`), type).toHaveCount(1)
+  }
+  await expect(page.locator("main .mermaid-error")).toHaveCount(1)
+  await expect(page.locator("main .mermaid-error")).toContainText("Parse error on line 3:")
+  await expect(page.locator("main .mermaid-error")).toContainText("B --> [broken")
+  await expect(diagrams.locator("a")).toHaveCount(0)
+  await expect(diagrams.locator("svg.ondine-flowchart")).toContainText("Browser")
+  expect(moduleRequests).toHaveLength(1)
+  expect(excalidrawRequests).toEqual([])
   expect(cspFailures).toEqual([])
   expect(remoteRequests).toEqual([])
+})
 
-  const canvas = page.locator("main .mermaid-excalidraw canvas").first()
-  await canvas.scrollIntoViewIfNeeded()
-  const bounds = await canvas.boundingBox()
-  if (!bounds) throw new Error("Excalidraw canvas has no bounds")
-  const pointer = {
-    x: Math.round(bounds.x + bounds.width / 3),
-    y: Math.round(bounds.y + bounds.height / 3),
+test("Mermaid diagrams follow every theme", async ({ page }) => {
+  await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
+  await showPreview(page)
+  const strokes = new Set<string>()
+  for (const theme of ["light", "dark", "catppuccin-mocha", "dracula", "gruvbox-dark", "nord", "solarized-light"]) {
+    await page.evaluate((value) => window.localStorage.setItem("servef-theme", value), theme)
+    await page.reload()
+    const node = page.locator("main .mermaid-diagram svg.ondine-flowchart .ondine-node rect").first()
+    await node.scrollIntoViewIfNeeded()
+    await expect(node, theme).toBeVisible()
+    const colors = await node.evaluate((rect) => {
+      const text = getComputedStyle(document.documentElement).getPropertyValue("--color-text-secondary").trim()
+      const probe = document.createElement("span")
+      probe.style.color = text
+      document.body.append(probe)
+      const expected = getComputedStyle(probe).color
+      probe.remove()
+      return { expected, stroke: getComputedStyle(rect).stroke }
+    })
+    expect(colors.stroke, theme).toBe(colors.expected)
+    strokes.add(colors.stroke)
   }
-  await page.evaluate(() => {
-    const capturePointer = (event: PointerEvent) => {
-      if (event.isTrusted) return
-      document.documentElement.dataset.excalidrawPointer = `${event.clientX},${event.clientY}`
-      document.removeEventListener("pointermove", capturePointer)
-    }
-    document.addEventListener("pointermove", capturePointer)
-  })
-  await canvas.dispatchEvent("wheel", {
-    bubbles: true,
-    cancelable: true,
-    clientX: pointer.x,
-    clientY: pointer.y,
-    ctrlKey: true,
-    deltaY: -1,
-  })
-  await expect(page.locator("html")).toHaveAttribute("data-excalidraw-pointer", `${pointer.x},${pointer.y}`)
+  expect(strokes.size).toBeGreaterThan(1)
+})
+
+test("expands a Mermaid diagram with zoom and pan", async ({ page }) => {
+  await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
+  await showPreview(page)
+  const diagram = page.locator("main .mermaid-diagram").first()
+  await expect(diagram.locator("svg.ondine")).toBeVisible()
+  await diagram.getByRole("button", { name: "Expand diagram" }).click()
+
+  const dialog = page.getByRole("dialog", { name: "Mermaid diagram" })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator("svg.ondine-flowchart")).toBeVisible()
+  await expect(dialog.locator("a")).toHaveCount(0)
+  const zoom = dialog.getByRole("status")
+  await expect(zoom).toHaveText("100%")
+  await dialog.getByRole("button", { name: "Zoom in" }).click()
+  await expect(zoom).toHaveText("125%")
+  await dialog.getByRole("button", { name: "Zoom out" }).click()
+  await dialog.getByRole("button", { name: "Zoom out" }).click()
+  await expect(zoom).toHaveText("80%")
+
+  const viewer = dialog.locator(".mermaid-viewer")
+  const bounds = await viewer.boundingBox()
+  if (!bounds) throw new Error("Mermaid viewer has no bounds")
+  const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+  await page.mouse.move(center.x, center.y)
+  await page.keyboard.down("Control")
+  await page.mouse.wheel(0, -100)
+  await page.keyboard.up("Control")
+  await expect(zoom).toHaveText("100%")
+
+  const content = dialog.locator(".mermaid-viewer-content")
+  const before = await content.boundingBox()
+  await page.mouse.down()
+  await page.mouse.move(center.x + 60, center.y + 40, { steps: 4 })
+  await page.mouse.up()
+  const after = await content.boundingBox()
+  if (!before || !after) throw new Error("Mermaid viewer content has no bounds")
+  expect(Math.round(after.x - before.x)).toBe(60)
+  expect(Math.round(after.y - before.y)).toBe(40)
+
+  await dialog.getByRole("button", { name: "Reset zoom" }).click()
+  await expect(zoom).toHaveText("100%")
+  await page.keyboard.press("Escape")
+  await expect(dialog).toHaveCount(0)
+  await expect(diagram.locator("svg.ondine")).toBeVisible()
 })

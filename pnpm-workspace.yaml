@@ -6,13 +6,9 @@ includeWorkspaceRoot: true
 
 # Three-day supply-chain cooling period.
 minimumReleaseAge: 4320
+# Exact-version exemption for the Mermaid renderer; remove after 2026-10-23.
+minimumReleaseAgeExclude:
+  - ondine@0.0.3
 
 allowBuilds:
   esbuild: true
-
-# tunnel-rat imports React without declaring it. Keep resolution explicit instead
-# of relying on the former root package's phantom dependency.
-packageExtensions:
-  tunnel-rat@0.1.2:
-    peerDependencies:
-      react: "*"

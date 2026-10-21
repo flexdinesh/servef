@@ -10,8 +10,6 @@ import { StatusBar } from "../src/StatusBar.tsx"
 import { emptyPage } from "../src/page-data.ts"
 import "../src/style.css"
 
-window.EXCALIDRAW_ASSET_PATH = "/assets/excalidraw/"
-
 // Search reads the project named by ?project=, an absolute served path.
 const project = new URLSearchParams(window.location.search).get("project") ?? ""
 

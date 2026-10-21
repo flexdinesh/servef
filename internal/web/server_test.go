@@ -77,6 +77,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		`Source --&gt; Preview: toggle`,
 		`<pre><code class="language-mermaid">gitGraph`,
 		`commit id: &quot;feature&quot;`,
+		`B --&gt; [broken`,
 	)
 	if strings.Contains(diagramsData.Content, `GoAPI["Go API & renderer"]`) {
 		t.Fatal("Mermaid source was not HTML-escaped")
@@ -247,7 +248,7 @@ func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 		t.Fatal("Mermaid source was rendered as raw HTML")
 	}
 	for _, target := range []string{"/", "/view?project=.&path=missing.md"} {
-		if strings.Contains(request(t, app, target).Body.String(), "MermaidCanvas") {
+		if body := request(t, app, target).Body.String(); strings.Contains(body, "OndineMermaidDiagram") || strings.Contains(body, ".wasm") {
 			t.Errorf("GET %s eagerly includes Mermaid chunk", target)
 		}
 	}
@@ -426,16 +427,31 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 		t.Fatal(err)
 	}
 	foundMermaidChunk := false
+	foundMermaidModule := false
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), "ExcalidrawMermaidCanvas-") && strings.HasSuffix(entry.Name(), ".js") {
+		if strings.HasPrefix(entry.Name(), "OndineMermaidDiagram-") && strings.HasSuffix(entry.Name(), ".js") {
 			foundMermaidChunk = true
 			if response := request(t, app, "/assets/"+entry.Name()); response.Code != http.StatusOK {
 				t.Errorf("GET Mermaid chunk status = %d", response.Code)
 			}
 		}
+		if strings.HasPrefix(entry.Name(), "all.generated-") && strings.HasSuffix(entry.Name(), ".wasm") {
+			foundMermaidModule = true
+			response := request(t, app, "/assets/"+entry.Name())
+			if response.Code != http.StatusOK {
+				t.Errorf("GET Mermaid module status = %d", response.Code)
+			}
+			// WebAssembly.compileStreaming rejects any other media type.
+			if got := response.Header().Get("Content-Type"); got != "application/wasm" {
+				t.Errorf("GET Mermaid module Content-Type = %q, want application/wasm", got)
+			}
+		}
 	}
 	if !foundMermaidChunk {
 		t.Fatal("Mermaid chunk not found")
+	}
+	if !foundMermaidModule {
+		t.Fatal("Mermaid WebAssembly module not found")
 	}
 	px0License := request(t, app, "/assets/vendor/PX0-LICENSE.txt")
 	if px0License.Code != http.StatusOK {
@@ -443,7 +459,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	}
 	assertContains(t, px0License.Body.String(), "MIT License", "Arpit Bhayani")
 	csp := shell.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}

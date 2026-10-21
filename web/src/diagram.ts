@@ -1,26 +1,56 @@
-export const diagramFitPadding = 24
-export const minimumDiagramHeight = 240
-export const textBoundsPadding = 8
+import { RenderError } from "ondine/compiler/wasm"
 
-export interface DiagramBounds {
-  h: number
-  w: number
+import { fitScale, maximumZoom, minimumZoom } from "./image-zoom.ts"
+
+export const diagramZoomStep = 1.25
+export const mermaidRenderError = "Could not render Mermaid diagram. Check its source."
+
+export interface DiagramPoint {
+  x: number
+  y: number
 }
 
-export function addTextRasterGutters(text: string): string {
-  return `\u00a0${text}\u00a0`
+export interface DiagramSize {
+  height: number
+  width: number
 }
 
-export function padTextBounds({ x, width }: { x: number; width: number }): { x: number; width: number } {
+export interface DiagramView extends DiagramPoint {
+  zoom: number
+}
+
+export function clampDiagramZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) return 1
+  return Math.min(maximumZoom, Math.max(minimumZoom, zoom))
+}
+
+// fitDiagramView shows content at natural size, scaled down to fit the viewport, centered.
+export function fitDiagramView(viewport: DiagramSize, content: DiagramSize): DiagramView {
+  const zoom = clampDiagramZoom(fitScale(content, viewport))
   return {
-    x: x - textBoundsPadding / 2,
-    width: width + textBoundsPadding,
+    x: (viewport.width - content.width * zoom) / 2,
+    y: (viewport.height - content.height * zoom) / 2,
+    zoom,
   }
 }
 
-export function calculateDiagramHeight(width: number, bounds?: DiagramBounds): number {
-  if (!(width > 0) || !bounds || !(bounds.w > 0) || !(bounds.h > 0)) return minimumDiagramHeight
-  const availableWidth = Math.max(1, width - diagramFitPadding)
-  const height = Math.round((availableWidth * bounds.h) / bounds.w + diagramFitPadding)
-  return Math.min(600, Math.max(minimumDiagramHeight, height))
+// zoomDiagramView scales by factor and keeps the anchor point fixed on screen.
+export function zoomDiagramView(view: DiagramView, factor: number, anchor: DiagramPoint): DiagramView {
+  const zoom = clampDiagramZoom(view.zoom * factor)
+  const ratio = zoom / view.zoom
+  return {
+    x: anchor.x - (anchor.x - view.x) * ratio,
+    y: anchor.y - (anchor.y - view.y) * ratio,
+    zoom,
+  }
+}
+
+export function panDiagramView(view: DiagramView, dx: number, dy: number): DiagramView {
+  return { ...view, x: view.x + dx, y: view.y + dy }
+}
+
+// mermaidErrorMessage keeps ondine's Mermaid-compatible diagnostic, including
+// its line and caret snippet; other failures get a generic message.
+export function mermaidErrorMessage(error: unknown): string {
+  return error instanceof RenderError && error.message ? error.message : mermaidRenderError
 }
