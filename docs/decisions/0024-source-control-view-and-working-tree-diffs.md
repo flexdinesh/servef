@@ -1,6 +1,6 @@
 # 0024: Source Control view and working-tree diffs
 
-- Status: Accepted
+- Status: Accepted; diff line selection added by [0028](0028-diff-line-links-and-copy.md)
 - Date: 2026-10-21
 - Extends: [0020](0020-activity-bar-and-search-view.md)
 

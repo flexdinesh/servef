@@ -33,3 +33,4 @@ rewriting history; update `Status` on the old record.
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
 | [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Accepted |
+| [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | Accepted |

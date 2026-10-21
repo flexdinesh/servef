@@ -12,6 +12,7 @@ import {
   useState,
 } from "react"
 
+import type { SelectedLineRange } from "@pierre/diffs"
 import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
 import { ProjectPicker, type PickerOpenOptions } from "./ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
@@ -19,7 +20,7 @@ import { DocumentPane } from "./DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./document-view.ts"
 import { FileTree } from "./FileTree.tsx"
 import { ImageZoomControls } from "./ImageZoomControls.tsx"
-import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./line-selection.ts"
+import { clampLineRange, lineAnchor, lineReference, parseLineAnchor, splitSourceLines, type LineRange } from "./line-selection.ts"
 import {
   emptyPage,
   filePaths,
@@ -34,6 +35,8 @@ import { SourceControlView } from "./SourceControlView.tsx"
 import { DiffDocument } from "./DiffDocument.tsx"
 import { DiffToolbar } from "./DiffToolbar.tsx"
 import { diffContent } from "./diff-content.ts"
+import { diffLineAnchor, diffLineTarget, parseDiffLineAnchor } from "./diff-line-selection.ts"
+import { effectiveDiffStyle } from "./diff-options.ts"
 import { diffStats } from "./diff-stats.ts"
 import { useChanges } from "./use-changes.ts"
 import { useCommits } from "./use-commits.ts"
@@ -103,7 +106,8 @@ export function App({ project }: AppProps) {
   const routed = useRouterState({ select: (state) => activePageResult(state.matches) })
   const result = routed?.kind === "page" && routed.page.project !== project ? null : routed
   const isLoading = useRouterState({ select: (state) => state.isLoading })
-  const lineRange = parseLineAnchor(useRouterState({ select: (state) => state.location.hash }))
+  const hash = useRouterState({ select: (state) => state.location.hash })
+  const lineRange = parseLineAnchor(hash)
   // A diff tab routes as /view?path=…&diff=1 and a commit diff tab as
   // /view?path=…&commit=<hash>; their page carries only the tree.
   const diffCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) && typeof search.path === "string" ? search.commit : "" })
@@ -240,6 +244,18 @@ export function App({ project }: AppProps) {
     else if (tab.kind === "commit") openCommitDiff(tab.commit, tab.path, true)
     else navigateToDocument(tab.path)
   }, [navigateToDocument, openCommitDiff, openDiff])
+
+  // A diff's line selection lives in its fragment too: #R12-R20, #L5.
+  const diffSelection = diffPath ? parseDiffLineAnchor(hash) : null
+  const diffTarget = fileDiff && diffSelection
+    ? diffLineTarget(fileDiff, diffSelection, effectiveDiffStyle(diffOptions.options, sidebar.mobile))
+    : null
+  const diffOldPath = diffState.kind === "ready" && diffState.diff.oldPath ? diffState.diff.oldPath : diffPath
+  const diffReference = diffTarget ? lineReference(diffTarget.side === "old" ? diffOldPath : diffPath, diffTarget.range) : ""
+  const selectDiffLines = useCallback((range: SelectedLineRange | null) => {
+    if (!activeTab || activeTab.kind === "document") return
+    void navigate({ to: "/view", search: tabSearch(project, activeTab), hash: range ? diffLineAnchor(range) : "", replace: true })
+  }, [activeTab, navigate, project])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
@@ -385,7 +401,8 @@ export function App({ project }: AppProps) {
           </div>
           <DocumentPane
             diff={diffPath ? <DiffDocument content={content} fileDiff={fileDiff} narrow={sidebar.mobile}
-              options={diffOptions.options} parseFailed={parsedDiff.failed} path={diffPath} scrollRoot={main} state={diffState}
+              options={diffOptions.options} parseFailed={parsedDiff.failed} path={diffPath} scrollRoot={main}
+              selection={{ range: diffTarget ? diffSelection : null, reference: diffReference, onChange: selectDiffLines }} state={diffState}
               onOpenFile={() => navigateToDocument(diffPath)} onRetry={workingDiff.retry} /> : undefined}
             hasData={hasData}
             image={image}
@@ -405,6 +422,7 @@ export function App({ project }: AppProps) {
       <StatusBar isLoading={isLoading || formatSlow || diffSlow} error={loadError || page.error} page={page}
         diff={diffPath ? {
           path: diffPath,
+          lines: diffTarget,
           stats: fileDiff ? diffStats(fileDiff) : null,
           typeLabel: diffState.kind === "ready" ? diffState.diff.documentType.label : "",
         } : undefined}

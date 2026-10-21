@@ -1,4 +1,4 @@
-import { Virtualizer, type FileDiffMetadata, type LineDiffTypes } from "@pierre/diffs"
+import { Virtualizer, type FileDiffMetadata, type LineDiffTypes, type SelectedLineRange } from "@pierre/diffs"
 import {
   FileDiff, VirtualizerContext, WorkerPoolContextProvider, useWorkerPool,
   type FileDiffOptions, type WorkerInitializationRenderOptions, type WorkerPoolOptions,
@@ -16,6 +16,7 @@ import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff
 import { DIFF_THEME } from "./diff-theme.ts"
 import { formatBytes } from "./format-bytes.ts"
 import { uiScale } from "./settings.ts"
+import { LineCopyButton } from "./SourceDocument.tsx"
 import type { DiffState } from "./use-working-tree-diff.ts"
 
 // One servef theme serves both polarities; themeType picks the scheme.
@@ -29,6 +30,14 @@ const poolOptions: WorkerPoolOptions = {
 
 // Browser surfaces inside Pierre's shadow root follow servef tokens.
 const diffCSS = `::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }`
+
+// DiffLineSelection connects gutter selection to its owner (the URL fragment).
+export interface DiffLineSelection {
+  range: SelectedLineRange | null
+  // reference is the copied path:lines, empty when the range addresses nothing.
+  reference: string
+  onChange(range: SelectedLineRange | null): void
+}
 
 function lineDiffType(inline: InlineChanges): LineDiffTypes {
   return inline === "word" ? "word-alt" : inline
@@ -47,6 +56,7 @@ interface DiffDocumentProps {
   path: string
   // scrollRoot is the document pane, which scrolls the virtualized diff.
   scrollRoot: RefObject<HTMLElement | null>
+  selection: DiffLineSelection
   state: DiffState
   onOpenFile(): void
   onRetry(): void
@@ -64,7 +74,7 @@ export function DiffDocument(props: DiffDocumentProps) {
   )
 }
 
-function DiffBody({ content, fileDiff, narrow, options, parseFailed, path, scrollRoot, state, onOpenFile, onRetry }: DiffDocumentProps) {
+function DiffBody({ content, fileDiff, narrow, options, parseFailed, path, scrollRoot, selection, state, onOpenFile, onRetry }: DiffDocumentProps) {
   if (state.kind === "error") {
     return (
       <div className="error" role="alert">
@@ -108,7 +118,8 @@ function DiffBody({ content, fileDiff, narrow, options, parseFailed, path, scrol
   return (
     <div className="source-stack diff-stack">
       {notices}
-      {fileDiff && fileDiff.hunks.length > 0 && <DiffView fileDiff={fileDiff} narrow={narrow} options={options} scrollRoot={scrollRoot} />}
+      {fileDiff && fileDiff.hunks.length > 0 && <DiffView fileDiff={fileDiff} narrow={narrow} options={options} scrollRoot={scrollRoot}
+        selection={selection} />}
     </div>
   )
 }
@@ -118,10 +129,11 @@ interface DiffViewProps {
   narrow: boolean
   options: DiffOptions
   scrollRoot: RefObject<HTMLElement | null>
+  selection: DiffLineSelection
 }
 
 // DiffView renders only the rows near the pane's viewport.
-function DiffView({ fileDiff, narrow, options, scrollRoot }: DiffViewProps) {
+function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffViewProps) {
   const { resolvedTheme } = useTheme()
   const pool = useWorkerPool()
   const [virtualizer] = useState(() => new Virtualizer())
@@ -133,6 +145,20 @@ function DiffView({ fileDiff, narrow, options, scrollRoot }: DiffViewProps) {
     virtualizer.setup(root)
     return () => virtualizer.cleanUp()
   }, [scrollRoot, virtualizer])
+  // Escape clears the selection while focus is in the pane, as in Source.
+  const hasSelection = selection.range !== null
+  const { onChange } = selection
+  useEffect(() => {
+    const root = scrollRoot.current
+    if (!root || !hasSelection) return
+    const clear = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return
+      event.preventDefault()
+      onChange(null)
+    }
+    root.addEventListener("keydown", clear)
+    return () => root.removeEventListener("keydown", clear)
+  }, [hasSelection, onChange, scrollRoot])
   // Pierre reads row metrics once, so a Font Size change remounts the diff.
   const scale = uiScale(useSettings().settings)
   const metrics = useMemo(() => diffMetrics(scale), [scale])
@@ -152,10 +178,23 @@ function DiffView({ fileDiff, narrow, options, scrollRoot }: DiffViewProps) {
     expandUnchanged: options.expandUnchanged,
     disableFileHeader: true,
     unsafeCSS: diffCSS,
-  }), [inline, narrow, options, resolvedTheme])
+    // Line numbers select lines: click, drag, or Shift-click to extend.
+    enableLineSelection: true,
+    // The gutter utility holds the copy button at the selection's last line.
+    enableGutterUtility: true,
+    onLineSelected(range) {
+      // Selection moves focus to the pane so Escape clears it.
+      scrollRoot.current?.focus({ preventScroll: true })
+      onChange(range)
+    },
+  }), [inline, narrow, onChange, options, resolvedTheme, scrollRoot])
   return (
     <VirtualizerContext.Provider value={virtualizer}>
-      <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={fileDiff} options={diffOptions} metrics={metrics} />
+      <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={fileDiff} options={diffOptions} metrics={metrics}
+        selectedLines={selection.range}
+        renderGutterUtility={() => selection.range && selection.reference
+          ? <span className="diff-line-copy"><LineCopyButton reference={selection.reference} /></span>
+          : null} />
     </VirtualizerContext.Provider>
   )
 }

@@ -51,7 +51,10 @@ stays visible; comment syntax inside code stays literal.
 
 - Select lines or ranges from the line numbers (drag or Shift-click) to copy
   `path:12-20`; share `#L12-L20` links that open with the range highlighted.
-- Copy the open file's path from the status bar.
+- Diffs select lines the same way and copy the side's own lines: `path:12-20`
+  for the new side, HEAD's (or the parent commit's) numbers for deleted lines.
+  Links use `#R12-R20` for the new side and `#L5` for the old.
+- Copy the open file's or diff's path from the status bar.
 
 ## Search
 
