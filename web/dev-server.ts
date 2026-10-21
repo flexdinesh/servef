@@ -53,6 +53,15 @@ const mockDiffs: ReadonlyMap<string, string> = new Map([
   ["notes.txt", "diff-too-large.json"],
 ])
 
+// One commit in commits.json lists files; each reuses a diff of its status.
+const mockCommit = "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"
+const mockCommitDiffs: ReadonlyMap<string, string> = new Map([
+  ["code/app.js", "diff-added.json"],
+  ["code/main.go", "diff-modified.json"],
+  ["config/servef.toml", "diff-deleted.json"],
+  ["guides/getting-started.md", "diff-renamed.json"],
+])
+
 const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
 export function primaryLanIpv4(
@@ -132,9 +141,15 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     case "/changes":
       return { name: "changes.json", status: 200 }
     case "/diff": {
-      const diff = mockDiffs.get(url.searchParams.get("path") ?? "")
+      const commit = url.searchParams.get("commit")
+      const diffs = commit === null ? mockDiffs : commit === mockCommit ? mockCommitDiffs : new Map<string, string>()
+      const diff = diffs.get(url.searchParams.get("path") ?? "")
       return diff ? { name: diff, status: 200 } : notFound
     }
+    case "/commits":
+      return { name: url.searchParams.get("range") === "all" ? "commits-all.json" : "commits.json", status: 200 }
+    case "/commit-files":
+      return url.searchParams.get("commit") === mockCommit ? { name: "commit-files.json", status: 200 } : notFound
     default:
       return undefined
   }

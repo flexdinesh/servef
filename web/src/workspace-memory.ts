@@ -11,7 +11,8 @@ const maxProjects = 100
 const maxSessions = 20
 
 export interface ProjectMemory {
-  // Tabs are stored as plain paths (documents) or {diff: path}; "" is no active tab.
+  // Tabs are stored as plain paths (documents), {diff: path}, or
+  // {commit: hash, path}; "" is no active tab.
   tabs: StoredTab[]
   active: StoredTab
   // Absent uses the server's initial expansion; [] remembers all collapsed.
@@ -135,12 +136,13 @@ export interface RestoredTabs {
 }
 
 // restoreTabs keeps remembered documents that still exist in the fresh tree.
-// Diff tabs restore regardless: a deleted file has a diff but no tree entry.
+// Diff and commit tabs restore regardless: a deleted file has a diff but no
+// tree entry.
 export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySet<string>): RestoredTabs {
   const tabs: WorkspaceTab[] = []
   for (const entry of memory?.tabs ?? []) {
     const tab = parseStoredTab(entry)
-    if (tab && (tab.kind === "diff" || files.has(tab.path)) && !includesTab(tabs, tab)) tabs.push(tab)
+    if (tab && (tab.kind !== "document" || files.has(tab.path)) && !includesTab(tabs, tab)) tabs.push(tab)
   }
   const remembered = parseStoredTab(memory?.active)
   const active = tabs.find((tab) => sameTab(tab, remembered)) ?? null

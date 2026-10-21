@@ -32,6 +32,15 @@ const committed: Record<string, string> = {
   ".gitignore": "*.log\n",
 }
 
+// featureCommit is the feature branch's one commit; the working tree keeps it.
+const featureCommit: Record<string, string> = {
+  "docs/history.md": "# History\n\nWritten on the feature branch.\n",
+  "clean.md": "# Clean\n\nEdited on the feature branch.\n",
+}
+
+export const featureSubject = "docs: add history notes"
+const featureMessage = `${featureSubject}\n\nExplain how the fixture's branch history is built.\n\nThe feature branch adds one commit on top of main.`
+
 const working: Record<string, string> = {
   "README.md": "# Fixture\n\nOne\nTwo, changed\nThree\nFour\n",
   "src/app.ts": "export const answer = 2\n\nexport function run() {\n    return answer\n}\n",
@@ -70,6 +79,11 @@ export function createGitFixture() {
   }
   git("add", "--all")
   git("commit", "--quiet", "--message", "Initial")
+  // One commit on a feature branch, so Commits has a branch range against main.
+  git("switch", "--quiet", "--create", "feature")
+  write(featureCommit)
+  git("add", "--all")
+  git("commit", "--quiet", "--message", featureMessage)
   rmSync(path.join(gitFixtureRoot, "notes/removed.md"))
   rmSync(path.join(gitFixtureRoot, "guides/intro.md"))
   write(working)

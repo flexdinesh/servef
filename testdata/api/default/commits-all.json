@@ -1,0 +1,48 @@
+{
+  "repository": true,
+  "branch": "feature/commit-history",
+  "base": "main",
+  "range": "all",
+  "head": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+  "ahead": 2,
+  "commits": [
+    {
+      "hash": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+      "parents": [
+        "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2"
+      ],
+      "subject": "fix: preserve language server crash diagnostics",
+      "body": "Keep the stderr tail when a server exits unexpectedly so the status\npanel can say why it stopped.\n\nThe tail is bounded to 16 KiB and cleared when the server restarts.\nCrash loops back off as before; the last tail stays visible until the\nnext successful start.",
+      "author": {
+        "name": "Dinesh Pandiyan",
+        "email": "dinesh@example.com"
+      },
+      "authorTime": "2026-10-21T14:02:00+11:00"
+    },
+    {
+      "hash": "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2",
+      "parents": [
+        "50b13ed0a1b2c3d4e5f60718293a4b5c6d7e8f90"
+      ],
+      "subject": "style: adopt VS Code island layout",
+      "body": "",
+      "author": {
+        "name": "Dinesh Pandiyan",
+        "email": "dinesh@example.com"
+      },
+      "authorTime": "2026-10-19T09:30:00+11:00"
+    },
+    {
+      "hash": "50b13ed0a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "parents": [],
+      "subject": "Initial commit",
+      "body": "",
+      "author": {
+        "name": "servef",
+        "email": "servef@example.com"
+      },
+      "authorTime": "2026-09-01T10:00:00+00:00"
+    }
+  ],
+  "more": false
+}

@@ -32,3 +32,4 @@ rewriting history; update `Status` on the old record.
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Accepted |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
+| [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Accepted |

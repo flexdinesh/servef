@@ -10,6 +10,7 @@ import { App } from "./App.tsx"
 import { loadPage } from "./page-data.ts"
 import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
 import { readMemory } from "./workspace-memory.ts"
+import { isCommitHash } from "./workspace-tabs.ts"
 
 interface PageSearch {
   [key: string]: unknown
@@ -17,6 +18,8 @@ interface PageSearch {
   project?: string
   // diff=1 opens path's working-tree diff instead of the file.
   diff?: 1
+  // commit=<hash> opens path's change in that commit instead of the file.
+  commit?: string
 }
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
@@ -25,6 +28,7 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     path: typeof search.path === "string" ? search.path : undefined,
     project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
     diff: search.diff === 1 || search.diff === "1" ? 1 : undefined,
+    commit: isCommitHash(search.commit) ? search.commit : undefined,
   }
 }
 
@@ -95,8 +99,11 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  // A diff tab loads only the tree; its pane reads /api/diff.
-  loaderDeps: ({ search }) => ({ project: search.project ?? "", selected: search.diff ? "" : search.path ?? "", diff: search.diff === 1 }),
+  // A diff or commit tab loads only the tree; its pane reads /api/diff.
+  loaderDeps: ({ search }) => {
+    const diff = search.diff === 1 || search.commit !== undefined
+    return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", diff }
+  },
   loader: ({ abortController, deps }) => loadPage({
     pathname: deps.diff ? "/" : "/view",
     project: deps.project,
