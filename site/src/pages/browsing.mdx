@@ -1,0 +1,80 @@
+# Browsing
+
+## Views
+
+How a file is shown depends on its type, not on the [scope](/usage#filename-scope):
+
+- Markdown opens in Source. Choosing Preview opens other documents in the
+  project in Preview until you choose Source, for the rest of the browser tab.
+  Images open in Preview; SVG also has Source.
+- JSON/YAML open in Source; Format shows a formatted, highlighted view on
+  demand. Invalid files stay readable and searchable in Source.
+  YAML formatting retains comments, anchors/aliases, scalar styles, and all
+  documents; spacing and comment placement can change in the formatted view.
+- HTML, CSS, and JavaScript also open in Source with Format on demand. Format
+  only reindents and breaks lines: comments, strings, and values are kept
+  verbatim, as are `pre`, `textarea`, `script`, `style`, and inline SVG
+  content. HTML tag and attribute names show lowercase. JavaScript containing
+  JSX or that fails to tokenize keeps Source with a format notice.
+- Known languages and config files show highlighted source. Unknown text files
+  show plain text.
+- Mermaid diagrams render as themed SVG with ondine, in Markdown fences and
+  `.mmd`/`.mermaid` files (open in Preview); expand to zoom and pan.
+
+Formatting is read-only; original files stay unchanged.
+
+Markdown Preview hides leading frontmatter enclosed by matching `---` (YAML) or
+`+++` (TOML) lines, and HTML comments. Source preserves both. Unclosed frontmatter
+stays visible; comment syntax inside code stays literal.
+
+## Binary and large files
+
+- Binary files (a NUL byte in the first 8000 bytes) other than images show a
+  "Binary file" note and are excluded from content search.
+- Files over 4 MiB show plain, unhighlighted source without preview or
+  formatting; image previews stay available. Files over 8 MiB are also
+  excluded from content search.
+- Non-image files over 32 MiB are not read; they show a "Too large to display"
+  note.
+
+## Explorer and tabs
+
+- Switch between Explorer, Search, and Source Control from a VS Code-style
+  activity bar (Cmd/Ctrl+Shift+E, Cmd/Ctrl+Shift+F, Cmd/Ctrl+Shift+G); click
+  the active item or press Cmd/Ctrl+B to hide the sidebar.
+- Navigate files in a compact, resizable tree.
+- Filter file names and paths with Pierre Trees (Cmd/Ctrl+P; Cmd/Ctrl+K alias).
+- Keep visited documents in an editor-style tab bar; right-click a tab to close
+  it, other tabs, tabs to its right, or all tabs.
+
+## Line links and paths
+
+- Select lines or ranges from the line numbers (drag or Shift-click) to copy
+  `path:12-20`; share `#L12-L20` links that open with the range highlighted.
+- Copy the open file's path from the status bar.
+
+## Search
+
+Search file content in the Search view (Cmd/Ctrl+Shift+F or Find in files in
+the status bar) like VS Code: every match grouped by file, Match Case, Match
+Whole Word, and regular expressions, files to include/exclude globs, and
+F4/Shift+F4 to step through matches. Files git ignores are skipped, including
+global excludes and linked-worktree excludes.
+
+## Source Control
+
+Review uncommitted changes in Source Control: every modified, added, untracked,
+deleted, or renamed file in the checkout since the last commit, with a count
+badge and Explorer decorations. Each opens as a highlighted diff tab with split
+or unified view, wrap, ignore whitespace, word or character inline changes, and
+expand unchanged. servef reads git data directly; `git` need not be installed.
+
+## Settings and commands
+
+- Choose a theme (system, light, dark, editor palettes) and interface font size
+  in Settings (gear in the status bar, Cmd/Ctrl+,); search, browse categories,
+  or filter modified preferences. Changes apply immediately and save in the
+  browser.
+- Run commands from a VS Code-style command palette (Cmd/Ctrl+Shift+P or F1);
+  each setting is a command that opens Settings at it.
+- The status bar shows document details; disclose process CPU/RAM from Ready.

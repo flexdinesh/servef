@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:site": "pnpm --filter @servef/site build",
     "build:web": "pnpm --filter @servef/web build",
     "dev:server": "go run . testdata/markdown --port 8080 --no-open",
+    "dev:site": "pnpm --filter @servef/site dev",
     "dev:web": "pnpm --filter @servef/web dev",
     "dev:mock": "pnpm --filter @servef/web dev:mock",
     "dev": "pnpm run --parallel '/^dev:(server|web)$/'",
@@ -13,7 +15,7 @@
     "test:browser": "node scripts/test-browser.ts",
     "test:release": "node --test tests/generate-homebrew-formula.test.ts",
     "test:web": "pnpm --filter @servef/web test",
-    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck"
+    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
