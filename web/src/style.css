@@ -1776,6 +1776,20 @@ article {
   flex: 1 0 auto;
 }
 
+/* Pierre's gutter utility slot ends at the line number's right edge; the copy
+   button sits inside the number cell, as Pierre's own utility does. */
+.diff-line-copy {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 100%;
+}
+
+.diff-line-copy .source-line-copy-button {
+  right: 2px;
+  left: auto;
+}
+
 .image-document {
   display: flex;
   box-sizing: border-box;

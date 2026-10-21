@@ -41,7 +41,8 @@ interface SourceDocumentProps {
   navigation?: SourceNavigation
 }
 
-function LineCopyButton({ reference }: { reference: string }) {
+// LineCopyButton copies a line reference from the gutter.
+export function LineCopyButton({ reference }: { reference: string }) {
   const { status, copy } = useClipboardCopy()
   const Icon = status === "copied" ? CheckIcon : CopyIcon
   return (

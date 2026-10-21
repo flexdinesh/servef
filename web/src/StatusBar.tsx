@@ -8,9 +8,11 @@ import { lineRangeLabel, type LineRange } from "./line-selection.ts"
 import { settingsShortcutLabel } from "./SettingsDialog.tsx"
 import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./NavigationStatusPanel.tsx"
 import { diffStatsLabel, type DiffStats } from "./diff-stats.ts"
+import type { DiffLineTarget } from "./diff-line-selection.ts"
 
 // DiffStatus describes the active diff tab, which replaces document status.
 export interface DiffStatus {
+  lines: DiffLineTarget | null
   path: string
   stats: DiffStats | null
   typeLabel: string
@@ -91,6 +93,9 @@ export function StatusBar({ detail, diff, isLoading, error, lines, navigation, o
         </button>
         <span className="status-grow" />
         {diff ? <>
+          {diff.lines && <span className="status-lines">
+            {diff.lines.side === "old" ? `Old ${lineRangeLabel(diff.lines.range)}` : lineRangeLabel(diff.lines.range)}
+          </span>}
           {diff.stats && <span className="status-diff-stats" title={`${diff.stats.additions.toLocaleString()} added, ${diff.stats.deletions.toLocaleString()} deleted lines`}>
             {diffStatsLabel(diff.stats)}
           </span>}

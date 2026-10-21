@@ -150,6 +150,52 @@ test("large diffs keep the page responsive and render only rows near the viewpor
   expect(await rows.count()).toBeLessThan(1_000)
 })
 
+test("diff line numbers select lines, update the URL, and copy path:line", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await openDiff(page, "README.md")
+  // Split: HEAD's lines on the left (L), the working copy's on the right (R).
+  const gutter = (side: "deletions" | "additions", line: number) =>
+    page.locator(`.diff-view [data-${side}] [data-column-number="${line}"]`)
+  const status = page.locator(".status-lines")
+  await expect(gutter("additions", 4)).toBeVisible()
+  await expect(status).toHaveCount(0)
+
+  await gutter("additions", 4).click()
+  await expect(page).toHaveURL(/#R4$/)
+  await expect(status).toHaveText("Ln 4")
+  await expect(page.locator(".status-diff-stats")).toHaveText("+2 −1")
+  await page.getByRole("button", { name: "Copy README.md:4" }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("README.md:4")
+
+  await gutter("additions", 6).click({ modifiers: ["Shift"] })
+  await expect(page).toHaveURL(/#R4-R6$/)
+  await expect(status).toHaveText("Ln 4–6")
+  await page.getByRole("button", { name: "Copy README.md:4-6" }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("README.md:4-6")
+
+  // HEAD's lines keep HEAD's numbers.
+  await gutter("deletions", 4).click()
+  await expect(page).toHaveURL(/#L4$/)
+  await expect(status).toHaveText("Old Ln 4")
+  await expect(page.getByRole("button", { name: "Copy README.md:4" })).toBeVisible()
+
+  await page.keyboard.press("Escape")
+  await expect(page).not.toHaveURL(/#/)
+  await expect(status).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /^Copy README\.md:/ })).toHaveCount(0)
+
+  // A shared range across sides selects the working copy's lines it covers.
+  await page.goto(`${gitApiOrigin}/view?project=${project}&path=README.md&diff=1#L4-R6`)
+  await expect(status).toHaveText("Ln 4–6")
+  await expect(page.locator(".diff-view [data-line][data-selected-line]").first()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Copy README.md:4-6" })).toBeVisible()
+
+  // Lines past the end select nothing.
+  await page.goto(`${gitApiOrigin}/view?project=${project}&path=README.md&diff=1#R40`)
+  await expect(gutter("additions", 4)).toBeVisible()
+  await expect(status).toHaveCount(0)
+})
+
 test("deleted, renamed, binary, and unchanged files explain themselves", async ({ page }) => {
   await openDiff(page, "notes/removed.md")
   await expect(page.getByRole("tab", { name: "removed.md (Deleted)" })).toHaveAttribute("aria-selected", "true")
