@@ -26,8 +26,12 @@ interface CommitsViewProps {
   range: CommitRange
   // active is the open commit diff tab, selected in the tree.
   active: { commit: string; path: string } | null
+  // expanded holds the open commits' hashes; Source Control owns it so the
+  // Commits header can collapse them.
+  expanded: ReadonlySet<string>
   mobile: boolean
   onDismiss(): void
+  onExpandedChange(update: (current: ReadonlySet<string>) => ReadonlySet<string>): void
   // onOpen opens a commit file's diff tab; focusDocument moves focus to it.
   onOpen(commit: string, path: string, focusDocument: boolean): void
   onShowAll(): void
@@ -35,10 +39,9 @@ interface CommitsViewProps {
 
 // CommitsView lists the range's commits as a tree: each expands to its
 // message and metadata, then its changed files under compact folders.
-export function CommitsView({ active, commits, mobile, onDismiss, onOpen, onShowAll, range }: CommitsViewProps) {
+export function CommitsView({ active, commits, expanded, mobile, onDismiss, onExpandedChange, onOpen, onShowAll, range }: CommitsViewProps) {
   const { error, files, loadFiles, loadMore, loadingMore, moreError, refresh, result } = commits
   const tree = useRef<HTMLDivElement>(null)
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [focusedKey, setFocusedKey] = useState("")
   const [openBodies, setOpenBodies] = useState<ReadonlySet<string>>(() => new Set())
@@ -63,7 +66,7 @@ export function CommitsView({ active, commits, mobile, onDismiss, onOpen, onShow
 
   function toggleCommit(hash: string, open = !expanded.has(hash)) {
     if (open) loadFiles(hash)
-    setExpanded((current) => {
+    onExpandedChange((current) => {
       if (current.has(hash) === open) return current
       const next = new Set(current)
       if (open) next.add(hash)
