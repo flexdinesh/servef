@@ -4,7 +4,7 @@ import path from "node:path"
 import { expect, test, type Page } from "@playwright/test"
 
 import { rootParam } from "./fixture-root.ts"
-import { gitFixtureChanges, gitFixtureRoot } from "./git-fixture.ts"
+import { featureSubject, gitFixtureChanges, gitFixtureRoot } from "./git-fixture.ts"
 import { gitApiOrigin } from "./ports.ts"
 
 // The fixture repository is built by the git server's webServer command.
@@ -226,6 +226,167 @@ test("folders outside git say so", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+Shift+g")
   await expect(sourceControl(page).getByRole("status")).toHaveText("This folder isn't a git repository.")
   await expect(page.getByRole("button", { name: "Source Control", exact: true })).toBeVisible()
+})
+
+function commits(page: Page) {
+  return sourceControl(page).getByRole("tree", { name: "Commits" })
+}
+
+function commitRow(page: Page, subject: string) {
+  return commits(page).getByRole("treeitem", { name: new RegExp(`^${subject}, servef, `) })
+}
+
+test("Commits lists the branch's commits and opens their files as diff tabs", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(sourceControl(page).getByText("1 ahead of main")).toBeVisible()
+  await expect(sourceControl(page).getByRole("button", { name: "Branch", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(commits(page).getByRole("treeitem", { level: 1 })).toHaveCount(1)
+
+  const commit = commitRow(page, featureSubject)
+  await expect(commit).toHaveAttribute("aria-expanded", "false")
+  await commit.click()
+  await expect(commit).toHaveAttribute("aria-expanded", "true")
+  const details = commits(page).getByRole("treeitem", { level: 2 }).filter({ hasText: "Explain how the fixture's branch history is built." })
+  await expect(details).toContainText("servef")
+  await expect(details.locator(".commit-hash")).toHaveText(/^[0-9a-f]{7}$/)
+  await expect(commits(page).getByRole("treeitem", { name: "clean.md, Modified" })).toBeVisible()
+  await commits(page).getByRole("treeitem", { name: "docs", exact: true }).click()
+  await expect(commits(page).getByRole("treeitem", { name: "history.md, Added" })).toHaveCount(0)
+  await commits(page).getByRole("treeitem", { name: "docs", exact: true }).click()
+
+  await commits(page).getByRole("treeitem", { name: "history.md, Added" }).click()
+  const tab = page.getByRole("tab", { name: /^history\.md \([0-9a-f]{7}\)$/ })
+  await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/[?&]commit=[0-9a-f]{40}/)
+  await expect(diffLines(page, "change-addition").filter({ hasText: "Written on the feature branch." })).toBeVisible()
+  await expect(page.locator(".status-diff-stats")).toHaveText("+3 −0")
+  await expect(commits(page).getByRole("treeitem", { name: "history.md, Added" })).toHaveAttribute("aria-selected", "true")
+
+  // A commit diff compares the commit with its parent, not the working tree.
+  await commits(page).getByRole("treeitem", { name: "clean.md, Modified" }).click()
+  await expect(diffLines(page, "change-addition").filter({ hasText: "Edited on the feature branch." })).toBeVisible()
+  await expect(page.getByRole("tab", { name: /^clean\.md \([0-9a-f]{7}\)$/ })).toHaveAttribute("aria-selected", "true")
+
+  // Commit tabs survive reloads; Open File opens the working copy.
+  await tab.click()
+  await page.reload()
+  await expect(page.getByRole("tab", { name: /^history\.md \([0-9a-f]{7}\)$/ })).toHaveAttribute("aria-selected", "true")
+  await expect(diffLines(page, "change-addition").filter({ hasText: "Written on the feature branch." })).toBeVisible()
+  await page.getByRole("button", { name: "Open File" }).click()
+  await expect(page.getByRole("tab", { name: "history.md", exact: true })).toHaveAttribute("aria-selected", "true")
+})
+
+test("the commit range switches to all history and is remembered", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(commitRow(page, featureSubject)).toBeVisible()
+  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  await expect(commits(page).getByRole("treeitem", { level: 1 })).toHaveCount(2)
+  await expect(sourceControl(page).getByText("1 ahead of main")).toHaveCount(0)
+
+  // Expanding the root commit lists every file it added.
+  await commitRow(page, "Initial").click()
+  await expect(commits(page).getByRole("treeitem", { name: "README.md, Added" })).toBeVisible()
+
+  await page.reload()
+  await expect(sourceControl(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  await sourceControl(page).getByRole("button", { name: "Branch", exact: true }).click()
+  await expect(commits(page).getByRole("treeitem", { level: 1 })).toHaveCount(1)
+})
+
+test("a branch with nothing ahead offers all history", async ({ page }) => {
+  await page.route("**/api/commits?*", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("range") !== "branch") return route.continue()
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      repository: true, branch: "main", base: "main", range: "branch", head: "a".repeat(40), ahead: 0, commits: [], more: false,
+    }) })
+  })
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(sourceControl(page).getByText("No commits ahead of main.")).toBeVisible()
+  await sourceControl(page).getByRole("button", { name: "Show all history" }).click()
+  await expect(sourceControl(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(commitRow(page, "Initial")).toBeVisible()
+})
+
+test("history failures alert in Commits and recover on Retry", async ({ page }) => {
+  let fail = true
+  await page.route("**/api/commits?*", async (route) => {
+    if (!fail) return route.continue()
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Couldn't read git history: object missing" }) })
+  })
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(sourceControl(page).getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
+  await expect(changeRow(page, "README.md")).toBeVisible()
+  fail = false
+  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await expect(commitRow(page, featureSubject)).toBeVisible()
+})
+
+test("Commits works from the keyboard", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  const commit = commitRow(page, featureSubject)
+  await commit.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(commit).toHaveAttribute("aria-expanded", "true")
+  await page.keyboard.press("ArrowRight")
+  await expect(commits(page).getByRole("treeitem", { level: 2 }).first()).toBeFocused()
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("ArrowDown")
+  await expect(commits(page).getByRole("treeitem", { name: "history.md, Added" })).toBeFocused()
+  await page.keyboard.press("ArrowLeft")
+  await expect(commits(page).getByRole("treeitem", { name: "docs", exact: true })).toBeFocused()
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("Enter")
+  await expect(page.getByRole("tab", { name: /^history\.md \([0-9a-f]{7}\)$/ })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("main")).toBeFocused()
+})
+
+test("Changes and Commits collapse and resize, and the layout is remembered", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  const separator = sourceControl(page).getByRole("separator", { name: "Resize Changes and Commits" })
+  await expect(separator).toHaveAttribute("aria-valuenow", "50")
+  const changesBox = () => sourceControl(page).locator("#source-control-changes").boundingBox()
+  const before = (await changesBox())?.height ?? 0
+  await separator.focus()
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("ArrowDown")
+  await expect(separator).toHaveAttribute("aria-valuenow", "60")
+  await expect.poll(async () => (await changesBox())?.height ?? 0).toBeGreaterThan(before)
+
+  const changes = sourceControl(page).getByRole("button", { name: "Changes", exact: true })
+  await changes.click()
+  await expect(changes).toHaveAttribute("aria-expanded", "false")
+  await expect(changeRow(page, "README.md")).toBeHidden()
+  await expect(separator).toHaveCount(0)
+
+  await page.reload()
+  await expect(sourceControl(page).getByRole("button", { name: "Changes", exact: true })).toHaveAttribute("aria-expanded", "false")
+  await sourceControl(page).getByRole("button", { name: "Changes", exact: true }).click()
+  await expect(changeRow(page, "README.md")).toBeVisible()
+  await expect(separator).toHaveAttribute("aria-valuenow", "60")
+  await separator.dblclick()
+  await expect(separator).toHaveAttribute("aria-valuenow", "50")
+})
+
+test("phones stack both sections and open commit files from the drawer", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.getByRole("button", { name: "Open files" }).click()
+  await page.getByRole("button", { name: /^Source Control, / }).click()
+  const drawer = page.getByRole("dialog", { name: "Source Control" })
+  await expect(drawer.getByRole("separator", { name: "Resize Changes and Commits" })).toHaveCount(0)
+  await expect(drawer.getByRole("treeitem", { name: "app.ts", exact: true })).toBeVisible()
+  await drawer.getByRole("treeitem", { name: new RegExp(`^${featureSubject}, `) }).click()
+  await drawer.getByRole("treeitem", { name: "clean.md, Modified" }).click()
+  await expect(drawer).toBeHidden()
+  await expect(page.getByRole("tab", { name: /^clean\.md \([0-9a-f]{7}\)$/ })).toHaveAttribute("aria-selected", "true")
 })
 
 test("closing the last diff tab ends every diff worker", async ({ page }) => {

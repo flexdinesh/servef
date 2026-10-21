@@ -13,7 +13,7 @@ import {
   restoreTabs,
   restoreExpanded,
 } from "./workspace-memory.ts"
-import { diffTab, documentTab } from "./workspace-tabs.ts"
+import { commitTab, diffTab, documentTab } from "./workspace-tabs.ts"
 
 const docs = (...paths: string[]) => paths.map(documentTab)
 
@@ -122,6 +122,17 @@ test("restored diff tabs need no tree entry; documents still do", () => {
     active: { diff: "removed.md" },
   }, files), { tabs: [documentTab("README.md"), diffTab("README.md"), diffTab("removed.md")], active: diffTab("removed.md") })
   assert.deepEqual(restoreTabs({ tabs: [{ diff: "a.md" }], active: "a.md" }, files), { tabs: [diffTab("a.md")], active: null })
+})
+
+test("commit tabs are remembered and restore without a tree entry", () => {
+  const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
+  const tabs = [documentTab("README.md"), commitTab(hash, "removed.md")]
+  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, commitTab(hash, "removed.md"))
+  const remembered = projectMemory(memory, "/a/api")
+  assert.deepEqual(remembered, {
+    tabs: ["README.md", { commit: hash, path: "removed.md" }], active: { commit: hash, path: "removed.md" },
+  })
+  assert.deepEqual(restoreTabs(remembered, new Set(["README.md"])), { tabs, active: commitTab(hash, "removed.md") })
 })
 
 test("stored tabs migrate legacy strings and drop malformed diff entries", () => {

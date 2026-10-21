@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import test from "node:test"
 
 import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
+import { isCommitFilesResponse, isCommitsResponse } from "./commits-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
@@ -153,4 +154,45 @@ test("source control fixtures satisfy runtime contracts", async () => {
   assert.equal(large.modified?.tooLarge, true)
   assert.equal(large.modified?.content, undefined)
   assert.equal(isDiffResponse(await fixture("error-not-found.json")), false)
+})
+
+test("commit history fixtures satisfy runtime contracts", async () => {
+  const branch = await fixture("commits.json")
+  assert.ok(isCommitsResponse(branch))
+  assert.equal(branch.range, "branch")
+  assert.equal(branch.head, branch.commits[0]?.hash)
+  assert.equal(branch.ahead, branch.commits.length)
+  assert.ok(branch.commits.some((commit) => commit.body.includes("\n")))
+  const all = await fixture("commits-all.json")
+  assert.ok(isCommitsResponse(all))
+  assert.equal(all.range, "all")
+  assert.deepEqual(all.commits.at(-1)?.parents, [])
+  const folder = await fixture("commits-not-repo.json")
+  assert.ok(isCommitsResponse(folder))
+  assert.equal(folder.repository, false)
+
+  const files = await fixture("commit-files.json")
+  assert.ok(isCommitFilesResponse(files))
+  assert.equal(files.commit, branch.head)
+  assert.deepEqual(files.files.map((file) => file.path), files.files.map((file) => file.path).toSorted())
+  assert.ok(files.files.some((file) => file.status === "renamed" && file.oldPath))
+})
+
+test("commit contract validators reject malformed history", async () => {
+  const branch = await fixture("commits.json")
+  assert.ok(isCommitsResponse(branch))
+  const [first] = branch.commits
+  assert.ok(first)
+  assert.equal(isCommitsResponse({ ...branch, range: "everything" }), false)
+  assert.equal(isCommitsResponse({ ...branch, head: "3577ec6" }), false)
+  assert.equal(isCommitsResponse({ ...branch, ahead: -1 }), false)
+  assert.equal(isCommitsResponse({ ...branch, repository: false }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, authorTime: "yesterday" }] }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, parents: ["HEAD~1"] }] }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, author: "Dinesh" }] }), false)
+  const files = await fixture("commit-files.json")
+  assert.ok(isCommitFilesResponse(files))
+  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "untracked" }] }), false)
+  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "renamed" }] }), false)
+  assert.equal(isCommitFilesResponse({ ...files, commit: "" }), false)
 })

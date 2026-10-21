@@ -369,8 +369,16 @@ Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px 
 ### Source Control
 
 Ctrl/Cmd+Shift+G or the activity item reveals the view. The 32px header reads
-“Source Control” (12px, 600) with Refresh and Collapse All/Expand All icon
-actions (Close on mobile). A “Changes” group row ends in the Search view's count badge, named “Changes, 4 changes”.
+“Source Control” (12px, 600) with Refresh (rereads Changes and Commits) and
+Collapse All/Expand All (Changes folders) icon actions (Close on mobile).
+Two sections stack below: Changes, then Commits. Each 22px section header
+(32px narrow) is a disclosure button with a 12px chevron and `aria-expanded`;
+a collapsed section keeps only its header and the other takes the height.
+While both are open on desktop, a 5px horizontal separator between them
+resizes the split (15–85%); hover and keyboard focus reveal a 2px accent line,
+arrow keys step 5%, and double-click restores an even split. Phones stack the
+sections evenly with no separator. Collapsed state, split, and commit range
+persist under `servef-source-control`. A “Changes” group row ends in the Search view's count badge, named “Changes, 4 changes”.
 Changes render as a Pierre tree of changed paths with the Explorer's rows,
 icons, and keyboard behavior. Each file shows a right-aligned status letter:
 M (modified) `warning`, A (added) and U (untracked) `success`, D (deleted)
@@ -385,19 +393,52 @@ commit.”, “This folder isn't a git repository.”, and “Couldn't read git 
 to see the rest.” Unreadable paths collect under a “Some paths could not be read”
 disclosure. Mobile shows the view in the drawer like Search.
 
+### Commits
+
+The Commits header follows its title with a muted “2 ahead of main” in the
+branch range, then a right-aligned [Branch][All] segmented control (12px,
+16px tall, 24px narrow) on `workspace-chrome` with the pressed item on
+`surface` with the control shadow. The list is a `role="tree"` with the Search
+view's rows: commit rows (level 1) show a chevron, the subject in
+`text-primary`, and a muted right-aligned compact age (`3h`, `2d`, `4mo`; the
+title adds author, absolute date, and short hash; the name reads “subject,
+author, 3 hours ago”). Commits expand independently. An expanded commit shows
+a details row (level 2, 12px): the body with preserved line breaks, clamped to
+four lines with an accent More/Less, then author (email in title), absolute
+date, and a 2px-radius bordered monospace short-hash chip with a copy icon
+that checks once copied. Ctrl/Cmd+C on a commit or details row copies the full
+hash. Files follow under compact folders (single-child chains join, folders
+before files, open by default), indented 12px per level, with the Explorer's
+icons and the Changes status letters and colors; deleted names strike through
+and renames show a muted “from <old path>”. File rows are named “name,
+Status”; the open commit diff is selected with `accent-subtle`.
+
+Keyboard follows Search: arrows, Home/End, Right expands or enters, Left
+collapses or moves to the parent, Space opens a file and keeps focus, Enter
+and double-click open and focus the diff; on a details row Enter toggles the
+body or retries a failed file list. Click toggles commits and folders and
+opens files. Pages hold 50 commits; an outline Load more button follows
+(Loading… while reading, Retry after a failure). States: “No commits ahead of
+main.” or “No base branch found to compare with.” with an outline “Show all
+history”, “No commits yet.”, “Loading files…”, “No file changes.”, “Showing
+the first 1,000 files.”, and “Couldn't read git history: <reason>.” as an
+alert, with Retry when nothing is listed.
+
 ### Diff tabs
 
-Diffs open as tabs in the shared strip, labelled `App.tsx (Working Tree)` or
-`App.tsx (Deleted)` with the file's Pierre icon; titles expose the path. They
+Diffs open as tabs in the shared strip, labelled `App.tsx (Working Tree)`,
+`App.tsx (Deleted)`, or `App.tsx (3577ec6)` for a commit's change, with the
+file's Pierre icon; titles expose the path. They
 follow tab close, context-menu, and memory behavior. The mode-toggle slot holds
 the diff toolbar in the document mode-toggle treatment: [Split][Unified], Wrap,
 Ignore whitespace, Inline (compact menu: Word, Character, Off), Expand
-unchanged, and Open File (disabled for deleted files). Toggles use
+unchanged, and Open File (disabled for deleted files; for commit diffs,
+disabled when the working tree no longer has the file). Toggles use
 `aria-pressed`. Options persist in this browser under `servef-diff-options`,
 not Settings. Below 48rem Split is `aria-disabled` with “Split view needs a
 wider window” as its tooltip, and Unified is forced; below 30rem the layout
 group hides so tabs keep room. Diffs refetch on tab
-activation and window focus.
+activation and window focus; commit diffs never change, so focus skips them.
 
 Slim notices sit above the diff in the large-file bar treatment: renamed
 (“Renamed from <old path>”), “Binary file changed · 12 KB → 14 KB”, “Large file

@@ -14,16 +14,12 @@ export function useDocumentWorkspace(active: WorkspaceTab | null) {
     tabs: active ? [active] : [],
     modes: new Map(),
   }))
-  const activeKind = active?.kind
-  const activePath = active?.path
-
   useEffect(() => {
-    if (!activeKind || !activePath) return
-    const tab: WorkspaceTab = { kind: activeKind, path: activePath }
-    setWorkspace((current) => includesTab(current.tabs, tab)
+    if (!active) return
+    setWorkspace((current) => includesTab(current.tabs, active)
       ? current
-      : { ...current, tabs: [...current.tabs, tab] })
-  }, [activeKind, activePath])
+      : { ...current, tabs: [...current.tabs, active] })
+  }, [active])
 
   const setDocumentMode = useCallback((path: string, mode: DocumentMode) => {
     setWorkspace((current) => {

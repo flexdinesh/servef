@@ -329,6 +329,18 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveChanges(w, r, projectID)
 		return
 	}
+	if r.URL.Path == "/api/commits" {
+		a.serveCommits(w, r, projectID, query)
+		return
+	}
+	if r.URL.Path == "/api/commit-files" {
+		a.serveCommitFiles(w, r, projectID, query.Get("commit"))
+		return
+	}
+	if r.URL.Path == "/api/diff" && query.Has("commit") {
+		a.serveCommitDiff(w, r, projectID, query.Get("commit"), query.Get("path"), query.Get("oldPath"))
+		return
+	}
 	if r.URL.Path == "/api/diff" {
 		a.serveDiff(w, r, projectID, query.Get("path"), query.Get("oldPath"))
 		return
