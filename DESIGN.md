@@ -141,6 +141,9 @@ components:
     textColor: "{colors.text-primary}"
     backgroundColor: "{colors.surface-raised}"
     padding: "0.5rem"
+  sidebar-shelf:
+    backgroundColor: "{colors.workspace-chrome}"
+    padding: "0.25rem 0.75rem 0.5rem"
   explorer-row:
     backgroundColor: "{colors.surface-secondary}"
     textColor: "{colors.text-secondary}"
@@ -249,7 +252,13 @@ A 2.5rem column on `workspace-chrome` with a 1px right border and 32px rows alig
 
 Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 32px narrow, both scaled by the Font Size setting. The project name sits above as a trigger for the project picker. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
-The filename filter sits below the explorer header, always visible, matching the
+Below the header, a shelf on the same `workspace-chrome` band holds the explorer's
+query fields (4px top, 8px bottom, 12px sides, 4px between fields) and ends in a
+1px `border` divider above the tree, so fields read as part of the header rather
+than pressed against it. The Search view's form uses the same shelf; its 2px
+progress bar overlays the divider.
+
+The filename filter sits in the shelf, always visible, matching the
 filename search field's width and appearance: funnel icon, placeholder
 “Filter: *.md, *.go”, and, when active, a muted 12px “visible / total” count in a
 polite live region plus a clear action. It accepts comma-separated,
