@@ -298,26 +298,28 @@ function Explorer({ hasData, onNavigate, onOpenProjects, onOpenWorktrees, onReve
         </button>
         {mobile && <button type="button" aria-label="Close files" onClick={onDismiss}><XIcon aria-hidden="true" /></button>}
       </div>
-      {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
-        totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
-      <div className="file-search" hidden={!search.isOpen}>
-        <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
-          value={search.value} onChange={(event) => model.setSearch(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") model.focusNextSearchMatch()
-            else if (event.key === "ArrowUp") model.focusPreviousSearchMatch()
-            else if (event.key === "Escape") {
-              model.closeSearch()
-              searchButton.current?.focus()
-            } else if (event.key === "Enter") {
-              const focused = model.getFocusedPath()
-              if (focused) model.getItem(focused)?.select()
-              model.closeSearch()
-              searchButton.current?.focus()
-            } else return
-            event.preventDefault()
-            event.stopPropagation()
-          }} />
+      <div className="explorer-shelf">
+        {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
+          totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
+        <div className="file-search" hidden={!search.isOpen}>
+          <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
+            value={search.value} onChange={(event) => model.setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") model.focusNextSearchMatch()
+              else if (event.key === "ArrowUp") model.focusPreviousSearchMatch()
+              else if (event.key === "Escape") {
+                model.closeSearch()
+                searchButton.current?.focus()
+              } else if (event.key === "Enter") {
+                const focused = model.getFocusedPath()
+                if (focused) model.getItem(focused)?.select()
+                model.closeSearch()
+                searchButton.current?.focus()
+              } else return
+              event.preventDefault()
+              event.stopPropagation()
+            }} />
+        </div>
       </div>
       {!hasData ? <p className="muted">Loading files…</p>
         : page.projectUnavailable ? <p className="muted">Project unavailable.</p>
