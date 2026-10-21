@@ -31,6 +31,11 @@ and it reads colors and fonts from `--ondine-*` CSS custom properties.
   pan. Inline diagrams do not zoom.
 - Links inside diagrams are unwrapped to plain text; diagrams do not navigate.
 - Syntax errors show the source plus ondine's message, line, and caret.
+- `.mmd` and `.mermaid` files are the `mermaid` family. Its handler previews
+  the file as one escaped mermaid fence under the existing `markdown` preview
+  kind, so no contract or frontend change is needed. They open in Preview
+  (`[Preview] [Source]`, like images); Source is plain text because Chroma has
+  no Mermaid lexer. They stay searchable.
 - The CSP allows `'wasm-unsafe-eval'` and drops `https://esm.sh`. Go serves
   `.wasm` assets as `application/wasm`.
 - `ondine@0.0.3` is exempt from the three-day `minimumReleaseAge` until

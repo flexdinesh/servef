@@ -687,7 +687,7 @@ test("shows document metadata and process metrics in the status line", async ({ 
   const status = page.locator(".status-bar")
   await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
   await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("26 files")
+  await expect(status).toContainText("27 files")
   await expect(status.locator(".status-file-type")).toHaveText("Markdown")
   await status.locator(".status-explorer summary").click()
   if (process.platform === "linux") {
@@ -757,6 +757,21 @@ test("renders every Mermaid fixture with ondine", async ({ page }) => {
   expect(excalidrawRequests).toEqual([])
   expect(cspFailures).toEqual([])
   expect(remoteRequests).toEqual([])
+})
+
+test("opens Mermaid files as diagrams with Source available", async ({ page }) => {
+  await page.goto(`${apiOrigin}/view?path=guides%2Frequest-flow.mmd`)
+
+  const modes = page.getByRole("group", { name: "Document view" })
+  await expect(modes.getByRole("button")).toHaveText(["Preview", "Source"])
+  await expect(modes.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(page.locator("main .mermaid-diagram svg.ondine-flowchart")).toBeVisible()
+  await expect(page.locator("main .mermaid-diagram svg.ondine-flowchart")).toContainText("Themed SVG")
+  await expect(page.locator(".status-bar .status-file-type")).toHaveText("Mermaid")
+
+  await modes.getByRole("button", { name: "Source", exact: true }).click()
+  await expect(page.locator("main .mermaid-diagram")).toHaveCount(0)
+  await expect(page.locator("main")).toContainText("Open[Open request-flow.mmd] --> Preview{Preview?}")
 })
 
 test("Mermaid diagrams follow every theme", async ({ page }) => {

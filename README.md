@@ -53,7 +53,8 @@ else.
   or filter modified preferences. Changes apply immediately and save in the browser
 - Run commands from a VS Code-style command palette (Cmd/Ctrl+Shift+P or F1);
   each setting is a command that opens Settings at it
-- Render Mermaid diagrams as themed SVG with ondine; expand to zoom and pan
+- Render Mermaid diagrams as themed SVG with ondine, in Markdown fences and
+  `.mmd`/`.mermaid` files (open in Preview); expand to zoom and pan
 
 ## Install
 

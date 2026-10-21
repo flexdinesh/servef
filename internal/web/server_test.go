@@ -28,7 +28,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if got, want := landingData.RootName, "markdown"; got != want {
 		t.Fatalf("root name = %q, want %q", got, want)
 	}
-	if got, want := landingData.FileCount, 26; got != want {
+	if got, want := landingData.FileCount, 27; got != want {
 		t.Fatalf("file count = %d, want %d", got, want)
 	}
 	assertContains(t, landing.Body.String(), "README.md", "code-blocks.md", "getting-started.md", "images.md", "api.markdown", "search.md", "notes.txt", "main.go", "Dockerfile", "servef.toml", "sample.bin", "preview.png")
@@ -83,6 +83,21 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		t.Fatal("Mermaid source was not HTML-escaped")
 	}
 
+	mermaidFile, mermaidData := requestPageData(t, app, "/api/page?project=.&path=guides%2Frequest-flow.mmd")
+	if mermaidFile.Code != http.StatusOK {
+		t.Fatalf("Mermaid file status = %d, want %d", mermaidFile.Code, http.StatusOK)
+	}
+	if mermaidData.DocumentType == nil || mermaidData.DocumentType.ID != "mermaid" || mermaidData.DocumentType.DefaultMode != "preview" {
+		t.Fatalf("Mermaid file type = %+v", mermaidData.DocumentType)
+	}
+	assertContains(t, mermaidData.Content,
+		`<pre><code class="language-mermaid">flowchart TD`,
+		`Preview --&gt;|default| Diagram[Themed SVG]`,
+	)
+	if !strings.HasPrefix(mermaidData.Source, "flowchart TD\n    Open[Open request-flow.mmd]") {
+		t.Fatalf("Mermaid source = %q", mermaidData.Source)
+	}
+
 	search := request(t, app, "/api/search-documents?project=.")
 	if search.Code != http.StatusOK {
 		t.Fatalf("search status = %d, want %d", search.Code, http.StatusOK)
@@ -92,7 +107,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Raster images and sample.bin are binary and excluded from search.
-	if got, want := len(searchData.Documents), 23; got != want {
+	if got, want := len(searchData.Documents), 24; got != want {
 		t.Fatalf("search documents = %d, want %d", got, want)
 	}
 	foundSearchFixture := false
