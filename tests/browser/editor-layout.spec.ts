@@ -21,6 +21,14 @@ test("workspace identity and actions live in explorer and full-width status bar"
   await page.getByRole("separator", { name: "Resize file tree" }).press("ArrowRight")
   await expect.poll(footerOffset).toBe(0)
   expect(await status.evaluate((element) => element.getBoundingClientRect().width)).toBe(page.viewportSize()?.width)
+  // Footer controls center in the canvas band between the document island and the viewport edge.
+  const settingsGaps = await status.getByRole("button", { name: "Settings" }).evaluate((element) => {
+    const pane = document.querySelector(".workspace")
+    const control = element.getBoundingClientRect()
+    return pane ? [control.top - pane.getBoundingClientRect().bottom, window.innerHeight - control.bottom] : null
+  })
+  expect(settingsGaps?.[0]).toBeGreaterThan(0)
+  expect(settingsGaps?.[0]).toBe(settingsGaps?.[1])
   await expect(page.locator("article")).toHaveCSS("font-size", "14px")
   await expect(page.locator("article h1")).toHaveCSS("font-size", "26px")
 })

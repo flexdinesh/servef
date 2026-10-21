@@ -414,10 +414,11 @@ a {
 
 .layout {
   display: grid;
-  height: calc(100dvh - var(--status-height));
+  /* The footer owns the bottom canvas gutter so its controls center in the band. */
+  height: calc(100dvh - var(--status-height) - var(--workspace-inset));
   min-height: 0;
   grid-template-columns: calc(var(--activity-width) + var(--sidebar-width)) var(--workspace-gap) minmax(0, 1fr);
-  padding: var(--workspace-inset);
+  padding: var(--workspace-inset) var(--workspace-inset) 0;
 }
 
 .layout[data-sidebar="hidden"] {
@@ -918,7 +919,7 @@ main.image-mode {
   align-items: center;
   color: var(--color-text-muted);
   background: var(--color-canvas);
-  height: var(--status-height);
+  height: calc(var(--status-height) + var(--workspace-inset));
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: 1;
@@ -2883,10 +2884,10 @@ article hr {
   .status-navigation .status-navigation-panel {
     position: fixed;
     right: var(--space-2);
-    bottom: calc(var(--status-height) + var(--space-1));
+    bottom: calc(var(--status-height) + var(--workspace-inset) + var(--space-1));
     left: auto;
     width: calc(100vw - var(--space-4));
-    max-height: calc(100dvh - var(--status-height) - var(--space-4));
+    max-height: calc(100dvh - var(--status-height) - var(--workspace-inset) - var(--space-4));
     overflow: auto;
   }
 
@@ -3649,7 +3650,7 @@ article hr {
 .activity-item {
   position: relative;
   display: grid;
-  height: var(--tabs-height);
+  height: var(--activity-width);
   flex: none;
   place-items: center;
   padding: 0;
@@ -3673,7 +3674,7 @@ article hr {
 
 .activity-item::before {
   position: absolute;
-  inset: var(--space-1) calc((var(--activity-width) - var(--tabs-height) + var(--space-2)) / 2);
+  inset: var(--space-1);
   border-radius: var(--radius-md);
   content: "";
 }
