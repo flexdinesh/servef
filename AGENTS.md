@@ -26,7 +26,7 @@ Key files:
 | --- | --- |
 | CLI scope | `cmd/root.go`, `internal/files/names.go` |
 | Families and lookup | `internal/document/builtins.go`, `registry.go` |
-| Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go` |
+| Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go`, `mermaid.go` |
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
 | Sidebar and search | `web/src/Sidebar.tsx`, `use-sidebar.ts`, `SearchView.tsx`, `use-search-session.ts`, `search-controller.ts`, `search-engine.ts` (pure matching), `search-scope.ts` (include/exclude globs), `search-results.ts`, `docs/decisions/0020-activity-bar-and-search-view.md` |

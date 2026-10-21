@@ -8,6 +8,7 @@ func Builtins() *Registry {
 	registry, err := NewRegistry(
 		source("text", "Plain text", "plaintext", []string{".txt", ".log", ".adoc"}, ".gitignore", ".dockerignore"),
 		newMarkdown(),
+		newMermaid(),
 		NewJSON(),
 		NewYAML(),
 		CodeHandler{Definition: Type{ID: "svg", Label: "SVG", Extensions: []string{".svg"}, Language: "xml", PreviewKind: PreviewImage, PreviewLabel: "Preview", DefaultMode: "preview"}},

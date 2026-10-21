@@ -1,6 +1,7 @@
 [
   "text",
   "markdown",
+  "mermaid",
   "json",
   "yaml",
   "svg",

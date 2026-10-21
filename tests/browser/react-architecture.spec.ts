@@ -145,26 +145,30 @@ test("metrics polling stays single-flight and retains samples during failure", a
   await expect(page.locator(".status-process-panel")).toContainText("22.0%")
 })
 
-test("diagram module failure offers reload and recovers", async ({ page }) => {
-  let blocked = true
-  await page.route("**/src/ExcalidrawMermaidCanvas.tsx", async (route) => {
-    if (blocked) await route.abort("failed")
-    else await route.continue()
+for (const [name, pattern] of [
+  ["module", "**/src/OndineMermaidDiagram.tsx"],
+  ["WebAssembly", "**/all.generated*.wasm*"],
+]) {
+  test(`diagram ${name} failure offers reload and recovers`, async ({ page }) => {
+    let blocked = true
+    await page.route(pattern, async (route) => {
+      if (blocked) await route.abort("failed")
+      else await route.continue()
+    })
+    await page.goto("/view?path=guides%2Fdiagrams.md")
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    const reload = page.getByRole("button", { name: "Reload diagrams" }).first()
+    await expect(reload).toBeVisible()
+    await expect(page.locator(".mermaid-error").first()).toContainText("Reload to try again.")
+    await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
+    blocked = false
+    // Wait for the reloaded page so later assertions check it, not the old one.
+    await Promise.all([page.waitForEvent("load"), reload.click()])
+    await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
+    await expect(page.locator(".mermaid-diagram svg.ondine").first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole("button", { name: "Reload diagrams" })).toHaveCount(0)
   })
-  await page.goto("/view?path=guides%2Fdiagrams.md")
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
-  const reload = page.getByRole("button", { name: "Reload diagrams" }).first()
-  await expect(reload).toBeVisible()
-  await expect(page.locator(".mermaid-error").first()).toContainText("Reload to try again.")
-  await expect(page.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
-  blocked = false
-  // Wait for the reloaded page so later assertions check it, not the old one.
-  await Promise.all([page.waitForEvent("load"), reload.click()])
-  await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute("aria-pressed", "true")
-  // The reload fetches the Excalidraw module afresh, which is slow under parallel load.
-  await expect(page.locator(".mermaid-diagram.ready").first()).toBeVisible({ timeout: 15_000 })
-  await expect(page.locator(".mermaid-error")).toHaveCount(0)
-})
+}
 
 test("metrics aborts pending requests when its view unmounts", async ({ page }) => {
   let release: (() => void) | undefined

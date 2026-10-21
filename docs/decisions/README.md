@@ -27,6 +27,7 @@ rewriting history; update `Status` on the old record.
 | [0019](0019-workspace-settings-and-memory.md) | Settings navigation and project explorer memory | Accepted |
 | [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
-| [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Accepted |
+| [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | Accepted |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Accepted |
+| [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |

@@ -25,6 +25,7 @@ const familyGrammars = {
   lua: "lua",
   makefile: "make",
   markdown: "markdown",
+  mermaid: "text",
   php: "php",
   powershell: "powershell",
   properties: "properties",

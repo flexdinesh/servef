@@ -26,6 +26,8 @@ func TestRegistryLookupPrefersFilenameThenExtensionThenFallback(t *testing.T) {
 	for name, want := range map[string]string{
 		"README.MD":            "markdown",
 		"docs/api.markdown":    "markdown",
+		"flow.MMD":             "mermaid",
+		"docs/flow.mermaid":    "mermaid",
 		"config.JSON":          "json",
 		"compose.YML":          "yaml",
 		"config.yaml":          "yaml",
@@ -82,6 +84,10 @@ func TestBuiltinTypesDeclareViewsAndCapabilities(t *testing.T) {
 		case "markdown":
 			if definition.PreviewKind != PreviewMarkdown || definition.DefaultMode != "source" {
 				t.Errorf("markdown = %+v", definition)
+			}
+		case "mermaid":
+			if definition.PreviewKind != PreviewMarkdown || definition.PreviewLabel != "Preview" || definition.DefaultMode != "preview" {
+				t.Errorf("mermaid = %+v", definition)
 			}
 		case "svg", "image":
 			if definition.PreviewKind != PreviewImage || definition.PreviewLabel != "Preview" || definition.DefaultMode != "preview" {

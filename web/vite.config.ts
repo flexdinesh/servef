@@ -1,6 +1,6 @@
-import { readdir, readFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { networkInterfaces } from "node:os"
-import { isAbsolute, join, relative, resolve } from "node:path"
+import { join } from "node:path"
 import { fileURLToPath, URL } from "node:url"
 
 import react from "@vitejs/plugin-react"
@@ -30,72 +30,6 @@ const devServerBanner: Plugin = {
         server.config.logger.info(formatDevServerUrl(url))
       }
     }
-  },
-}
-
-const excalidrawFontsDirectory = fileURLToPath(
-  new URL(
-    "./node_modules/@excalidraw/excalidraw/dist/prod/fonts",
-    import.meta.url,
-  ),
-)
-
-async function listFiles(directory: string, relativeDirectory = ""): Promise<string[]> {
-  const entries = await readdir(join(directory, relativeDirectory), {
-    withFileTypes: true,
-  })
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const relativePath = relativeDirectory
-        ? `${relativeDirectory}/${entry.name}`
-        : entry.name
-
-      if (entry.isDirectory()) {
-        return listFiles(directory, relativePath)
-      }
-      return entry.isFile() ? [relativePath] : []
-    }),
-  )
-
-  return files.flat().sort()
-}
-
-const excalidrawFonts: Plugin = {
-  name: "servef-excalidraw-fonts",
-  apply: "build",
-  async generateBundle() {
-    for (const relativePath of await listFiles(excalidrawFontsDirectory)) {
-      this.emitFile({
-        type: "asset",
-        fileName: `excalidraw/fonts/${relativePath}`,
-        source: await readFile(join(excalidrawFontsDirectory, relativePath)),
-      })
-    }
-  },
-}
-
-const devFontAssets: Plugin = {
-  name: "servef-dev-font-assets",
-  apply: "serve",
-  configureServer(server) {
-    server.middlewares.use("/assets/excalidraw/fonts", async (request, response, next) => {
-      try {
-        const requestPath = request.url?.split("?", 1)[0] ?? ""
-        const relativePath = decodeURIComponent(requestPath).replace(/^\/+/, "")
-        const candidate = resolve(excalidrawFontsDirectory, relativePath)
-        const fromRoot = relative(excalidrawFontsDirectory, candidate)
-        if (!relativePath || isAbsolute(fromRoot) || fromRoot.startsWith("..")) {
-          next()
-          return
-        }
-
-        const content = await readFile(candidate)
-        response.setHeader("Content-Type", "font/woff2")
-        response.end(content)
-      } catch {
-        next()
-      }
-    })
   },
 }
 
@@ -156,7 +90,7 @@ export default defineConfig(({ command, mode }) => ({
     emptyOutDir: true,
     outDir: "../internal/web/dist",
   },
-  plugins: [diffsSubset, react(), tailwindcss(), devServerBanner, devFontAssets, mockApi(mode === "mock"), excalidrawFonts],
+  plugins: [diffsSubset, react(), tailwindcss(), devServerBanner, mockApi(mode === "mock")],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
