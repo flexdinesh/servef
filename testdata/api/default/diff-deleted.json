@@ -1,0 +1,24 @@
+{
+  "path": "config/servef.toml",
+  "status": "deleted",
+  "documentType": {
+    "id": "toml",
+    "label": "TOML",
+    "extensions": [
+      ".toml"
+    ],
+    "filenames": [],
+    "language": "toml",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "content": "# Sample TOML highlighted as source.\n[server]\nhost = \"localhost\"\nport = 7971\n\n[scan]\ndepth = 5\nexclude = [\"node_modules\", \"vendor\"]\n",
+    "size": 132,
+    "binary": false,
+    "tooLarge": false
+  },
+  "modified": null
+}

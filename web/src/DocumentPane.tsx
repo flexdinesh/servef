@@ -1,4 +1,4 @@
-import type { RefObject } from "react"
+import type { ReactNode, RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
 
@@ -14,6 +14,8 @@ import { projectUrl } from "./project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
 
 interface DocumentPaneProps {
+  // diff is the open diff tab's content, shown instead of the page's file.
+  diff?: ReactNode
   hasData: boolean
   image: ImageViewer
   isLoading: boolean
@@ -33,13 +35,13 @@ function fileName(path: string): string {
   return path.split("/").at(-1) || path
 }
 
-export function DocumentPane({ hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceNavigation, view }: DocumentPaneProps) {
-  const viewKind = loadError || page.error ? "none" : view.kind
+export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceNavigation, view }: DocumentPaneProps) {
+  const viewKind = loadError || page.error ? "none" : diff ? "diff" : view.kind
   const label = page.documentType?.label ?? "File"
 
   return (
     <main
-      className={viewKind === "source" || viewKind === "format" ? "source-mode" : viewKind === "image" ? "image-mode" : undefined}
+      className={viewKind === "source" || viewKind === "format" || viewKind === "diff" ? "source-mode" : viewKind === "image" ? "image-mode" : undefined}
       id="document-pane"
       ref={main}
       tabIndex={-1}
@@ -58,6 +60,8 @@ export function DocumentPane({ hasData, image, isLoading, lineSelection, loadErr
         </div>
       ) : page.error ? (
         <div className="error" role="alert">{page.error}</div>
+      ) : diff ? (
+        diff
       ) : view.kind === "binary" ? (
         <BinaryDocument name={fileName(page.selected)} size={page.fileSize} />
       ) : view.kind === "tooLarge" ? (

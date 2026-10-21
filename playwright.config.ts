@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
-import { apiPort, filteredApiOrigin, filteredApiPort } from "./tests/browser/ports.ts"
+import { gitFixtureRoot } from "./tests/browser/git-fixture.ts"
+import { apiPort, filteredApiOrigin, filteredApiPort, gitApiOrigin, gitApiPort } from "./tests/browser/ports.ts"
 
 const webPort = 15173
 
@@ -27,6 +28,13 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${filteredApiOrigin}/api/page`,
+    },
+    {
+      // A throwaway git repository with one change of every kind.
+      command: `node tests/browser/git-fixture.ts && go run . '${gitFixtureRoot}' --port ${gitApiPort} --no-open`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `${gitApiOrigin}/api/page`,
     },
     {
       command: `go run . testdata/markdown --port ${apiPort} --no-open`,

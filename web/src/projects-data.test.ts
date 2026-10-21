@@ -17,25 +17,25 @@ const projects: ProjectsResponse = {
 }
 
 test("landing reopens the last project of the same served roots", () => {
-  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/work/api", [], "")),
+  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/work/api", [], null)),
     { project: "/work/api", listed: true, pick: false, fallback: "/work" })
-  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/home", [], "")),
+  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/home", [], null)),
     { project: "/home", listed: true, pick: false, fallback: "/work" })
 })
 
 test("landing marks an unlisted last project for checking", () => {
-  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/work/notes/2026", [], "")),
+  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, roots, "/work/notes/2026", [], null)),
     { project: "/work/notes/2026", listed: false, pick: false, fallback: "/work" })
 })
 
 test("a forgotten last project no longer reopens", () => {
-  const memory = forgetProject(rememberProject(emptyMemory, roots, "/work/api", [], ""), "/work/api")
+  const memory = forgetProject(rememberProject(emptyMemory, roots, "/work/api", [], null), "/work/api")
   assert.deepEqual(landingProject(projects, memory), { project: "/work", listed: true, pick: true, fallback: "/work" })
 })
 
 test("a first landing with a choice of projects opens the picker on the first root", () => {
   assert.deepEqual(landingProject(projects, emptyMemory), { project: "/work", listed: true, pick: true, fallback: "/work" })
-  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, ["/work"], "/work/api", [], "")),
+  assert.deepEqual(landingProject(projects, rememberProject(emptyMemory, ["/work"], "/work/api", [], null)),
     { project: "/work", listed: true, pick: true, fallback: "/work" })
   const rootOnly: ProjectsResponse = { ...projects, roots: projects.roots.slice(0, 1), projects: projects.projects.slice(0, 1) }
   assert.deepEqual(landingProject(rootOnly, emptyMemory), { project: "/work", listed: true, pick: false, fallback: "/work" })

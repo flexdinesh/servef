@@ -212,7 +212,7 @@ Source matches the explorer so code never looks oversized beside the tree; prose
 
 ## Layout
 
-Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer or Search); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--workspace-radius` is 0.625rem (10px). The full-width 28px footer uses the canvas surface, with document status aligned to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
+Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer, Search, or Source Control); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--workspace-radius` is 0.625rem (10px). The full-width 28px footer uses the canvas surface, with document status aligned to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
 
 Tabs and explorer headers are 32px tall at every viewport width and share the workspace-chrome surface. Activity rows use the same height; header labels follow the active tab's 4px top inset. Pierre rows are 24px on desktop. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
@@ -246,7 +246,7 @@ Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height
 
 ### Activity bar
 
-A 2.5rem column on `workspace-chrome` with a 1px right border and 32px rows aligned to the workspace header: Explorer (files icon, Cmd/Ctrl+Shift+E), then Search (Cmd/Ctrl+Shift+F). Items show 18px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a centered 24px-square `surface` tile with 4px corners and `aria-pressed`. The full button remains the click target; keyboard focus retains its accent outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. Both views stay mounted so switching keeps tree and search state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 32px rows aligned to the workspace header: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a centered 24px-square `surface` tile with 4px corners and `aria-pressed`. The full button remains the click target; keyboard focus retains its accent outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -278,6 +278,10 @@ Folder expansion is remembered per absolute project path in browser storage, inc
 Beside Search files, a compact action toggles Collapse all/Expand all, including
 folders hidden by the filename filter. It is disabled during a nonempty filename search,
 which expands matching ancestors. Directory chevrons are 12px within existing row targets.
+
+Changed files shown in the tree carry Source Control's status letter and color
+(Pierre git decorations). Only paths present in the tree are decorated; changes
+outside the CLI scope appear in Source Control alone.
 
 ### Project picker
 
@@ -341,6 +345,9 @@ commands or manual installation links, documentation, Check again, and Settings.
 Status checks never start a server. Mobile keeps the LSP status visible; its
 panel fits the viewport with 12px side insets and 44px action/copy targets.
 
+Diff-tab footer: the relative path, `+12 −3` line stats, and the file-type
+label. No line selection.
+
 ### Settings
 
 The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a surface-secondary fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width native select of the named themes, default System), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer reads “Saved in this browser. Changes apply immediately.” with an outline Reset all, disabled when nothing differs; it restores System, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
@@ -358,6 +365,55 @@ Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field,
 A 2px accent progress bar runs after 150ms while searching; previous results stay until new ones arrive. A polite 12px message reads “3 results in 2 files” (“2,000+ results” when truncated), then any notice: “No results found[ in '…' excluding '…'].”, unreadable-file warnings, the truncation advice, or “Search is unavailable.” with Retry search.
 
 Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses `surface-raised`; keyboard focus a 1px inset accent outline; the opened match `accent-subtle`. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
+
+### Source Control
+
+Ctrl/Cmd+Shift+G or the activity item reveals the view. The 32px header reads
+“Source Control” (12px, 600) with Refresh and Collapse All/Expand All icon
+actions (Close on mobile). A “Changes” group row ends in the Search view's count badge, named “Changes, 4 changes”.
+Changes render as a Pierre tree of changed paths with the Explorer's rows,
+icons, and keyboard behavior. Each file shows a right-aligned status letter:
+M (modified) `warning`, A (added) and U (untracked) `success`, D (deleted)
+`destructive`, R (renamed) `accent`; letters pair with names and titles, never
+color alone. Renamed rows show a muted “from <old path>” decoration with a “Renamed from <old path>”
+title; the diff's renamed notice carries it for screen readers. Opening a row opens its diff tab.
+
+A 2px accent progress bar runs after 150ms while reading status; the previous
+list stays until the new one arrives. States: “No changes since last
+commit.”, “This folder isn't a git repository.”, and “Couldn't read git status:
+<reason>.” with Retry. A truncated list reads “Showing the first 5,000 changes. Commit or ignore files
+to see the rest.” Unreadable paths collect under a “Some paths could not be read”
+disclosure. Mobile shows the view in the drawer like Search.
+
+### Diff tabs
+
+Diffs open as tabs in the shared strip, labelled `App.tsx (Working Tree)` or
+`App.tsx (Deleted)` with the file's Pierre icon; titles expose the path. They
+follow tab close, context-menu, and memory behavior. The mode-toggle slot holds
+the diff toolbar in the document mode-toggle treatment: [Split][Unified], Wrap,
+Ignore whitespace, Inline (compact menu: Word, Character, Off), Expand
+unchanged, and Open File (disabled for deleted files). Toggles use
+`aria-pressed`. Options persist in this browser under `servef-diff-options`,
+not Settings. Below 48rem Split is `aria-disabled` with “Split view needs a
+wider window” as its tooltip, and Unified is forced; below 30rem the layout
+group hides so tabs keep room. Diffs refetch on tab
+activation and window focus.
+
+Slim notices sit above the diff in the large-file bar treatment: renamed
+(“Renamed from <old path>”), “Binary file changed · 12 KB → 14 KB”, “Large file
+(6.2 MB): diff is off.”, and “Couldn't compute this diff.”. A path no longer changed shows the
+centered empty state “No changes” / “No changes to <path> since the last
+commit.” with Open File. Fetch failures use destructive text/fill with Retry.
+
+Diff source uses the Source font, size, and line height in rem. Syntax colors
+come from `--color-syntax-*` through a CSS-variable Shiki theme, so every theme
+applies and polarity follows the resolved theme. Added and deleted line fills
+are `color-mix` of `success` and `destructive` with `surface`; line numbers,
+separators, and selection use servef tokens. Highlighting runs in a pool of two
+local workers; a separate worker computes the diff, and rows are virtualized
+within the document pane. While a diff parses, the previous diff of the same tab
+stays visible and the footer shows Loading after 150ms. Closing the last diff tab
+ends every diff worker.
 
 ### Markdown, code, diagrams
 

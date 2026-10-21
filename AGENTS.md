@@ -10,8 +10,9 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
 - `cmd/` owns CLI validation, session configuration, and application startup.
-- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. Accept an explicit matcher; know no file formats.
+- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. It also exports the 0023 ignore rules (`IgnoreRules`), an unscoped walk of non-ignored files (`WalkUnignored`), and root-confined `ResolveFile` for changed paths. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
+- `internal/git/` owns go-git repository opening, HEAD tree and index reads, working-tree change detection against HEAD, exact rename pairing, and HEAD blob reads. It knows git formats only; no HTTP or document policy.
 - `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
@@ -29,8 +30,9 @@ Key files:
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
 | Sidebar and search | `web/src/Sidebar.tsx`, `use-sidebar.ts`, `SearchView.tsx`, `use-search-session.ts`, `search-controller.ts`, `search-engine.ts` (pure matching), `search-scope.ts` (include/exclude globs), `search-results.ts`, `docs/decisions/0020-activity-bar-and-search-view.md` |
-| HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, all scoped by `project`; `/api/projects`, `/api/directories`) |
-| Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
+| Source Control | `internal/git/`, `internal/web/server.go` (`/api/changes`, `/api/diff`), `web/src/SourceControlView.tsx`, `use-changes.ts`, `changes-contract.ts`, `DiffDocument.tsx`, `diff-options.ts`, `diff-language.ts` (family to Shiki), `diff-grammars.ts` (bundled grammars), `web/vite.config.ts` (`servef-diffs-subset`), `diff-stats.ts`, `docs/decisions/0024-source-control-view-and-working-tree-diffs.md` |
+| HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, `/api/changes`, `/api/diff`, all scoped by `project`; `/api/projects`, `/api/directories`) |
+| Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `web/src/changes-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
 | Code navigation | `internal/lsp/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
 | Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
@@ -80,6 +82,7 @@ Key files:
 - Code navigation is Source-only and LSP-only. Follow VS Code bindings. Binary files and files over 4 MiB do not navigate. No local parsing, symbol index, import guesses, or syntax fallback. Keep only indexed, in-scope, non-ignored project locations; preserve UTF-16 ranges.
 - Language servers are enabled by default per browser, authorized per request with `X-Servef-Language-Servers: on`, started only by navigation, stopped after 10 idle minutes, and closed with servef. Status requests never start servers. Show unsupported, missing, disabled, starting, ready, and failed states beside the language label; missing servers show host-specific install instructions.
 - Memory footprint is a priority: measure servef RSS and language-server process-tree RSS separately before and after navigation changes. Bound open documents, response sizes, startup/query time, and cancellation.
+- Source Control is repository-scoped: `--filename`, `--depth`, and `--exclude` do not apply. It reads worktree files only for paths validated against the change set, through `files.ResolveFile`; HEAD sides come from `internal/git/`. 0004 limits apply per diff side. Never run the `git` binary.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.
 
@@ -90,7 +93,8 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
 1. Source-only language (highlighting only): add one line to `Builtins()`, e.g. `source("zig", "Zig", "zig", []string{".zig"})`.
    - `Language` must resolve with Chroma `lexers.Get`; `NewRegistry` rejects unknown names.
    - IDs, extensions, and filenames share one case-insensitive namespace; pick unused ones.
-   - No HTTP, contract, or frontend change is needed.
+   - Add the family to `testdata/document-families.json` and choose its diff grammar in `web/src/diff-language.ts` (`text` for none). A new Shiki grammar also needs a loader in `web/src/diff-grammars.ts`; only listed grammars ship (decision 0024). Tests fail until all three agree.
+   - No HTTP or contract change is needed.
 2. Files identified by name (`Dockerfile`, `Makefile`): pass filenames as trailing args to `source(...)`. Without a Chroma lexer, add them to the `text` family instead.
 3. Read-only Format: use `FormattedCodeHandler` with a `FormatSource` that copies input and preserves meaningful values. `formattable` and the Format button follow automatically.
 4. New preview of an existing kind (`markdown`, `image`): implement `document.Handler` and register it. Escape HTML; keep Source available on preview errors.
@@ -107,6 +111,7 @@ For every addition:
 
 - Add a sample under `testdata/markdown/` and tests for lookup (extension, filename, fallback), highlighting, search, and preview/format failure where relevant.
 - Keep `TestAPIFixturesMatchServerDocumentContract` green: fixtures must carry the registry's real `Type` JSON.
+- Keep `TestDocumentFamiliesFixtureMatchesBuiltins` and `web/src/diff-language.test.ts` green: every family, including image-like ones, has an explicit diff grammar choice, and every bundled grammar is used.
 - Update README features when user-visible behavior changes. Tree and tab icons come from Pierre by file name; unknown names get the generic icon.
 
 ## Distribution

@@ -3,14 +3,17 @@
 // project is kept per set of served roots. Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
+import { includesTab, parseStoredTab, sameTab, storedTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
+
 export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"
 
 const maxProjects = 100
 const maxSessions = 20
 
 export interface ProjectMemory {
-  tabs: string[]
-  active: string
+  // Tabs are stored as plain paths (documents) or {diff: path}; "" is no active tab.
+  tabs: StoredTab[]
+  active: StoredTab
   // Absent uses the server's initial expansion; [] remembers all collapsed.
   expanded?: string[]
 }
@@ -31,11 +34,20 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry: unknown) => typeof entry === "string") : []
 }
 
+function storedTabs(value: unknown): StoredTab[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry: unknown) => {
+    const tab = parseStoredTab(entry)
+    return tab ? [storedTab(tab)] : []
+  })
+}
+
 function parseProject(value: unknown): ProjectMemory | null {
   if (!isRecord(value)) return null
+  const active = parseStoredTab(value.active)
   return {
-    tabs: stringArray(value.tabs),
-    active: typeof value.active === "string" ? value.active : "",
+    tabs: storedTabs(value.tabs),
+    active: active ? storedTab(active) : "",
     ...(Array.isArray(value.expanded) ? { expanded: stringArray(value.expanded) } : {}),
   }
 }
@@ -79,13 +91,13 @@ function withEntry<T>(record: Record<string, T>, key: string, value: T, max: num
   return { ...Object.fromEntries(Object.entries(rest).slice(-(max - 1))), [key]: value }
 }
 
-export function rememberProject(memory: WorkspaceMemory, roots: readonly string[], project: string, tabs: readonly string[], active: string): WorkspaceMemory {
+export function rememberProject(memory: WorkspaceMemory, roots: readonly string[], project: string, tabs: readonly WorkspaceTab[], active: WorkspaceTab | null): WorkspaceMemory {
   return {
     last: withEntry(memory.last, rootsKey(roots), project, maxSessions),
     projects: withEntry(memory.projects, project, {
       ...projectMemory(memory, project),
-      tabs: [...tabs],
-      active: tabs.includes(active) ? active : "",
+      tabs: tabs.map(storedTab),
+      active: active && includesTab(tabs, active) ? storedTab(active) : "",
     }, maxProjects),
   }
 }
@@ -117,10 +129,21 @@ export function rememberedProjects(memory: WorkspaceMemory): string[] {
   return Object.keys(memory.projects).reverse()
 }
 
-// restoreTabs keeps remembered tabs that still exist in the fresh tree.
-export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySet<string>): ProjectMemory {
-  const tabs = (memory?.tabs ?? []).filter((tab, index, all) => files.has(tab) && all.indexOf(tab) === index)
-  const active = memory && tabs.includes(memory.active) ? memory.active : ""
+export interface RestoredTabs {
+  tabs: WorkspaceTab[]
+  active: WorkspaceTab | null
+}
+
+// restoreTabs keeps remembered documents that still exist in the fresh tree.
+// Diff tabs restore regardless: a deleted file has a diff but no tree entry.
+export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySet<string>): RestoredTabs {
+  const tabs: WorkspaceTab[] = []
+  for (const entry of memory?.tabs ?? []) {
+    const tab = parseStoredTab(entry)
+    if (tab && (tab.kind === "diff" || files.has(tab.path)) && !includesTab(tabs, tab)) tabs.push(tab)
+  }
+  const remembered = parseStoredTab(memory?.active)
+  const active = tabs.find((tab) => sameTab(tab, remembered)) ?? null
   return { tabs, active }
 }
 

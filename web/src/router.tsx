@@ -15,6 +15,8 @@ interface PageSearch {
   [key: string]: unknown
   path?: string
   project?: string
+  // diff=1 opens path's working-tree diff instead of the file.
+  diff?: 1
 }
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
@@ -22,6 +24,7 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     ...search,
     path: typeof search.path === "string" ? search.path : undefined,
     project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
+    diff: search.diff === 1 || search.diff === "1" ? 1 : undefined,
   }
 }
 
@@ -92,9 +95,10 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  loaderDeps: ({ search }) => ({ project: search.project ?? "", selected: search.path ?? "" }),
+  // A diff tab loads only the tree; its pane reads /api/diff.
+  loaderDeps: ({ search }) => ({ project: search.project ?? "", selected: search.diff ? "" : search.path ?? "", diff: search.diff === 1 }),
   loader: ({ abortController, deps }) => loadPage({
-    pathname: "/view",
+    pathname: deps.diff ? "/" : "/view",
     project: deps.project,
     selected: deps.selected,
     signal: abortController.signal,

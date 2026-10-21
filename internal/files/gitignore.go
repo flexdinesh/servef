@@ -19,6 +19,66 @@ type ignoreRules struct {
 	matcher  gitignore.Matcher
 }
 
+// IgnoreRules answers git ignore questions for paths below one root. It reads
+// the sources git uses (see rootIgnoreRules), loading each directory's
+// .gitignore on first use. It is not safe for concurrent use.
+type IgnoreRules struct {
+	root string
+	base ignoreRules
+	dirs map[string]ignoreRules
+}
+
+// NewIgnoreRules returns the ignore rules for the absolute, symlink-evaluated
+// directory root.
+func NewIgnoreRules(root string) *IgnoreRules {
+	return &IgnoreRules{root: root, base: rootIgnoreRules(root), dirs: map[string]ignoreRules{}}
+}
+
+// Ignored reports whether the slash-separated root-relative path is ignored,
+// itself or through an ignored ancestor directory, which git never re-includes
+// below. A .git entry is always ignored.
+func (r *IgnoreRules) Ignored(rel string, isDir bool) bool {
+	parts := strings.Split(rel, "/")
+	for i, part := range parts {
+		if part == ".git" {
+			return true
+		}
+		last := i == len(parts)-1
+		if r.ignoredIn(strings.Join(parts[:i], "/"), strings.Join(parts[:i+1], "/"), isDir || !last) {
+			return true
+		}
+	}
+	return false
+}
+
+// ignoredIn reports whether rel, a child of the directory parent, is ignored by
+// the rules in effect in parent. Callers check parent's ancestors.
+func (r *IgnoreRules) ignoredIn(parent, rel string, isDir bool) bool {
+	return r.rulesFor(parent).ignores(rel, isDir)
+}
+
+// rulesFor returns the patterns in effect in the root-relative directory dir:
+// its ancestors' patterns, then its own .gitignore when that is a regular file.
+func (r *IgnoreRules) rulesFor(dir string) ignoreRules {
+	if rules, ok := r.dirs[dir]; ok {
+		return rules
+	}
+	rules := r.base
+	if dir != "" {
+		parent := ""
+		if i := strings.LastIndex(dir, "/"); i >= 0 {
+			parent = dir[:i]
+		}
+		rules = r.rulesFor(parent)
+	}
+	name := filepath.Join(r.root, filepath.FromSlash(dir), ".gitignore")
+	if info, err := os.Lstat(name); err == nil && info.Mode().IsRegular() {
+		rules = rules.with(name, domainOf(dir))
+	}
+	r.dirs[dir] = rules
+	return rules
+}
+
 // rootIgnoreRules loads the patterns git reads before any .gitignore when
 // root is a repository or linked worktree: core.excludesFile, then the
 // common git directory's info/exclude. Outside a repository only .gitignore

@@ -1,0 +1,29 @@
+{
+  "path": "code/main.go",
+  "status": "modified",
+  "documentType": {
+    "id": "go",
+    "label": "Go",
+    "extensions": [
+      ".go"
+    ],
+    "filenames": [],
+    "language": "go",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "content": "// Package main is a source-only sample for servef.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\") // go-search-token\n}\n",
+    "size": 137,
+    "binary": false,
+    "tooLarge": false
+  },
+  "modified": {
+    "content": "// Package main is a source-only sample for servef.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello from servef\") // go-search-token\n}\n",
+    "size": 149,
+    "binary": false,
+    "tooLarge": false
+  }
+}

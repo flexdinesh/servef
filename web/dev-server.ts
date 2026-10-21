@@ -42,6 +42,17 @@ const mockRaw: ReadonlyMap<string, MockFixture> = new Map([
   ["assets/preview.png", { name: "raw-preview.png", status: 200, contentType: "image/png" }],
 ])
 
+// One diff per change in changes.json; other paths are not changes.
+const mockDiffs: ReadonlyMap<string, string> = new Map([
+  ["assets/sample.bin", "diff-binary.json"],
+  ["code/app.js", "diff-added.json"],
+  ["code/main.go", "diff-modified.json"],
+  ["config/servef.toml", "diff-deleted.json"],
+  ["guides/getting-started.md", "diff-renamed.json"],
+  ["guides/new-guide.md", "diff-untracked.json"],
+  ["notes.txt", "diff-too-large.json"],
+])
+
 const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
 export function primaryLanIpv4(
@@ -118,6 +129,12 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return { name: "references.json", status: 200 }
     case "/navigation-status":
       return { name: "navigation-status.json", status: 200 }
+    case "/changes":
+      return { name: "changes.json", status: 200 }
+    case "/diff": {
+      const diff = mockDiffs.get(url.searchParams.get("path") ?? "")
+      return diff ? { name: diff, status: 200 } : notFound
+    }
     default:
       return undefined
   }

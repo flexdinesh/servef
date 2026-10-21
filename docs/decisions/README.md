@@ -29,3 +29,4 @@ rewriting history; update `Status` on the old record.
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Accepted |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | Accepted |
+| [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Accepted |

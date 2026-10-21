@@ -1,0 +1,32 @@
+{
+  "path": "notes.txt",
+  "status": "modified",
+  "documentType": {
+    "id": "text",
+    "label": "Plain text",
+    "extensions": [
+      ".txt",
+      ".log",
+      ".adoc"
+    ],
+    "filenames": [
+      ".gitignore",
+      ".dockerignore"
+    ],
+    "language": "plaintext",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "size": 6500000,
+    "binary": false,
+    "tooLarge": true
+  },
+  "modified": {
+    "size": 6600000,
+    "binary": false,
+    "tooLarge": true
+  }
+}

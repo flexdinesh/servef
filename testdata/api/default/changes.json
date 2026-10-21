@@ -1,0 +1,37 @@
+{
+  "repository": true,
+  "branch": "main",
+  "files": [
+    {
+      "path": "assets/sample.bin",
+      "status": "modified"
+    },
+    {
+      "path": "code/app.js",
+      "status": "added"
+    },
+    {
+      "path": "code/main.go",
+      "status": "modified"
+    },
+    {
+      "path": "config/servef.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "guides/getting-started.md",
+      "oldPath": "guides/intro.md",
+      "status": "renamed"
+    },
+    {
+      "path": "guides/new-guide.md",
+      "status": "untracked"
+    },
+    {
+      "path": "notes.txt",
+      "status": "modified"
+    }
+  ],
+  "truncated": false,
+  "warnings": []
+}
