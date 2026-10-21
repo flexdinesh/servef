@@ -6,6 +6,9 @@ const webPort = 15173
 
 export default defineConfig({
   testDir: "./tests/browser",
+  // Spread tests, not just files, across workers; app.spec.ts alone otherwise
+  // bounds the run.
+  fullyParallel: true,
   retries: 0,
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
