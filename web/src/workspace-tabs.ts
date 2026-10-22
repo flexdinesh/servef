@@ -140,3 +140,11 @@ export function routeDiffTab(search: RouteSearch): WorkspaceTab | null {
   if (search.branch === 1) return branchTab(path)
   return search.diff === 1 ? diffTab(path) : null
 }
+
+// tabSearch is the /view search that opens tab, the inverse of routeDiffTab.
+export function tabSearch(project: string, tab: WorkspaceTab) {
+  if (tab.kind === "commit") return { project, path: tab.path, commit: tab.commit }
+  if (tab.kind === "branch") return { project, path: tab.path, branch: 1 as const }
+  if (tab.kind === "range") return { project, path: tab.path, from: tab.from, to: tab.to }
+  return tab.kind === "diff" ? { project, path: tab.path, diff: 1 as const } : { project, path: tab.path }
+}

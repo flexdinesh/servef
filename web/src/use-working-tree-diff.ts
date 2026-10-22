@@ -2,10 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { isDiffResponse, type DiffResponse } from "./changes-contract.ts"
 import { failureReason, fetchJSON, RequestError, type RequestFailure } from "./http.ts"
+import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 import { tabKey, type WorkspaceTab } from "./workspace-tabs.ts"
-
-// Focus refetches run at most this often.
-const focusThrottle = 2_000
 
 export type DiffState =
   | { kind: "loading" }
@@ -91,21 +89,8 @@ export function useWorkingTreeDiff(project: string, tab: WorkspaceTab | null, ol
     }
   }, [diff, key, oldPath, project, request])
 
-  useEffect(() => {
-    if (!live) return
-    const onReturn = () => {
-      if (document.visibilityState !== "visible" || Date.now() - lastRead.current < focusThrottle) return
-      setRequest((count) => count + 1)
-    }
-    window.addEventListener("focus", onReturn)
-    document.addEventListener("visibilitychange", onReturn)
-    return () => {
-      window.removeEventListener("focus", onReturn)
-      document.removeEventListener("visibilitychange", onReturn)
-    }
-  }, [live, key])
-
   const retry = useCallback(() => setRequest((count) => count + 1), [])
+  useRefreshOnReturn(retry, { lastRead, enabled: live })
   const state: DiffState = entry?.key === key && key ? entry.state : { kind: "loading" }
   return { state, loading: Boolean(key) && loading, retry }
 }

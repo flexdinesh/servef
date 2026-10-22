@@ -3,9 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { gitStatusError, isChangesResponse, type ChangedFile, type ChangesResponse } from "./changes-contract.ts"
 import { failureReason, fetchJSON } from "./http.ts"
 import { projectUrl } from "./project-url.ts"
-
-// Focus and visibility refreshes run at most this often.
-const focusThrottle = 2_000
+import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 
 export interface ChangesState {
   // result is the last list read; it stays while a refresh runs or fails.
@@ -46,25 +44,7 @@ export function useChanges(project: string, viewActive: boolean) {
     return () => controller.current?.abort()
   }, [refresh])
 
-  // Opening the view rereads; staying open does not.
-  const wasActive = useRef(viewActive)
-  useEffect(() => {
-    if (viewActive && !wasActive.current) refresh()
-    wasActive.current = viewActive
-  }, [refresh, viewActive])
-
-  useEffect(() => {
-    const onReturn = () => {
-      if (document.visibilityState !== "visible" || Date.now() - lastRead.current < focusThrottle) return
-      refresh()
-    }
-    window.addEventListener("focus", onReturn)
-    document.addEventListener("visibilitychange", onReturn)
-    return () => {
-      window.removeEventListener("focus", onReturn)
-      document.removeEventListener("visibilitychange", onReturn)
-    }
-  }, [refresh])
+  useRefreshOnReturn(refresh, { lastRead, viewActive })
 
   const files = state.result?.files
   const byPath = useMemo(() => new Map((files ?? []).map((file): [string, ChangedFile] => [file.path, file])), [files])

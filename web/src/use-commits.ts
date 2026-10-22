@@ -7,9 +7,7 @@ import {
   type BranchFilesResponse, type CommitRange, type CommitsResponse,
 } from "./commits-contract.ts"
 import { failureReason, fetchJSON, isAbort } from "./http.ts"
-
-// Focus and visibility refreshes run at most this often.
-const focusThrottle = 2_000
+import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 
 export interface CommitsState {
   // result is the loaded list; it stays while a refresh of its range runs or
@@ -116,25 +114,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     }
   }, [refresh])
 
-  // Opening the view rereads; staying open does not.
-  const wasActive = useRef(viewActive)
-  useEffect(() => {
-    if (viewActive && !wasActive.current) refresh()
-    wasActive.current = viewActive
-  }, [refresh, viewActive])
-
-  useEffect(() => {
-    const onReturn = () => {
-      if (document.visibilityState !== "visible" || Date.now() - lastRead.current < focusThrottle) return
-      refresh()
-    }
-    window.addEventListener("focus", onReturn)
-    document.addEventListener("visibilitychange", onReturn)
-    return () => {
-      window.removeEventListener("focus", onReturn)
-      document.removeEventListener("visibilitychange", onReturn)
-    }
-  }, [refresh])
+  useRefreshOnReturn(refresh, { lastRead, viewActive })
 
   // A list read for the other range is not this range's history, even while
   // the switch reads or after it fails.
