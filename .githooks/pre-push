@@ -1,0 +1,6 @@
+#!/bin/sh
+# Full checks, including browser tests, run here rather than in CI (decision 0032).
+# Skip once with `git push --no-verify`.
+set -e
+pnpm check
+pnpm test:browser

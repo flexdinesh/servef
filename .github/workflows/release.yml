@@ -33,14 +33,11 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Select release version
         id: version
@@ -73,34 +70,9 @@ jobs:
           echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
           echo "release_exists=$release_exists" >> "$GITHUB_OUTPUT"
 
-      - name: Test
-        run: |
-          go test ./...
-          pnpm test:web
-          pnpm test:release
-          pnpm typecheck
-
-      - name: Test browser
-        run: pnpm test:browser
-
-      - name: Upload Playwright diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-diagnostics
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
-        run: |
-          pnpm build:web
-          go build ./...
+      # Browser tests run locally before push (decision 0032).
+      - name: Check
+        run: pnpm check
 
       # Release tags point at main plus the built frontend so go install works;
       # main itself never tracks internal/web/dist.

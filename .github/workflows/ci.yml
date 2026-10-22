@@ -28,30 +28,15 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build frontend
-        run: pnpm build:web
-
-      - name: Test
-        run: |
-          go test ./...
-          pnpm test:web
-          pnpm test:release
-          pnpm typecheck
-
-      - name: Build docs site
-        run: pnpm build:site
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
-        run: go build ./...
+      # Browser tests run locally before push (decision 0032).
+      - name: Check
+        run: pnpm check
 
   edge:
     needs: test
@@ -74,7 +59,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install frontend dependencies
