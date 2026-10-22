@@ -3,7 +3,7 @@
 // project is kept per set of served roots. Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
-import { isRecord } from "./http.ts"
+import { isRecord } from "../http.ts"
 import { includesTab, parseStoredTab, sameTab, storedTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"

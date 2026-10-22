@@ -32,7 +32,7 @@ import {
 import type { DirectoriesResponse, ProjectsResponse } from "../../projects-contract.ts"
 import { fetchDirectories, fetchProjects, takeLandingPick } from "../../projects-data.ts"
 import { useDelayedFlag } from "../documents/use-document-format.ts"
-import { forgetProject, readMemory, rememberedProjects, updateMemory } from "../../workspace-memory.ts"
+import { forgetProject, readMemory, rememberedProjects, updateMemory } from "../../workspace/workspace-memory.ts"
 
 type Load<T> =
   | { kind: "loading"; previous: T | null }

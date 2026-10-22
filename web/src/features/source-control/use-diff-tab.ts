@@ -12,7 +12,7 @@ import { useDelayedFlag } from "../documents/use-document-format.ts"
 import { useDiffOptions } from "./use-diff-options.ts"
 import { useParsedDiff } from "./use-parsed-diff.ts"
 import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
-import { sameTab, tabKey, tabSearch, type WorkspaceTab } from "../../workspace-tabs.ts"
+import { sameTab, tabKey, tabSearch, type WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 
 interface DiffTabOptions {
   project: string

@@ -10,7 +10,7 @@ import { openDirectoryPaths, type PageData, type TreeNode } from "../../page-dat
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
 import { useSettings } from "../../components/SettingsProvider.tsx"
 import { uiScale } from "../../settings.ts"
-import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "../../workspace-memory.ts"
+import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "../../workspace/workspace-memory.ts"
 
 function treePaths(nodes: readonly TreeNode[]): string[] {
   return nodes.flatMap((node) => node.isDir

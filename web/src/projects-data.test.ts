@@ -3,7 +3,7 @@ import test from "node:test"
 
 import type { ProjectsResponse } from "./projects-contract.ts"
 import { landingProject } from "./projects-data.ts"
-import { emptyMemory, forgetProject, rememberProject } from "./workspace-memory.ts"
+import { emptyMemory, forgetProject, rememberProject } from "./workspace/workspace-memory.ts"
 
 const roots = ["/work", "/home"]
 const projects: ProjectsResponse = {

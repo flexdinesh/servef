@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
-import type { DocumentMode } from "./features/documents/DocumentModeToggle.tsx"
+import type { DocumentMode } from "../features/documents/DocumentModeToggle.tsx"
 import { includesTab, sameTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 interface DocumentWorkspace {

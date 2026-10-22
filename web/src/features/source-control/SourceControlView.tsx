@@ -14,7 +14,7 @@ import { useDelayedFlag } from "../documents/use-document-format.ts"
 import type { Changes } from "./use-changes.ts"
 import { rangeKey, type Commits } from "./use-commits.ts"
 import type { SourceControlLayoutState } from "./use-source-control-layout.ts"
-import type { WorkspaceTab } from "../../workspace-tabs.ts"
+import type { WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 
 // Changed files sit inside folders; Pierre takes folder paths with a slash.
 function ancestorDirectories(paths: readonly string[]): string[] {

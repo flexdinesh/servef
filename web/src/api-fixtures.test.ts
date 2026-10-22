@@ -6,7 +6,7 @@ import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-
 import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
-import { isProcessMetrics } from "./process-metrics.ts"
+import { isProcessMetrics } from "./workspace/process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
 import { isSearchDocumentsResponse } from "./features/search/search-documents.ts"
 

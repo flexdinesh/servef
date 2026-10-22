@@ -6,7 +6,7 @@ import { DocumentPreview } from "../src/features/documents/DocumentPreview.tsx"
 import type { SearchMatch } from "../src/features/search/search-engine.ts"
 import { SearchView } from "../src/features/search/SearchView.tsx"
 import { useSearchSession } from "../src/features/search/use-search-session.ts"
-import { StatusBar } from "../src/StatusBar.tsx"
+import { StatusBar } from "../src/workspace/StatusBar.tsx"
 import { emptyPage } from "../src/page-data.ts"
 import "../src/style.css"
 

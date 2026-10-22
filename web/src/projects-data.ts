@@ -1,6 +1,6 @@
 import { failureReason, fetchJSON } from "./http.ts"
 import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "./projects-contract.ts"
-import { lastProject, type WorkspaceMemory } from "./workspace-memory.ts"
+import { lastProject, type WorkspaceMemory } from "./workspace/workspace-memory.ts"
 
 export function fetchProjects(signal?: AbortSignal): Promise<ProjectsResponse> {
   return fetchJSON("/api/projects", { signal }, isProjectsResponse, (failure) => `Couldn't list projects: ${failureReason(failure)}.`)

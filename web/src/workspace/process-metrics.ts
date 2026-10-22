@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { fetchJSON, isRecord } from "./http.ts"
+import { fetchJSON, isRecord } from "../http.ts"
 
 export interface ProcessMetrics {
   cpuUsage: number | null

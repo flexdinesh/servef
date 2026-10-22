@@ -2,10 +2,10 @@ import { ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 import { commands, matchCommands, type CommandAction } from "./commands.ts"
-import type { HighlightRange } from "./features/search/search-engine.ts"
-import { highlightedParts } from "./features/search/search-highlights.ts"
-import { settingsShortcutLabel } from "./SettingsDialog.tsx"
-import { useSettingValues } from "./use-setting-values.ts"
+import type { HighlightRange } from "../features/search/search-engine.ts"
+import { highlightedParts } from "../features/search/search-highlights.ts"
+import { settingsShortcutLabel } from "../SettingsDialog.tsx"
+import { useSettingValues } from "../use-setting-values.ts"
 
 function Highlighted({ text, ranges }: { text: string; ranges: readonly HighlightRange[] }) {
   return highlightedParts(text, ranges).map((part, index) => (

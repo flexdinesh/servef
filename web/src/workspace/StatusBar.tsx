@@ -1,14 +1,14 @@
-import { formatBytes } from "./format-bytes.ts"
-import type { PageData } from "./page-data.ts"
-import { projectUrl } from "./project-url.ts"
+import { formatBytes } from "../format-bytes.ts"
+import type { PageData } from "../page-data.ts"
+import { projectUrl } from "../project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
-import { useClipboardCopy } from "./clipboard.ts"
-import { lineRangeLabel, type LineRange } from "./features/documents/line-selection.ts"
-import { settingsShortcutLabel } from "./SettingsDialog.tsx"
-import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./features/navigation/NavigationStatusPanel.tsx"
-import { diffStatsLabel, type DiffStats } from "./features/source-control/diff-stats.ts"
-import type { DiffLineTarget } from "./features/source-control/diff-line-selection.ts"
+import { useClipboardCopy } from "../clipboard.ts"
+import { lineRangeLabel, type LineRange } from "../features/documents/line-selection.ts"
+import { settingsShortcutLabel } from "../SettingsDialog.tsx"
+import { NavigationStatusPanel, type NavigationStatusPanelProps } from "../features/navigation/NavigationStatusPanel.tsx"
+import { diffStatsLabel, type DiffStats } from "../features/source-control/diff-stats.ts"
+import type { DiffLineTarget } from "../features/source-control/diff-line-selection.ts"
 
 // DiffStatus describes the active diff tab, which replaces document status.
 export interface DiffStatus {

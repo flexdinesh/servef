@@ -6,7 +6,7 @@ import {
   type PinnedCompare,
 } from "./commit-rows.ts"
 import type { Commit, CommitFile } from "../../commits-contract.ts"
-import { branchTab, commitTab, diffTab, documentTab, rangeTab } from "../../workspace-tabs.ts"
+import { branchTab, commitTab, diffTab, documentTab, rangeTab } from "../../workspace/workspace-tabs.ts"
 
 function commit(hash: string, subject: string): Commit {
   return {

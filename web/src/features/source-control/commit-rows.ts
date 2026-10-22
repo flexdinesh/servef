@@ -1,5 +1,5 @@
 import type { Commit, CommitFile } from "../../commits-contract.ts"
-import { branchTab, commitTab, rangeTab, type WorkspaceTab } from "../../workspace-tabs.ts"
+import { branchTab, commitTab, rangeTab, type WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 
 // Pure row model for the Commits tree: a pinned compare row (decision 0030),
 // commits, the expanded ones' details, and their changed files under compact

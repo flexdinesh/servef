@@ -10,8 +10,8 @@ import { App } from "./App.tsx"
 import { isAbort } from "./http.ts"
 import { loadPage } from "./page-data.ts"
 import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
-import { readMemory } from "./workspace-memory.ts"
-import { isCommitHash } from "./workspace-tabs.ts"
+import { readMemory } from "./workspace/workspace-memory.ts"
+import { isCommitHash } from "./workspace/workspace-tabs.ts"
 
 interface PageSearch {
   [key: string]: unknown

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 
-import { filePaths, type PageData } from "./page-data.ts"
+import { filePaths, type PageData } from "../page-data.ts"
 import {
   projectMemory,
   readMemory,
