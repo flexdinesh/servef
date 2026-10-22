@@ -256,22 +256,35 @@ func (a *App) readIndexed(resolved string, fileType document.Type, limit int64) 
 		result.binary = true
 		return result, nil
 	}
-	prefix := make([]byte, document.SniffLength)
-	read, err := io.ReadFull(file, prefix)
-	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return indexedFile{}, err
-	}
-	prefix = prefix[:read]
-	if document.IsBinary(prefix) {
-		result.binary = true
-		return result, nil
-	}
-	rest, err := io.ReadAll(file)
+	text, binary, err := readText(file, limit)
 	if err != nil {
 		return indexedFile{}, err
 	}
-	result.source = append(prefix, rest...)
+	result.binary = binary
+	if !binary {
+		result.source = text
+	}
 	return result, nil
+}
+
+// readText sniffs r's prefix, then reads its text up to limit bytes in total
+// (when limit >= 0). A binary file stops at the prefix.
+func readText(r io.Reader, limit int64) (text []byte, binary bool, err error) {
+	prefix, err := io.ReadAll(io.LimitReader(r, document.SniffLength))
+	if err != nil {
+		return nil, false, err
+	}
+	if document.IsBinary(prefix) {
+		return prefix, true, nil
+	}
+	if limit >= 0 {
+		r = io.LimitReader(r, max(limit-int64(len(prefix)), 0))
+	}
+	rest, err := io.ReadAll(r)
+	if err != nil {
+		return nil, false, err
+	}
+	return append(prefix, rest...), false, nil
 }
 
 // ServeHTTP rescans the configured directory before rendering every response.
@@ -504,7 +517,7 @@ func (a *App) serveMetrics(w http.ResponseWriter) {
 }
 
 func (a *App) serveImage(w http.ResponseWriter, projectID, name string) {
-	contentType, ok := imageContentType(name)
+	contentType, ok := a.config.Types.MediaType(name)
 	if !ok {
 		http.NotFound(w, nil)
 		return
@@ -514,7 +527,7 @@ func (a *App) serveImage(w http.ResponseWriter, projectID, name string) {
 		http.NotFound(w, nil)
 		return
 	}
-	resolved, err := resolveImage(project.root, name)
+	resolved, err := files.ResolveFile(project.root, name)
 	if err != nil {
 		http.NotFound(w, nil)
 		return
@@ -527,63 +540,6 @@ func (a *App) serveImage(w http.ResponseWriter, projectID, name string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(content)
-}
-
-func imageContentType(name string) (string, bool) {
-	switch strings.ToLower(path.Ext(name)) {
-	case ".png":
-		return "image/png", true
-	case ".jpg", ".jpeg":
-		return "image/jpeg", true
-	case ".gif":
-		return "image/gif", true
-	case ".webp":
-		return "image/webp", true
-	case ".avif":
-		return "image/avif", true
-	case ".svg":
-		return "image/svg+xml", true
-	case ".ico":
-		return "image/x-icon", true
-	case ".bmp":
-		return "image/bmp", true
-	default:
-		return "", false
-	}
-}
-
-func resolveImage(root, name string) (string, error) {
-	if name == "" || filepath.IsAbs(name) {
-		return "", errors.New("invalid image path")
-	}
-	rel := path.Clean(filepath.ToSlash(name))
-	if rel == "." || rel == ".." || strings.HasPrefix(rel, "../") {
-		return "", errors.New("invalid image path")
-	}
-	absoluteRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	canonicalRoot, err := filepath.EvalSymlinks(absoluteRoot)
-	if err != nil {
-		return "", err
-	}
-	resolved, err := filepath.EvalSymlinks(filepath.Join(canonicalRoot, filepath.FromSlash(rel)))
-	if err != nil {
-		return "", err
-	}
-	relToRoot, err := filepath.Rel(canonicalRoot, resolved)
-	if err != nil || filepath.IsAbs(relToRoot) || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(filepath.Separator)) {
-		return "", errors.New("image path escapes root")
-	}
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return "", err
-	}
-	if !info.Mode().IsRegular() {
-		return "", errors.New("image is not a regular file")
-	}
-	return resolved, nil
 }
 
 func (a *App) serveSearchDocuments(w http.ResponseWriter, projectID string) {
@@ -696,8 +652,8 @@ func (a *App) serveRaw(w http.ResponseWriter, projectID, name string) {
 		http.NotFound(w, nil)
 		return
 	}
-	contentType, ok := imageContentType(name)
-	if !ok || a.config.Types.Lookup(name).Type().PreviewKind != document.PreviewImage {
+	contentType, ok := a.config.Types.MediaType(name)
+	if !ok {
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -794,12 +750,7 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		}
 		family := a.config.Types.Lookup(selected)
 		fileType := family.Type()
-		// Images are served from /api/raw, so only text display is capped.
-		limit := int64(document.DisplayLimit)
-		if fileType.PreviewKind == document.PreviewImage {
-			limit = -1
-		}
-		file, err := a.readIndexed(resolved, fileType, limit)
+		file, err := a.readIndexed(resolved, fileType, document.DisplayReadLimit(fileType))
 		if err != nil {
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			return data, http.StatusInternalServerError
@@ -809,24 +760,16 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		data.FileSize = file.size
 		data.HasFile = true
 		data.Binary = file.binary
-		if file.tooLarge {
-			data.TooLarge = true
-			data.PreviewDisabled = true
-			data.HighlightDisabled = true
-			data.SearchExcluded = true
-			return data, http.StatusOK
-		}
-		// Image previews use raw bytes and no server work, so stay enabled at any
-		// size; large SVG source is still shown, unhighlighted.
-		large := file.size > document.PreviewLimit
-		data.PreviewDisabled = large && fileType.PreviewKind != document.PreviewImage
-		data.HighlightDisabled = large || file.binary
-		data.SearchExcluded = file.binary || file.size > document.SearchLimit
-		if file.binary {
+		available := document.Available(fileType, file.size, file.binary)
+		data.TooLarge = available.TooLarge
+		data.PreviewDisabled = available.PreviewDisabled
+		data.HighlightDisabled = available.HighlightDisabled
+		data.SearchExcluded = available.SearchExcluded
+		if file.tooLarge || file.binary {
 			return data, http.StatusOK
 		}
 		data.Source = string(file.source)
-		if large {
+		if file.size > document.PreviewLimit {
 			return data, http.StatusOK
 		}
 		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id, Supports: a.config.Filenames.Match})

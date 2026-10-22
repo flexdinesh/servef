@@ -74,11 +74,11 @@ func (s *navigationSource) readFile(name string, source bool) ([]byte, string) {
 	if !family.HasTextSource() {
 		return nil, "Binary files do not support code navigation."
 	}
-	prefix, err := io.ReadAll(io.LimitReader(file, document.SniffLength))
+	_, binary, err := readText(file, document.SniffLength)
 	if err != nil {
 		return nil, "That file is unavailable."
 	}
-	if document.IsBinary(prefix) {
+	if binary {
 		return nil, "Binary files do not support code navigation."
 	}
 	return nil, ""

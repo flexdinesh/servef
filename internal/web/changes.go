@@ -197,22 +197,23 @@ func readDiffSide(size int64, open func() (io.ReadCloser, error), fileType docum
 		return nil, err
 	}
 	defer func() { _ = reader.Close() }()
-	prefix, err := io.ReadAll(io.LimitReader(reader, document.SniffLength))
+	// Too-large sides only need the prefix to report binary.
+	limit := int64(document.PreviewLimit)
+	if side.TooLarge {
+		limit = document.SniffLength
+	}
+	text, binary, err := readText(reader, limit)
 	if err != nil {
 		return nil, err
 	}
-	if document.IsBinary(prefix) {
+	if binary {
 		side.Binary = true
 		return side, nil
 	}
 	if side.TooLarge {
 		return side, nil
 	}
-	rest, err := io.ReadAll(io.LimitReader(reader, document.PreviewLimit-int64(len(prefix))))
-	if err != nil {
-		return nil, err
-	}
-	content := string(append(prefix, rest...))
+	content := string(text)
 	side.Content = &content
 	return side, nil
 }
