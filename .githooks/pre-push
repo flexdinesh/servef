@@ -2,5 +2,8 @@
 # Full checks, including browser tests, run here rather than in CI (decision 0032).
 # Skip once with `git push --no-verify`.
 set -e
+# Git exports GIT_DIR and friends to hooks; tests that build fixture
+# repositories would otherwise write into this one.
+unset $(env | sed -n 's/^\(GIT_[A-Za-z_]*\)=.*/\1/p')
 pnpm check
 pnpm test:browser

@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"os"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -65,6 +66,7 @@ func TestParseSeriesRejectsFullOrPaddedVersions(t *testing.T) {
 }
 
 func TestTagsBuiltOnHeadFindsReleaseCommitsOnTopOfHead(t *testing.T) {
+	isolateGit(t)
 	dir := t.TempDir()
 	git(t, dir, "init", "--quiet")
 	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "older main")
@@ -82,6 +84,19 @@ func TestTagsBuiltOnHeadFindsReleaseCommitsOnTopOfHead(t *testing.T) {
 	}
 	if want := []string{"v0.1.2"}; !slices.Equal(got, want) {
 		t.Fatalf("tagsBuiltOnHead() = %q, want %q", got, want)
+	}
+}
+
+// isolateGit drops inherited GIT_* variables: git hooks export GIT_DIR, which
+// would aim these commands at servef's own repository.
+func isolateGit(t *testing.T) {
+	t.Helper()
+	for _, entry := range os.Environ() {
+		key, _, _ := strings.Cut(entry, "=")
+		if strings.HasPrefix(key, "GIT_") {
+			t.Setenv(key, "")
+			os.Unsetenv(key)
+		}
 	}
 }
 
