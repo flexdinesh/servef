@@ -13,7 +13,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. It also exports the 0023 ignore rules (`IgnoreRules`), an unscoped walk of non-ignored files (`WalkUnignored`), and root-confined `ResolveFile` for changed paths. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, and the `origin` remote URL only.
 - `internal/git/` owns go-git repository opening, HEAD tree and index reads, working-tree change detection against HEAD, exact rename pairing, HEAD blob reads, base-branch detection, bounded commit walks (`base..HEAD` and full history), commit-to-first-parent file changes, and commit blob reads. It knows git formats only; no HTTP or document policy.
-- `internal/document/` owns file-type metadata, lookup, highlighting, previews, formatting, binary/size policy, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
+- `internal/document/` owns file-type metadata (including each family's highlight language), lookup, previews, formatting, binary/size policy, and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
 - `internal/web/` owns indexed-file reads, HTTP routing, and transport contracts. Delegate format behavior to document handlers.
 - Frontend source: `web/`.
@@ -35,6 +35,7 @@ Key files:
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, `/api/changes`, `/api/diff`, `/api/commits`, `/api/commit-files`, all scoped by `project`; `/api/projects`, `/api/directories`) |
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `web/src/changes-contract.ts`, `web/src/commits-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
+| Syntax highlighting | `web/src/syntax-highlight.ts` (pure rows), `syntax-theme.ts`, `highlights-loader.ts`, `highlight-thread.ts`, `source-highlighter.ts`, `highlight-worker.ts`, `use-highlighted-lines.ts`, `DocumentPreview.tsx` (fences), `docs/decisions/0029-highlights-syntax-highlighting.md` |
 | Code navigation | `internal/lsp/`, `internal/web/navigation.go`, `web/src/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
 | Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
 | Explorer filter | `web/src/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
@@ -53,13 +54,13 @@ Key files:
 
 - Define families through `document.Type` and behavior through `document.Handler`: `Type` and `Preview`. Content search reads original source; handlers know nothing about it. Formatting is the optional `document.Formatter` capability; the registry derives `formattable` from it. Language-server support is composed by web from `lsp.Builtins()` as page-level `navigationSupported`; document handlers know no code-navigation behavior.
 - Declare extensions/filenames, language, preview kind/label, and default mode explicitly. Preview kinds are `markdown` and `image`; types without one default to Source.
-- Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, unknown Chroma languages, and invalid view policies.
+- Validate composition with `NewRegistry`; reject duplicate/ambiguous IDs, extensions, and filenames, missing or malformed languages, and invalid view policies. Web tests reject languages Highlights does not know.
 - Treat handler output as a contract: escape file text in preview/highlight HTML; leave input bytes unchanged; preserve source and search access on preview errors.
 - Keep Go response shapes, TypeScript runtime validators in `web/src/page-contract.ts`, and `testdata/api` fixtures aligned. Validate unknown transport data before use; preserve strict TypeScript safety.
 
 ## System Design
 
-- Compose families explicitly in `internal/document.Builtins()`. Registration decides presentation only; every in-scope file is browsable. Lookup: exact base name, then extension, then the plain-text fallback. Chroma highlights; never guess types with it.
+- Compose families explicitly in `internal/document.Builtins()`. Registration decides presentation only; every in-scope file is browsable. Lookup: exact base name, then extension, then the plain-text fallback. The browser highlights the declared language with Highlights (decision 0029); never guess types.
 - Reuse `CodeHandler` for highlighted source and `FormattedCodeHandler` for formatted text. Implement a specialized handler only when behavior requires it. Source-only additions should need no discovery, HTTP, or frontend format branches.
 - `--filename` is one comma-separated string of case-insensitive base-name globs, defaulting to `*`; do not make it a repeatable flag.
 - Build the filename filter once in `cmd` and pass it through discovery, document access, link navigation, and content search.
@@ -89,14 +90,14 @@ Key files:
 
 ## Adding Languages and File Types
 
-Pick the smallest step that delivers the behavior. Each step is deliberate: no Chroma guessing.
+Pick the smallest step that delivers the behavior. Each step is deliberate: no language guessing.
 
 1. Source-only language (highlighting only): add one line to `Builtins()`, e.g. `source("zig", "Zig", "zig", []string{".zig"})`.
-   - `Language` must resolve with Chroma `lexers.Get`; `NewRegistry` rejects unknown names.
+   - `Language` must be a Highlights language (`text` for none); fish, INI, Properties, and reStructuredText have no lexer and use `text`.
    - IDs, extensions, and filenames share one case-insensitive namespace; pick unused ones.
    - Add the family and its language to `testdata/document-families.json`. Tests fail until the fixture matches `Builtins()` and every language is a Highlights language (decision 0029).
    - No HTTP or contract change is needed.
-2. Files identified by name (`Dockerfile`, `Makefile`): pass filenames as trailing args to `source(...)`. Without a Chroma lexer, add them to the `text` family instead.
+2. Files identified by name (`Dockerfile`, `Makefile`): pass filenames as trailing args to `source(...)`. Without a Highlights lexer, add them to the `text` family instead.
 3. Read-only Format: use `FormattedCodeHandler` with a `FormatSource` that copies input and preserves meaningful values. `formattable` and the Format button follow automatically.
 4. New preview of an existing kind (`markdown`, `image`): implement `document.Handler` and register it. Escape HTML; keep Source available on preview errors.
 5. New preview kind (e.g. table): this is a contract change. Update together:

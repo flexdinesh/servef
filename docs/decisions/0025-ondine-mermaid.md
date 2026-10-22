@@ -1,6 +1,6 @@
 # 0025: Ondine renders Mermaid as themed SVG
 
-- Status: Accepted
+- Status: Accepted; Source highlighting superseded by [0029](0029-highlights-syntax-highlighting.md)
 - Date: 2026-10-21
 - Supersedes: [0022](0022-excalidraw-only-mermaid.md) (renderer only; feature flags stay removed)
 
