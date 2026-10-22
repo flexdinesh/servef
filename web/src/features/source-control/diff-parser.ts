@@ -1,6 +1,6 @@
 import type { FileContents, FileDiffMetadata, Hunk } from "@pierre/diffs"
 
-import { isRecord } from "../../http.ts"
+import { isRecord } from "../../api/http.ts"
 
 // A diff parse runs jsdiff over both sides in a worker, as megabyte sides
 // block the main thread for seconds.

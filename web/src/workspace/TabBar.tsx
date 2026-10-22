@@ -2,7 +2,7 @@ import { ContextMenu } from "@base-ui/react/context-menu"
 import { XIcon } from "lucide-react"
 import { useEffect, useRef, type KeyboardEvent } from "react"
 
-import { FileIcon } from "../FileIcon.tsx"
+import { FileIcon } from "../components/FileIcon.tsx"
 import { includesTab, sameTab, tabKey, type TabName, type WorkspaceTab } from "./workspace-tabs.ts"
 import "./tab-menu.css"
 

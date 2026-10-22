@@ -1,4 +1,4 @@
-import type { NavigationLocation, NavigationResult, NavigationStatus } from "../../navigation-contract.ts"
+import type { NavigationLocation, NavigationResult, NavigationStatus } from "../../api/navigation-contract.ts"
 
 // SourcePosition addresses a character in Source: a 1-based line and a
 // 0-based UTF-16 column into the line's text.

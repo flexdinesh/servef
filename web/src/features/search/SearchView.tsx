@@ -5,7 +5,7 @@ import {
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 
 import { Button } from "../../components/ui/button.tsx"
-import { FileIcon } from "../../FileIcon.tsx"
+import { FileIcon } from "../../components/FileIcon.tsx"
 import type { SearchQuery } from "./search-engine.ts"
 import { highlightedParts } from "./search-highlights.ts"
 import { fileRowKey, matchRowKey, resultRows, resultSummary, type ResultRow } from "./search-results.ts"

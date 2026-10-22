@@ -1,14 +1,14 @@
 import { CheckIcon, ChevronRightIcon, CopyIcon, GitCompareArrowsIcon, XIcon } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 
-import { useClipboardCopy } from "../../clipboard.ts"
+import { useClipboardCopy } from "../../lib/clipboard.ts"
 import { Button } from "../../components/ui/button.tsx"
 import {
   commitAge, commitDate, commitRows, compareRowKey, folderKey, parentRowKey, tabRowKey,
   type CommitFiles, type CommitRow, type Compare, type PinnedCompare,
 } from "./commit-rows.ts"
-import type { Commit, CommitFileStatus, CommitRange } from "../../commits-contract.ts"
-import { FileIcon } from "../../FileIcon.tsx"
+import type { Commit, CommitFileStatus, CommitRange } from "../../api/commits-contract.ts"
+import { FileIcon } from "../../components/FileIcon.tsx"
 import type { Commits } from "./use-commits.ts"
 import { shortHash, type WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 

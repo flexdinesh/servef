@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
-import type { CommitRange } from "../../commits-contract.ts"
+import type { CommitRange } from "../../api/commits-contract.ts"
 import { clampShare, defaultLayout, readLayout, writeLayout, type SourceControlLayout } from "./source-control-layout.ts"
 
 // useSourceControlLayout owns Source Control's section layout and commit

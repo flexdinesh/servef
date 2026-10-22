@@ -1,7 +1,7 @@
 import { CheckIcon, CopyIcon } from "lucide-react"
 
-import { useClipboardCopy } from "../../clipboard.ts"
-import type { LanguageServerInstall, NavigationStatus } from "../../navigation-contract.ts"
+import { useClipboardCopy } from "../../lib/clipboard.ts"
+import type { LanguageServerInstall, NavigationStatus } from "../../api/navigation-contract.ts"
 import { providerLabel, serverSummary } from "./navigation-status.ts"
 
 function InstallCommand({ install }: { install: LanguageServerInstall }) {

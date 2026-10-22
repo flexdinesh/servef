@@ -1,4 +1,4 @@
-import type { Commit, CommitFile } from "../../commits-contract.ts"
+import type { Commit, CommitFile } from "../../api/commits-contract.ts"
 import { branchTab, commitTab, rangeTab, type WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 
 // Pure row model for the Commits tree: a pinned compare row (decision 0030),

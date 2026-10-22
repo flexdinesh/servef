@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { isDiffResponse, type DiffResponse } from "../../changes-contract.ts"
-import { failureReason, fetchJSON, RequestError, type RequestFailure } from "../../http.ts"
+import { isDiffResponse, type DiffResponse } from "../../api/changes-contract.ts"
+import { failureReason, fetchJSON, RequestError, type RequestFailure } from "../../api/http.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 import { tabKey, type WorkspaceTab } from "../../workspace/workspace-tabs.ts"
 

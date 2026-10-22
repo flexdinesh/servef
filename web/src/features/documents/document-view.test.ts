@@ -3,7 +3,7 @@ import test from "node:test"
 
 import { formatFailureMessage } from "./document-format.ts"
 import { documentModes, documentView, modeDisabledReason, resolveDocumentMode } from "./document-view.ts"
-import type { FileType, PageData } from "../../page-contract.ts"
+import type { FileType, PageData } from "../../api/page-contract.ts"
 
 const emptyPage: PageData = {
   roots: ["/root"],

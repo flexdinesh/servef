@@ -1,4 +1,4 @@
-import { isRecord } from "../../http.ts"
+import { isRecord } from "../../api/http.ts"
 import type { SearchDocument } from "./search-engine.ts"
 
 export interface SearchDocumentsResponse {

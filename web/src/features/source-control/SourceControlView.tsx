@@ -5,7 +5,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardE
 
 import { Button } from "../../components/ui/button.tsx"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
-import type { ChangedFile } from "../../changes-contract.ts"
+import type { ChangedFile } from "../../api/changes-contract.ts"
 import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, type PinnedCompare } from "./commit-rows.ts"
 import { CommitsView } from "./CommitsView.tsx"
 import { uiScale } from "../../settings/settings.ts"

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
-import type { Commit, CommitsResponse } from "../../commits-contract.ts"
+import type { Commit, CommitsResponse } from "../../api/commits-contract.ts"
 
 function commit(letter: string): Commit {
   return {

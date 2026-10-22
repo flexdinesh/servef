@@ -1,5 +1,5 @@
-import { formatBytes } from "../../format-bytes.ts"
-import type { LanguageServerStatus, NavigationStatus } from "../../navigation-contract.ts"
+import { formatBytes } from "../../lib/format-bytes.ts"
+import type { LanguageServerStatus, NavigationStatus } from "../../api/navigation-contract.ts"
 
 // LANGUAGE_SERVER_HEADER opts a navigation request into language servers. A
 // header, not a query parameter, so other sites cannot start servers.

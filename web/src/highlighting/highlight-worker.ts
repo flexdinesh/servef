@@ -1,5 +1,5 @@
 import { loadHighlights } from "./highlights-loader.ts"
-import { isRecord } from "../http.ts"
+import { isRecord } from "../api/http.ts"
 import { highlightLines } from "./syntax-highlight.ts"
 
 // The highlight worker tokenizes Source and Format text above the main-thread

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 import { groupLocations, navigationTitle, resultNotice } from "./code-navigation.ts"
-import type { NavigationLocation } from "../../navigation-contract.ts"
+import type { NavigationLocation } from "../../api/navigation-contract.ts"
 import { highlightedParts } from "../search/search-highlights.ts"
 import type { NavigationPanel } from "./use-code-navigation.ts"
 

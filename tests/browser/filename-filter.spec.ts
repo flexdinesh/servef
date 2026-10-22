@@ -143,7 +143,7 @@ test("collapse and expand all include filtered folders and the filter survives r
 })
 
 test("narrowed CLI filename scope is described under the filter", async ({ page }) => {
-  await page.route("**/api/page**", async (route) => {
+  await page.route("**/api/page?**", async (route) => {
     const response = await route.fetch()
     const json: unknown = await response.json()
     if (typeof json !== "object" || json === null) throw new Error("unexpected page payload")

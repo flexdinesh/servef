@@ -1,6 +1,6 @@
-import { fetchJSON, RequestError, type RequestFailure } from "../../http.ts"
-import { isFormatResult } from "../../page-contract.ts"
-import { projectUrl } from "../../project-url.ts"
+import { fetchJSON, RequestError, type RequestFailure } from "../../api/http.ts"
+import { isFormatResult } from "../../api/page-contract.ts"
+import { projectUrl } from "../../api/project-url.ts"
 
 export type FormatState =
   | { kind: "loading" }

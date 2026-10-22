@@ -5,7 +5,7 @@ import {
   commitAge, commitRows, compareRowKey, folderKey, parentRowKey, rangeSelection, selectedCommits, tabRowKey, type CommitFiles,
   type PinnedCompare,
 } from "./commit-rows.ts"
-import type { Commit, CommitFile } from "../../commits-contract.ts"
+import type { Commit, CommitFile } from "../../api/commits-contract.ts"
 import { branchTab, commitTab, diffTab, documentTab, rangeTab } from "../../workspace/workspace-tabs.ts"
 
 function commit(hash: string, subject: string): Commit {

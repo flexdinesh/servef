@@ -6,13 +6,13 @@ import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-
 import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
-import { isProcessMetrics } from "./workspace/process-metrics.ts"
+import { isProcessMetrics } from "../workspace/process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
-import { isSearchDocumentsResponse } from "./features/search/search-documents.ts"
+import { isSearchDocumentsResponse } from "../features/search/search-documents.ts"
 
 async function fixture(name: string): Promise<unknown> {
   const source = await readFile(
-    new URL(`../../testdata/api/default/${name}`, import.meta.url),
+    new URL(`../../../testdata/api/default/${name}`, import.meta.url),
     "utf8",
   )
   const value: unknown = JSON.parse(source)

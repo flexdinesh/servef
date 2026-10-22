@@ -7,9 +7,9 @@ import {
 } from "@tanstack/react-router"
 
 import { App } from "./App.tsx"
-import { isAbort } from "./http.ts"
-import { loadPage } from "./page-data.ts"
-import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
+import { isAbort } from "./api/http.ts"
+import { loadPage } from "./api/page-data.ts"
+import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./api/projects-data.ts"
 import { readMemory } from "./workspace/workspace-memory.ts"
 import { isCommitHash } from "./workspace/workspace-tabs.ts"
 

@@ -26,7 +26,7 @@ import {
   isPageLoadResult,
   type PageData,
   type PageLoadResult,
-} from "./page-data.ts"
+} from "./api/page-data.ts"
 import type { SearchMatch } from "./features/search/search-engine.ts"
 import { SearchView } from "./features/search/SearchView.tsx"
 import { Sidebar } from "./workspace/Sidebar.tsx"
@@ -47,7 +47,7 @@ import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./features/navigation/code-navigation.ts"
 import type { CommandAction } from "./workspace/commands.ts"
-import type { NavigationLocation } from "./navigation-contract.ts"
+import type { NavigationLocation } from "./api/navigation-contract.ts"
 import { NavigationDialog } from "./features/navigation/NavigationDialog.tsx"
 import type { SourceNavigation } from "./features/documents/SourceDocument.tsx"
 import type { SourceTarget } from "./features/navigation/source-position.ts"

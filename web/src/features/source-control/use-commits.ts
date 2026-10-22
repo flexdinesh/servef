@@ -5,8 +5,8 @@ import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts
 import {
   historyError, isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
   type BranchFilesResponse, type CommitRange, type CommitsResponse,
-} from "../../commits-contract.ts"
-import { failureReason, fetchJSON, isAbort } from "../../http.ts"
+} from "../../api/commits-contract.ts"
+import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 
 export interface CommitsState {
