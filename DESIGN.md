@@ -427,11 +427,29 @@ history”, “No commits yet.”, “Loading files…”, “No file changes.�
 the first 1,000 files.”, and “Couldn't read git history: <reason>.” as an
 alert, with Retry when nothing is listed.
 
+A pinned compare row leads the list (decision 0030). In the branch range with
+commits ahead it reads “All changes vs main”: chevron, a 14px muted
+git-compare icon, the label in `text-primary`, and the Search count badge of
+net files (named “All changes vs main, 4 files”). Shift-click or Shift+Arrow
+on commit rows (desktop only; the tree is `aria-multiselectable`) selects a
+contiguous run from the anchor, the last commit clicked or reached without
+Shift; selected rows take `accent-subtle` with `aria-selected`, and the
+pinned row turns into “3 commits”, a muted 12px monospace `a1b2c3d..e4f5g6h`
+span, and a 20px Clear icon action (title “Clear selection (Escape)”),
+opening on its files. Escape in the tree, Clear, or switching range clears
+it; in All the row shows only while a run is selected. Expanded, a details
+row reads “3 commits · merge-base” or “3 commits · a1b2c3d through e4f5g6h”
+with 2px-radius bordered monospace hash chips, then files as a commit's. The
+group ends in a 1px `border` divider and 4px gap above the commits. Collapse
+All Commits also closes it.
+
 ### Diff tabs
 
 Diffs open as tabs in the shared strip, labelled `App.tsx (Working Tree)`,
-`App.tsx (Deleted)`, or `App.tsx (3577ec6)` for a commit's change, with the
-file's Pierre icon; titles expose the path. They
+`App.tsx (Deleted)`, `App.tsx (3577ec6)` for a commit's change,
+`App.tsx (vs main)` for a branch's (`(Branch)` until the base is known), or
+`App.tsx (a1b2c3d..e4f5g6h)` for a commit range's, with the file's Pierre
+icon; titles expose the path. They
 follow tab close, context-menu, and memory behavior. The mode-toggle slot holds
 the diff toolbar in the document mode-toggle treatment: [Split][Unified], Wrap,
 Ignore whitespace, Inline (compact menu: Word, Character, Off), Expand
@@ -441,13 +459,14 @@ disabled when the working tree no longer has the file). Toggles use
 not Settings. Below 48rem Split is `aria-disabled` with “Split view needs a
 wider window” as its tooltip, and Unified is forced; below 30rem the layout
 group hides so tabs keep room. Diffs refetch on tab
-activation and window focus; commit diffs never change, so focus skips them.
+activation and window focus; commit and range diffs never change, so focus
+skips them, while branch diffs follow new commits.
 
 Slim notices sit above the diff in the large-file bar treatment: renamed
 (“Renamed from <old path>”), “Binary file changed · 12 KB → 14 KB”, “Large file
 (6.2 MB): diff is off.”, and “Couldn't compute this diff.”. A path no longer changed shows the
 centered empty state “No changes” / “No changes to <path> since the last
-commit.” with Open File. Fetch failures use destructive text/fill with Retry.
+commit.” (“… vs main.” for a branch diff) with Open File. Fetch failures use destructive text/fill with Retry.
 
 Diff source uses the Source font, size, and line height in rem. Syntax colors
 come from `--color-syntax-*` through a CSS-variable Shiki theme, so every theme

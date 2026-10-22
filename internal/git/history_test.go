@@ -578,3 +578,288 @@ func TestLogBoundsBranchRangesButStillListsAll(t *testing.T) {
 		}
 	}
 }
+
+func rangeFiles(t *testing.T, repo *Repository, from, to plumbing.Hash, limit int) CommitChanges {
+	t.Helper()
+	changes, err := repo.RangeFiles(context.Background(), from, to, limit)
+	if err != nil {
+		t.Fatalf("RangeFiles(%s, %s) error = %v", from, to, err)
+	}
+	return changes
+}
+
+func TestRangeFilesCompareOldestParentWithNewest(t *testing.T) {
+	f := newFixture(t)
+	root := f.at(f.tree(map[string]file{"keep.txt": regular("keep"), "edit.txt": regular("v0"), "old.txt": regular("moved")}), "root", 100)
+	c1 := f.at(f.tree(map[string]file{"keep.txt": regular("keep"), "edit.txt": regular("v1"), "old.txt": regular("moved"), "temp.txt": regular("temp")}), "c1", 200, root)
+	c2 := f.at(f.tree(map[string]file{"keep.txt": regular("keep"), "edit.txt": regular("v2"), "dir/new.txt": regular("moved"), "temp.txt": regular("temp")}), "c2", 300, c1)
+	c3 := f.at(f.tree(map[string]file{"keep.txt": regular("keep"), "edit.txt": regular("v2"), "dir/new.txt": regular("moved"), "added.txt": regular("added")}), "c3", 400, c2)
+	repo := f.open()
+
+	// c1..c3 against root: temp.txt added then deleted nets to nothing, and
+	// the rename in c2 spans the range.
+	got := rangeFiles(t, repo, c1, c3, 0)
+	assertChanges(t, got.Files,
+		Change{Path: "added.txt", Status: Added},
+		Change{Path: "dir/new.txt", OldPath: "old.txt", Status: Renamed},
+		Change{Path: "edit.txt", Status: Modified},
+	)
+	if got.Truncated {
+		t.Fatal("Truncated without a limit")
+	}
+	if limited := rangeFiles(t, repo, c1, c3, 2); !limited.Truncated || !reflect.DeepEqual(limited.Files, got.Files[:2]) {
+		t.Fatalf("limited = %+v", limited)
+	}
+	// One commit is that commit's own changes.
+	single := rangeFiles(t, repo, c2, c2, 0)
+	if commit, err := repo.CommitFiles(context.Background(), c2, 0); err != nil || !reflect.DeepEqual(single, commit) {
+		t.Fatalf("single = %+v, commit = %+v, %v", single, commit, err)
+	}
+	// A root oldest commit compares with an empty tree.
+	assertChanges(t, rangeFiles(t, repo, root, c1, 0).Files,
+		Change{Path: "edit.txt", Status: Added},
+		Change{Path: "keep.txt", Status: Added},
+		Change{Path: "old.txt", Status: Added},
+		Change{Path: "temp.txt", Status: Added},
+	)
+
+	ctx := context.Background()
+	for _, test := range []struct {
+		name, oldPath string
+		want          Change
+	}{
+		{"dir/new.txt", "", Change{Path: "dir/new.txt", OldPath: "old.txt", Status: Renamed}},
+		{"dir/new.txt", "old.txt", Change{Path: "dir/new.txt", OldPath: "old.txt", Status: Renamed}},
+		{"edit.txt", "", Change{Path: "edit.txt", Status: Modified}},
+	} {
+		if change, err := repo.RangeLookup(ctx, c1, c3, test.name, test.oldPath); err != nil || change != test.want {
+			t.Errorf("RangeLookup(%s, %s) = %+v, %v", test.name, test.oldPath, change, err)
+		}
+	}
+	for _, test := range [][2]string{{"temp.txt", ""}, {"old.txt", ""}, {"keep.txt", ""}, {"dir/new.txt", "edit.txt"}, {"../edit.txt", ""}} {
+		if change, err := repo.RangeLookup(ctx, c1, c3, test[0], test[1]); !errors.Is(err, ErrUnavailable) {
+			t.Errorf("RangeLookup(%s, %s) = %+v, %v; want ErrUnavailable", test[0], test[1], change, err)
+		}
+	}
+	if got := readBlob(t, mustBlob(t)(repo.ParentBlob(c1, "edit.txt"))); got != "v0" {
+		t.Errorf("old side = %q", got)
+	}
+	if got := readBlob(t, mustBlob(t)(repo.CommitBlob(c3, "edit.txt"))); got != "v2" {
+		t.Errorf("new side = %q", got)
+	}
+
+	unknown := plumbing.NewHash("1111111111111111111111111111111111111111")
+	for _, pair := range [][2]plumbing.Hash{{unknown, c3}, {c1, unknown}} {
+		if _, err := repo.RangeFiles(ctx, pair[0], pair[1], 0); !errors.Is(err, ErrUnavailable) {
+			t.Errorf("RangeFiles(%v) error = %v, want ErrUnavailable", pair, err)
+		}
+		if _, err := repo.RangeLookup(ctx, pair[0], pair[1], "edit.txt", ""); !errors.Is(err, ErrUnavailable) {
+			t.Errorf("RangeLookup(%v) error = %v, want ErrUnavailable", pair, err)
+		}
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := repo.RangeFiles(cancelled, c1, c3, 0); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled RangeFiles error = %v", err)
+	}
+}
+
+func mustBlob(t *testing.T) func(Blob, error) Blob {
+	return func(blob Blob, err error) Blob {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return blob
+	}
+}
+
+func compareBranch(t *testing.T, repo *Repository) BranchRange {
+	t.Helper()
+	compared, err := repo.BranchCompare(context.Background())
+	if err != nil {
+		t.Fatalf("BranchCompare error = %v", err)
+	}
+	return compared
+}
+
+func branchFiles(t *testing.T, repo *Repository) (BranchRange, []Change) {
+	t.Helper()
+	compared, changes, err := repo.BranchFiles(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("BranchFiles error = %v", err)
+	}
+	return compared, changes.Files
+}
+
+func TestBranchFilesCompareMergeBaseWithHead(t *testing.T) {
+	f := newFixture(t)
+	m1 := f.at(f.tree(map[string]file{"shared.txt": regular("v0"), "base.txt": regular("b0")}), "m1", 100)
+	f1 := f.at(f.tree(map[string]file{"shared.txt": regular("v1"), "base.txt": regular("b0"), "feature.txt": regular("f")}), "f1", 150, m1)
+	// main advances after the branch: its edit must not show.
+	m2 := f.at(f.tree(map[string]file{"shared.txt": regular("v0"), "base.txt": regular("b1"), "main.txt": regular("m")}), "m2", 200, m1)
+	f.ref("refs/heads/main", m2)
+	f.ref("refs/heads/feature", f1)
+	f.symbolic("HEAD", "refs/heads/feature")
+	repo := f.open()
+
+	compared, changes := branchFiles(t, repo)
+	if want := (BranchRange{Base: "main", MergeBase: m1, Head: f1, Ahead: 1}); compared != want {
+		t.Fatalf("range = %+v, want %+v", compared, want)
+	}
+	assertChanges(t, changes,
+		Change{Path: "feature.txt", Status: Added},
+		Change{Path: "shared.txt", Status: Modified},
+	)
+	if history := logOf(t, repo, LogOptions{Range: RangeBranch}); history.Ahead != compared.Ahead {
+		t.Fatalf("Log Ahead = %d, BranchCompare Ahead = %d", history.Ahead, compared.Ahead)
+	}
+	ctx := context.Background()
+	if _, change, err := repo.BranchLookup(ctx, "shared.txt", ""); err != nil || change != (Change{Path: "shared.txt", Status: Modified}) {
+		t.Fatalf("BranchLookup(shared.txt) = %+v, %v", change, err)
+	}
+	for _, name := range []string{"base.txt", "main.txt", "missing.txt", "../shared.txt"} {
+		if _, change, err := repo.BranchLookup(ctx, name, ""); !errors.Is(err, ErrUnavailable) {
+			t.Errorf("BranchLookup(%s) = %+v, %v; want ErrUnavailable", name, change, err)
+		}
+	}
+
+	// Merging main into the branch moves the merge base to main's tip.
+	f2 := f.at(f.tree(map[string]file{"shared.txt": regular("v1"), "base.txt": regular("b1"), "main.txt": regular("m"), "feature.txt": regular("f2")}), "Merge main", 300, f1, m2)
+	f.ref("refs/heads/feature", f2)
+	compared, changes = branchFiles(t, repo)
+	if want := (BranchRange{Base: "main", MergeBase: m2, Head: f2, Ahead: 2}); compared != want {
+		t.Fatalf("merged range = %+v, want %+v", compared, want)
+	}
+	assertChanges(t, changes,
+		Change{Path: "feature.txt", Status: Added},
+		Change{Path: "shared.txt", Status: Modified},
+	)
+	if history := logOf(t, repo, LogOptions{Range: RangeBranch}); history.Ahead != compared.Ahead {
+		t.Fatalf("merged Log Ahead = %d, BranchCompare Ahead = %d", history.Ahead, compared.Ahead)
+	}
+}
+
+func TestBranchCompareMatchesLogOnMergedHistory(t *testing.T) {
+	f := newFixture(t)
+	g := newBranchGraph(f)
+	compared := compareBranch(t, f.open())
+	if want := (BranchRange{Base: "main", MergeBase: g.m3, Head: g.f4, Ahead: 4}); compared != want {
+		t.Fatalf("range = %+v, want %+v", compared, want)
+	}
+	gitBinary, err := exec.LookPath("git")
+	if err != nil {
+		return
+	}
+	cmd := exec.Command(gitBinary, "merge-base", "main", "feature")
+	cmd.Dir = f.dir
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git merge-base: %v", err)
+	}
+	if want := plumbing.NewHash(strings.TrimSpace(string(output))); compared.MergeBase != want {
+		t.Fatalf("MergeBase = %s, git merge-base = %s", compared.MergeBase, want)
+	}
+}
+
+// Criss-cross merges leave two best common ancestors; the newer wins.
+func TestBranchComparePicksNewestOfCrissCrossMergeBases(t *testing.T) {
+	f := newFixture(t)
+	root := f.empty("root", 100)
+	a := f.at(f.tree(map[string]file{"a.txt": regular("a")}), "a", 200, root)
+	b := f.at(f.tree(map[string]file{"b.txt": regular("b")}), "b", 210, root)
+	main := f.empty("main merge", 300, a, b)
+	feature := f.at(f.tree(map[string]file{"a.txt": regular("a"), "b.txt": regular("b")}), "feature merge", 310, a, b)
+	f.ref("refs/heads/main", main)
+	f.ref("refs/heads/feature", feature)
+	f.symbolic("HEAD", "refs/heads/feature")
+
+	compared, changes := branchFiles(t, f.open())
+	if want := (BranchRange{Base: "main", MergeBase: b, Head: feature, Ahead: 1}); compared != want {
+		t.Fatalf("range = %+v, want %+v (a %s)", compared, want, a)
+	}
+	assertChanges(t, changes, Change{Path: "a.txt", Status: Added})
+}
+
+// A boundary commit that is an ancestor of another is not a best one, even
+// when clock skew dates it newer.
+func TestBranchCompareDropsRedundantBoundaryCommits(t *testing.T) {
+	f := newFixture(t)
+	m1 := f.empty("m1", 400)
+	m2 := f.empty("m2", 200, m1)
+	f1 := f.empty("f1", 450, m1)
+	f2 := f.empty("Merge main", 500, f1, m2)
+	f.ref("refs/heads/main", m2)
+	f.ref("refs/heads/feature", f2)
+	f.symbolic("HEAD", "refs/heads/feature")
+	if compared := compareBranch(t, f.open()); compared.MergeBase != m2 || compared.Ahead != 2 {
+		t.Fatalf("range = %+v, want merge base m2 %s", compared, m2)
+	}
+}
+
+func TestBranchFilesWithNothingAheadOrNoBase(t *testing.T) {
+	f := newFixture(t)
+	root := f.at(f.tree(map[string]file{"a.txt": regular("a")}), "root", 100)
+	tip := f.at(f.tree(map[string]file{"a.txt": regular("b")}), "tip", 200, root)
+	f.ref("refs/heads/feature", tip)
+	f.symbolic("HEAD", "refs/heads/feature")
+	repo := f.open()
+	ctx := context.Background()
+
+	compared, changes := branchFiles(t, repo)
+	if want := (BranchRange{Head: tip}); compared != want || changes == nil || len(changes) != 0 {
+		t.Fatalf("no base = %+v, %+v", compared, changes)
+	}
+	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("no base lookup error = %v", err)
+	}
+
+	f.ref("refs/heads/main", tip)
+	compared, changes = branchFiles(t, repo)
+	if want := (BranchRange{Base: "main", Head: tip}); compared != want || len(changes) != 0 {
+		t.Fatalf("on base = %+v, %+v", compared, changes)
+	}
+	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("on base lookup error = %v", err)
+	}
+	// Behind the base is nothing ahead too.
+	f.ref("refs/heads/feature", root)
+	if compared := compareBranch(t, repo); compared != (BranchRange{Base: "main", Head: root}) {
+		t.Fatalf("behind = %+v", compared)
+	}
+}
+
+func TestBranchCompareInEmptyRepository(t *testing.T) {
+	f := newFixture(t)
+	f.ref("refs/heads/main", f.empty("main", 100))
+	f.symbolic("HEAD", "refs/heads/unborn")
+	compared, changes := branchFiles(t, f.open())
+	if compared != (BranchRange{Base: "main"}) || len(changes) != 0 {
+		t.Fatalf("unborn = %+v, %+v", compared, changes)
+	}
+}
+
+func TestBranchCompareIsBoundedAndCancellable(t *testing.T) {
+	f := newFixture(t)
+	newBranchGraph(f)
+	repo := f.open()
+	defer func(branch, walk int) { branchLimit, walkLimit = branch, walk }(branchLimit, walkLimit)
+	for _, limits := range [][2]int{{3, 100}, {100, 3}} {
+		branchLimit, walkLimit = limits[0], limits[1]
+		if _, err := repo.BranchCompare(context.Background()); !errors.Is(err, ErrRangeTooLarge) || err.Error() != "the branch has too many commits to compare with main" {
+			t.Errorf("limits %v: BranchCompare error = %v", limits, err)
+		}
+		if _, _, err := repo.BranchFiles(context.Background(), 0); !errors.Is(err, ErrRangeTooLarge) {
+			t.Errorf("limits %v: BranchFiles error = %v", limits, err)
+		}
+	}
+	branchLimit, walkLimit = 10_000, 100_000
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := repo.BranchCompare(ctx); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled BranchCompare error = %v", err)
+	}
+	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled BranchLookup error = %v", err)
+	}
+}

@@ -2,7 +2,8 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
-  commitTab, diffTab, documentTab, includesTab, isCommitHash, parseStoredTab, sameTab, shortHash, storedTab, tabKey, tabName,
+  branchTab, commitTab, diffTab, documentTab, includesTab, isCommitHash, parseStoredTab, rangeTab, routeDiffTab, sameTab, shortHash,
+  storedTab, tabKey, tabName,
 } from "./workspace-tabs.ts"
 
 const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
@@ -53,4 +54,42 @@ test("stored tabs round-trip and accept legacy paths", () => {
   ]) {
     assert.equal(parseStoredTab(malformed), null, JSON.stringify(malformed))
   }
+})
+
+test("branch and range diffs are distinct from other diffs of one path", () => {
+  assert.equal(sameTab(branchTab("a.md"), branchTab("a.md")), true)
+  assert.equal(sameTab(branchTab("a.md"), diffTab("a.md")), false)
+  assert.equal(sameTab(rangeTab(other, hash, "a.md"), rangeTab(other, hash, "a.md")), true)
+  assert.equal(sameTab(rangeTab(other, hash, "a.md"), rangeTab(hash, other, "a.md")), false)
+  const keys = [branchTab("a.md"), rangeTab(other, hash, "a.md"), commitTab(hash, "a.md"), diffTab("a.md")].map(tabKey)
+  assert.equal(new Set(keys).size, keys.length)
+})
+
+test("branch tabs name their base once known; range tabs their span", () => {
+  assert.deepEqual(tabName(branchTab("web/src/App.tsx"), false, "main"), { label: "App.tsx (vs main)", title: "web/src/App.tsx (vs main)" })
+  assert.deepEqual(tabName(branchTab("web/src/App.tsx"), false), { label: "App.tsx (Branch)", title: "web/src/App.tsx (Branch)" })
+  assert.deepEqual(tabName(rangeTab(other, hash, "web/src/App.tsx"), false), {
+    label: "App.tsx (4f76e9a..3577ec6)", title: "web/src/App.tsx (changes in commits 4f76e9a through 3577ec6)",
+  })
+})
+
+test("branch and range tabs round-trip through memory", () => {
+  assert.deepEqual(storedTab(branchTab("a.md")), { branch: "a.md" })
+  assert.deepEqual(storedTab(rangeTab(other, hash, "a.md")), { from: other, to: hash, path: "a.md" })
+  assert.deepEqual(parseStoredTab({ branch: "a.md" }), branchTab("a.md"))
+  assert.deepEqual(parseStoredTab({ from: other, to: hash, path: "a.md" }), rangeTab(other, hash, "a.md"))
+  for (const malformed of [{ branch: "" }, { branch: 1 }, { from: other, path: "a.md" }, { from: other, to: "3577ec6", path: "a.md" },
+    { from: other, to: hash }, { from: other, to: hash, path: "" }]) {
+    assert.equal(parseStoredTab(malformed), null, JSON.stringify(malformed))
+  }
+})
+
+test("routes open the diff tab their search names", () => {
+  assert.deepEqual(routeDiffTab({ path: "a.md", diff: 1 }), diffTab("a.md"))
+  assert.deepEqual(routeDiffTab({ path: "a.md", commit: hash }), commitTab(hash, "a.md"))
+  assert.deepEqual(routeDiffTab({ path: "a.md", branch: 1 }), branchTab("a.md"))
+  assert.deepEqual(routeDiffTab({ path: "a.md", from: other, to: hash }), rangeTab(other, hash, "a.md"))
+  assert.equal(routeDiffTab({ path: "a.md" }), null)
+  assert.equal(routeDiffTab({ path: "a.md", from: other }), null)
+  assert.equal(routeDiffTab({ branch: 1 }), null)
 })

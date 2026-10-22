@@ -185,7 +185,7 @@ func (r *Repository) Log(ctx context.Context, options LogOptions) (History, erro
 	}
 	var branch []plumbing.Hash
 	if baseName != "" {
-		branch, err = w.branch(head, baseHash)
+		branch, _, err = w.branch(head, baseHash)
 		switch {
 		case errors.Is(err, ErrRangeTooLarge) && options.Range == RangeAll:
 			// The full history does not need the range; only Ahead is lost.
@@ -344,10 +344,12 @@ func (w *walker) all(head plumbing.Hash, skip, limit int) ([]Commit, bool, error
 // branch lists the commits reachable from head and not from base, newest
 // committer date first. Like git's limit_list it paints commits reachable
 // from base uninteresting while walking both sides by date, and stops once
-// only uninteresting commits are queued, after walkSlop more.
-func (w *walker) branch(head, base plumbing.Hash) ([]plumbing.Hash, error) {
+// only uninteresting commits are queued, after walkSlop more. It also
+// returns the boundary: the listed commits' parents that are not listed,
+// which are common ancestors and include every best one.
+func (w *walker) branch(head, base plumbing.Hash) ([]plumbing.Hash, []plumbing.Hash, error) {
 	if err := w.ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	queue := &commitQueue{}
 	// parents holds every queued or visited commit's parents.
@@ -382,19 +384,19 @@ func (w *walker) branch(head, base plumbing.Hash) ([]plumbing.Hash, error) {
 
 	uninteresting[base] = true
 	if err := push(base); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := push(head); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var listed []plumbing.Hash
 	slop := walkSlop
 	for queue.Len() > 0 {
 		if err := w.step(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if w.steps > walkLimit {
-			return nil, ErrRangeTooLarge
+			return nil, nil, ErrRangeTooLarge
 		}
 		commit := queue.pop()
 		if uninteresting[commit.Hash] {
@@ -404,12 +406,12 @@ func (w *walker) branch(head, base plumbing.Hash) ([]plumbing.Hash, error) {
 		} else {
 			listed = append(listed, commit.Hash)
 			if len(listed) > branchLimit {
-				return nil, ErrRangeTooLarge
+				return nil, nil, ErrRangeTooLarge
 			}
 		}
 		for _, parent := range parents[commit.Hash] {
 			if err := push(parent); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		if queue.onlyUninteresting(uninteresting) {
@@ -427,7 +429,99 @@ func (w *walker) branch(head, base plumbing.Hash) ([]plumbing.Hash, error) {
 			result = append(result, hash)
 		}
 	}
-	return result, nil
+	var boundary []plumbing.Hash
+	inBoundary := map[plumbing.Hash]bool{}
+	for _, hash := range result {
+		for _, parent := range parents[hash] {
+			if uninteresting[parent] && !inBoundary[parent] {
+				inBoundary[parent] = true
+				boundary = append(boundary, parent)
+			}
+		}
+	}
+	return result, boundary, nil
+}
+
+// mergeBase picks the best common ancestor among a branch walk's boundary:
+// candidates that are not ancestors of another, then, as among criss-cross
+// merge bases, the newest committer date. It walks the candidates'
+// ancestors by date until none is newer than the oldest candidate not yet
+// reached, after walkSlop more, under the walk's bounds. It returns zero for
+// an empty boundary, as for unrelated histories.
+func (w *walker) mergeBase(boundary []plumbing.Hash) (plumbing.Hash, error) {
+	candidates := map[plumbing.Hash]*object.Commit{}
+	for _, hash := range boundary {
+		commit, err := w.load(hash)
+		if err != nil {
+			return plumbing.ZeroHash, err
+		}
+		candidates[hash] = commit
+	}
+	if len(candidates) > 1 {
+		// below marks proper ancestors of a candidate; a candidate below
+		// another is redundant.
+		queue := &commitQueue{}
+		below := map[plumbing.Hash]bool{}
+		push := func(commit *object.Commit) error {
+			for _, parent := range w.parents(commit) {
+				if below[parent] {
+					continue
+				}
+				below[parent] = true
+				loaded, err := w.load(parent)
+				if err != nil {
+					return err
+				}
+				queue.add(loaded)
+			}
+			return nil
+		}
+		for _, commit := range candidates {
+			if err := push(commit); err != nil {
+				return plumbing.ZeroHash, err
+			}
+		}
+		slop := walkSlop
+		for queue.Len() > 0 {
+			if err := w.step(); err != nil {
+				return plumbing.ZeroHash, err
+			}
+			if w.steps > walkLimit {
+				return plumbing.ZeroHash, ErrRangeTooLarge
+			}
+			commit := queue.pop()
+			if err := push(commit); err != nil {
+				return plumbing.ZeroHash, err
+			}
+			newer := false
+			for hash, candidate := range candidates {
+				if !below[hash] && !commit.Committer.When.Before(candidate.Committer.When) {
+					newer = true
+				}
+			}
+			if newer {
+				slop = walkSlop
+			} else if slop--; slop == 0 {
+				break
+			}
+		}
+		for hash := range candidates {
+			if below[hash] {
+				delete(candidates, hash)
+			}
+		}
+	}
+	var best *object.Commit
+	for _, commit := range candidates {
+		if best == nil || commit.Committer.When.After(best.Committer.When) ||
+			(commit.Committer.When.Equal(best.Committer.When) && commit.Hash.String() < best.Hash.String()) {
+			best = commit
+		}
+	}
+	if best == nil {
+		return plumbing.ZeroHash, nil
+	}
+	return best.Hash, nil
 }
 
 // commitQueue pops the newest committer date first, then the earliest
@@ -497,12 +591,17 @@ func (r *Repository) CommitFiles(ctx context.Context, hash plumbing.Hash, limit 
 	if err != nil {
 		return CommitChanges{}, err
 	}
+	return limitChanges(changes, limit), nil
+}
+
+// limitChanges keeps the first limit changes; zero or less keeps all.
+func limitChanges(changes []Change, limit int) CommitChanges {
 	result := CommitChanges{Files: changes}
 	if limit > 0 && len(result.Files) > limit {
 		result.Files = result.Files[:limit]
 		result.Truncated = true
 	}
-	return result, nil
+	return result
 }
 
 // CommitLookup validates one change of a commit under CommitFiles's rules.
@@ -510,18 +609,180 @@ func (r *Repository) CommitFiles(ctx context.Context, hash plumbing.Hash, limit 
 // path a rename consumed, or anything else that is not a change, is
 // ErrUnavailable.
 func (r *Repository) CommitLookup(ctx context.Context, hash plumbing.Hash, name, oldPath string) (Change, error) {
-	if !validPath(name) || (oldPath != "" && (!validPath(oldPath) || oldPath == name)) {
+	if !validLookup(name, oldPath) {
 		return Change{}, ErrUnavailable
 	}
 	changes, err := r.commitChanges(ctx, hash)
 	if err != nil {
 		return Change{}, err
 	}
+	return findChange(changes, name, oldPath)
+}
+
+func validLookup(name, oldPath string) bool {
+	return validPath(name) && (oldPath == "" || (validPath(oldPath) && oldPath != name))
+}
+
+// findChange finds name among path-sorted changes; a given oldPath must
+// match its rename.
+func findChange(changes []Change, name, oldPath string) (Change, error) {
 	at := sort.Search(len(changes), func(i int) bool { return changes[i].Path >= name })
 	if at == len(changes) || changes[at].Path != name || (oldPath != "" && changes[at].OldPath != oldPath) {
 		return Change{}, ErrUnavailable
 	}
 	return changes[at], nil
+}
+
+// RangeFiles compares the first parent of from, the oldest commit of a
+// range, with to, its newest, as git diff from^ to does: only the two trees
+// count. A root or shallow from compares with an empty tree. Statuses,
+// renames, and the limit follow CommitFiles. It returns ErrUnavailable for
+// an unknown commit.
+func (r *Repository) RangeFiles(ctx context.Context, from, to plumbing.Hash, limit int) (CommitChanges, error) {
+	changes, err := r.rangeChanges(ctx, from, to)
+	if err != nil {
+		return CommitChanges{}, err
+	}
+	return limitChanges(changes, limit), nil
+}
+
+// RangeLookup validates one change of a range under RangeFiles's rules, as
+// CommitLookup does for a commit.
+func (r *Repository) RangeLookup(ctx context.Context, from, to plumbing.Hash, name, oldPath string) (Change, error) {
+	if !validLookup(name, oldPath) {
+		return Change{}, ErrUnavailable
+	}
+	changes, err := r.rangeChanges(ctx, from, to)
+	if err != nil {
+		return Change{}, err
+	}
+	return findChange(changes, name, oldPath)
+}
+
+func (r *Repository) rangeChanges(ctx context.Context, from, to plumbing.Hash) ([]Change, error) {
+	oldest, err := r.commit(from)
+	if err != nil {
+		return nil, err
+	}
+	newest, err := r.commit(to)
+	if err != nil {
+		return nil, err
+	}
+	parent, err := r.parentTree(oldest)
+	if err != nil {
+		return nil, err
+	}
+	var parentHash plumbing.Hash
+	if parent != nil {
+		parentHash = parent.Hash
+	}
+	return r.treeChanges(ctx, parentHash, newest.TreeHash)
+}
+
+// BranchRange is HEAD's branch range against the base branch.
+type BranchRange struct {
+	// Base is the base branch's short name, or empty when none exists.
+	Base string
+	// MergeBase is the best common ancestor of the base and Head; zero when
+	// nothing is ahead or the histories are unrelated.
+	MergeBase plumbing.Hash
+	// Head is HEAD's commit; zero when HEAD is unborn.
+	Head plumbing.Hash
+	// Ahead counts the commits in base..Head, as Log does.
+	Ahead int
+}
+
+// BranchCompare finds HEAD's branch range and merge base within the bounds
+// of Log's branch walk. With several best common ancestors, as after
+// criss-cross merges, the newest committer date wins. It returns
+// ErrRangeTooLarge past the bounds.
+func (r *Repository) BranchCompare(ctx context.Context) (BranchRange, error) {
+	baseName, baseHash, err := r.base()
+	if err != nil {
+		return BranchRange{}, err
+	}
+	result := BranchRange{Base: baseName}
+	ref, err := storer.ResolveReference(r.storage, plumbing.HEAD)
+	if errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return result, nil
+	}
+	if err != nil {
+		return BranchRange{}, fmt.Errorf("read HEAD: %w", err)
+	}
+	result.Head = ref.Hash()
+	if baseName == "" {
+		return result, nil
+	}
+	w, err := r.newWalker(ctx)
+	if err != nil {
+		return BranchRange{}, err
+	}
+	branch, boundary, err := w.branch(result.Head, baseHash)
+	if err == nil && len(branch) > 0 {
+		result.MergeBase, err = w.mergeBase(boundary)
+	}
+	if errors.Is(err, ErrRangeTooLarge) {
+		return BranchRange{}, rangeTooLarge{base: baseName}
+	}
+	if err != nil {
+		return BranchRange{}, err
+	}
+	result.Ahead = len(branch)
+	return result, nil
+}
+
+// BranchFiles compares the merge base's tree with Head's, as git diff
+// base...HEAD does; unrelated histories compare with an empty tree.
+// Nothing ahead lists no changes. Statuses, renames, and the limit follow
+// CommitFiles.
+func (r *Repository) BranchFiles(ctx context.Context, limit int) (BranchRange, CommitChanges, error) {
+	compared, changes, err := r.branchChanges(ctx)
+	if err != nil {
+		return BranchRange{}, CommitChanges{}, err
+	}
+	return compared, limitChanges(changes, limit), nil
+}
+
+// BranchLookup validates one change of the branch under BranchFiles's
+// rules, as CommitLookup does for a commit. Sides read through CommitBlob
+// at MergeBase and Head.
+func (r *Repository) BranchLookup(ctx context.Context, name, oldPath string) (BranchRange, Change, error) {
+	if !validLookup(name, oldPath) {
+		return BranchRange{}, Change{}, ErrUnavailable
+	}
+	compared, changes, err := r.branchChanges(ctx)
+	if err != nil {
+		return BranchRange{}, Change{}, err
+	}
+	change, err := findChange(changes, name, oldPath)
+	if err != nil {
+		return BranchRange{}, Change{}, err
+	}
+	return compared, change, nil
+}
+
+func (r *Repository) branchChanges(ctx context.Context) (BranchRange, []Change, error) {
+	compared, err := r.BranchCompare(ctx)
+	if err != nil || compared.Ahead == 0 {
+		return compared, []Change{}, err
+	}
+	head, err := r.commit(compared.Head)
+	if err != nil {
+		return BranchRange{}, nil, err
+	}
+	var baseTree plumbing.Hash
+	if !compared.MergeBase.IsZero() {
+		base, err := r.commit(compared.MergeBase)
+		if err != nil {
+			return BranchRange{}, nil, err
+		}
+		baseTree = base.TreeHash
+	}
+	changes, err := r.treeChanges(ctx, baseTree, head.TreeHash)
+	if err != nil {
+		return BranchRange{}, nil, err
+	}
+	return compared, changes, nil
 }
 
 // CommitBlob returns the file name has in a commit. It returns
@@ -608,8 +869,15 @@ func (r *Repository) commitChanges(ctx context.Context, hash plumbing.Hash) ([]C
 	if parent != nil {
 		parentHash = parent.Hash
 	}
+	return r.treeChanges(ctx, parentHash, commit.TreeHash)
+}
+
+// treeChanges lists every change from the tree oldTree to newTree, either
+// zero for an empty tree, sorted by path. A deleted and an added file of
+// identical content and mode pair as a rename.
+func (r *Repository) treeChanges(ctx context.Context, oldTree, newTree plumbing.Hash) ([]Change, error) {
 	diff := &treeDiff{ctx: ctx, repo: r}
-	if err := diff.compare(parentHash, commit.TreeHash, ""); err != nil {
+	if err := diff.compare(oldTree, newTree, ""); err != nil {
 		return nil, err
 	}
 

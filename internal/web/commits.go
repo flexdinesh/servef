@@ -188,10 +188,63 @@ func (a *App) serveCommitFiles(w http.ResponseWriter, r *http.Request, projectID
 	writeJSON(w, http.StatusOK, commitFilesResponse{Commit: hash.String(), Files: changes.Files, Truncated: changes.Truncated})
 }
 
-// serveCommitDiff pairs a commit's first parent's side (Original) with the
-// commit's (Modified) for one validated change. Without oldPath, a renamed
-// path reports its rename, since commit diff tabs remember only the path.
-func (a *App) serveCommitDiff(w http.ResponseWriter, r *http.Request, projectID, commit, name, oldPath string) {
+// serveDiffs serves the diff a query names: a commit's (commit), the
+// branch's (branch=1), a commit range's (from and to), or else the working
+// tree's. The kinds are exclusive.
+func (a *App) serveDiffs(w http.ResponseWriter, r *http.Request, projectID string, query url.Values) {
+	commit, branch, ranged := query.Has("commit"), query.Has("branch"), query.Has("from") || query.Has("to")
+	kinds := 0
+	for _, named := range []bool{commit, branch, ranged} {
+		if named {
+			kinds++
+		}
+	}
+	name, oldPath := query.Get("path"), query.Get("oldPath")
+	switch {
+	case kinds > 1:
+		writeDiffQueryError(w, "Choose one of commit, branch, or from and to.")
+	case commit:
+		a.serveCommitDiff(w, r, projectID, query.Get("commit"), name, oldPath)
+	case branch && query.Get("branch") != "1":
+		writeDiffQueryError(w, "Branch must be 1.")
+	case branch:
+		a.serveBranchDiff(w, r, projectID, name, oldPath)
+	case ranged && (!query.Has("from") || !query.Has("to")):
+		writeDiffQueryError(w, "A commit range needs both from and to.")
+	case ranged:
+		a.serveRangeDiff(w, r, projectID, query.Get("from"), query.Get("to"), name, oldPath)
+	default:
+		a.serveDiff(w, r, projectID, name, oldPath)
+	}
+}
+
+func writeDiffQueryError(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusBadRequest, errorResponse{Error: message})
+}
+
+type branchFilesResponse struct {
+	Repository bool         `json:"repository"`
+	Branch     string       `json:"branch"`
+	Base       string       `json:"base"`
+	MergeBase  string       `json:"mergeBase"`
+	Head       string       `json:"head"`
+	Ahead      int          `json:"ahead"`
+	Files      []git.Change `json:"files"`
+	Truncated  bool         `json:"truncated"`
+}
+
+type rangeFilesResponse struct {
+	From      string       `json:"from"`
+	To        string       `json:"to"`
+	Files     []git.Change `json:"files"`
+	Truncated bool         `json:"truncated"`
+}
+
+// serveBranchFiles lists the branch's net changes: the merge base with the
+// base branch against HEAD. It is read live, never pinned.
+func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
@@ -199,18 +252,10 @@ func (a *App) serveCommitDiff(w http.ResponseWriter, r *http.Request, projectID,
 		writeJSON(w, status, errorResponse{Error: message})
 		return
 	}
-	if name == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "No file was selected."})
-		return
-	}
-	hash, ok := git.ParseHash(commit)
-	if !ok {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: invalidCommitMessage})
-		return
-	}
+	response := branchFilesResponse{Files: []git.Change{}}
 	repo, err := git.Open(project.root)
 	if errors.Is(err, git.ErrNotRepository) {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
+		writeJSON(w, http.StatusOK, response)
 		return
 	}
 	if err != nil {
@@ -221,42 +266,228 @@ func (a *App) serveCommitDiff(w http.ResponseWriter, r *http.Request, projectID,
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	change, err := repo.CommitLookup(ctx, hash, name, oldPath)
+	compared, changes, err := repo.BranchFiles(ctx, commitFilesLimit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return
+	}
+	response.Repository = true
+	response.Branch = repo.Branch()
+	response.Base = compared.Base
+	response.MergeBase = hashString(compared.MergeBase)
+	response.Head = hashString(compared.Head)
+	response.Ahead = compared.Ahead
+	response.Files = changes.Files
+	response.Truncated = changes.Truncated
+	writeJSON(w, http.StatusOK, response)
+}
+
+// hashString is a full hash, or empty for zero.
+func hashString(hash plumbing.Hash) string {
+	if hash.IsZero() {
+		return ""
+	}
+	return hash.String()
+}
+
+// serveRangeFiles lists a commit range's net changes: from's first parent,
+// from being the oldest commit, against to, the newest.
+func (a *App) serveRangeFiles(w http.ResponseWriter, r *http.Request, projectID, from, to string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	oldest, oldestOK := git.ParseHash(from)
+	newest, newestOK := git.ParseHash(to)
+	if !oldestOK || !newestOK {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: invalidCommitMessage})
+		return
+	}
+	repo, err := git.Open(project.root)
+	if errors.Is(err, git.ErrNotRepository) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: commitUnavailableMessage})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return
+	}
+	defer func() { _ = repo.Close() }()
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	changes, err := repo.RangeFiles(ctx, oldest, newest, commitFilesLimit)
 	switch {
 	case errors.Is(err, git.ErrUnavailable):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: commitUnavailableMessage})
 		return
 	case err != nil:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
 		return
 	}
+	writeJSON(w, http.StatusOK, rangeFilesResponse{From: oldest.String(), To: newest.String(), Files: changes.Files, Truncated: changes.Truncated})
+}
 
+// openHistoryDiff validates a history diff request in order (project, path,
+// then each commit hash) and opens the repository. It writes the failure
+// and returns false when the request cannot proceed.
+func (a *App) openHistoryDiff(w http.ResponseWriter, projectID, name string, commits ...string) (*git.Repository, []plumbing.Hash, bool) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return nil, nil, false
+	}
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "No file was selected."})
+		return nil, nil, false
+	}
+	hashes := make([]plumbing.Hash, 0, len(commits))
+	for _, commit := range commits {
+		hash, ok := git.ParseHash(commit)
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: invalidCommitMessage})
+			return nil, nil, false
+		}
+		hashes = append(hashes, hash)
+	}
+	repo, err := git.Open(project.root)
+	if errors.Is(err, git.ErrNotRepository) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
+		return nil, nil, false
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return nil, nil, false
+	}
+	return repo, hashes, true
+}
+
+// serveCommitDiff pairs a commit's first parent's side (Original) with the
+// commit's (Modified) for one validated change. Without oldPath, a renamed
+// path reports its rename, since commit diff tabs remember only the path.
+func (a *App) serveCommitDiff(w http.ResponseWriter, r *http.Request, projectID, commit, name, oldPath string) {
+	repo, hashes, ok := a.openHistoryDiff(w, projectID, name, commit)
+	if !ok {
+		return
+	}
+	defer func() { _ = repo.Close() }()
+	hash := hashes[0]
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	change, err := repo.CommitLookup(ctx, hash, name, oldPath)
+	if !writeLookupError(w, err) {
+		return
+	}
+	short := hash.String()[:7]
+	a.writeHistoryDiff(w, change,
+		historySide{"the parent of " + short, func(name string) (git.Blob, error) { return repo.ParentBlob(hash, name) }},
+		historySide{short, func(name string) (git.Blob, error) { return repo.CommitBlob(hash, name) }})
+}
+
+// serveRangeDiff pairs the first parent of from, the range's oldest commit
+// (Original), with to, its newest (Modified), for one validated change.
+func (a *App) serveRangeDiff(w http.ResponseWriter, r *http.Request, projectID, from, to, name, oldPath string) {
+	repo, hashes, ok := a.openHistoryDiff(w, projectID, name, from, to)
+	if !ok {
+		return
+	}
+	defer func() { _ = repo.Close() }()
+	oldest, newest := hashes[0], hashes[1]
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	change, err := repo.RangeLookup(ctx, oldest, newest, name, oldPath)
+	if !writeLookupError(w, err) {
+		return
+	}
+	a.writeHistoryDiff(w, change,
+		historySide{"the parent of " + oldest.String()[:7], func(name string) (git.Blob, error) { return repo.ParentBlob(oldest, name) }},
+		historySide{newest.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(newest, name) }})
+}
+
+// serveBranchDiff pairs the merge base (Original) with HEAD (Modified) for
+// one change of the branch, resolved again on every request. A path
+// outside the branch's changes, including when nothing is ahead, is
+// unchanged, as in the working tree diff.
+func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID, name, oldPath string) {
+	repo, _, ok := a.openHistoryDiff(w, projectID, name)
+	if !ok {
+		return
+	}
+	defer func() { _ = repo.Close() }()
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	compared, change, err := repo.BranchLookup(ctx, name, oldPath)
+	switch {
+	case errors.Is(err, git.ErrUnavailable):
+		writeJSON(w, http.StatusNotFound, diffErrorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
+		return
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return
+	}
+	a.writeHistoryDiff(w, change,
+		historySide{"the merge base " + compared.MergeBase.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(compared.MergeBase, name) }},
+		historySide{compared.Head.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Head, name) }})
+}
+
+// writeLookupError writes a failed history lookup and reports whether err
+// was nil.
+func writeLookupError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, git.ErrUnavailable):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
+		return false
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return false
+	}
+	return true
+}
+
+// historySide reads one diff side from git objects; label names it in
+// errors.
+type historySide struct {
+	label string
+	blob  func(name string) (git.Blob, error)
+}
+
+// writeHistoryDiff reads a validated change's sides, Original from the
+// rename's old path when there is one, under the 0004 limits.
+func (a *App) writeHistoryDiff(w http.ResponseWriter, change git.Change, original, modified historySide) {
 	fileType := a.config.Types.Lookup(change.Path).Type()
 	response := diffResponse{Path: change.Path, OldPath: change.OldPath, Status: change.Status, DocumentType: fileType}
-	short := hash.String()[:7]
+	var err error
 	if change.Status != git.Added {
-		original := change.Path
+		name := change.Path
 		if change.OldPath != "" {
-			original = change.OldPath
+			name = change.OldPath
 		}
-		response.Original, err = readCommitSide(repo.ParentBlob, hash, original, fileType)
+		response.Original, err = readCommitSide(original.blob, name, fileType)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from the parent of %s: %v", original, short, err)})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from %s: %v", name, original.label, err)})
 			return
 		}
 	}
 	if change.Status != git.Deleted {
-		response.Modified, err = readCommitSide(repo.CommitBlob, hash, change.Path, fileType)
+		response.Modified, err = readCommitSide(modified.blob, change.Path, fileType)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from %s: %v", change.Path, short, err)})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from %s: %v", change.Path, modified.label, err)})
 			return
 		}
 	}
 	writeJSON(w, http.StatusOK, response)
 }
 
-func readCommitSide(blob func(plumbing.Hash, string) (git.Blob, error), hash plumbing.Hash, name string, fileType document.Type) (*diffSide, error) {
-	side, err := blob(hash, name)
+func readCommitSide(blob func(string) (git.Blob, error), name string, fileType document.Type) (*diffSide, error) {
+	side, err := blob(name)
 	if err != nil {
 		return nil, err
 	}

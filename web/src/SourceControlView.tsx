@@ -6,13 +6,15 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardE
 import { Button } from "./components/ui/button.tsx"
 import { useSettings } from "./components/SettingsProvider.tsx"
 import type { ChangedFile } from "./changes-contract.ts"
+import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, type PinnedCompare } from "./commit-rows.ts"
 import { CommitsView } from "./CommitsView.tsx"
 import { uiScale } from "./settings.ts"
 import { maximumShare, minimumShare } from "./source-control-layout.ts"
 import { useDelayedFlag } from "./use-document-format.ts"
 import type { Changes } from "./use-changes.ts"
-import type { Commits } from "./use-commits.ts"
+import { rangeKey, type Commits } from "./use-commits.ts"
 import type { SourceControlLayoutState } from "./use-source-control-layout.ts"
+import type { WorkspaceTab } from "./workspace-tabs.ts"
 
 // Changed files sit inside folders; Pierre takes folder paths with a slash.
 function ancestorDirectories(paths: readonly string[]): string[] {
@@ -36,19 +38,21 @@ interface SourceControlViewProps {
   layout: SourceControlLayoutState
   // activePath is the open working-tree diff tab's path, selected in Changes.
   activePath: string
-  // activeCommit is the open commit diff tab, selected in Commits.
-  activeCommit: { commit: string; path: string } | null
+  // activeHistory is the open commit, branch, or range diff tab, selected in
+  // Commits.
+  activeHistory: WorkspaceTab | null
   mobile: boolean
   onDismiss(): void
   // onOpen opens a diff tab; focusDocument moves focus to it.
   onOpen(path: string, focusDocument: boolean): void
-  onOpenCommit(commit: string, path: string, focusDocument: boolean): void
+  // onOpenTab opens a commit, branch, or range file's diff tab.
+  onOpenTab(tab: WorkspaceTab, focusDocument: boolean): void
 }
 
 // SourceControlView stacks two collapsible sections: Changes (the working
 // tree against HEAD) and Commits (the branch's history). On desktop a
 // separator resizes them while both are open.
-export function SourceControlView({ activeCommit, activePath, changes, commits, layout, mobile, onDismiss, onOpen, onOpenCommit }: SourceControlViewProps) {
+export function SourceControlView({ activeHistory, activePath, changes, commits, layout, mobile, onDismiss, onOpen, onOpenTab }: SourceControlViewProps) {
   const { error, loading, refresh, result } = changes
   const files = result?.files
   const reading = useDelayedFlag(loading || commits.loading, 150)
@@ -61,7 +65,37 @@ export function SourceControlView({ activeCommit, activePath, changes, commits, 
   const count = files?.length ?? 0
   const repository = !result || result.repository
   const history = commits.result
-  const anyCommitExpanded = history?.commits.some((commit) => expandedCommits.has(commit.hash)) ?? false
+  // selection is a Shift-selected commit run (decision 0030); it is
+  // transient and lapses once either end leaves the list.
+  const [selection, setSelection] = useState<CommitSelection | null>(null)
+  const listed = useMemo(() => history?.commits ?? [], [history])
+  const selected = useMemo(() => selectedCommits(listed, selection), [listed, selection])
+  if (selection && !selected) setSelection(null)
+  const branch = commits.branch.result
+  const pinned = useMemo((): PinnedCompare | null => {
+    const expanded = expandedCommits.has(compareRowKey)
+    if (selection && selected) {
+      const compare = { kind: "range" as const, from: selection.from, to: selection.to, count: selected.length }
+      return { compare, expanded, files: commits.rangeFiles.get(rangeKey(selection.from, selection.to)) }
+    }
+    if (!history || history.range !== "branch" || history.ahead === 0 || !history.base) return null
+    const current = branch && branch.head === history.head && branch.base === history.base ? branch : null
+    const files = current ? { kind: "ready" as const, response: current }
+      : commits.branch.error ? { kind: "error" as const, message: commits.branch.error } : { kind: "loading" as const }
+    return { compare: { kind: "branch", base: history.base, ahead: history.ahead, mergeBase: current?.mergeBase ?? "" }, expanded, files }
+  }, [branch, commits.branch.error, commits.rangeFiles, expandedCommits, history, selected, selection])
+  const anyCommitExpanded = (history?.commits.some((commit) => expandedCommits.has(commit.hash)) ?? false)
+    || (pinned?.expanded ?? false)
+  // Selecting a run opens the pinned row on it, since its files are the point.
+  const select = useCallback((anchor: string, focus: string) => {
+    const next = rangeSelection(listed, anchor, focus)
+    setSelection(next)
+    if (next) setExpandedCommits((current) => current.has(compareRowKey) ? current : new Set(current).add(compareRowKey))
+  }, [listed])
+  const setRange = (range: typeof layout.range) => {
+    if (range !== layout.range) setSelection(null)
+    layout.setRange(range)
+  }
   const bothOpen = !layout.changesCollapsed && !layout.commitsCollapsed
   // Open sections share the height; the desktop split weights them.
   const share = mobile || !bothOpen ? 0.5 : layout.changesShare
@@ -143,9 +177,9 @@ export function SourceControlView({ activeCommit, activePath, changes, commits, 
               )}
               <div className="source-control-range" role="group" aria-label="Commit range">
                 <button type="button" aria-pressed={layout.range === "branch"} title="Commits on this branch only"
-                  onClick={() => layout.setRange("branch")}>Branch</button>
+                  onClick={() => setRange("branch")}>Branch</button>
                 <button type="button" aria-pressed={layout.range === "all"} title="All history of HEAD"
-                  onClick={() => layout.setRange("all")}>All</button>
+                  onClick={() => setRange("all")}>All</button>
               </div>
               <button type="button" className="source-control-group-action" aria-label="Collapse All Commits" title="Collapse All Commits"
                 disabled={layout.commitsCollapsed || !anyCommitExpanded} onClick={() => setExpandedCommits(new Set())}>
@@ -153,8 +187,9 @@ export function SourceControlView({ activeCommit, activePath, changes, commits, 
               </button>
             </div>
             <div id="source-control-commits" className="source-control-section-body" hidden={layout.commitsCollapsed}>
-              <CommitsView commits={commits} range={layout.range} active={activeCommit} expanded={expandedCommits} mobile={mobile}
-                onDismiss={onDismiss} onExpandedChange={setExpandedCommits} onOpen={onOpenCommit} onShowAll={() => layout.setRange("all")} />
+              <CommitsView commits={commits} range={layout.range} active={activeHistory} expanded={expandedCommits} mobile={mobile}
+                pinned={pinned} selected={selected} onClearSelection={() => setSelection(null)} onSelect={select}
+                onDismiss={onDismiss} onExpandedChange={setExpandedCommits} onOpen={onOpenTab} onShowAll={() => setRange("all")} />
             </div>
           </div>
         </div>

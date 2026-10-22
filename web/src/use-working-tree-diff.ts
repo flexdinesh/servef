@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { isDiffErrorResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
+import { tabKey, type WorkspaceTab } from "./workspace-tabs.ts"
 
 // Focus refetches run at most this often.
 const focusThrottle = 2_000
@@ -8,21 +9,27 @@ const focusThrottle = 2_000
 export type DiffState =
   | { kind: "loading" }
   | { kind: "ready"; diff: DiffResponse }
-  // unchanged: the tracked file matches HEAD again.
+  // unchanged: the tracked file matches HEAD again, or a branch no longer
+  // changes it.
   | { kind: "unchanged"; message: string }
   | { kind: "error"; message: string }
 
-function diffUrl(project: string, path: string, oldPath: string, commit: string): string {
-  const params = new URLSearchParams({ project, path })
+function diffUrl(project: string, tab: WorkspaceTab, oldPath: string): string {
+  const params = new URLSearchParams({ project, path: tab.path })
   if (oldPath) params.set("oldPath", oldPath)
-  if (commit) params.set("commit", commit)
+  if (tab.kind === "commit") params.set("commit", tab.commit)
+  if (tab.kind === "branch") params.set("branch", "1")
+  if (tab.kind === "range") {
+    params.set("from", tab.from)
+    params.set("to", tab.to)
+  }
   return `/api/diff?${params.toString()}`
 }
 
-async function fetchDiff(project: string, path: string, oldPath: string, commit: string, signal: AbortSignal): Promise<DiffState> {
+async function fetchDiff(project: string, tab: WorkspaceTab, oldPath: string, signal: AbortSignal): Promise<DiffState> {
   let response: Response
   try {
-    response = await fetch(diffUrl(project, path, oldPath, commit), { headers: { Accept: "application/json" }, signal })
+    response = await fetch(diffUrl(project, tab, oldPath), { headers: { Accept: "application/json" }, signal })
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") throw error
     return { kind: "error", message: "Couldn't load this diff: the server didn't respond." }
@@ -49,11 +56,12 @@ function sameDiff(left: DiffResponse, right: DiffResponse): boolean {
 
 // useWorkingTreeDiff reads the open diff tab's sides. It refetches when the
 // tab is activated, on window focus (throttled), and on retry; a refetch keeps
-// the shown diff until its answer arrives. With commit set it reads that
-// commit's change to path instead, which never changes, so focus does not
-// refetch it.
-export function useWorkingTreeDiff(project: string, path: string, oldPath: string, commit = "") {
-  const key = path ? `${commit}\n${path}\n${oldPath}` : ""
+// the shown diff until its answer arrives. Commit and range diffs never
+// change, so focus refetches only working-tree and branch diffs.
+export function useWorkingTreeDiff(project: string, tab: WorkspaceTab | null, oldPath: string) {
+  const diff = tab && tab.kind !== "document" ? tab : null
+  const key = diff ? `${tabKey(diff)}\n${oldPath}` : ""
+  const live = diff?.kind === "diff" || diff?.kind === "branch"
   const [entry, setEntry] = useState<{ key: string; state: DiffState } | null>(null)
   const [loading, setLoading] = useState(false)
   const [request, setRequest] = useState(0)
@@ -61,12 +69,13 @@ export function useWorkingTreeDiff(project: string, path: string, oldPath: strin
   // Leaving diffs drops the last response; activation refetches anyway.
   if (!key && entry) setEntry(null)
 
+  // Callers memoize tab, so the read reruns when the tab or retry changes.
   useEffect(() => {
-    if (!project || !path) return
+    if (!project || !diff) return
     const controller = new AbortController()
     lastRead.current = Date.now()
     setLoading(true)
-    fetchDiff(project, path, oldPath, commit, controller.signal).then((state) => {
+    fetchDiff(project, diff, oldPath, controller.signal).then((state) => {
       setEntry((previous) => previous?.key === key && previous.state.kind === "ready" && state.kind === "ready" && sameDiff(previous.state.diff, state.diff)
         ? previous
         : { key, state })
@@ -78,10 +87,10 @@ export function useWorkingTreeDiff(project: string, path: string, oldPath: strin
       controller.abort()
       setLoading(false)
     }
-  }, [commit, key, oldPath, path, project, request])
+  }, [diff, key, oldPath, project, request])
 
   useEffect(() => {
-    if (!path || commit) return
+    if (!live) return
     const onReturn = () => {
       if (document.visibilityState !== "visible" || Date.now() - lastRead.current < focusThrottle) return
       setRequest((count) => count + 1)
@@ -92,7 +101,7 @@ export function useWorkingTreeDiff(project: string, path: string, oldPath: strin
       window.removeEventListener("focus", onReturn)
       document.removeEventListener("visibilitychange", onReturn)
     }
-  }, [commit, path])
+  }, [live, key])
 
   const retry = useCallback(() => setRequest((count) => count + 1), [])
   const state: DiffState = entry?.key === key && key ? entry.state : { kind: "loading" }

@@ -337,12 +337,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.serveCommitFiles(w, r, projectID, query.Get("commit"))
 		return
 	}
-	if r.URL.Path == "/api/diff" && query.Has("commit") {
-		a.serveCommitDiff(w, r, projectID, query.Get("commit"), query.Get("path"), query.Get("oldPath"))
+	if r.URL.Path == "/api/branch-files" {
+		a.serveBranchFiles(w, r, projectID)
+		return
+	}
+	if r.URL.Path == "/api/range-files" {
+		a.serveRangeFiles(w, r, projectID, query.Get("from"), query.Get("to"))
 		return
 	}
 	if r.URL.Path == "/api/diff" {
-		a.serveDiff(w, r, projectID, query.Get("path"), query.Get("oldPath"))
+		a.serveDiffs(w, r, projectID, query)
 		return
 	}
 	if r.URL.Path == "/api/format" {

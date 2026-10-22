@@ -46,7 +46,7 @@ import { releaseDiffResources, useParsedDiff } from "./use-parsed-diff.ts"
 import { useSourceControlLayout } from "./use-source-control-layout.ts"
 import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
 import {
-  commitTab, diffTab, documentTab, includesTab, isCommitHash, tabName, type WorkspaceTab,
+  documentTab, includesTab, isCommitHash, routeDiffTab, sameTab, tabKey, tabName, type WorkspaceTab,
 } from "./workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
 import { CommandPalette } from "./CommandPalette.tsx"
@@ -71,15 +71,17 @@ import { useProjectMemory } from "./use-project-memory.ts"
 import { useSearchSession } from "./use-search-session.ts"
 import { useSidebar } from "./use-sidebar.ts"
 
-// routeTab is the tab a route shows: a commit diff, a working-tree diff, or a
-// document, else none.
-function routeTab(commit: string, diffPath: string, documentPath: string): WorkspaceTab | null {
-  if (diffPath) return commit ? commitTab(commit, diffPath) : diffTab(diffPath)
+// routeTab is the tab a route shows: a diff of any kind, or a document, else
+// none.
+function routeTab(diff: WorkspaceTab | null, documentPath: string): WorkspaceTab | null {
+  if (diff) return diff
   return documentPath ? documentTab(documentPath) : null
 }
 
 function tabSearch(project: string, tab: WorkspaceTab) {
   if (tab.kind === "commit") return { project, path: tab.path, commit: tab.commit }
+  if (tab.kind === "branch") return { project, path: tab.path, branch: 1 as const }
+  if (tab.kind === "range") return { project, path: tab.path, from: tab.from, to: tab.to }
   return tab.kind === "diff" ? { project, path: tab.path, diff: 1 as const } : { project, path: tab.path }
 }
 
@@ -109,10 +111,22 @@ export function App({ project }: AppProps) {
   const isLoading = useRouterState({ select: (state) => state.isLoading })
   const hash = useRouterState({ select: (state) => state.location.hash })
   const lineRange = parseLineAnchor(hash)
-  // A diff tab routes as /view?path=…&diff=1 and a commit diff tab as
-  // /view?path=…&commit=<hash>; their page carries only the tree.
-  const diffCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) && typeof search.path === "string" ? search.commit : "" })
-  const diffPath = useSearch({ strict: false, select: (search) => (search.diff === 1 || isCommitHash(search.commit)) && typeof search.path === "string" ? search.path : "" })
+  // A diff tab routes as /view?path=…&diff=1, a commit diff tab as
+  // &commit=<hash>, a branch diff as &branch=1, and a range diff as
+  // &from=<hash>&to=<hash>; their page carries only the tree.
+  const searchPath = useSearch({ strict: false, select: (search) => typeof search.path === "string" ? search.path : "" })
+  const searchDiff = useSearch({ strict: false, select: (search) => search.diff === 1 })
+  const searchCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) ? search.commit : "" })
+  const searchBranch = useSearch({ strict: false, select: (search) => search.branch === 1 })
+  const searchFrom = useSearch({ strict: false, select: (search) => isCommitHash(search.from) ? search.from : "" })
+  const searchTo = useSearch({ strict: false, select: (search) => isCommitHash(search.to) ? search.to : "" })
+  const diffRoute = useMemo(() => routeDiffTab({
+    path: searchPath, diff: searchDiff ? 1 : undefined, commit: searchCommit, branch: searchBranch ? 1 : undefined, from: searchFrom, to: searchTo,
+  }), [searchBranch, searchCommit, searchDiff, searchFrom, searchPath, searchTo])
+  const diffPath = diffRoute?.path ?? ""
+  // workingDiff is set for a working-tree diff tab; history diffs (commit,
+  // branch, range) read git objects only.
+  const workingDiffTab = diffRoute?.kind === "diff"
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
@@ -160,9 +174,9 @@ export function App({ project }: AppProps) {
   const loadError = result?.kind === "failure" ? result.message : ""
   const routedPage = result?.kind === "page" ? result.page : null
   const routedDocument = routedPage?.hasFile ? routedPage.selected : ""
-  const routedTab = useMemo(() => routeTab(diffCommit, diffPath, routedDocument), [diffCommit, diffPath, routedDocument])
+  const routedTab = useMemo(() => routeTab(diffRoute, routedDocument), [diffRoute, routedDocument])
   const activeDocument = page.hasFile ? page.selected : ""
-  const activeTab = useMemo(() => routeTab(diffCommit, diffPath, activeDocument), [activeDocument, diffCommit, diffPath])
+  const activeTab = useMemo(() => routeTab(diffRoute, activeDocument), [activeDocument, diffRoute])
   const workspace = useDocumentWorkspace(routedTab)
   const { setDocumentMode } = workspace
   const previewPreference = usePreviewPreference(project)
@@ -194,14 +208,14 @@ export function App({ project }: AppProps) {
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
 
-  // The open diff tab: its sides, parsed hunks, and toolbar options. A commit
-  // diff's rename is resolved by the server from the commit itself.
+  // The open diff tab: its sides, parsed hunks, and toolbar options. A
+  // history diff's rename is resolved by the server from git itself.
   const diffOptions = useDiffOptions()
-  const changedFile = diffPath && !diffCommit ? changes.byPath.get(diffPath) : undefined
-  const workingDiff = useWorkingTreeDiff(project, diffPath, changedFile?.oldPath ?? "", diffCommit)
+  const changedFile = workingDiffTab ? changes.byPath.get(diffPath) : undefined
+  const workingDiff = useWorkingTreeDiff(project, diffRoute, changedFile?.oldPath ?? "")
   const diffState = workingDiff.state
   const content = useMemo(() => diffState.kind === "ready" ? diffContent(diffState.diff) : null, [diffState])
-  const parsedDiff = useParsedDiff(diffCommit ? `${diffCommit}:${diffPath}` : diffPath, content, diffOptions.options.ignoreWhitespace)
+  const parsedDiff = useParsedDiff(diffRoute ? tabKey(diffRoute) : "", content, diffOptions.options.ignoreWhitespace)
   const hasDiffTabs = workspace.tabs.some((tab) => tab.kind !== "document")
   // Closing the last diff tab frees its workers and caches until the next one.
   useEffect(() => {
@@ -216,40 +230,43 @@ export function App({ project }: AppProps) {
   const diffSlow = useDelayedFlag(workingDiff.loading || parsedDiff.parsing, 150)
   const diffDeleted = (diffState.kind === "ready" ? diffState.diff.status : changedFile?.status) === "deleted"
   const isDeleted = useCallback((path: string) => changes.byPath.get(path)?.status === "deleted"
-    || (path === diffPath && !diffCommit && diffDeleted), [changes.byPath, diffCommit, diffDeleted, diffPath])
-  // A commit diff opens the working copy only while the tree still has it.
+    || (path === diffPath && workingDiffTab && diffDeleted), [changes.byPath, diffDeleted, diffPath, workingDiffTab])
+  // A history diff opens the working copy only while the tree still has it.
   const treeFiles = useMemo(() => new Set(filePaths(page.tree)), [page.tree])
-  const openFileReason = diffCommit
+  const openFileReason = diffRoute && !workingDiffTab
     ? treeFiles.has(diffPath) ? "" : "This file isn't in the working tree"
     : diffDeleted ? "This file was deleted; there's no working copy to open" : ""
-  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, tab.kind === "diff" && isDeleted(tab.path)), [isDeleted])
+  // Branch tabs name the base once Source Control has read it.
+  const branchBase = commits.branch.result?.base || commits.result?.base || ""
+  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, tab.kind === "diff" && isDeleted(tab.path), branchBase), [branchBase, isDeleted])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
 
   // openDiff opens a change's diff tab. Click keeps focus in Source Control;
   // Enter and double-click move it to the diff, as in Search.
   const openDiff = useCallback((path: string, focusDocument: boolean) => {
-    if (path === diffPath && !diffCommit) {
+    if (path === diffPath && workingDiffTab) {
       if (focusDocument) main.current?.focus({ preventScroll: true })
       return
     }
     if (focusDocument) prepareDocumentNavigation()
     void navigate({ to: "/view", search: { project, path, diff: 1 }, hash: "" })
-  }, [diffCommit, diffPath, main, navigate, prepareDocumentNavigation, project])
-  // openCommitDiff opens a commit file's diff tab, focusing as openDiff does.
-  const openCommitDiff = useCallback((commit: string, path: string, focusDocument: boolean) => {
-    if (path === diffPath && commit === diffCommit) {
+  }, [diffPath, main, navigate, prepareDocumentNavigation, project, workingDiffTab])
+  // openHistoryDiff opens a commit, branch, or range file's diff tab,
+  // focusing as openDiff does.
+  const openHistoryDiff = useCallback((tab: WorkspaceTab, focusDocument: boolean) => {
+    if (sameTab(tab, diffRoute)) {
       if (focusDocument) main.current?.focus({ preventScroll: true })
       return
     }
     if (focusDocument) prepareDocumentNavigation()
-    void navigate({ to: "/view", search: { project, path, commit }, hash: "" })
-  }, [diffCommit, diffPath, main, navigate, prepareDocumentNavigation, project])
-  const activeCommit = useMemo(() => diffCommit ? { commit: diffCommit, path: diffPath } : null, [diffCommit, diffPath])
+    void navigate({ to: "/view", search: tabSearch(project, tab), hash: "" })
+  }, [diffRoute, main, navigate, prepareDocumentNavigation, project])
+  const activeHistory = diffRoute && !workingDiffTab ? diffRoute : null
   const selectTab = useCallback((tab: WorkspaceTab) => {
-    if (tab.kind === "diff") openDiff(tab.path, true)
-    else if (tab.kind === "commit") openCommitDiff(tab.commit, tab.path, true)
-    else navigateToDocument(tab.path)
-  }, [navigateToDocument, openCommitDiff, openDiff])
+    if (tab.kind === "document") navigateToDocument(tab.path)
+    else if (tab.kind === "diff") openDiff(tab.path, true)
+    else openHistoryDiff(tab, true)
+  }, [navigateToDocument, openDiff, openHistoryDiff])
 
   // A diff's line selection lives in its fragment too: #R12-R20, #L5.
   const diffSelection = diffPath ? parseDiffLineAnchor(hash) : null
@@ -374,8 +391,8 @@ export function App({ project }: AppProps) {
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
           sourceControl={<SourceControlView changes={changes} commits={commits} layout={sourceControlLayout}
-            activePath={diffCommit ? "" : diffPath} activeCommit={activeCommit} mobile={sidebar.mobile}
-            onDismiss={sidebar.dismiss} onOpen={openDiff} onOpenCommit={openCommitDiff} />}
+            activePath={workingDiffTab ? diffPath : ""} activeHistory={activeHistory} mobile={sidebar.mobile}
+            onDismiss={sidebar.dismiss} onOpen={openDiff} onOpenTab={openHistoryDiff} />}
         />
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
@@ -408,6 +425,7 @@ export function App({ project }: AppProps) {
           <DocumentPane
             diff={diffPath ? <DiffDocument content={content} fileDiff={fileDiff} narrow={sidebar.mobile}
               options={diffOptions.options} parseFailed={parsedDiff.failed} path={diffPath} scrollRoot={main}
+              unchangedSince={diffRoute?.kind === "branch" ? branchBase ? `vs ${branchBase}` : "on this branch" : undefined}
               selection={{ range: diffTarget ? diffSelection : null, reference: diffReference, onChange: selectDiffLines }} state={diffState}
               onOpenFile={() => navigateToDocument(diffPath)} onRetry={workingDiff.retry} /> : undefined}
             hasData={hasData}

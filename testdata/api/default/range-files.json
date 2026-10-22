@@ -1,0 +1,24 @@
+{
+  "from": "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2",
+  "to": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+  "files": [
+    {
+      "path": "code/app.js",
+      "status": "added"
+    },
+    {
+      "path": "code/main.go",
+      "status": "modified"
+    },
+    {
+      "path": "config/servef.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "guides/getting-started.md",
+      "oldPath": "guides/intro.md",
+      "status": "renamed"
+    }
+  ],
+  "truncated": false
+}
