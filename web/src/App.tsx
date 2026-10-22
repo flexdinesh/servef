@@ -37,7 +37,7 @@ import { diffStats } from "./features/source-control/diff-stats.ts"
 import { useChanges } from "./features/source-control/use-changes.ts"
 import { useCommits } from "./features/source-control/use-commits.ts"
 import { useDiffTab } from "./features/source-control/use-diff-tab.ts"
-import { releaseHighlightResources } from "./use-highlighted-lines.ts"
+import { releaseHighlightResources } from "./highlighting/use-highlighted-lines.ts"
 import { releaseDiffResources } from "./features/source-control/use-parsed-diff.ts"
 import { useSourceControlLayout } from "./features/source-control/use-source-control-layout.ts"
 import {

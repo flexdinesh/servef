@@ -5,7 +5,7 @@ import { useClipboardCopy } from "../../clipboard.ts"
 import type { ColumnRange, NavigationKind } from "../navigation/code-navigation.ts"
 import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "./line-selection.ts"
 import { showLink, targetAt, wordRange, type SourceTarget } from "../navigation/source-position.ts"
-import { useHighlightedLines } from "../../use-highlighted-lines.ts"
+import { useHighlightedLines } from "../../highlighting/use-highlighted-lines.ts"
 
 // LineSelection connects gutter selection to its owner (the URL fragment).
 export interface LineSelection {

@@ -18,7 +18,7 @@ function isFamily(value: unknown): value is Family {
 // testdata/document-families.json mirrors internal/document.Builtins(); Go
 // tests keep it equal to the registry.
 async function registeredFamilies(): Promise<Family[]> {
-  const source = await readFile(new URL("../../testdata/document-families.json", import.meta.url), "utf8")
+  const source = await readFile(new URL("../../../testdata/document-families.json", import.meta.url), "utf8")
   const value: unknown = JSON.parse(source)
   assert.ok(Array.isArray(value))
   assert.ok(value.every(isFamily), "families are {id, language} objects")

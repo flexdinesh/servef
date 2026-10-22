@@ -4,7 +4,7 @@ import test from "node:test"
 import * as highlights from "@pierre/highlights"
 
 import type { HighlightsModule } from "./highlights-loader.ts"
-import { splitSourceLines } from "./features/documents/line-selection.ts"
+import { splitSourceLines } from "../features/documents/line-selection.ts"
 import { highlightLines, TOKENIZE_MAX_LINE_LENGTH } from "./syntax-highlight.ts"
 
 function text(html: string): string {

@@ -1,6 +1,6 @@
 import { highlightsOnMainThread } from "./highlight-thread.ts"
 import { loadHighlights } from "./highlights-loader.ts"
-import { isRecord } from "./http.ts"
+import { isRecord } from "../http.ts"
 import { highlightLines } from "./syntax-highlight.ts"
 
 export interface HighlightWorker extends EventTarget {

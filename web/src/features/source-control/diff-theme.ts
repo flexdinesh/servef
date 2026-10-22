@@ -1,6 +1,6 @@
 import { registerCustomTheme } from "@pierre/diffs"
 
-import { SYNTAX_THEME } from "../../syntax-theme.ts"
+import { SYNTAX_THEME } from "../../highlighting/syntax-theme.ts"
 
 // servef's diff theme is its Highlights theme, so diffs color tokens as
 // Source does and follow the active theme. The variables cross Pierre's

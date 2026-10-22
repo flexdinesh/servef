@@ -2,9 +2,9 @@ import { type MouseEvent, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom"
 
 import { CodeBlockControls } from "./CodeBlockControls.tsx"
-import { loadHighlights } from "../../highlights-loader.ts"
+import { loadHighlights } from "../../highlighting/highlights-loader.ts"
 import { MermaidBlock } from "./MermaidBlock.tsx"
-import { highlightLines } from "../../syntax-highlight.ts"
+import { highlightLines } from "../../highlighting/syntax-highlight.ts"
 
 interface DiagramPortal {
   host: HTMLDivElement
