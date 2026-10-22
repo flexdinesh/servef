@@ -24,7 +24,6 @@ func newMarkdown() Handler {
 		goldmark.WithExtensions(extension.GFM),
 		goldmark.WithRendererOptions(renderer.WithNodeRenderers(
 			util.Prioritized(&escapedHTMLRenderer{}, 500),
-			util.Prioritized(newFencedCodeRenderer(), 500),
 		)),
 	)}
 }

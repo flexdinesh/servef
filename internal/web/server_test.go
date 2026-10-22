@@ -45,7 +45,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	assertContains(t, guideData.Content,
 		"<h1>Getting started</h1>",
 		"<table>",
-		`<pre><code class="language-sh syntax-highlight">servef testdata/markdown`,
+		`<pre><code class="language-sh">servef testdata/markdown`,
 		`href="/view?project=.&amp;path=reference%2Ftopics%2Fsearch.md"`,
 	)
 	if guideData.FileSize == 0 {
@@ -57,9 +57,9 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 		t.Fatalf("code blocks status = %d, want %d", codeBlocks.Code, http.StatusOK)
 	}
 	assertContains(t, codeBlocksData.Content,
-		`<pre><code class="language-json syntax-highlight">`,
-		`<pre><code class="language-bash syntax-highlight">`,
-		`<pre><code class="language-shell syntax-highlight">`,
+		`<pre><code class="language-json">`,
+		`<pre><code class="language-bash">`,
+		`<pre><code class="language-shell">`,
 		`<pre><code class="language-custom-format">unknown &lt;syntax&gt; remains safely escaped`,
 		`<pre><code>plain text still supports copying`,
 	)
@@ -224,7 +224,9 @@ func TestAppListsAndRendersMarkdown(t *testing.T) {
 	}
 }
 
-func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
+// The browser highlights fences (decision 0029); the server sends every fence
+// escaped with its declared language.
+func TestAppEscapesFencesWithTheirLanguage(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "diagrams.md"), strings.Join([]string{
 		"```mermaid",
@@ -253,9 +255,7 @@ func TestAppHighlightsKnownCodeAndPreservesOtherFences(t *testing.T) {
 	assertContains(t, body,
 		"<pre><code class=\"language-mermaid\">flowchart LR\n",
 		`A[&quot;&lt;script&gt;alert('no')&lt;/script&gt; &amp; text&quot;] --&gt; B`,
-		`<pre><code class="language-go syntax-highlight">`,
-		`<span class="syntax-nf">Println</span>`,
-		`<span class="syntax-s">&#34;&lt;ordinary&gt; &amp; code&#34;</span>`,
+		`<pre><code class="language-go">fmt.Println(&quot;&lt;ordinary&gt; &amp; code&quot;)`,
 		`<pre><code class="language-unknown-language">&lt;unknown&gt; &amp; code`,
 		`<pre><code>&lt;plain&gt; &amp; code`,
 	)

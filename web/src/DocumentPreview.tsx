@@ -2,7 +2,9 @@ import { type MouseEvent, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom"
 
 import { CodeBlockControls } from "./CodeBlockControls.tsx"
+import { loadHighlights } from "./highlights-loader.ts"
 import { MermaidBlock } from "./MermaidBlock.tsx"
+import { highlightLines } from "./syntax-highlight.ts"
 
 interface DiagramPortal {
   host: HTMLDivElement
@@ -35,8 +37,8 @@ function internalDocumentHref(event: MouseEvent<HTMLElement>): string | null {
   return `${url.pathname}${url.search}${url.hash}`
 }
 
-function codeLanguage(code: HTMLElement): string | null {
-  if (!code.classList.contains("syntax-highlight")) return null
+// fenceLanguage is a fence's declared language, from goldmark's class.
+function fenceLanguage(code: HTMLElement): string | null {
   const languageClass = [...code.classList].find((className) => className.startsWith("language-"))
   return languageClass?.slice("language-".length) || null
 }
@@ -59,6 +61,7 @@ export function DocumentPreview({ html, navigate }: DocumentPreviewProps) {
       restoreBlocks.push(() => host.replaceWith(pre))
       return [{ host, key: index, source: code.textContent ?? "" }]
     })
+    const fences: Array<{ code: HTMLElement; language: string | null; source: string }> = []
     const nextCodeBlocks = [...article.current.querySelectorAll<HTMLElement>("pre > code")].flatMap((code, index) => {
       const pre = code.parentElement
       if (!pre) return []
@@ -69,11 +72,30 @@ export function DocumentPreview({ html, navigate }: DocumentPreviewProps) {
       pre.replaceWith(wrapper)
       wrapper.append(pre, host)
       restoreBlocks.push(() => wrapper.replaceWith(pre))
-      return [{ host, key: index, language: codeLanguage(code), source: code.textContent ?? "" }]
+      const source = code.textContent ?? ""
+      fences.push({ code, language: fenceLanguage(code), source })
+      // Fences gain a language label once Highlights recognizes it.
+      return [{ host, key: index, language: null, source }]
     })
     setDiagrams(nextDiagrams)
     setCodeBlocks(nextCodeBlocks)
-    return () => { for (const restore of restoreBlocks) restore() }
+    // Fences highlight in the browser (decision 0029); unknown languages and
+    // a failed Highlights load stay escaped plain text.
+    let current = true
+    void loadHighlights().then((highlights) => {
+      if (!current || !highlights) return
+      const labels = fences.map(({ code, language, source }) => {
+        const lines = language ? highlightLines(highlights, source, language) : null
+        if (!lines) return null
+        code.innerHTML = lines.join("\n")
+        return language
+      })
+      setCodeBlocks((blocks) => blocks.map((block, index) => ({ ...block, language: labels[index] ?? null })))
+    })
+    return () => {
+      current = false
+      for (const restore of restoreBlocks) restore()
+    }
   }, [html])
 
   return (

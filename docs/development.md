@@ -98,9 +98,11 @@ Families are composed in `internal/document.Builtins()`:
 `Registry.Lookup` resolves an exact base name (`Filenames`), then the extension
 (`Extensions`), then the source-only fallback family (`text`, plain text). Names
 are case-insensitive, and IDs, extensions, and filenames must each belong to
-one family. `Language` must name a bundled Chroma lexer (`plaintext` for plain
-text); only raster image families may leave it empty. Chroma only highlights;
-it never guesses a file's type.
+one family. `Language` must name a Highlights language (`text` for plain text);
+only raster image families may leave it empty. The browser highlights Source,
+Format, Markdown fences, and diffs with it (decision 0029); nothing guesses a
+file's type. Add the family and its language to
+`testdata/document-families.json`; web tests check the language exists.
 
 For a source-only language, register a `CodeHandler`:
 

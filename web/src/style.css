@@ -2113,55 +2113,6 @@ article code {
 .hl-italic { font-style: italic; }
 .hl-bold { font-weight: 700; }
 
-.syntax-highlight [class^="syntax-c"] {
-  color: var(--color-syntax-comment);
-  font-style: italic;
-}
-
-.syntax-highlight [class^="syntax-k"] {
-  color: var(--color-syntax-keyword);
-}
-
-.syntax-highlight [class^="syntax-n"] {
-  color: var(--color-syntax-variable);
-}
-
-.syntax-highlight :is(.syntax-nb, .syntax-bp, .syntax-nd, .syntax-ni, .syntax-nf, .syntax-fm) {
-  color: var(--color-syntax-function);
-}
-
-.syntax-highlight :is(.syntax-kt, .syntax-nc, .syntax-no, .syntax-ne, .syntax-nt) {
-  color: var(--color-syntax-type);
-}
-
-.syntax-highlight [class^="syntax-s"] {
-  color: var(--color-syntax-string);
-}
-
-.syntax-highlight :is(.syntax-l, .syntax-ld, [class^="syntax-m"]) {
-  color: var(--color-syntax-number);
-}
-
-.syntax-highlight [class^="syntax-o"] {
-  color: var(--color-syntax-operator);
-}
-
-.syntax-highlight :is(.syntax-err, .syntax-gd, .syntax-gr, .syntax-gt) {
-  color: var(--color-destructive);
-}
-
-.syntax-highlight .syntax-gi {
-  color: var(--color-success);
-}
-
-.syntax-highlight .syntax-ge {
-  font-style: italic;
-}
-
-.syntax-highlight .syntax-gs {
-  font-weight: 700;
-}
-
 article :not(pre) > code {
   padding: 0.15em 0.35em;
   border: 1px solid var(--color-border);

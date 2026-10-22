@@ -8,7 +8,7 @@ import (
 
 // mermaidHandler previews a Mermaid file as one escaped mermaid fence, the
 // same markup Markdown emits, so the UI's Markdown preview renders the diagram.
-// Chroma has no Mermaid lexer; Source shows plain text.
+// Highlights has no Mermaid lexer; Source shows plain text.
 type mermaidHandler struct{}
 
 func newMermaid() Handler { return mermaidHandler{} }

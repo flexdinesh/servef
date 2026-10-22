@@ -466,8 +466,9 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
   await page.goto("/view?path=reference%2Fapi.markdown")
   await showPreview(page)
 
-  const keyword = page.locator(".syntax-highlight [class^='syntax-k']").first()
-  await expect(keyword).toHaveText("func")
+  // Highlights keeps trailing whitespace in a token.
+  const keyword = page.locator("article .hl-keyword").filter({ hasText: /^func\s*$/ }).first()
+  await expect(keyword).toBeVisible()
   await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
 
   await (await themeSetting(page)).selectOption({ label: "Nord" })

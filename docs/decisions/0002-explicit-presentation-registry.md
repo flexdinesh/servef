@@ -1,6 +1,6 @@
 # 0002: Explicit registry decides presentation only
 
-- Status: Accepted
+- Status: Accepted; Chroma highlighting superseded by [0029](0029-highlights-syntax-highlighting.md)
 - Date: 2026-10-12
 
 ## Context
