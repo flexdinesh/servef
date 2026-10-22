@@ -178,7 +178,7 @@ Workspace identity sits above the explorer as the project picker trigger. App id
 - Left-aligned proportional prose and monospace code.
 - Shared semantic roles across named editor themes.
 
-Implementation authority: `web/src/style.css`, `web/src/FileTree.tsx`, shared primitives in `web/src/components/ui/`, and `web/src/theme.ts`. Frontmatter captures base Light tokens and effective component roles. Theme overrides remain in CSS; the sidecar adds metadata and examples.
+Implementation authority: `web/src/style.css`, `web/src/features/explorer/FileTree.tsx`, shared primitives in `web/src/components/ui/`, and `web/src/settings/theme.ts`. Frontmatter captures base Light tokens and effective component roles. Theme overrides remain in CSS; the sidecar adds metadata and examples.
 
 ## Colors
 
