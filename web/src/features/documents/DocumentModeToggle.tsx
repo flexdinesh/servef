@@ -1,6 +1,6 @@
 import { documentModes, modeDisabledReason } from "./document-view.ts"
-import type { DocumentMode, PageData } from "./page-contract.ts"
-export type { DocumentMode } from "./page-contract.ts"
+import type { DocumentMode, PageData } from "../../page-contract.ts"
+export type { DocumentMode } from "../../page-contract.ts"
 
 interface DocumentModeToggleProps {
   page: PageData

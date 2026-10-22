@@ -1,5 +1,5 @@
 import { formatFailureMessage } from "./document-format.ts"
-import { formatBytes } from "./format-bytes.ts"
+import { formatBytes } from "../../format-bytes.ts"
 
 interface LargeFileNoticeProps {
   size: number

@@ -1,7 +1,7 @@
 import { CopyIcon } from "lucide-react"
 
-import { Button } from "./components/ui/button.tsx"
-import { useClipboardCopy } from "./clipboard.ts"
+import { Button } from "../../components/ui/button.tsx"
+import { useClipboardCopy } from "../../clipboard.ts"
 
 interface CodeBlockControlsProps {
   language: string | null

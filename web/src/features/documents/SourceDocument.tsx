@@ -1,11 +1,11 @@
 import { CheckIcon, CopyIcon } from "lucide-react"
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
 
-import { useClipboardCopy } from "./clipboard.ts"
-import type { ColumnRange, NavigationKind } from "./code-navigation.ts"
+import { useClipboardCopy } from "../../clipboard.ts"
+import type { ColumnRange, NavigationKind } from "../../code-navigation.ts"
 import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "./line-selection.ts"
-import { showLink, targetAt, wordRange, type SourceTarget } from "./source-position.ts"
-import { useHighlightedLines } from "./use-highlighted-lines.ts"
+import { showLink, targetAt, wordRange, type SourceTarget } from "../../source-position.ts"
+import { useHighlightedLines } from "../../use-highlighted-lines.ts"
 
 // LineSelection connects gutter selection to its owner (the URL fragment).
 export interface LineSelection {

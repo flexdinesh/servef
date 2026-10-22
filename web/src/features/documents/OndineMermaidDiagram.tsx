@@ -2,7 +2,7 @@ import { Maximize2Icon, RotateCcwIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lu
 import { use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import type { Render } from "ondine/compiler/wasm"
 
-import { Button } from "./components/ui/button.tsx"
+import { Button } from "../../components/ui/button.tsx"
 import {
   diagramZoomStep,
   fitDiagramView,

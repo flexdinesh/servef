@@ -1,6 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react"
 
-import { Button } from "./components/ui/button.tsx"
+import { Button } from "../../components/ui/button.tsx"
 import { MermaidSource } from "./MermaidSource.tsx"
 
 const OndineMermaidDiagram = lazy(() => import("./OndineMermaidDiagram.tsx"))

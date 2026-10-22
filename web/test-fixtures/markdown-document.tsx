@@ -2,7 +2,7 @@ import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
 import { ThemeProvider } from "../src/components/ThemeProvider.tsx"
-import { DocumentPreview } from "../src/DocumentPreview.tsx"
+import { DocumentPreview } from "../src/features/documents/DocumentPreview.tsx"
 import type { SearchMatch } from "../src/features/search/search-engine.ts"
 import { SearchView } from "../src/features/search/SearchView.tsx"
 import { useSearchSession } from "../src/features/search/use-search-session.ts"

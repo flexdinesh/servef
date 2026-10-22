@@ -10,7 +10,7 @@ import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, t
 import { CommitsView } from "./CommitsView.tsx"
 import { uiScale } from "../../settings.ts"
 import { maximumShare, minimumShare } from "./source-control-layout.ts"
-import { useDelayedFlag } from "../../use-document-format.ts"
+import { useDelayedFlag } from "../documents/use-document-format.ts"
 import type { Changes } from "./use-changes.ts"
 import { rangeKey, type Commits } from "./use-commits.ts"
 import type { SourceControlLayoutState } from "./use-source-control-layout.ts"

@@ -1,4 +1,4 @@
-import { formatBytes } from "./format-bytes.ts"
+import { formatBytes } from "../../format-bytes.ts"
 
 interface FileNoteProps {
   name: string

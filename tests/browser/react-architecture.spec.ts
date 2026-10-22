@@ -146,7 +146,7 @@ test("metrics polling stays single-flight and retains samples during failure", a
 })
 
 for (const [name, pattern] of [
-  ["module", "**/src/OndineMermaidDiagram.tsx"],
+  ["module", "**/src/features/documents/OndineMermaidDiagram.tsx"],
   ["WebAssembly", "**/all.generated*.wasm*"],
 ]) {
   test(`diagram ${name} failure offers reload and recovers`, async ({ page }) => {

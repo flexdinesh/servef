@@ -17,7 +17,7 @@ import { DIFF_THEME } from "./diff-theme.ts"
 import { formatBytes } from "../../format-bytes.ts"
 import { MAIN_THREAD_MAX_CHARACTERS } from "../../highlight-thread.ts"
 import { uiScale } from "../../settings.ts"
-import { LineCopyButton } from "../../SourceDocument.tsx"
+import { LineCopyButton } from "../documents/SourceDocument.tsx"
 import type { DiffState } from "./use-working-tree-diff.ts"
 
 // One servef theme serves both polarities; themeType picks the scheme.

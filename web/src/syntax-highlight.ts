@@ -1,7 +1,7 @@
 import type { ThemedToken } from "@pierre/highlights"
 
 import type { HighlightsModule } from "./highlights-loader.ts"
-import { splitSourceLines } from "./line-selection.ts"
+import { splitSourceLines } from "./features/documents/line-selection.ts"
 import { SYNTAX_THEME } from "./syntax-theme.ts"
 
 // Lines this long or longer render as one unstyled run, as in diffs, so a

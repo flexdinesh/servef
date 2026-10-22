@@ -9,8 +9,8 @@ import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
 import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
 import { SourceDocument, type LineSelection, type SourceNavigation } from "./SourceDocument.tsx"
-import type { PageData } from "./page-data.ts"
-import { projectUrl } from "./project-url.ts"
+import type { PageData } from "../../page-data.ts"
+import { projectUrl } from "../../project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
 
 interface DocumentPaneProps {
