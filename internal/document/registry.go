@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
-
-	"github.com/alecthomas/chroma/v2/lexers"
 )
 
 // Type describes a file family and the views the UI can offer. Source is always
@@ -14,6 +13,8 @@ import (
 // leading dot; filenames are exact base names. Matching is case-insensitive.
 // Formattable is derived by the registry from the Formatter capability;
 // handlers leave it unset. Language-server capabilities are composed by web.
+// Language is a Highlights language ID for browser highlighting ("text" for
+// none).
 type Type struct {
 	ID           string   `json:"id"`
 	Label        string   `json:"label"`
@@ -78,17 +79,12 @@ func (f Family) Preview(source []byte, context Context) (string, error) {
 	return f.handler.Preview(source, context)
 }
 
-// FormatLines formats a copy of source and returns escaped, highlighted HTML
-// per formatted line.
-func (f Family) FormatLines(source []byte) ([]string, error) {
+// Format formats a copy of source and returns the formatted text.
+func (f Family) Format(source []byte) ([]byte, error) {
 	if f.formatter == nil {
 		return nil, ErrNotFormattable
 	}
-	formatted, err := f.formatter.Format(append([]byte{}, source...))
-	if err != nil {
-		return nil, err
-	}
-	return HighlightLines(formatted, f.definition.Language), nil
+	return f.formatter.Format(append([]byte{}, source...))
 }
 
 // Registry is immutable after construction. It decides how a file is shown,
@@ -182,14 +178,15 @@ func newFamily(handler Handler) (Family, error) {
 		(definition.PreviewKind != "" && definition.Formattable) {
 		return Family{}, fmt.Errorf("invalid view policy for %q", definition.ID)
 	}
-	// Chroma only highlights: each family names its lexer explicitly. Raster
-	// images have no text source and may omit a language.
+	// Each family names its Highlights language explicitly; the browser
+	// highlights (decision 0029). Raster images have no text source and may omit
+	// a language. Web fixture tests check that names are Highlights languages.
 	if definition.Language == "" {
 		if definition.PreviewKind != PreviewImage {
 			return Family{}, fmt.Errorf("file type %q needs a language", definition.ID)
 		}
-	} else if lexers.Get(definition.Language) == nil {
-		return Family{}, fmt.Errorf("unknown highlight language %q for %q", definition.Language, definition.ID)
+	} else if !highlightLanguage.MatchString(definition.Language) {
+		return Family{}, fmt.Errorf("invalid highlight language %q for %q", definition.Language, definition.ID)
 	}
 	family := Family{handler: handler, definition: definition}
 	if formattable {
@@ -197,6 +194,8 @@ func newFamily(handler Handler) (Family, error) {
 	}
 	return family, nil
 }
+
+var highlightLanguage = regexp.MustCompile(`^[a-z0-9][a-z0-9+#_-]*$`)
 
 func cloneType(definition Type) Type {
 	definition.Extensions = append([]string{}, definition.Extensions...)

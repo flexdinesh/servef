@@ -129,7 +129,7 @@
       ".gitignore",
       ".dockerignore"
     ],
-    "language": "plaintext",
+    "language": "text",
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
@@ -138,11 +138,8 @@
   "binary": false,
   "tooLarge": false,
   "previewDisabled": true,
+  "highlightDisabled": true,
   "searchExcluded": true,
-  "sourceLines": [
-    "2026-10-12T09:00:00Z info server started",
-    "2026-10-12T09:00:01Z info indexed 42 files"
-  ],
   "previewError": "",
   "navigationSupported": false
 }

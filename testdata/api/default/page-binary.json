@@ -129,7 +129,7 @@
       ".gitignore",
       ".dockerignore"
     ],
-    "language": "plaintext",
+    "language": "text",
     "previewKind": "",
     "previewLabel": "",
     "defaultMode": "source",
@@ -138,8 +138,8 @@
   "binary": true,
   "tooLarge": false,
   "previewDisabled": false,
+  "highlightDisabled": true,
   "searchExcluded": true,
-  "sourceLines": [],
   "previewError": "",
   "navigationSupported": false
 }

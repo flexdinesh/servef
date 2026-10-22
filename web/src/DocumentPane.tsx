@@ -38,6 +38,8 @@ function fileName(path: string): string {
 export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceNavigation, view }: DocumentPaneProps) {
   const viewKind = loadError || page.error ? "none" : diff ? "diff" : view.kind
   const label = page.documentType?.label ?? "File"
+  // The server declares the highlight language and the size limit.
+  const language = page.highlightDisabled ? null : page.documentType?.language ?? null
 
   return (
     <main
@@ -81,12 +83,12 @@ export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, l
           </div>
         ) : <DocumentPreview key={page.selected} html={page.content} navigate={navigate} />
       ) : view.kind === "format" ? (
-        <FormattedDocument key={page.selected} lines={view.lines} label={`${label} formatted`} />
+        <FormattedDocument key={page.selected} text={view.text} language={language} label={`${label} formatted`} />
       ) : view.kind === "source" ? (
         <div className="source-stack">
           {page.previewDisabled && <LargeFileNotice size={page.fileSize} searchExcluded={page.searchExcluded} />}
           {view.formatError && <FormatErrorNotice reason={view.formatError} />}
-          <SourceDocument key={page.selected} source={page.source} highlightedLines={page.sourceLines} label={`${label} source`}
+          <SourceDocument key={page.selected} source={page.source} language={language} label={`${label} source`}
             selection={lineSelection} navigation={sourceNavigation} />
         </div>
       ) : hasData ? (

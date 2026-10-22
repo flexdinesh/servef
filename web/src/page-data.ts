@@ -21,7 +21,7 @@ export const emptyPage: PageData = {
   tooLarge: false,
   previewDisabled: false,
   searchExcluded: false,
-  sourceLines: [],
+  highlightDisabled: false,
   previewError: "",
   content: "",
   empty: false,

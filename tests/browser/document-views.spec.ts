@@ -5,7 +5,7 @@ import { apiOrigin } from "./ports.ts"
 function documentPage(selected: string, documentType: Record<string, unknown>, overrides: Record<string, unknown>) {
   const name = selected.split("/").at(-1) ?? selected
   return {
-    content: "", source: "", sourceLines: [], empty: false, error: "", fileCount: 1, fileSize: 0, hasFile: true,
+    content: "", source: "", highlightDisabled: false, empty: false, error: "", fileCount: 1, fileSize: 0, hasFile: true,
     roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected, warnings: [], previewError: "", filenamePatterns: ["*"], documentType,
     navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
     tree: [{ name, path: selected, fileType: String(documentType.id), isDir: false, open: false, selected: true, children: [] }],
@@ -124,7 +124,7 @@ test("large files show Source with a warning and disable preview", async ({ page
     previewKind: "markdown", previewLabel: "Preview", defaultMode: "preview", formattable: false,
   }
   await page.route(`**/api/page?project=${rootParam}&path=big.md`, (route) => route.fulfill({ json: documentPage("big.md", markdown, {
-    source: "# Big\n", sourceLines: ["# Big"], fileSize: 6_500_000, previewDisabled: true,
+    source: "# Big\n", highlightDisabled: true, fileSize: 6_500_000, previewDisabled: true,
   }) }))
   await page.goto("/view?path=big.md")
   await expect(page.getByRole("note")).toHaveText("Large file (6.2 MB): preview and formatting are off.")
@@ -165,7 +165,7 @@ test("very large files also note search exclusion and disable Format", async ({ 
     previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
   }
   await page.route(`**/api/page?project=${rootParam}&path=huge.json`, (route) => route.fulfill({ json: documentPage("huge.json", json, {
-    source: "{}\n", sourceLines: ["{}"], fileSize: 9_437_184, previewDisabled: true, searchExcluded: true,
+    source: "{}\n", highlightDisabled: true, fileSize: 9_437_184, previewDisabled: true, searchExcluded: true,
   }) }))
   await page.goto("/view?path=huge.json")
   await expect(page.getByRole("note")).toHaveText("Large file (9.0 MB): preview and formatting are off. Not included in search.")

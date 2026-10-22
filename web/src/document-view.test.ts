@@ -11,7 +11,7 @@ const emptyPage: PageData = {
   project: ".",
   projectUnavailable: false,
   filenamePatterns: ["*"], documentType: null, navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
-  sourceLines: [], previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
+  highlightDisabled: false, previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
   hasFile: false, rootName: "", repository: "", projectKind: "folder", worktrees: 0, selected: "", source: "", tree: [], warnings: [],
 }
 
@@ -64,7 +64,7 @@ test("format results replace Source only once ready", () => {
   const json = page(fileType({ formattable: true }))
   assert.deepEqual(documentView(json, "format", undefined), { kind: "source", formatPending: true, formatError: "" })
   assert.deepEqual(documentView(json, "format", { kind: "loading" }), { kind: "source", formatPending: true, formatError: "" })
-  assert.deepEqual(documentView(json, "format", { kind: "ready", lines: ["{}"] }), { kind: "format", lines: ["{}"] })
+  assert.deepEqual(documentView(json, "format", { kind: "ready", text: "{}\n" }), { kind: "format", text: "{}\n" })
   assert.deepEqual(documentView(json, "source", { kind: "error", message: "bad" }), { kind: "source", formatPending: false, formatError: "bad" })
   assert.deepEqual(documentView(page(svg), "preview", undefined), { kind: "image" })
   assert.deepEqual(documentView(page(markdown), "preview", undefined), { kind: "preview" })

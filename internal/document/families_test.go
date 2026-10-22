@@ -8,23 +8,28 @@ import (
 	"testing"
 )
 
+type familyFixture struct {
+	ID       string `json:"id"`
+	Language string `json:"language"`
+}
+
 // TestDocumentFamiliesFixtureMatchesBuiltins keeps testdata/document-families.json
-// in step with Builtins(). The web build checks that fixture so every family
-// has an explicit diff grammar choice in web/src/diff-language.ts (decision 0024).
+// in step with Builtins(). The web tests read each family's language from that
+// fixture and check it is a Highlights language (decision 0029).
 func TestDocumentFamiliesFixtureMatchesBuiltins(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "document-families.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var families []string
+	var families []familyFixture
 	if err := json.Unmarshal(data, &families); err != nil {
 		t.Fatal(err)
 	}
-	want := make([]string, 0, len(families))
+	want := make([]familyFixture, 0, len(families))
 	for _, fileType := range Builtins().Types() {
-		want = append(want, fileType.ID)
+		want = append(want, familyFixture{ID: fileType.ID, Language: fileType.Language})
 	}
 	if !reflect.DeepEqual(families, want) {
-		t.Fatalf("testdata/document-families.json = %q\nwant Builtins() IDs %q\nupdate the fixture and map new families in web/src/diff-language.ts", families, want)
+		t.Fatalf("testdata/document-families.json = %+v\nwant Builtins() families %+v\nupdate the fixture; the web tests check each language is a Highlights language (decision 0029)", families, want)
 	}
 }

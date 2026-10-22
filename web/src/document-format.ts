@@ -3,7 +3,7 @@ import { projectUrl } from "./project-url.ts"
 
 export type FormatState =
   | { kind: "loading" }
-  | { kind: "ready"; lines: readonly string[] }
+  | { kind: "ready"; text: string }
   | { kind: "error"; message: string }
 
 function serverError(payload: unknown): string {
@@ -35,7 +35,7 @@ export async function fetchFormat(project: string, path: string, signal: AbortSi
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "AbortError") throw error
   }
-  if (response.ok && isFormatResult(payload)) return { kind: "ready", lines: payload.formattedLines }
+  if (response.ok && isFormatResult(payload)) return { kind: "ready", text: payload.formatted }
   return {
     kind: "error",
     message: serverError(payload) || (response.ok

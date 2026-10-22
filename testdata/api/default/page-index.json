@@ -121,8 +121,8 @@
   "binary": false,
   "tooLarge": false,
   "previewDisabled": false,
+  "highlightDisabled": false,
   "searchExcluded": false,
-  "sourceLines": [],
   "previewError": "",
   "navigationSupported": false
 }

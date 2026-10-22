@@ -1,7 +1,6 @@
 import { parseDiffFromFile, type FileContents, type FileDiffMetadata } from "@pierre/diffs"
 
 import type { DiffResponse, DiffSide } from "./changes-contract.ts"
-import { diffLanguage } from "./diff-language.ts"
 import { formatBytes } from "./format-bytes.ts"
 
 // DiffContent is what a working-tree diff can show: text sides for Pierre, or
@@ -23,8 +22,9 @@ export function diffContent(diff: DiffResponse): DiffContent {
   if (original?.tooLarge || modified?.tooLarge) {
     return { kind: "tooLarge", size: Math.max(original?.size ?? 0, modified?.size ?? 0) }
   }
-  // The server's file type picks the grammar; Pierre never guesses one.
-  const lang = diffLanguage(diff.documentType.id)
+  // The server's file type picks the language; Pierre never guesses one.
+  // Raster images declare none, which Pierre reads as plain text.
+  const lang = diff.documentType.language || "text"
   return {
     kind: "text",
     oldFile: textFile(diff.oldPath || diff.path, original, lang),

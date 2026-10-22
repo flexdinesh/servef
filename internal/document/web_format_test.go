@@ -10,14 +10,14 @@ import (
 func formatWith(t *testing.T, name, source string) string {
 	t.Helper()
 	original := []byte(source)
-	lines, err := Builtins().Lookup(name).FormatLines(original)
+	formatted, err := Builtins().Lookup(name).Format(original)
 	if err != nil {
 		t.Fatalf("format %s: %v", name, err)
 	}
 	if string(original) != source {
 		t.Fatal("formatting mutated source")
 	}
-	return plainHTML(strings.Join(lines, "\n")) + "\n"
+	return string(formatted)
 }
 
 func withoutSpace(value string) string {
@@ -85,11 +85,11 @@ func TestJavaScriptFormatPreservesTokensAndLineBreaks(t *testing.T) {
 
 func TestJavaScriptFormatRejectsJSXAndMalformedInput(t *testing.T) {
 	family := Builtins().Lookup("app.mjs")
-	if _, err := family.FormatLines([]byte("const el = <div>hi there</div>")); !errors.Is(err, errJSXNotFormattable) {
+	if _, err := family.Format([]byte("const el = <div>hi there</div>")); !errors.Is(err, errJSXNotFormattable) {
 		t.Fatalf("jsx format error = %v", err)
 	}
 	source := "const s = 'searchable-js"
-	if _, err := family.FormatLines([]byte(source)); err == nil {
+	if _, err := family.Format([]byte(source)); err == nil {
 		t.Fatal("malformed js format succeeded")
 	}
 }
@@ -104,15 +104,7 @@ func TestHTMLFormatIndentsBlocksAndKeepsVerbatimContent(t *testing.T) {
 		"      <h1>Hello <b>bold</b>world</h1>\n      <p>\n        First\n        second <a title=\"multi\nline\">link</a>.\n" +
 		"      <p>Next\n      <ul>\n        <li>One\n        <li>Two\n      </ul>\n" +
 		"      <pre>  keep\n   <b>this</b></pre>\n      <textarea> t </textarea>\n    </div>\n  </body>\n</html>\n"
-	lines, err := Builtins().Lookup("index.html").FormatLines([]byte(source))
-	if err != nil {
-		t.Fatal(err)
-	}
-	rendered := strings.Join(lines, "\n")
-	if strings.Contains(rendered, "<script>") || !strings.Contains(rendered, "syntax-") {
-		t.Fatalf("unsafe/unhighlighted format: %s", rendered)
-	}
-	if got := plainHTML(rendered) + "\n"; got != want {
+	if got := formatWith(t, "index.html", source); got != want {
 		t.Fatalf("html format:\n%s", got)
 	}
 }

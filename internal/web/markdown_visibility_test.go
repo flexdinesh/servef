@@ -2,10 +2,8 @@ package web
 
 import (
 	"encoding/json"
-	"html"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -27,11 +25,6 @@ func TestAppMarkdownVisibilityPreservesSourceAndSearch(t *testing.T) {
 		if strings.Contains(page.Content, hidden) {
 			t.Fatalf("preview includes %q: %q", hidden, page.Content)
 		}
-	}
-	markup := regexp.MustCompile(`<[^>]*>`)
-	highlighted := html.UnescapeString(markup.ReplaceAllString(strings.Join(page.SourceLines, "\n"), ""))
-	if highlighted != strings.TrimSuffix(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
-		t.Fatalf("highlight changed source: %q", highlighted)
 	}
 	search := request(t, app, "/api/search-documents?project=.")
 	if search.Code != http.StatusOK {

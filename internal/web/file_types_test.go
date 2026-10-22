@@ -62,7 +62,7 @@ func TestFilenameScopeControlsTreePagesAndSearch(t *testing.T) {
 			if allowed != (response.Code == http.StatusOK) {
 				t.Fatalf("%v %s status = %d", patterns, name, response.Code)
 			}
-			if allowed && (!page.HasFile || page.DocumentType == nil || page.Source == "" || len(page.SourceLines) == 0) {
+			if allowed && (!page.HasFile || page.DocumentType == nil || page.Source == "" || page.HighlightDisabled) {
 				t.Fatalf("incomplete document contract: %+v", page)
 			}
 		}
@@ -86,13 +86,18 @@ func TestPageContractShape(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &contract); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"filenamePatterns", "binary", "previewDisabled", "searchExcluded", "documentType", "navigationSupported"} {
+	for _, key := range []string{"filenamePatterns", "binary", "previewDisabled", "highlightDisabled", "searchExcluded", "documentType", "navigationSupported"} {
 		if _, ok := contract[key]; !ok {
 			t.Errorf("missing %q", key)
 		}
 	}
-	if _, ok := contract["fileTypes"]; ok {
-		t.Error("legacy fileTypes present")
+	for _, key := range []string{"fileTypes", "sourceLines"} {
+		if _, ok := contract[key]; ok {
+			t.Errorf("legacy %s present", key)
+		}
+	}
+	if string(contract["highlightDisabled"]) != "false" {
+		t.Errorf("small text highlightDisabled = %s", contract["highlightDisabled"])
 	}
 	var fileType map[string]json.RawMessage
 	if err := json.Unmarshal(contract["documentType"], &fileType); err != nil {
@@ -128,7 +133,7 @@ func TestAnyFileOpensWithAFamily(t *testing.T) {
 		}
 	}
 	_, page := requestPageData(t, app, "/api/page?project=.&path=LICENSE")
-	if page.DocumentType.Label != "Plain text" || !reflect.DeepEqual(page.SourceLines, []string{"&lt;b&gt;plain&lt;/b&gt;"}) {
+	if page.DocumentType.Label != "Plain text" || page.DocumentType.Language != "text" || page.Source != "<b>plain</b>\n" || page.HighlightDisabled {
 		t.Fatalf("fallback page = %+v", page)
 	}
 	types := map[string]string{}
@@ -163,7 +168,7 @@ func TestBinaryFilesOpenWithoutSourceAndSkipSearch(t *testing.T) {
 		if response.Code != http.StatusOK || !page.HasFile || !page.Binary || !page.SearchExcluded || page.PreviewDisabled {
 			t.Fatalf("%s = %d %+v", name, response.Code, page)
 		}
-		if page.Source != "" || len(page.SourceLines) != 0 || page.Content != "" || page.DocumentType == nil || page.DocumentType.ID != want {
+		if page.Source != "" || !page.HighlightDisabled || page.Content != "" || page.DocumentType == nil || page.DocumentType.ID != want {
 			t.Fatalf("%s binary contract = %+v", name, page)
 		}
 		if size, _ := os.Stat(filepath.Join(root, name)); page.FileSize != size.Size() {
@@ -187,11 +192,11 @@ func TestRasterImagesAreBinaryWithoutNULBytes(t *testing.T) {
 	app := newTestApp(t, root)
 
 	_, page := requestPageData(t, app, "/api/page?project=.&path=pixel.gif")
-	if !page.HasFile || !page.Binary || !page.SearchExcluded || page.Source != "" || len(page.SourceLines) != 0 || page.FileSize != int64(len(gif)) {
+	if !page.HasFile || !page.Binary || !page.SearchExcluded || page.Source != "" || !page.HighlightDisabled || page.FileSize != int64(len(gif)) {
 		t.Fatalf("gif page = %+v", page)
 	}
 	_, page = requestPageData(t, app, "/api/page?project=.&path=icon.svg")
-	if page.Binary || page.SearchExcluded || page.Source != svg {
+	if page.Binary || page.SearchExcluded || page.HighlightDisabled || page.Source != svg {
 		t.Fatalf("svg page = %+v", page)
 	}
 	paths := []string{}
@@ -216,12 +221,12 @@ func TestLargeFilesDisablePreviewThenSearch(t *testing.T) {
 	if !page.PreviewDisabled || page.SearchExcluded || page.Content != "" || page.Source != large {
 		t.Fatalf("large page flags = %v %v content %d", page.PreviewDisabled, page.SearchExcluded, len(page.Content))
 	}
-	if len(page.SourceLines) != 2 || page.SourceLines[0] != "# &lt;b&gt;large&lt;/b&gt; large-search-token" {
-		t.Fatalf("large source not escaped plain text: %q", page.SourceLines[0])
+	if !page.HighlightDisabled {
+		t.Fatal("large source highlighting enabled")
 	}
 	_, page = requestPageData(t, app, "/api/page?project=.&path=huge.md")
-	if !page.PreviewDisabled || !page.SearchExcluded || page.Source != huge || page.Content != "" {
-		t.Fatalf("huge page flags = %v %v", page.PreviewDisabled, page.SearchExcluded)
+	if !page.PreviewDisabled || !page.SearchExcluded || !page.HighlightDisabled || page.Source != huge || page.Content != "" {
+		t.Fatalf("huge page flags = %v %v %v", page.PreviewDisabled, page.SearchExcluded, page.HighlightDisabled)
 	}
 	paths := []string{}
 	for _, entry := range searchDocuments(t, app).Documents {
@@ -251,11 +256,11 @@ func TestFilesOverDisplayLimitAreNotRead(t *testing.T) {
 
 	for _, name := range []string{"huge.log", "huge.json"} {
 		response, page := requestPageData(t, app, "/api/page?project=.&path="+name)
-		if response.Code != http.StatusOK || !page.HasFile || !page.TooLarge || page.Binary || !page.PreviewDisabled || !page.SearchExcluded {
+		if response.Code != http.StatusOK || !page.HasFile || !page.TooLarge || page.Binary || !page.PreviewDisabled || !page.HighlightDisabled || !page.SearchExcluded {
 			t.Fatalf("%s = %d %+v", name, response.Code, page)
 		}
-		if page.Source != "" || len(page.SourceLines) != 0 || page.Content != "" || page.FileSize != document.DisplayLimit+1 {
-			t.Fatalf("%s sent content: source %d lines %d content %d", name, len(page.Source), len(page.SourceLines), len(page.Content))
+		if page.Source != "" || page.Content != "" || page.FileSize != document.DisplayLimit+1 {
+			t.Fatalf("%s sent content: source %d content %d", name, len(page.Source), len(page.Content))
 		}
 		if page.DocumentType == nil || page.DocumentType.ID != app.config.Types.Lookup(name).Type().ID {
 			t.Fatalf("%s documentType = %+v", name, page.DocumentType)
@@ -287,15 +292,15 @@ func TestLargeImagesKeepPreview(t *testing.T) {
 	app := newTestApp(t, root)
 
 	_, page := requestPageData(t, app, "/api/page?project=.&path=photo.png")
-	if page.PreviewDisabled || !page.Binary || page.DocumentType == nil || page.DocumentType.PreviewKind != document.PreviewImage {
+	if page.PreviewDisabled || !page.Binary || !page.HighlightDisabled || page.DocumentType == nil || page.DocumentType.PreviewKind != document.PreviewImage {
 		t.Fatalf("large raster page = %+v", page)
 	}
 	_, page = requestPageData(t, app, "/api/page?project=.&path=large.svg")
 	if page.PreviewDisabled || page.Binary || page.Source != svg || page.Content != "" {
 		t.Fatalf("large SVG flags = previewDisabled %v binary %v", page.PreviewDisabled, page.Binary)
 	}
-	if len(page.SourceLines) != 1 || strings.Contains(page.SourceLines[0], "syntax-") || !strings.HasPrefix(page.SourceLines[0], "&lt;svg") {
-		t.Fatal("large SVG source not escaped plain text")
+	if !page.HighlightDisabled {
+		t.Fatal("large SVG source highlighting enabled")
 	}
 	for _, name := range []string{"photo.png", "large.svg"} {
 		if response := request(t, app, "/api/raw?project=.&path="+name); response.Code != http.StatusOK || response.Body.Len() < document.PreviewLimit {
@@ -329,20 +334,19 @@ func TestFormatEndpoint(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil {
 		t.Fatal(err)
 	}
-	if len(formatted.FormattedLines) != 4 || !strings.Contains(formatted.FormattedLines[1], "syntax-") || !strings.Contains(formatted.FormattedLines[1], "900719925474099312345") {
-		t.Fatalf("formatted lines = %#v", formatted.FormattedLines)
+	if want := "{\n  \"b\": 900719925474099312345,\n  \"html\": \"<script>\"\n}"; formatted.Formatted != want {
+		t.Fatalf("formatted = %q, want %q", formatted.Formatted, want)
 	}
-	if strings.Contains(response.Body.String(), "<script>") {
-		t.Fatal("formatted output not escaped")
-	}
-	if response := request(t, app, "/api/format?project=.&path=config.yml"); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "formattedLines") {
-		t.Fatalf("YAML format = %d %s", response.Code, response.Body.String())
-	}
-	for path, lines := range map[string]int{"page.html": 3, "site.css": 3, "app.js": 3} {
+	for path, want := range map[string]string{
+		"config.yml": "a: 1\n",
+		"page.html":  "<div>\n  <p>web-format</p>\n</div>\n",
+		"site.css":   "a {\n  color: red\n}\n",
+		"app.js":     "if(a) {\n  b()\n}\n",
+	} {
 		response := request(t, app, "/api/format?project=.&path="+path)
 		var formatted formatResponse
-		if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil || response.Code != http.StatusOK || len(formatted.FormattedLines) != lines {
-			t.Errorf("%s format = %d %s", path, response.Code, response.Body.String())
+		if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil || response.Code != http.StatusOK || formatted.Formatted != want {
+			t.Errorf("%s format = %d %s, want %q", path, response.Code, response.Body.String(), want)
 		}
 	}
 	for target, status := range map[string]int{
@@ -436,7 +440,7 @@ func TestSourceOnlyHandlerUsesSameAPIContracts(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "main.zig"), "const std = @import(\"std\");\n")
 	writeMarkdown(t, filepath.Join(root, "other.go"), "package main\n")
 	types, err := document.NewRegistry(
-		document.CodeHandler{Definition: document.Type{ID: "text", Label: "Plain text", Language: "plaintext", DefaultMode: "source"}},
+		document.CodeHandler{Definition: document.Type{ID: "text", Label: "Plain text", Language: "text", DefaultMode: "source"}},
 		document.CodeHandler{Definition: document.Type{ID: "zig", Label: "Zig", Extensions: []string{".zig"}, Language: "zig", DefaultMode: "source"}},
 	)
 	if err != nil {
@@ -447,7 +451,7 @@ func TestSourceOnlyHandlerUsesSameAPIContracts(t *testing.T) {
 		t.Fatal(err)
 	}
 	response, page := requestPageData(t, app, "/api/page?project=.&path=main.zig")
-	if response.Code != http.StatusOK || page.DocumentType == nil || page.DocumentType.ID != "zig" || page.DocumentType.DefaultMode != "source" || page.DocumentType.PreviewKind != "" || page.DocumentType.Formattable || page.Content != "" || len(page.SourceLines) != 1 || !strings.Contains(page.SourceLines[0], "syntax-") {
+	if response.Code != http.StatusOK || page.DocumentType == nil || page.DocumentType.ID != "zig" || page.DocumentType.DefaultMode != "source" || page.DocumentType.PreviewKind != "" || page.DocumentType.Formattable || page.DocumentType.Language != "zig" || page.Content != "" || page.Source != "const std = @import(\"std\");\n" || page.HighlightDisabled || strings.Contains(response.Body.String(), "sourceLines") {
 		t.Fatalf("source-only page = %+v", page)
 	}
 	if page.Tree[0].FileType != "zig" || page.Tree[1].FileType != "text" {
@@ -492,9 +496,9 @@ func TestAPIFixturesMatchServerDocumentContract(t *testing.T) {
 			continue
 		}
 		_, served := requestPageData(t, app, "/api/page?project=.&path="+fixture.Selected)
-		if fixture.Binary != served.Binary || fixture.TooLarge != served.TooLarge || fixture.SearchExcluded != served.SearchExcluded || fixture.PreviewDisabled != served.PreviewDisabled {
-			t.Errorf("%s flags = binary %v tooLarge %v searchExcluded %v previewDisabled %v, server = %v %v %v %v", name,
-				fixture.Binary, fixture.TooLarge, fixture.SearchExcluded, fixture.PreviewDisabled, served.Binary, served.TooLarge, served.SearchExcluded, served.PreviewDisabled)
+		if fixture.Binary != served.Binary || fixture.TooLarge != served.TooLarge || fixture.SearchExcluded != served.SearchExcluded || fixture.PreviewDisabled != served.PreviewDisabled || fixture.HighlightDisabled != served.HighlightDisabled {
+			t.Errorf("%s flags = binary %v tooLarge %v searchExcluded %v previewDisabled %v highlightDisabled %v, server = %v %v %v %v %v", name,
+				fixture.Binary, fixture.TooLarge, fixture.SearchExcluded, fixture.PreviewDisabled, fixture.HighlightDisabled, served.Binary, served.TooLarge, served.SearchExcluded, served.PreviewDisabled, served.HighlightDisabled)
 		}
 	}
 }

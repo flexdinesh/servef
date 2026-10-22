@@ -5,6 +5,7 @@ import { useClipboardCopy } from "./clipboard.ts"
 import type { ColumnRange, NavigationKind } from "./code-navigation.ts"
 import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "./line-selection.ts"
 import { showLink, targetAt, wordRange, type SourceTarget } from "./source-position.ts"
+import { useHighlightedLines } from "./use-highlighted-lines.ts"
 
 // LineSelection connects gutter selection to its owner (the URL fragment).
 export interface LineSelection {
@@ -35,7 +36,8 @@ function rangeKey(range: LineRange | null): string {
 
 interface SourceDocumentProps {
   source: string
-  highlightedLines: readonly string[]
+  // language is the server's Highlights language; null shows plain text.
+  language: string | null
   label: string
   selection?: LineSelection
   navigation?: SourceNavigation
@@ -82,8 +84,10 @@ const SourceLineContent = memo(function SourceLineContent({ line, highlighted }:
     : <span className="source-document-line-content">{line}</span>
 })
 
-export function SourceDocument({ source, highlightedLines, label, selection, navigation }: SourceDocumentProps) {
+export function SourceDocument({ source, language, label, selection, navigation }: SourceDocumentProps) {
   const lines = splitSourceLines(source)
+  // Rows show plain text until highlighting arrives.
+  const highlightedLines = useHighlightedLines(source, language)
   const [activeLine, setActiveLine] = useState<number | null>(null)
   const selectionAnchor = useRef<number | null>(null)
   const container = useRef<HTMLDivElement>(null)
@@ -190,7 +194,7 @@ export function SourceDocument({ source, highlightedLines, label, selection, nav
   return (
     <div
       ref={container}
-      className={`source-document syntax-highlight${drag?.active ? " selecting-lines" : ""}${linked ? " navigation-linking" : ""}`}
+      className={`source-document${drag?.active ? " selecting-lines" : ""}${linked ? " navigation-linking" : ""}`}
       role="textbox"
       aria-label={label}
       aria-multiline="true"

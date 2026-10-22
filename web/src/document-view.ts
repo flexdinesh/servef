@@ -8,7 +8,7 @@ export type DocumentView =
   | { kind: "tooLarge" }
   | { kind: "image" }
   | { kind: "preview" }
-  | { kind: "format"; lines: readonly string[] }
+  | { kind: "format"; text: string }
   | { kind: "source"; formatPending: boolean; formatError: string }
 
 // documentModes lists the views a document declares, in toolbar order.
@@ -47,7 +47,7 @@ export function documentView(page: PageData, mode: DocumentMode | null, format: 
   if (page.tooLarge) return { kind: "tooLarge" }
   if (mode === null) return { kind: "binary" }
   if (mode === "preview") return page.documentType.previewKind === "image" ? { kind: "image" } : { kind: "preview" }
-  if (mode === "format" && format?.kind === "ready") return { kind: "format", lines: format.lines }
+  if (mode === "format" && format?.kind === "ready") return { kind: "format", text: format.text }
   return {
     kind: "source",
     formatPending: mode === "format" && format?.kind !== "error",

@@ -78,7 +78,7 @@ func TestPageNavigationSupportUsesCatalog(t *testing.T) {
 }
 
 func TestLanguageServerCompositionUsesTextFamilies(t *testing.T) {
-	registry, err := document.NewRegistry(document.CodeHandler{Definition: document.Type{ID: "text", Label: "Plain text", Language: "plaintext", DefaultMode: "source"}}, document.CodeHandler{Definition: document.Type{ID: "typescript", Label: "TypeScript", Language: "typescript", Extensions: []string{".ts"}, DefaultMode: "source"}})
+	registry, err := document.NewRegistry(document.CodeHandler{Definition: document.Type{ID: "text", Label: "Plain text", Language: "text", DefaultMode: "source"}}, document.CodeHandler{Definition: document.Type{ID: "typescript", Label: "TypeScript", Language: "ts", Extensions: []string{".ts"}, DefaultMode: "source"}})
 	if err != nil {
 		t.Fatal(err)
 	}

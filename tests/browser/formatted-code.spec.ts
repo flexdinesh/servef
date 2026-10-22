@@ -2,13 +2,13 @@ import { expect, test } from "@playwright/test"
 import { fixtureRoot, rootParam } from "./fixture-root.ts"
 
 const customType = {
-  id: "custom", label: "Custom", extensions: [".custom"], filenames: [], language: "plaintext",
+  id: "custom", label: "Custom", extensions: [".custom"], filenames: [], language: "js",
   previewKind: "", previewLabel: "", defaultMode: "source", formattable: true,
 }
 
 function customPage(source: string) {
   return {
-    content: "", source, sourceLines: [source.trimEnd()],
+    content: "", source, highlightDisabled: false,
     empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "sample.custom",
     warnings: [], previewError: "", filenamePatterns: ["*"], documentType: customType,
     navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
@@ -19,23 +19,17 @@ function customPage(source: string) {
 test("formatted rows come from the format endpoint and keep blank rows and escaped syntax", async ({ page }) => {
   await page.route(`**/api/page?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: customPage("unformatted original\n") }))
   await page.route(`**/api/format?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: {
-    formattedLines: [
-      '<span class="syntax-s">first</span>',
-      "",
-      '<span class="syntax-s">  &lt;script&gt;last&lt;/script&gt; &amp; final</span>',
-      "",
-      "",
-    ],
+    formatted: "'first'\n\n'  <script>last</script> & final'\n\n\n",
   } }))
   await page.goto("/view?path=sample.custom")
   await expect(page.getByRole("textbox", { name: "Custom source" })).toContainText("unformatted original")
   await page.getByRole("button", { name: "Format", exact: true }).click()
   const formatted = page.getByRole("textbox", { name: "Custom formatted" })
   await expect(formatted.locator(".source-document-line-content")).toHaveText([
-    "first", "", "  <script>last</script> & final", "", "",
+    "'first'", "", "'  <script>last</script> & final'", "", "",
   ])
   await expect(formatted.locator(".source-document-line-number")).toHaveText(["1", "2", "3", "4", "5"])
-  await expect(formatted.locator(".syntax-s")).toHaveCount(2)
+  await expect(formatted.locator(".hl-string")).toHaveCount(2)
   await expect(formatted.locator("script")).toHaveCount(0)
   await expect(page.locator("article")).toHaveCount(0)
   await formatted.locator('[data-line="3"]').click()
@@ -50,7 +44,7 @@ test("slow formatting keeps Source visible, marks Format busy, and reports Loadi
   await page.route(`**/api/page?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: customPage("slow original\n") }))
   await page.route(`**/api/format?project=${rootParam}&path=sample.custom`, async (route) => {
     await released
-    await route.fulfill({ json: { formattedLines: ['<span class="syntax-s">slow formatted</span>'] } })
+    await route.fulfill({ json: { formatted: "slow formatted\n" } })
   })
   await page.goto("/view?path=sample.custom")
   const formatButton = page.getByRole("button", { name: "Format", exact: true })
@@ -73,7 +67,7 @@ test("format failures keep Source and allow a retry", async ({ page }) => {
     attempts++
     return attempts === 1
       ? route.fulfill({ status: 422, json: { error: "unexpected token at line 2." } })
-      : route.fulfill({ json: { formattedLines: ["retried"] } })
+      : route.fulfill({ json: { formatted: "retried\n" } })
   })
   await page.goto("/view?path=sample.custom")
   const formatButton = page.getByRole("button", { name: "Format", exact: true })
