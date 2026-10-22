@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { gitStatusError, isChangesResponse, isDiffErrorResponse, type ChangedFile, type ChangesResponse } from "./changes-contract.ts"
+import { gitStatusError, isChangesResponse, type ChangedFile, type ChangesResponse } from "./changes-contract.ts"
+import { failureReason, fetchJSON } from "./http.ts"
 import { projectUrl } from "./project-url.ts"
 
 // Focus and visibility refreshes run at most this often.
@@ -13,17 +14,8 @@ export interface ChangesState {
   loading: boolean
 }
 
-async function fetchChanges(project: string, signal: AbortSignal): Promise<ChangesResponse> {
-  let response: Response
-  try {
-    response = await fetch(projectUrl("/api/changes", project), { headers: { Accept: "application/json" }, signal })
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === "AbortError") throw error
-    throw new Error(gitStatusError("the server didn't respond"))
-  }
-  const payload: unknown = await response.json().catch(() => null)
-  if (response.ok && isChangesResponse(payload)) return payload
-  throw new Error(gitStatusError(isDiffErrorResponse(payload) ? payload.error : "the server sent an invalid response"))
+function fetchChanges(project: string, signal: AbortSignal): Promise<ChangesResponse> {
+  return fetchJSON(projectUrl("/api/changes", project), { signal }, isChangesResponse, (failure) => gitStatusError(failureReason(failure)))
 }
 
 // useChanges owns the project's working-tree change list. It reads on project

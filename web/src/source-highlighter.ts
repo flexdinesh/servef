@@ -1,14 +1,11 @@
 import { highlightsOnMainThread } from "./highlight-thread.ts"
 import { loadHighlights } from "./highlights-loader.ts"
+import { isRecord } from "./http.ts"
 import { highlightLines } from "./syntax-highlight.ts"
 
 export interface HighlightWorker extends EventTarget {
   postMessage(message: { type: "highlight"; requestId: number; source: string; language: string }): void
   terminate(): void
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isLines(value: unknown): value is string[] | null {

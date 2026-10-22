@@ -1,5 +1,7 @@
 import type { FileContents, FileDiffMetadata, Hunk } from "@pierre/diffs"
 
+import { isRecord } from "./http.ts"
+
 // A diff parse runs jsdiff over both sides in a worker, as megabyte sides
 // block the main thread for seconds.
 
@@ -20,10 +22,6 @@ interface PendingParse {
   request: DiffWorkerRequest
   resolve(fileDiff: FileDiffMetadata): void
   reject(error: Error): void
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 const changeTypes: ReadonlySet<unknown> = new Set(["change", "rename-pure", "rename-changed", "new", "deleted"])

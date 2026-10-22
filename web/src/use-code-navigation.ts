@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { definitionOutcome, emptyMessage, navigationQuery, type NavigationKind } from "./code-navigation.ts"
+import { fetchJSON, type RequestFailure } from "./http.ts"
 import { isNavigationResult, type NavigationLocation, type NavigationResult } from "./navigation-contract.ts"
 import { LANGUAGE_SERVER_HEADER } from "./navigation-status.ts"
 import type { SourceTarget } from "./source-position.ts"
@@ -20,20 +21,23 @@ export interface CodeNavigation {
   close(): void
 }
 
-function errorMessage(value: unknown): string {
-  return typeof value === "object" && value !== null && "error" in value && typeof value.error === "string"
-    ? value.error
-    : "Code navigation failed."
+// navigationError keeps the server's reason and never shows raw transport text.
+function navigationError(failure: RequestFailure): string {
+  switch (failure.kind) {
+    case "unreachable":
+      return "Code navigation failed: the server didn't respond."
+    case "rejected":
+      return failure.error
+    case "malformed":
+    case "invalid":
+      return failure.ok ? "The server sent an unexpected navigation response." : "Code navigation failed."
+  }
 }
 
-async function fetchNavigation(kind: NavigationKind, project: string, path: string, target: SourceTarget, languageServers: boolean, signal: AbortSignal): Promise<NavigationResult> {
+function fetchNavigation(kind: NavigationKind, project: string, path: string, target: SourceTarget, languageServers: boolean, signal: AbortSignal): Promise<NavigationResult> {
   const endpoint = kind === "definition" ? "/api/definition" : "/api/references"
   const headers: Record<string, string> = languageServers ? { [LANGUAGE_SERVER_HEADER]: "on" } : {}
-  const response = await fetch(`${endpoint}?${navigationQuery(project, path, target.position)}`, { headers, signal })
-  const body: unknown = await response.json()
-  if (!response.ok) throw new Error(errorMessage(body))
-  if (!isNavigationResult(body)) throw new Error("The server sent an unexpected navigation response.")
-  return body
+  return fetchJSON(`${endpoint}?${navigationQuery(project, path, target.position)}`, { headers, signal }, isNavigationResult, navigationError)
 }
 
 // useCodeNavigation runs go to definition and find references. One

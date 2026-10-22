@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { fetchJSON } from "./http.ts"
 import { isNavigationStatus, type NavigationStatus } from "./navigation-contract.ts"
 import { LANGUAGE_SERVER_HEADER, navigationStatusQuery, pollsServer } from "./navigation-status.ts"
 
@@ -29,13 +30,12 @@ export function useNavigationStatus(project: string, path: string, textFile: boo
     }
     const controller = new AbortController()
     const headers: Record<string, string> = languageServers ? { [LANGUAGE_SERVER_HEADER]: "on" } : {}
-    fetch(`/api/navigation-status?${navigationStatusQuery(project, path, token.refresh)}`, { headers, signal: controller.signal })
-      .then(async (response) => {
-        const body: unknown = await response.json()
-        if (controller.signal.aborted) return
-        setStatus(response.ok && isNavigationStatus(body) ? body : null)
-      })
-      .catch(() => {
+    // Any failure shows that availability could not be checked.
+    fetchJSON(`/api/navigation-status?${navigationStatusQuery(project, path, token.refresh)}`, { headers, signal: controller.signal },
+      isNavigationStatus, () => "Couldn't check language server availability.")
+      .then((body) => {
+        if (!controller.signal.aborted) setStatus(body)
+      }, () => {
         if (!controller.signal.aborted) setStatus(null)
       })
     return () => controller.abort()

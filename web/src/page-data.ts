@@ -5,6 +5,7 @@ import {
   type TreeNode,
 } from "./page-contract.ts"
 
+import { fetchJSON, RequestError, type RequestFailure } from "./http.ts"
 import { projectUrl } from "./project-url.ts"
 
 export { isPageData, isPageLoadResult } from "./page-contract.ts"
@@ -70,15 +71,18 @@ export async function loadPage({ pathname, project, selected, signal }: LoadPage
   const endpoint = projectUrl("/api/page", project, pathname === "/view" ? selected : undefined)
 
   try {
-    const response = await fetch(endpoint, { headers: { Accept: "application/json" }, signal })
-    const payload: unknown = await response.json()
-    return isPageData(payload)
-      ? { kind: "page", page: payload }
-      : { kind: "failure", message: "The server returned an invalid page response." }
+    // Pages carry their own error, so any status with a page is a page.
+    return { kind: "page", page: await fetchJSON(endpoint, { signal, anyStatus: true }, isPageData, pageError) }
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === "AbortError") throw error
-    return { kind: "failure", message: "Could not load files." }
+    if (error instanceof RequestError) return { kind: "failure", message: error.message }
+    throw error
   }
+}
+
+function pageError(failure: RequestFailure): string {
+  return failure.kind === "unreachable" || failure.kind === "malformed"
+    ? "Could not load files."
+    : "The server returned an invalid page response."
 }
 
 export function filePaths(nodes: readonly TreeNode[]): string[] {

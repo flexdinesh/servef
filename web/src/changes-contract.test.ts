@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { gitStatusError, isChangesResponse, isDiffErrorResponse, isDiffResponse } from "./changes-contract.ts"
+import { gitStatusError, isChangesResponse, isDiffResponse } from "./changes-contract.ts"
 
 const documentType = {
   id: "go", label: "Go", extensions: [".go"], filenames: [], language: "go",
@@ -40,13 +40,6 @@ test("diff responses null exactly the side a status lacks", () => {
   // Binary and too-large sides never carry content.
   assert.equal(isDiffResponse({ ...modified, modified: { ...side, binary: true } }), false)
   assert.equal(isDiffResponse({ ...modified, modified: { ...side, tooLarge: true } }), false)
-})
-
-test("diff errors carry an optional code", () => {
-  assert.equal(isDiffErrorResponse({ error: "No changes to a.go since the last commit.", code: "unchanged" }), true)
-  assert.equal(isDiffErrorResponse({ error: "That change is unavailable." }), true)
-  assert.equal(isDiffErrorResponse({ error: "x", code: 3 }), false)
-  assert.equal(isDiffErrorResponse({ message: "x" }), false)
 })
 
 test("git status errors name the problem once", () => {

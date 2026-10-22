@@ -1,4 +1,5 @@
 import { isChangeStatus, type ChangeStatus } from "./changes-contract.ts"
+import { isRecord } from "./http.ts"
 import { isCommitHash } from "./workspace-tabs.ts"
 
 // Transport contracts for /api/commits and /api/commit-files (decision 0027),
@@ -70,10 +71,6 @@ export interface RangeFilesResponse {
   to: string
   files: CommitFile[]
   truncated: boolean
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export function isCommitRange(value: unknown): value is CommitRange {

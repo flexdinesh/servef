@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router"
 
 import { App } from "./App.tsx"
+import { isAbort } from "./http.ts"
 import { loadPage } from "./page-data.ts"
 import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
 import { readMemory } from "./workspace-memory.ts"
@@ -44,10 +45,6 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
 function withProject(search: PageSearch, project: string): PageSearch {
   const { project: _previous, ...rest } = search
   return { project, ...rest }
-}
-
-function isAbort(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError"
 }
 
 function RoutedApp() {

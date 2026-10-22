@@ -1,10 +1,7 @@
 import type { FileContents } from "@pierre/diffs"
 
 import { parseTextDiff } from "./diff-content.ts"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+import { isRecord } from "./http.ts"
 
 function isSide(value: unknown): value is FileContents | null {
   return value === null || (isRecord(value)

@@ -1,3 +1,5 @@
+import { isRecord } from "./http.ts"
+
 export type ProjectKind = "folder" | "repo" | "worktree"
 
 export function isProjectKind(value: unknown): value is ProjectKind {
@@ -43,10 +45,6 @@ export interface Directory {
 export interface DirectoriesResponse {
   path: string
   directories: Directory[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isProject(value: unknown): value is Project {

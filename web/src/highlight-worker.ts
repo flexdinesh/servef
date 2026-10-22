@@ -1,12 +1,9 @@
 import { loadHighlights } from "./highlights-loader.ts"
+import { isRecord } from "./http.ts"
 import { highlightLines } from "./syntax-highlight.ts"
 
 // The highlight worker tokenizes Source and Format text above the main-thread
 // limit (highlight-thread.ts), so large files never block the UI.
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 self.addEventListener("message", (event: MessageEvent<unknown>) => {
   const message = event.data

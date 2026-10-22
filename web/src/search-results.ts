@@ -1,3 +1,4 @@
+import { isRecord } from "./http.ts"
 import type { FileResult, SearchMatch, SearchOutcome } from "./search-engine.ts"
 
 // ResultRow is one visible row of the results tree: a file or one of its matches.
@@ -8,10 +9,6 @@ export type ResultRow =
 export interface MatchPosition {
   matchIndex: number
   path: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isRange(value: unknown): boolean {

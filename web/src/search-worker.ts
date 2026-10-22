@@ -1,8 +1,5 @@
+import { isRecord } from "./http.ts"
 import { createSearchEngine, type SearchDocument, type SearchQuery } from "./search-engine.ts"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 function isSearchDocument(value: unknown): value is SearchDocument {
   return isRecord(value)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { isDiffErrorResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
+import { isDiffResponse, type DiffResponse } from "./changes-contract.ts"
+import { failureReason, fetchJSON, RequestError, type RequestFailure } from "./http.ts"
 import { tabKey, type WorkspaceTab } from "./workspace-tabs.ts"
 
 // Focus refetches run at most this often.
@@ -13,6 +14,11 @@ export type DiffState =
   // changes it.
   | { kind: "unchanged"; message: string }
   | { kind: "error"; message: string }
+
+// diffError keeps the server's own sentence; other failures say what failed.
+function diffError(failure: RequestFailure): string {
+  return failure.kind === "rejected" ? failure.error : `Couldn't load this diff: ${failureReason(failure)}.`
+}
 
 function diffUrl(project: string, tab: WorkspaceTab, oldPath: string): string {
   const params = new URLSearchParams({ project, path: tab.path })
@@ -27,19 +33,15 @@ function diffUrl(project: string, tab: WorkspaceTab, oldPath: string): string {
 }
 
 async function fetchDiff(project: string, tab: WorkspaceTab, oldPath: string, signal: AbortSignal): Promise<DiffState> {
-  let response: Response
   try {
-    response = await fetch(diffUrl(project, tab, oldPath), { headers: { Accept: "application/json" }, signal })
+    return { kind: "ready", diff: await fetchJSON(diffUrl(project, tab, oldPath), { signal }, isDiffResponse, diffError) }
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === "AbortError") throw error
-    return { kind: "error", message: "Couldn't load this diff: the server didn't respond." }
+    if (!(error instanceof RequestError)) throw error
+    // Code "unchanged": the tracked file matches HEAD, or the branch no longer changes it.
+    return error.failure.kind === "rejected" && error.failure.code === "unchanged"
+      ? { kind: "unchanged", message: error.message }
+      : { kind: "error", message: error.message }
   }
-  const payload: unknown = await response.json().catch(() => null)
-  if (response.ok && isDiffResponse(payload)) return { kind: "ready", diff: payload }
-  if (isDiffErrorResponse(payload)) {
-    return payload.code === "unchanged" ? { kind: "unchanged", message: payload.error } : { kind: "error", message: payload.error }
-  }
-  return { kind: "error", message: "Couldn't load this diff: the server sent an invalid response." }
 }
 
 function sameSide(left: DiffResponse["original"], right: DiffResponse["original"]): boolean {

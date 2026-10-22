@@ -1,3 +1,4 @@
+import { isRecord } from "./http.ts"
 import type { SearchDocument, SearchOutcome, SearchQuery } from "./search-engine.ts"
 import type { SearchDocumentsResponse } from "./search-documents.ts"
 import { isSearchOutcome } from "./search-results.ts"
@@ -51,10 +52,6 @@ export interface SearchControllerOptions {
 }
 
 export const emptyQuery: SearchQuery = { pattern: "", include: "", exclude: "", matchCase: false, wholeWord: false, regex: false }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
 
 function isShortcutEvent(event: Event): event is Event & {
   altKey: boolean

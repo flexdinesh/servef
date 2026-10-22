@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
 
 import { createSearchController, emptyQuery, type SearchHandlers, type SearchResults, type SearchStatus, type SearchView } from "./search-controller.ts"
+import { failureReason, fetchJSON } from "./http.ts"
 import { projectUrl } from "./project-url.ts"
 import { isSearchDocumentsResponse, type SearchDocumentsResponse } from "./search-documents.ts"
 import type { SearchMatch, SearchQuery } from "./search-engine.ts"
 import { adjacentMatch, type MatchPosition } from "./search-results.ts"
 
-async function fetchDocuments(project: string, signal: AbortSignal): Promise<SearchDocumentsResponse> {
-  const response = await fetch(projectUrl("/api/search-documents", project), { headers: { Accept: "application/json" }, signal })
-  if (!response.ok) throw new Error(`Search documents request failed: ${response.status}`)
-  const payload: unknown = await response.json()
-  if (!isSearchDocumentsResponse(payload)) throw new Error("Invalid search documents response")
-  return payload
+function fetchDocuments(project: string, signal: AbortSignal): Promise<SearchDocumentsResponse> {
+  return fetchJSON(projectUrl("/api/search-documents", project), { signal }, isSearchDocumentsResponse,
+    (failure) => `Couldn't load search documents: ${failureReason(failure)}.`)
 }
 
 // selectedSearchText seeds Find in Files from a single-line document selection.

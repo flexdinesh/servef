@@ -3,6 +3,7 @@
 // project is kept per set of served roots. Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
+import { isRecord } from "./http.ts"
 import { includesTab, parseStoredTab, sameTab, storedTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"
@@ -26,10 +27,6 @@ export interface WorkspaceMemory {
 }
 
 export const emptyMemory: WorkspaceMemory = { last: {}, projects: {} }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry: unknown) => typeof entry === "string") : []

@@ -1,3 +1,5 @@
+import { isRecord } from "./http.ts"
+
 // NavigationLocation is a definition or reference: a 1-based line and a
 // 0-based UTF-16 column, as the browser counts.
 export interface NavigationLocation {
@@ -48,10 +50,6 @@ export interface NavigationStatus {
   eligible: boolean
   reason: string
   server: LanguageServerStatus | null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isPosition(value: unknown): value is number {

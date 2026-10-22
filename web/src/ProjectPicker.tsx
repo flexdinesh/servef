@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
 import { Button } from "./components/ui/button.tsx"
+import { isAbort } from "./http.ts"
 import {
   browseRows,
   browseStart,
@@ -62,10 +63,6 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
-function isAbort(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError"
-}
-
 // ProjectPicker is a quick pick: Projects lists served folders, discovered
 // repositories (each opening into its worktrees), and opened folders; Browse
 // walks folders under the served roots that are not inside a repository.
@@ -98,7 +95,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
       (value) => setProjects({ kind: "ready", value }),
       (error: unknown) => {
         if (isAbort(error)) return
-        setProjects((current) => ({ kind: "error", message: errorMessage(error, "Could not list projects."), previous: loaded(current) }))
+        setProjects((current) => ({ kind: "error", message: errorMessage(error, "Couldn't list projects."), previous: loaded(current) }))
       },
     )
   }, [])
@@ -295,7 +292,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
 
   const status = mode === "projects"
     ? projects?.kind === "error"
-      ? { tone: "error", text: `Couldn't list projects: ${projects.message}` }
+      ? { tone: "error", text: projects.message }
       : scanning
         ? { tone: "muted", text: "Scanning for projects…" }
         : projectList && query.trim() && !sections.some((section) => section.title)

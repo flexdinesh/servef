@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react"
 
+import { fetchJSON, isRecord } from "./http.ts"
+
 export interface ProcessMetrics {
   cpuUsage: number | null
   goroutines: number
   memoryBytes: number
   memorySource: "go" | "rss"
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export function isProcessMetrics(value: unknown): value is ProcessMetrics {
@@ -31,9 +29,8 @@ export function useProcessMetrics(): ProcessMetrics | null {
       const controller = new AbortController()
       pending = controller
       try {
-        const response = await fetch("/api/metrics", { signal: controller.signal })
-        const payload: unknown = await response.json()
-        if (!disposed && response.ok && isProcessMetrics(payload)) setMetrics(payload)
+        const payload = await fetchJSON("/api/metrics", { signal: controller.signal }, isProcessMetrics, () => "Couldn't read process metrics.")
+        if (!disposed) setMetrics(payload)
       } catch {
         // Keep the last sample when the local server is briefly unavailable.
       } finally {

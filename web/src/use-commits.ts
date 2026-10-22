@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { isDiffErrorResponse } from "./changes-contract.ts"
 import type { CommitFiles } from "./commit-rows.ts"
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
 import {
   historyError, isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
   type BranchFilesResponse, type CommitRange, type CommitsResponse,
 } from "./commits-contract.ts"
+import { failureReason, fetchJSON, isAbort } from "./http.ts"
 
 // Focus and visibility refreshes run at most this often.
 const focusThrottle = 2_000
@@ -21,17 +21,8 @@ export interface CommitsState {
   moreError: string
 }
 
-async function fetchJSON<T>(url: string, signal: AbortSignal, valid: (value: unknown) => value is T): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(url, { headers: { Accept: "application/json" }, signal })
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === "AbortError") throw error
-    throw new Error(historyError("the server didn't respond"))
-  }
-  const payload: unknown = await response.json().catch(() => null)
-  if (response.ok && valid(payload)) return payload
-  throw new Error(historyError(isDiffErrorResponse(payload) ? payload.error : "the server sent an invalid response"))
+function fetchHistory<T>(url: string, signal: AbortSignal, valid: (value: unknown) => value is T): Promise<T> {
+  return fetchJSON(url, { signal }, valid, (failure) => historyError(failureReason(failure)))
 }
 
 // BranchState is the branch's net file list: null until read, kept while a
@@ -55,10 +46,6 @@ export function rangeKey(from: string, to: string): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : historyError("unknown error")
-}
-
-function isAbort(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError"
 }
 
 // useCommits owns the project's commit list, the file lists of commits the
@@ -91,7 +78,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     branchController.current = current
     setBranch((previous) => ({ ...previous, loading: true }))
     const params = new URLSearchParams({ project })
-    fetchJSON(`/api/branch-files?${params.toString()}`, current.signal, isBranchFilesResponse).then((result) => {
+    fetchHistory(`/api/branch-files?${params.toString()}`, current.signal, isBranchFilesResponse).then((result) => {
       if (branchController.current !== current) return
       branchResult.current = result
       setBranch({ result, error: "", loading: false })
@@ -109,7 +96,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     controller.current = current
     lastRead.current = Date.now()
     setState((previous) => ({ ...previous, loading: true, loadingMore: false, moreError: "" }))
-    fetchJSON(commitsUrl(project, range, "", 0), current.signal, isCommitsResponse).then((first) => {
+    fetchHistory(commitsUrl(project, range, "", 0), current.signal, isCommitsResponse).then((first) => {
       if (controller.current !== current) return
       setState((previous) => ({ ...previous, result: refreshedCommits(previous.result, first), error: "", loading: false }))
       readBranch(first, false)
@@ -155,7 +142,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     const current = new AbortController()
     moreController.current = current
     setState((previous) => ({ ...previous, loadingMore: true, moreError: "" }))
-    fetchJSON(commitsUrl(project, loaded.range, loaded.head, loaded.commits.length), current.signal, isCommitsResponse).then((page) => {
+    fetchHistory(commitsUrl(project, loaded.range, loaded.head, loaded.commits.length), current.signal, isCommitsResponse).then((page) => {
       if (moreController.current !== current) return
       setState((previous) => ({
         ...previous,
@@ -177,7 +164,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     filesRequests.current.set(hash, current)
     setFiles((previous) => new Map(previous).set(hash, { kind: "loading" }))
     const params = new URLSearchParams({ project, commit: hash })
-    fetchJSON(`/api/commit-files?${params.toString()}`, current.signal, isCommitFilesResponse).then((response) => {
+    fetchHistory(`/api/commit-files?${params.toString()}`, current.signal, isCommitFilesResponse).then((response) => {
       filesRequests.current.delete(hash)
       setFiles((previous) => new Map(previous).set(hash, { kind: "ready", response }))
     }, (error: unknown) => {
@@ -205,7 +192,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     rangeRequests.current.set(key, current)
     setRangeFiles((previous) => new Map(previous).set(key, { kind: "loading" }))
     const params = new URLSearchParams({ project, from, to })
-    fetchJSON(`/api/range-files?${params.toString()}`, current.signal, isRangeFilesResponse).then((response) => {
+    fetchHistory(`/api/range-files?${params.toString()}`, current.signal, isRangeFilesResponse).then((response) => {
       rangeRequests.current.delete(key)
       setRangeFiles((previous) => new Map(previous).set(key, { kind: "ready", response }))
     }, (error: unknown) => {

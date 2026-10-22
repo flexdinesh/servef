@@ -1,12 +1,9 @@
+import { isRecord } from "./http.ts"
 import type { SearchDocument } from "./search-engine.ts"
 
 export interface SearchDocumentsResponse {
   documents: SearchDocument[]
   warnings: string[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isSearchDocument(value: unknown): value is SearchDocument {

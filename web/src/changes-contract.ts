@@ -1,3 +1,4 @@
+import { isRecord } from "./http.ts"
 import { isFileType, type FileType } from "./page-contract.ts"
 
 // Transport contracts for /api/changes and /api/diff (decision 0024).
@@ -38,17 +39,6 @@ export interface DiffResponse {
   // tree, null when deleted.
   original: DiffSide | null
   modified: DiffSide | null
-}
-
-// DiffErrorResponse is a failed /api/diff; code "unchanged" means the tracked
-// file matches HEAD.
-export interface DiffErrorResponse {
-  error: string
-  code?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export function isChangeStatus(value: unknown): value is ChangeStatus {
@@ -95,12 +85,6 @@ export function isDiffResponse(value: unknown): value is DiffResponse {
     && isFileType(value.documentType)
     && (added ? value.original === null : isDiffSide(value.original))
     && (value.status === "deleted" ? value.modified === null : isDiffSide(value.modified))
-}
-
-export function isDiffErrorResponse(value: unknown): value is DiffErrorResponse {
-  return isRecord(value)
-    && typeof value.error === "string"
-    && (value.code === undefined || typeof value.code === "string")
 }
 
 const statusErrorPrefix = "Couldn't read git status: "

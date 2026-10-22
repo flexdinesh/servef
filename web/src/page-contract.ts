@@ -1,3 +1,4 @@
+import { isRecord } from "./http.ts"
 import { isProjectKind, type ProjectKind } from "./projects-contract.ts"
 
 export type DocumentMode = "preview" | "source" | "format"
@@ -70,10 +71,6 @@ export type PageLoadResult =
 export interface FormatResult {
   // formatted is the formatter's text; the UI highlights it as Source.
   formatted: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export function isFileType(value: unknown): value is FileType {

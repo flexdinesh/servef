@@ -1,4 +1,5 @@
 import { isCommitRange, type CommitRange } from "./commits-contract.ts"
+import { isRecord } from "./http.ts"
 
 // Source Control's section layout and commit range, remembered in this
 // browser under servef-source-control (decision 0027). Pure except for
@@ -28,10 +29,6 @@ export const defaultLayout: SourceControlLayout = {
 
 export function clampShare(share: number): number {
   return Math.min(maximumShare, Math.max(minimumShare, share))
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 // parseLayout keeps every well-formed field of untrusted stored data.
