@@ -6,6 +6,7 @@
     "build": "vite build --configLoader native",
     "dev": "vite --configLoader native --port 5173 --strictPort",
     "dev:mock": "vite --configLoader native --mode mock --port 5173 --strictPort",
+    "lint": "eslint",
     "test": "node --test dev-server.test.ts src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -25,11 +26,15 @@
     "react-dom": "19.2.1"
   },
   "devDependencies": {
+    "@babel/core": "8.0.7",
+    "@babel/eslint-parser": "8.0.7",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "22.19.21",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.2.2"

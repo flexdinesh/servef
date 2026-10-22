@@ -133,4 +133,4 @@ For every addition:
 
 ## Iteration
 
-Use `testdata/markdown` and `pnpm dev` while iterating. Verify with `go test ./...`, `pnpm test:web`, `pnpm typecheck`, and `pnpm test:browser` as applicable.
+Use `testdata/markdown` and `pnpm dev` while iterating. Verify with `go test ./...`, `pnpm test:web`, `pnpm typecheck`, `pnpm lint`, and `pnpm test:browser` as applicable.

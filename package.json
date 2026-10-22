@@ -5,7 +5,7 @@
   "scripts": {
     "build:site": "pnpm --filter @servef/site build",
     "build:web": "pnpm --filter @servef/web build",
-    "check": "pnpm build:web && go vet ./... && go test ./... && go build ./... && pnpm test:web && pnpm test:release && pnpm typecheck && pnpm build:site",
+    "check": "pnpm build:web && go vet ./... && go test ./... && go build ./... && pnpm test:web && pnpm test:release && pnpm typecheck && pnpm lint && pnpm build:site",
     "dev:server": "go run . testdata/markdown --port 8080 --no-open",
     "dev:site": "pnpm --filter @servef/site dev",
     "dev:web": "pnpm --filter @servef/web dev",
@@ -13,6 +13,7 @@
     "dev": "pnpm run --parallel '/^dev:(server|web)$/'",
     "generate:homebrew": "node scripts/generate-homebrew-formula.ts",
     "link:local": "pnpm build:web && go install .",
+    "lint": "pnpm --filter @servef/web lint",
     "prepare": "git config core.hooksPath .githooks || true",
     "test:browser": "pnpm build:web && node scripts/test-browser.ts",
     "test:release": "node --test tests/generate-homebrew-formula.test.ts",

@@ -21,6 +21,7 @@
     "test-fixtures/**/*.tsx",
     "dev-server.ts",
     "dev-server.test.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "eslint.config.ts"
   ]
 }

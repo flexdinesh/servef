@@ -41,7 +41,7 @@ export function useDocumentFormats(project: string, onFailure: (path: string) =>
     }, () => {
       // Aborted on unmount.
     }).finally(() => controllers.current.delete(controller))
-  }, [store])
+  }, [project, store])
 
   const get = useCallback((path: string, source: string): FormatState | undefined => {
     const entry = entries.get(path)

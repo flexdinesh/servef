@@ -210,7 +210,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
     previousSelected.current = page.selected
     syncing.current = false
     syncExpandedPaths()
-  }, [model, page.selected, paths, syncExpandedPaths])
+  }, [model, page.selected, paths, state, syncExpandedPaths])
 
   useLayoutEffect(() => model.subscribe(() => {
     if (syncing.current) return
