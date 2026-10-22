@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import test from "node:test"
 
 import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
-import { isCommitFilesResponse, isCommitsResponse } from "./commits-contract.ts"
+import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
@@ -181,6 +181,17 @@ test("commit history fixtures satisfy runtime contracts", async () => {
   assert.equal(files.commit, branch.head)
   assert.deepEqual(files.files.map((file) => file.path), files.files.map((file) => file.path).toSorted())
   assert.ok(files.files.some((file) => file.status === "renamed" && file.oldPath))
+
+  const branchFiles = await fixture("branch-files.json")
+  assert.ok(isBranchFilesResponse(branchFiles))
+  assert.equal(branchFiles.head, branch.head)
+  assert.equal(branchFiles.base, branch.base)
+  assert.equal(branchFiles.ahead, branch.ahead)
+  assert.notEqual(branchFiles.mergeBase, "")
+  const rangeFiles = await fixture("range-files.json")
+  assert.ok(isRangeFilesResponse(rangeFiles))
+  assert.equal(rangeFiles.to, branch.head)
+  assert.ok(branch.commits.some((commit) => commit.hash === rangeFiles.from))
 })
 
 test("commit contract validators reject malformed history", async () => {

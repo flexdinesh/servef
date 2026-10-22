@@ -467,6 +467,24 @@ test("history failures alert in Commits and recover on Retry", async ({ page }) 
   await expect(commitRow(page, featureSubject)).toBeVisible()
 })
 
+test("a failed switch to all history never lists the branch as all history", async ({ page }) => {
+  let fail = true
+  await page.route("**/api/commits?*", async (route) => {
+    if (!fail || new URL(route.request().url()).searchParams.get("range") !== "all") return route.continue()
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Couldn't read git history: object missing" }) })
+  })
+  await page.goto(`${gitApiOrigin}/?project=${project}`)
+  await page.keyboard.press("ControlOrMeta+Shift+g")
+  await expect(commitRow(page, featureSubject)).toBeVisible()
+  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
+  await expect(sourceControl(page).getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
+  await expect(commits(page).getByRole("treeitem")).toHaveCount(0)
+  fail = false
+  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  await expect(commits(page).getByRole("treeitem", { level: 1 })).toHaveCount(2)
+})
+
 test("Commits works from the keyboard", async ({ page }) => {
   await page.goto(`${gitApiOrigin}/?project=${project}`)
   await page.keyboard.press("ControlOrMeta+Shift+g")

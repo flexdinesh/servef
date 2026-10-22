@@ -12,7 +12,8 @@ import { failureReason, fetchJSON, isAbort } from "./http.ts"
 const focusThrottle = 2_000
 
 export interface CommitsState {
-  // result is the loaded list; it stays while a refresh runs or fails.
+  // result is the loaded list; it stays while a refresh of its range runs or
+  // fails.
   result: CommitsResponse | null
   error: string
   loading: boolean
@@ -135,7 +136,9 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     }
   }, [refresh])
 
-  const loaded = state.result
+  // A list read for the other range is not this range's history, even while
+  // the switch reads or after it fails.
+  const loaded = state.result?.range === range ? state.result : null
   const loadMore = useCallback(() => {
     if (!project || !loaded?.more || !loaded.head) return
     moreController.current?.abort()
@@ -223,7 +226,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     }
   }, [])
 
-  return { ...state, branch, files, loadFiles, loadMore, loadRangeFiles, rangeFiles, refresh, retryBranch }
+  return { ...state, result: loaded, branch, files, loadFiles, loadMore, loadRangeFiles, rangeFiles, refresh, retryBranch }
 }
 
 export type Commits = ReturnType<typeof useCommits>

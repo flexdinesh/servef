@@ -7,6 +7,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -322,10 +323,13 @@ export function App({ project }: AppProps) {
       else explainNavigation(kind, "Click a name in the code first, then try again.")
     },
   } : undefined, [explainNavigation, navigable, page.selected, requestNavigation])
-  runNavigation.current = (kind) => {
-    if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
-    else explainNavigation(kind, navigationReason)
-  }
+  // The palette runs navigation against the current document.
+  useLayoutEffect(() => {
+    runNavigation.current = (kind) => {
+      if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
+      else explainNavigation(kind, navigationReason)
+    }
+  }, [explainNavigation, navigationReason, sourceNavigation])
   useEffect(() => { closeNavigation() }, [closeNavigation, page.selected, documentMode, languageServers])
   useEffect(() => { if (isLoading) closeNavigation() }, [closeNavigation, isLoading])
   const selectedLines = showSource && lineRange ? clampLineRange(lineRange, splitSourceLines(page.source).length) : null
