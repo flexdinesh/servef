@@ -67,7 +67,7 @@ func serverApp(t *testing.T, installed bool) *App {
 func serverRequest(t *testing.T, app *App, target string, enabled bool) *httptest.ResponseRecorder {
 	t.Helper()
 	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req := localRequest(http.MethodGet, target)
 	if enabled {
 		req.Header.Set(languageServerHeader, "on")
 	}
@@ -106,7 +106,7 @@ const (
 func navigationErrorCode(t *testing.T, app *App, target string, enabled bool, wantStatus int, wantCode string) {
 	t.Helper()
 	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req := localRequest(http.MethodGet, target)
 	if enabled {
 		req.Header.Set(languageServerHeader, "on")
 	}
@@ -216,7 +216,7 @@ func TestNavigationCancellationExplainsStartingAndQueryTimeout(t *testing.T) {
 			t.Setenv(test.env, "500ms")
 			app := serverApp(t, true)
 			target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots[0])+"$1")
-			req := httptest.NewRequest(http.MethodGet, target, nil)
+			req := localRequest(http.MethodGet, target)
 			req.Header.Set(languageServerHeader, "on")
 			ctx, cancel := context.WithTimeout(req.Context(), 100*time.Millisecond)
 			defer cancel()
@@ -284,7 +284,7 @@ func TestNavigationSyncsFreshDocumentAfterSlowStartup(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "notifications.log")
 	t.Setenv("SERVEF_FAKE_LSP_LOG", logPath)
 	target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots[0])+"$1")
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req := localRequest(http.MethodGet, target)
 	req.Header.Set(languageServerHeader, "on")
 	response := httptest.NewRecorder()
 	done := make(chan struct{})

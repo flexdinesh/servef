@@ -44,6 +44,8 @@ worktrees, click the branch to switch. Linked worktrees get a colored fork icon.
 
 Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.
+Open servef by `localhost` or an IP address; other hostnames are refused, so
+websites cannot reach it through DNS rebinding.
 If the range is full, servef can stop all verified instances after confirmation.
 
 ## Filename scope

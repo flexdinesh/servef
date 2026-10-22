@@ -21,6 +21,8 @@ The filesystem root passed to the CLI is the primary runtime trust boundary.
 The server indexes paths matching `--filename` and resolves requests only through
 that index. It binds localhost by default and selects the first free port from
 7971 through 7980; exposing it requires an explicit `--host` IP address.
+Requests must name `localhost` or an IP literal in `Host`; other hostnames get
+403, which blocks DNS rebinding.
 
 ## Dependency direction
 

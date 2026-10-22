@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -278,6 +279,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
+	if !localHost(r.Host) {
+		http.Error(w, "forbidden host", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -379,6 +384,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	data, status := a.page(projectID, selected, required)
 	a.serveShell(w, status, &data)
+}
+
+// localHost reports whether a request's Host names this machine directly:
+// localhost or an IP literal. A site that rebinds its own hostname to this
+// address is refused, so other origins cannot read served files.
+func localHost(host string) bool {
+	if name, _, err := net.SplitHostPort(host); err == nil {
+		host = name
+	}
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
 }
 
 // project resolves a request's project ID within the roots.
