@@ -161,9 +161,27 @@ func TestScanAppliesCommonExcludesInLinkedWorktree(t *testing.T) {
 		writeFile(t, filepath.Join(worktree, name))
 	}
 
-	// The .git file is never tracked, so search skips it too.
-	want := []string{".git", "global.md", "local.md"}
+	want := []string{"global.md", "local.md"}
 	if got := ignoredFiles(t, worktree); !reflect.DeepEqual(got, want) {
 		t.Fatalf("ignored = %v, want %v", got, want)
+	}
+}
+
+func TestScanOmitsLinkedWorktreeGitFile(t *testing.T) {
+	isolateGitConfig(t)
+	root := t.TempDir()
+	writeContent(t, filepath.Join(root, ".git"), "gitdir: /elsewhere\n")
+	writeContent(t, filepath.Join(root, "docs", ".git"), "gitdir: /elsewhere\n")
+	writeFile(t, filepath.Join(root, "docs", "notes.md"))
+
+	index, err := Scan(root, -1, nil, func(string) bool { return true })
+	if err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+	if want := []string{"docs/notes.md"}; !reflect.DeepEqual(index.Files, want) {
+		t.Fatalf("Files = %v, want %v", index.Files, want)
+	}
+	if _, err := index.Resolve(".git"); err == nil {
+		t.Fatal("Resolve(.git) succeeded, want unindexed")
 	}
 }

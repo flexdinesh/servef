@@ -59,7 +59,7 @@ servef . --filename '*.md,*.go,Dockerfile'
 Patterns use Go `path.Match` syntax (`*`, `?`, `[...]`) and match each file's
 base name case-insensitively. Empty entries and malformed patterns fail before
 starting the server. Directory exclusions (`.git`, `node_modules`, `vendor`, and
-`--exclude`) still apply.
+`--exclude`) still apply, and `.git` files are always hidden.
 
 The CLI scope applies to discovery, direct document access, Markdown link
 navigation, and content search. The explorer's filename filter accepts the same

@@ -59,7 +59,8 @@ type Index struct {
 // Scan builds an index rooted at root. The root directory is depth zero, so a
 // maxDepth of zero includes supported files directly within root. Negative
 // maxDepth values scan without a depth limit. Directory names in excluded are
-// matched by base name at every scanned level.
+// matched by base name at every scanned level. .git entries of any type are
+// never indexed.
 //
 // Symlinks are not included. Failure to open or inspect the root is fatal;
 // failures below it are recorded in Index.Warnings and the rest of the scan is
@@ -199,6 +200,10 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 
 	children := make([]scannedEntry, 0, len(entries))
 	for _, dirEntry := range entries {
+		// Git metadata is never content, including a linked worktree's .git file.
+		if dirEntry.Name() == ".git" {
+			continue
+		}
 		rel := joinSlash(node.Path, dirEntry.Name())
 		info, infoErr := dirEntry.Info()
 		if infoErr != nil {
@@ -254,8 +259,7 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		}
 		i.Files = append(i.Files, child.path)
 		i.fileSet[child.path] = struct{}{}
-		// Git never tracks a .git entry, such as a linked worktree's .git file.
-		if inIgnored || child.name == ".git" || ignore.ignoredIn(node.Path, child.path, false) {
+		if inIgnored || ignore.ignoredIn(node.Path, child.path, false) {
 			i.ignored[child.path] = struct{}{}
 		}
 	}
