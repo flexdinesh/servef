@@ -2,8 +2,6 @@ package document
 
 import (
 	"bytes"
-	"html"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -92,16 +90,17 @@ func TestMarkdownPreviewPreservesCommentLiteralsAndEscapesHTML(t *testing.T) {
 	}
 }
 
-func TestMarkdownHighlightRetainsFrontmatterAndComments(t *testing.T) {
+func TestMarkdownPreviewLeavesSourceFrontmatterAndComments(t *testing.T) {
 	source := []byte("---\ntitle: metadata\n---\n\nVisible <!-- hidden preview comment -->\n")
-	_, err := newMarkdown().Preview(source, Context{})
+	original := bytes.Clone(source)
+	preview, err := newMarkdown().Preview(source, Context{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	lines := HighlightLines(source, "markdown")
-	markup := regexp.MustCompile(`<[^>]*>`)
-	text := html.UnescapeString(markup.ReplaceAllString(strings.Join(lines, "\n"), ""))
-	if text != strings.TrimSuffix(string(source), "\n") {
-		t.Fatalf("highlight lost source: %q", text)
+	if strings.Contains(preview, "metadata") || strings.Contains(preview, "hidden preview comment") {
+		t.Fatalf("preview shows hidden text: %q", preview)
+	}
+	if !bytes.Equal(source, original) {
+		t.Fatalf("preview changed source: %q", source)
 	}
 }

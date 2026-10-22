@@ -21,13 +21,13 @@ for (const origin of ["", apiOrigin]) {
     const source = page.getByRole("textbox", { name: "JSON source" })
     await expect(source.locator(".source-document-line")).toHaveCount(1)
     await expect(source).toContainText('"large":900719925474099312345')
-    await expect(source.locator("[class^=syntax-]").first()).toBeVisible()
+    await expect(source.locator("[class^=hl-]").first()).toBeVisible()
     expect(formatRequests).toBe(0)
 
     await formatButton.click()
     const formatted = page.getByRole("textbox", { name: "JSON formatted" })
     await expect(formatted).toContainText('"large": 900719925474099312345')
-    await expect(formatted.locator(".syntax-s2").first()).toBeVisible()
+    await expect(formatted.locator(".hl-string").first()).toBeVisible()
     await expect(formatted.locator(".source-document-line")).toHaveCount(8)
     await expect(formatButton).toHaveAttribute("aria-pressed", "true")
     await expect(page.locator("article")).toHaveCount(0)
@@ -131,7 +131,7 @@ test("source-only capabilities drive the UI without extension-specific component
       previewKind: "", previewLabel: "", defaultMode: "source", formattable: false,
     }
     await route.fulfill({ json: {
-      content: "", source: "package main\n", sourceLines: ['<span class="syntax-kn">package</span> main'],
+      content: "", source: "package main\n", highlightDisabled: false,
       empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "main.go",
       warnings: [], previewError: "", filenamePatterns: ["*"], documentType: fileType,
       navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,

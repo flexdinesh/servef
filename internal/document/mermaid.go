@@ -14,7 +14,7 @@ type mermaidHandler struct{}
 func newMermaid() Handler { return mermaidHandler{} }
 
 func (mermaidHandler) Type() Type {
-	return Type{ID: "mermaid", Label: "Mermaid", Extensions: []string{".mmd", ".mermaid"}, Language: "plaintext", PreviewKind: PreviewMarkdown, PreviewLabel: "Preview", DefaultMode: "preview"}
+	return Type{ID: "mermaid", Label: "Mermaid", Extensions: []string{".mmd", ".mermaid"}, Language: "text", PreviewKind: PreviewMarkdown, PreviewLabel: "Preview", DefaultMode: "preview"}
 }
 
 func (mermaidHandler) Preview(source []byte, _ Context) (string, error) {

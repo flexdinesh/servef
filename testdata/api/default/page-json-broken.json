@@ -133,10 +133,8 @@
   "binary": false,
   "tooLarge": false,
   "previewDisabled": false,
+  "highlightDisabled": false,
   "searchExcluded": false,
-  "sourceLines": [
-    "<span class=\"syntax-p\">{</span><span class=\"syntax-nt\">&#34;name&#34;</span><span class=\"syntax-p\">:</span> <span class=\"syntax-s2\">&#34;malformed-search-marker&#34;</span><span class=\"syntax-p\">,</span>"
-  ],
   "previewError": "",
   "navigationSupported": false
 }

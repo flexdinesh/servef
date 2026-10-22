@@ -474,6 +474,21 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
   await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
 })
 
+test("highlights Source in the browser with the selected theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.goto("/view?path=code%2Fmain.go")
+  const source = page.getByRole("textbox", { name: "Go source" })
+  // Highlights keeps trailing whitespace in a token.
+  const keyword = source.locator(".hl-keyword").filter({ hasText: /^package\s*$/ })
+  await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
+  await expect(source.locator(".hl-comment").first()).toHaveCSS("font-style", "italic")
+  // Highlighting never changes the text navigation and copy read.
+  await expect(source.locator('[data-line="2"] .source-document-line-content')).toHaveText("package main")
+
+  await (await themeSetting(page)).selectOption({ label: "Nord" })
+  await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
+})
+
 test("labels and copies fenced code", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
   await page.goto("/view?path=guides%2Fcode-blocks.md")

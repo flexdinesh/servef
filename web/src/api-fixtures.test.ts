@@ -55,7 +55,7 @@ test("page fixtures follow document-shape invariants", async () => {
     const binary = await page(name)
     assert.equal(binary.binary, true, name)
     assert.equal(binary.source, "", name)
-    assert.deepEqual(binary.sourceLines, [], name)
+    assert.equal(binary.highlightDisabled, true, name)
     assert.equal(binary.content, "", name)
   }
   assert.equal((await page("page-image.json")).documentType?.previewKind, "image")
@@ -63,6 +63,7 @@ test("page fixtures follow document-shape invariants", async () => {
 
   const large = await page("page-large.json")
   assert.equal(large.previewDisabled, true)
+  assert.equal(large.highlightDisabled, true)
   assert.equal(large.searchExcluded, true)
   assert.ok(large.fileSize > 8 * 1_048_576)
   assert.equal(large.tooLarge, false)
@@ -73,7 +74,7 @@ test("page fixtures follow document-shape invariants", async () => {
   assert.equal(tooLarge.previewDisabled, true)
   assert.equal(tooLarge.searchExcluded, true)
   assert.equal(tooLarge.source, "")
-  assert.deepEqual(tooLarge.sourceLines, [])
+  assert.equal(tooLarge.highlightDisabled, true)
   assert.equal(tooLarge.content, "")
   assert.ok(tooLarge.fileSize > 32 * 1_048_576)
 })
@@ -91,7 +92,11 @@ test("contract validators reject removed and malformed fields", async () => {
   assert.equal(isPageData({ ...value, documentType: { ...value.documentType, formattable: undefined } }), false)
   assert.equal(isPageData({ ...value, documentType: null }), false)
   assert.equal(isPageData({ ...value, documentType: { ...value.documentType, previewLabel: "" } }), false)
-  assert.equal(isFormatResult({ formattedLines: ["ok", 1] }), false)
+  const { highlightDisabled: _highlightDisabled, ...withoutHighlightDisabled } = value
+  assert.equal(isPageData(withoutHighlightDisabled), false)
+  assert.equal(isFormatResult({ formatted: "{}\n" }), true)
+  assert.equal(isFormatResult({ formatted: ["ok"] }), false)
+  assert.equal(isFormatResult({ formattedLines: ["ok"] }), false)
 })
 
 test("navigation contract validators reject malformed ranges and states", async () => {

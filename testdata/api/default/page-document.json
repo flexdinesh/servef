@@ -134,12 +134,8 @@
   "binary": false,
   "tooLarge": false,
   "previewDisabled": false,
+  "highlightDisabled": false,
   "searchExcluded": false,
-  "sourceLines": [
-    "# Getting started",
-    "",
-    "This page is served by the frontend-only fixture API."
-  ],
   "previewError": "",
   "navigationSupported": false
 }

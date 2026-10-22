@@ -2098,6 +2098,21 @@ article code {
   font-variant-ligatures: none;
 }
 
+/* Highlights token roles (syntax-highlight.ts, decision 0029). */
+.hl-comment { color: var(--color-syntax-comment); }
+.hl-keyword { color: var(--color-syntax-keyword); }
+.hl-type { color: var(--color-syntax-type); }
+.hl-function { color: var(--color-syntax-function); }
+.hl-variable { color: var(--color-syntax-variable); }
+.hl-string { color: var(--color-syntax-string); }
+.hl-number { color: var(--color-syntax-number); }
+.hl-operator { color: var(--color-syntax-operator); }
+.hl-inserted { color: var(--color-success); }
+.hl-deleted { color: var(--color-destructive); }
+.hl-link { color: var(--color-accent); }
+.hl-italic { font-style: italic; }
+.hl-bold { font-weight: 700; }
+
 .syntax-highlight [class^="syntax-c"] {
   color: var(--color-syntax-comment);
   font-style: italic;

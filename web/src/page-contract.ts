@@ -37,7 +37,9 @@ export interface PageData {
   tooLarge: boolean
   previewDisabled: boolean
   searchExcluded: boolean
-  sourceLines: string[]
+  // highlightDisabled: no syntax highlighting (binary, too large, or over
+  // the 4 MiB highlight limit); Source shows plain text.
+  highlightDisabled: boolean
   previewError: string
   content: string
   empty: boolean
@@ -66,7 +68,8 @@ export type PageLoadResult =
   | { kind: "failure"; message: string }
 
 export interface FormatResult {
-  formattedLines: string[]
+  // formatted is the formatter's text; the UI highlights it as Source.
+  formatted: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,7 +96,7 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 export function isFormatResult(value: unknown): value is FormatResult {
-  return isRecord(value) && isStringArray(value.formattedLines)
+  return isRecord(value) && typeof value.formatted === "string"
 }
 
 function isTreeNode(value: unknown): value is TreeNode {
@@ -120,8 +123,7 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.previewDisabled === "boolean"
     && typeof value.searchExcluded === "boolean"
     && (value.documentType === null || isFileType(value.documentType))
-    && Array.isArray(value.sourceLines)
-    && value.sourceLines.every((line: unknown) => typeof line === "string")
+    && typeof value.highlightDisabled === "boolean"
     && typeof value.previewError === "string"
     && (!value.hasFile || isFileType(value.documentType))
     && typeof value.content === "string"

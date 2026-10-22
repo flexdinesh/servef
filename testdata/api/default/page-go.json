@@ -95,16 +95,8 @@
   "binary": false,
   "tooLarge": false,
   "previewDisabled": false,
+  "highlightDisabled": false,
   "searchExcluded": false,
-  "sourceLines": [
-    "<span class=\"syntax-c1\">// Package navigation is a code navigation sample: Cmd/Ctrl+click Format.</span><span class=\"syntax-w\"></span>",
-    "<span class=\"syntax-kn\">package</span><span class=\"syntax-w\"> </span><span class=\"syntax-nx\">navigation</span><span class=\"syntax-w\"></span>",
-    "",
-    "<span class=\"syntax-c1\">// Greet welcomes someone by name.</span><span class=\"syntax-w\"></span>",
-    "<span class=\"syntax-kd\">func</span><span class=\"syntax-w\"> </span><span class=\"syntax-nf\">Greet</span><span class=\"syntax-p\">(</span><span class=\"syntax-nx\">name</span><span class=\"syntax-w\"> </span><span class=\"syntax-kt\">string</span><span class=\"syntax-p\">)</span><span class=\"syntax-w\"> </span><span class=\"syntax-kt\">string</span><span class=\"syntax-w\"> </span><span class=\"syntax-p\">{</span><span class=\"syntax-w\"></span>",
-    "<span class=\"syntax-w\">\t</span><span class=\"syntax-k\">return</span><span class=\"syntax-w\"> </span><span class=\"syntax-nf\">Format</span><span class=\"syntax-p\">(</span><span class=\"syntax-s\">&#34;hello&#34;</span><span class=\"syntax-p\">,</span><span class=\"syntax-w\"> </span><span class=\"syntax-nx\">name</span><span class=\"syntax-p\">)</span><span class=\"syntax-w\"></span>",
-    "<span class=\"syntax-p\">}</span><span class=\"syntax-w\"></span>"
-  ],
   "previewError": "",
   "navigationSupported": true
 }

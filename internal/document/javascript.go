@@ -12,7 +12,7 @@ import (
 
 func NewJavaScript() Handler {
 	return FormattedCodeHandler{
-		CodeHandler:  CodeHandler{Definition: Type{ID: "javascript", Label: "JavaScript", Extensions: []string{".js", ".mjs", ".cjs"}, Language: "javascript", DefaultMode: "source"}},
+		CodeHandler:  CodeHandler{Definition: Type{ID: "javascript", Label: "JavaScript", Extensions: []string{".js", ".mjs", ".cjs"}, Language: "js", DefaultMode: "source"}},
 		FormatSource: formatJavaScript,
 	}
 }

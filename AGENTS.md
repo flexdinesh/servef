@@ -31,7 +31,7 @@ Key files:
 | Binary/size limits | `internal/document/content.go` |
 | Projects | `internal/projects/projects.go`, `web/src/project-picker.ts`, `docs/decisions/0007-projects-and-project-picker.md`, `0009-multiple-roots-and-worktree-picker.md`, `0012-repository-names-and-worktree-header.md` |
 | Sidebar and search | `web/src/Sidebar.tsx`, `use-sidebar.ts`, `SearchView.tsx`, `use-search-session.ts`, `search-controller.ts`, `search-engine.ts` (pure matching), `search-scope.ts` (include/exclude globs), `search-results.ts`, `docs/decisions/0020-activity-bar-and-search-view.md` |
-| Source Control | `internal/git/`, `internal/web/server.go` (`/api/changes`, `/api/diff`, `/api/commits`, `/api/commit-files`), `internal/web/commits.go`, `web/src/SourceControlView.tsx`, `CommitsView.tsx`, `commit-rows.ts` (pure tree rows), `commit-pages.ts` (pure paging), `use-commits.ts`, `commits-contract.ts`, `source-control-layout.ts`, `use-changes.ts`, `changes-contract.ts`, `DiffDocument.tsx`, `diff-line-selection.ts` (pure diff anchors and line references), `diff-options.ts`, `diff-language.ts` (family to Highlights), `syntax-theme.ts`, `highlight-thread.ts`, `web/vite.config.ts` (`servef-diffs-subset`), `diff-stats.ts`, `docs/decisions/0024-source-control-view-and-working-tree-diffs.md`, `0029-highlights-syntax-highlighting.md`, `0027-commit-history-in-source-control.md`, `0028-diff-line-links-and-copy.md` |
+| Source Control | `internal/git/`, `internal/web/server.go` (`/api/changes`, `/api/diff`, `/api/commits`, `/api/commit-files`), `internal/web/commits.go`, `web/src/SourceControlView.tsx`, `CommitsView.tsx`, `commit-rows.ts` (pure tree rows), `commit-pages.ts` (pure paging), `use-commits.ts`, `commits-contract.ts`, `source-control-layout.ts`, `use-changes.ts`, `changes-contract.ts`, `DiffDocument.tsx`, `diff-line-selection.ts` (pure diff anchors and line references), `diff-options.ts`, `syntax-theme.ts`, `highlight-thread.ts`, `web/vite.config.ts` (`servef-diffs-subset`), `diff-stats.ts`, `docs/decisions/0024-source-control-view-and-working-tree-diffs.md`, `0029-highlights-syntax-highlighting.md`, `0027-commit-history-in-source-control.md`, `0028-diff-line-links-and-copy.md` |
 | HTTP | `internal/web/server.go` (`/api/page`, `/api/format`, `/api/raw`, `/api/image`, `/api/search-documents`, `/api/definition`, `/api/references`, `/api/changes`, `/api/diff`, `/api/commits`, `/api/commit-files`, all scoped by `project`; `/api/projects`, `/api/directories`) |
 | Transport contract | `web/src/page-contract.ts`, `web/src/projects-contract.ts`, `web/src/navigation-contract.ts`, `web/src/changes-contract.ts`, `web/src/commits-contract.ts`, `testdata/api/default/`, `web/dev-server.ts` |
 | View selection | `web/src/document-view.ts` (pure), `DocumentPane.tsx`, `DocumentModeToggle.tsx` |
@@ -94,7 +94,7 @@ Pick the smallest step that delivers the behavior. Each step is deliberate: no C
 1. Source-only language (highlighting only): add one line to `Builtins()`, e.g. `source("zig", "Zig", "zig", []string{".zig"})`.
    - `Language` must resolve with Chroma `lexers.Get`; `NewRegistry` rejects unknown names.
    - IDs, extensions, and filenames share one case-insensitive namespace; pick unused ones.
-   - Add the family to `testdata/document-families.json` and choose its Highlights language in `web/src/diff-language.ts` (`text` for none; decision 0029). Tests fail until both agree.
+   - Add the family and its language to `testdata/document-families.json`. Tests fail until the fixture matches `Builtins()` and every language is a Highlights language (decision 0029).
    - No HTTP or contract change is needed.
 2. Files identified by name (`Dockerfile`, `Makefile`): pass filenames as trailing args to `source(...)`. Without a Chroma lexer, add them to the `text` family instead.
 3. Read-only Format: use `FormattedCodeHandler` with a `FormatSource` that copies input and preserves meaningful values. `formattable` and the Format button follow automatically.
@@ -112,7 +112,7 @@ For every addition:
 
 - Add a sample under `testdata/markdown/` and tests for lookup (extension, filename, fallback), highlighting, search, and preview/format failure where relevant.
 - Keep `TestAPIFixturesMatchServerDocumentContract` green: fixtures must carry the registry's real `Type` JSON.
-- Keep `TestDocumentFamiliesFixtureMatchesBuiltins` and `web/src/diff-language.test.ts` green: every family, including image-like ones, has an explicit diff grammar choice, and every bundled grammar is used.
+- Keep `TestDocumentFamiliesFixtureMatchesBuiltins` and `web/src/syntax-languages.test.ts` green: every family declares a Highlights language (`text` for none); raster images declare none.
 - Update `site/src/pages` (and the README feature summary) when user-visible behavior changes. Tree and tab icons come from Pierre by file name; unknown names get the generic icon.
 
 ## Distribution

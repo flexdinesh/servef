@@ -41,6 +41,7 @@ import { diffStats } from "./diff-stats.ts"
 import { useChanges } from "./use-changes.ts"
 import { useCommits } from "./use-commits.ts"
 import { useDiffOptions } from "./use-diff-options.ts"
+import { releaseHighlightResources } from "./use-highlighted-lines.ts"
 import { releaseDiffResources, useParsedDiff } from "./use-parsed-diff.ts"
 import { useSourceControlLayout } from "./use-source-control-layout.ts"
 import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
@@ -206,6 +207,11 @@ export function App({ project }: AppProps) {
   useEffect(() => {
     if (!hasDiffTabs) releaseDiffResources()
   }, [hasDiffTabs])
+  // Closing the last tab frees the Source highlight worker the same way.
+  const hasTabs = workspace.tabs.length > 0
+  useEffect(() => {
+    if (!hasTabs) releaseHighlightResources()
+  }, [hasTabs])
   const { fileDiff } = parsedDiff
   const diffSlow = useDelayedFlag(workingDiff.loading || parsedDiff.parsing, 150)
   const diffDeleted = (diffState.kind === "ready" ? diffState.diff.status : changedFile?.status) === "deleted"

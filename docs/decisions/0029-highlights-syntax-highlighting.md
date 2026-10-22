@@ -27,17 +27,36 @@ grammar downloads, and colors tokens from CSS variables.
 - Text up to 100,000 characters (both sides of a diff) highlights on the
   main thread; larger text goes to a pool of two workers
   (`web/src/highlight-thread.ts`).
-- Families map to Highlights languages in `web/src/diff-language.ts`.
-  `fish`, `ini`, `properties`, and `rst` have no Highlights lexer and map to
-  `text`, as images and Mermaid do. Tests require every mapped language to be
-  a Highlights language.
+- Source and Format highlight in the browser too. `/api/page` drops
+  `sourceLines` and declares `highlightDisabled` (binary, too large, or over
+  the 0004 4 MiB limit, large SVG included); `/api/format` returns the
+  formatter's text as `formatted`. `web/src/syntax-highlight.ts` tokenizes
+  the original text and renders escaped rows with `hl-<role>` classes; each
+  row's text equals its source line, so navigation columns, selection, and
+  copy are unchanged. Rows show plain text until highlighting arrives. One
+  worker serves large Source and Format text and ends when the last tab
+  closes. Highlights is imported lazily, so a WebAssembly failure leaves
+  code plain without breaking the app.
+- `document.Type.Language` names a Highlights language (`text` for none);
+  diffs and Source read it from `documentType`. `NewRegistry` checks that a
+  language is well formed; `testdata/document-families.json` lists every
+  family's language, and web tests require each to be a Highlights language.
+  `fish`, `ini`, `properties`, and `rst` have no Highlights lexer and use
+  `text`, as Mermaid does.
 - `@pierre/diffs` 1.6.1, `@pierre/highlights` 0.2.0, and `@pierre/theming`
   1.0.2 are exempt from pnpm's three-day release age until 2026-10-25.
 
 ## Consequences
 
-- Fish, INI, Properties, and reStructuredText diffs lose highlighting.
+- Fish, INI, Properties, and reStructuredText lose highlighting.
+- An unknown but well-formed language fails tests, not startup: Go cannot
+  see Highlights' language list.
+- A 4 MB Go file: `/api/page` drops from 72.5 MB in 4.4 s to 4.4 MB in
+  15 ms, and servef RSS after loading it four times from about 413 MB to
+  58 MB. The browser shows it highlighted after 19 s instead of 34 s;
+  rendering every row now dominates. A 100 KB file takes 0.76 s instead of
+  1.07 s. Browser heap is unchanged (about 300 MB for 4 MB).
 - Token boundaries and colors differ from Shiki's; Highlights keeps trailing
   whitespace in a token.
 - Highlights is beta; its API may change between minor releases.
-- The binary shrinks from 31.8 MB to 29.8 MB.
+- The binary shrinks from 31.8 MB to 30.1 MB.

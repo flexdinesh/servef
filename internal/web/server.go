@@ -84,8 +84,8 @@ type pageData struct {
 	Binary              bool           `json:"binary"`
 	TooLarge            bool           `json:"tooLarge"`
 	PreviewDisabled     bool           `json:"previewDisabled"`
+	HighlightDisabled   bool           `json:"highlightDisabled"`
 	SearchExcluded      bool           `json:"searchExcluded"`
-	SourceLines         []string       `json:"sourceLines"`
 	PreviewError        string         `json:"previewError"`
 }
 
@@ -111,7 +111,7 @@ type searchDocumentsResponse struct {
 }
 
 type formatResponse struct {
-	FormattedLines []string `json:"formattedLines"`
+	Formatted string `json:"formatted"`
 }
 
 type errorResponse struct {
@@ -651,12 +651,12 @@ func (a *App) serveFormat(w http.ResponseWriter, projectID, name string) {
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: "binary files cannot be formatted"})
 		return
 	}
-	lines, err := family.FormatLines(file.source)
+	formatted, err := family.Format(file.source)
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, errorResponse{Error: err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, formatResponse{FormattedLines: lines})
+	writeJSON(w, http.StatusOK, formatResponse{Formatted: string(formatted)})
 }
 
 // serveRaw returns the bytes of an indexed image-preview file in a sandbox.
@@ -721,7 +721,6 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			Selected:           selected,
 			Tree:               []treeNode{},
 			FilenamePatterns:   a.config.Filenames.Patterns(),
-			SourceLines:        []string{},
 			Error:              message,
 			Warnings:           []string{},
 		}, status
@@ -739,7 +738,6 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			Worktrees:        checkout.Worktrees,
 			Tree:             []treeNode{},
 			FilenamePatterns: a.config.Filenames.Patterns(),
-			SourceLines:      []string{},
 			Error:            err.Error(),
 			Warnings:         []string{},
 		}, http.StatusInternalServerError
@@ -757,7 +755,6 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		Empty:            len(index.Files) == 0,
 		Warnings:         warningStrings(index.Warnings),
 		FilenamePatterns: a.config.Filenames.Patterns(),
-		SourceLines:      []string{},
 	}
 	data.Tree = a.makeTree(index.Tree.Children, selected)
 	if required && selected == "" {
@@ -795,23 +792,23 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		if file.tooLarge {
 			data.TooLarge = true
 			data.PreviewDisabled = true
+			data.HighlightDisabled = true
 			data.SearchExcluded = true
 			return data, http.StatusOK
 		}
 		// Image previews use raw bytes and no server work, so stay enabled at any
-		// size; large SVG source is still shown as plain lines.
+		// size; large SVG source is still shown, unhighlighted.
 		large := file.size > document.PreviewLimit
 		data.PreviewDisabled = large && fileType.PreviewKind != document.PreviewImage
+		data.HighlightDisabled = large || file.binary
 		data.SearchExcluded = file.binary || file.size > document.SearchLimit
 		if file.binary {
 			return data, http.StatusOK
 		}
 		data.Source = string(file.source)
 		if large {
-			data.SourceLines = document.PlainLines(file.source)
 			return data, http.StatusOK
 		}
-		data.SourceLines = document.HighlightLines(file.source, fileType.Language)
 		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id, Supports: a.config.Filenames.Match})
 		if err != nil {
 			data.PreviewError = err.Error()
