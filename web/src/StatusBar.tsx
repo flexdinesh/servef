@@ -6,7 +6,7 @@ import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useClipboardCopy } from "./clipboard.ts"
 import { lineRangeLabel, type LineRange } from "./features/documents/line-selection.ts"
 import { settingsShortcutLabel } from "./SettingsDialog.tsx"
-import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./NavigationStatusPanel.tsx"
+import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./features/navigation/NavigationStatusPanel.tsx"
 import { diffStatsLabel, type DiffStats } from "./features/source-control/diff-stats.ts"
 import type { DiffLineTarget } from "./features/source-control/diff-line-selection.ts"
 

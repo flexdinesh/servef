@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { LanguageServerStatus, NavigationStatus } from "./navigation-contract.ts"
+import type { LanguageServerStatus, NavigationStatus } from "../../navigation-contract.ts"
 import { navigationStatusQuery, pollsServer, providerLabel, serverSummary } from "./navigation-status.ts"
 
 const gopls: LanguageServerStatus = {

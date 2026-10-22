@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 
-import { fetchJSON } from "./http.ts"
-import { isNavigationStatus, type NavigationStatus } from "./navigation-contract.ts"
+import { fetchJSON } from "../../http.ts"
+import { isNavigationStatus, type NavigationStatus } from "../../navigation-contract.ts"
 import { LANGUAGE_SERVER_HEADER, navigationStatusQuery, pollsServer } from "./navigation-status.ts"
 
 const POLL_MS = 3_000
