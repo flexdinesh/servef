@@ -14,7 +14,7 @@ import {
 } from "react"
 
 import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
-import { ProjectPicker, type PickerOpenOptions } from "./ProjectPicker.tsx"
+import { ProjectPicker, type PickerOpenOptions } from "./features/projects/ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./features/documents/DocumentModeToggle.tsx"
 import { DocumentPane } from "./features/documents/DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./features/documents/document-view.ts"

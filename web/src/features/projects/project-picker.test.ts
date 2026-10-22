@@ -15,10 +15,10 @@ import {
   splitBrowseInput,
   type PickerSection,
 } from "./project-picker.ts"
-import { isProjectsResponse, type ProjectsResponse } from "./projects-contract.ts"
+import { isProjectsResponse, type ProjectsResponse } from "../../projects-contract.ts"
 
 async function projects(): Promise<ProjectsResponse> {
-  const value: unknown = JSON.parse(await readFile(new URL("../../testdata/api/default/projects.json", import.meta.url), "utf8"))
+  const value: unknown = JSON.parse(await readFile(new URL("../../../../testdata/api/default/projects.json", import.meta.url), "utf8"))
   assert.ok(isProjectsResponse(value))
   return value
 }

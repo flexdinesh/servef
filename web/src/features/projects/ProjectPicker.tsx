@@ -13,8 +13,8 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
-import { Button } from "./components/ui/button.tsx"
-import { isAbort } from "./http.ts"
+import { Button } from "../../components/ui/button.tsx"
+import { isAbort } from "../../http.ts"
 import {
   browseRows,
   browseStart,
@@ -29,10 +29,10 @@ import {
   type PickerRow,
   type PickerSection,
 } from "./project-picker.ts"
-import type { DirectoriesResponse, ProjectsResponse } from "./projects-contract.ts"
-import { fetchDirectories, fetchProjects, takeLandingPick } from "./projects-data.ts"
-import { useDelayedFlag } from "./features/documents/use-document-format.ts"
-import { forgetProject, readMemory, rememberedProjects, updateMemory } from "./workspace-memory.ts"
+import type { DirectoriesResponse, ProjectsResponse } from "../../projects-contract.ts"
+import { fetchDirectories, fetchProjects, takeLandingPick } from "../../projects-data.ts"
+import { useDelayedFlag } from "../documents/use-document-format.ts"
+import { forgetProject, readMemory, rememberedProjects, updateMemory } from "../../workspace-memory.ts"
 
 type Load<T> =
   | { kind: "loading"; previous: T | null }
