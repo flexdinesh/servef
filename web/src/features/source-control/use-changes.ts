@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { gitStatusError, isChangesResponse, type ChangedFile, type ChangesResponse } from "./changes-contract.ts"
-import { failureReason, fetchJSON } from "./http.ts"
-import { projectUrl } from "./project-url.ts"
+import { gitStatusError, isChangesResponse, type ChangedFile, type ChangesResponse } from "../../changes-contract.ts"
+import { failureReason, fetchJSON } from "../../http.ts"
+import { projectUrl } from "../../project-url.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 
 export interface ChangesState {

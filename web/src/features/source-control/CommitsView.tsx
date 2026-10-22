@@ -1,16 +1,16 @@
 import { CheckIcon, ChevronRightIcon, CopyIcon, GitCompareArrowsIcon, XIcon } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 
-import { useClipboardCopy } from "./clipboard.ts"
-import { Button } from "./components/ui/button.tsx"
+import { useClipboardCopy } from "../../clipboard.ts"
+import { Button } from "../../components/ui/button.tsx"
 import {
   commitAge, commitDate, commitRows, compareRowKey, folderKey, parentRowKey, tabRowKey,
   type CommitFiles, type CommitRow, type Compare, type PinnedCompare,
 } from "./commit-rows.ts"
-import type { Commit, CommitFileStatus, CommitRange } from "./commits-contract.ts"
-import { FileIcon } from "./FileIcon.tsx"
+import type { Commit, CommitFileStatus, CommitRange } from "../../commits-contract.ts"
+import { FileIcon } from "../../FileIcon.tsx"
 import type { Commits } from "./use-commits.ts"
-import { shortHash, type WorkspaceTab } from "./workspace-tabs.ts"
+import { shortHash, type WorkspaceTab } from "../../workspace-tabs.ts"
 
 const statusLetters: Record<CommitFileStatus, string> = { modified: "M", added: "A", deleted: "D", renamed: "R" }
 const statusNames: Record<CommitFileStatus, string> = { modified: "Modified", added: "Added", deleted: "Deleted", renamed: "Renamed" }

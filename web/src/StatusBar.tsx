@@ -7,8 +7,8 @@ import { useClipboardCopy } from "./clipboard.ts"
 import { lineRangeLabel, type LineRange } from "./line-selection.ts"
 import { settingsShortcutLabel } from "./SettingsDialog.tsx"
 import { NavigationStatusPanel, type NavigationStatusPanelProps } from "./NavigationStatusPanel.tsx"
-import { diffStatsLabel, type DiffStats } from "./diff-stats.ts"
-import type { DiffLineTarget } from "./diff-line-selection.ts"
+import { diffStatsLabel, type DiffStats } from "./features/source-control/diff-stats.ts"
+import type { DiffLineTarget } from "./features/source-control/diff-line-selection.ts"
 
 // DiffStatus describes the active diff tab, which replaces document status.
 export interface DiffStatus {

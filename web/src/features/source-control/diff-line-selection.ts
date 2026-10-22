@@ -1,7 +1,7 @@
 import type { FileDiffMetadata, SelectedLineRange, SelectionSide } from "@pierre/diffs"
 
 import type { DiffStyle } from "./diff-options.ts"
-import type { LineRange } from "./line-selection.ts"
+import type { LineRange } from "../../line-selection.ts"
 
 // DiffLineTarget is what a diff selection addresses: lines of the old file
 // (HEAD or the commit's parent) or of the new file.

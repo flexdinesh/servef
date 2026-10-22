@@ -1,7 +1,7 @@
 import { parseDiffFromFile, type FileContents, type FileDiffMetadata } from "@pierre/diffs"
 
-import type { DiffResponse, DiffSide } from "./changes-contract.ts"
-import { formatBytes } from "./format-bytes.ts"
+import type { DiffResponse, DiffSide } from "../../changes-contract.ts"
+import { formatBytes } from "../../format-bytes.ts"
 
 // DiffContent is what a working-tree diff can show: text sides for Pierre, or
 // the reason it cannot (decision 0004 limits apply per side).

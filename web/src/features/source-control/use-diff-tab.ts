@@ -5,14 +5,14 @@ import type { SelectedLineRange } from "@pierre/diffs"
 import { diffContent } from "./diff-content.ts"
 import { diffLineAnchor, diffLineTarget, parseDiffLineAnchor } from "./diff-line-selection.ts"
 import { effectiveDiffStyle } from "./diff-options.ts"
-import { lineReference } from "./line-selection.ts"
-import { filePaths, type TreeNode } from "./page-data.ts"
+import { lineReference } from "../../line-selection.ts"
+import { filePaths, type TreeNode } from "../../page-data.ts"
 import type { Changes } from "./use-changes.ts"
-import { useDelayedFlag } from "./use-document-format.ts"
+import { useDelayedFlag } from "../../use-document-format.ts"
 import { useDiffOptions } from "./use-diff-options.ts"
 import { useParsedDiff } from "./use-parsed-diff.ts"
 import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
-import { sameTab, tabKey, tabSearch, type WorkspaceTab } from "./workspace-tabs.ts"
+import { sameTab, tabKey, tabSearch, type WorkspaceTab } from "../../workspace-tabs.ts"
 
 interface DiffTabOptions {
   project: string

@@ -7,7 +7,7 @@
     "dev": "vite --configLoader native --port 5173 --strictPort",
     "dev:mock": "vite --configLoader native --mode mock --port 5173 --strictPort",
     "lint": "eslint",
-    "test": "node --test dev-server.test.ts src/*.test.ts",
+    "test": "node --test dev-server.test.ts 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

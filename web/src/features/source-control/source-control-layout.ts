@@ -1,5 +1,5 @@
-import { isCommitRange, type CommitRange } from "./commits-contract.ts"
-import { isRecord } from "./http.ts"
+import { isCommitRange, type CommitRange } from "../../commits-contract.ts"
+import { isRecord } from "../../http.ts"
 
 // Source Control's section layout and commit range, remembered in this
 // browser under servef-source-control (decision 0027). Pure except for
