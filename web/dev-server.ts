@@ -62,6 +62,21 @@ const mockCommitDiffs: ReadonlyMap<string, string> = new Map([
   ["guides/getting-started.md", "diff-renamed.json"],
 ])
 
+// The branch, and the range spanning both commits in commits.json, list the
+// same files as mockCommit and reuse its diffs.
+const mockRangeFrom = "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2"
+
+function historyDiffs(params: URLSearchParams): ReadonlyMap<string, string> | undefined {
+  if (params.has("commit")) return params.get("commit") === mockCommit ? mockCommitDiffs : undefined
+  if (params.has("branch")) return mockCommitDiffs
+  if (params.has("from") || params.has("to")) return mockRange(params) ? mockCommitDiffs : undefined
+  return mockDiffs
+}
+
+function mockRange(params: URLSearchParams): boolean {
+  return params.get("from") === mockRangeFrom && params.get("to") === mockCommit
+}
+
 const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
 export function primaryLanIpv4(
@@ -141,15 +156,17 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     case "/changes":
       return { name: "changes.json", status: 200 }
     case "/diff": {
-      const commit = url.searchParams.get("commit")
-      const diffs = commit === null ? mockDiffs : commit === mockCommit ? mockCommitDiffs : new Map<string, string>()
-      const diff = diffs.get(url.searchParams.get("path") ?? "")
+      const diff = historyDiffs(url.searchParams)?.get(url.searchParams.get("path") ?? "")
       return diff ? { name: diff, status: 200 } : notFound
     }
     case "/commits":
       return { name: url.searchParams.get("range") === "all" ? "commits-all.json" : "commits.json", status: 200 }
     case "/commit-files":
       return url.searchParams.get("commit") === mockCommit ? { name: "commit-files.json", status: 200 } : notFound
+    case "/branch-files":
+      return { name: "branch-files.json", status: 200 }
+    case "/range-files":
+      return mockRange(url.searchParams) ? { name: "range-files.json", status: 200 } : notFound
     default:
       return undefined
   }

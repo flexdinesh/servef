@@ -61,6 +61,9 @@ interface DiffDocumentProps {
   scrollRoot: RefObject<HTMLElement | null>
   selection: DiffLineSelection
   state: DiffState
+  // unchangedSince ends the “No changes to path …” line: “since the last
+  // commit” for working-tree diffs, “vs main” for branch diffs.
+  unchangedSince?: string
   onOpenFile(): void
   onRetry(): void
 }
@@ -79,7 +82,9 @@ export function DiffDocument(props: DiffDocumentProps) {
   )
 }
 
-function DiffBody({ content, fileDiff, narrow, options, parseFailed, path, scrollRoot, selection, state, onOpenFile, onRetry }: DiffDocumentProps) {
+function DiffBody({
+  content, fileDiff, narrow, options, parseFailed, path, scrollRoot, selection, state, unchangedSince = "since the last commit", onOpenFile, onRetry,
+}: DiffDocumentProps) {
   if (state.kind === "error") {
     return (
       <div className="error" role="alert">
@@ -92,7 +97,7 @@ function DiffBody({ content, fileDiff, narrow, options, parseFailed, path, scrol
     return (
       <div className="empty">
         <h1>No changes</h1>
-        <p>No changes to <code>{path}</code> since the last commit.</p>
+        <p>No changes to <code>{path}</code> {unchangedSince}.</p>
         <Button type="button" variant="outline" onClick={onOpenFile}>Open File</Button>
       </div>
     )

@@ -296,3 +296,245 @@ func TestCommitDiffRejectsPathsOutsideTheCommit(t *testing.T) {
 		}
 	}
 }
+
+func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
+	root, initial, change := historyRepo(t)
+	app := newScopedApp(t, root, "*.md")
+
+	var got branchFilesResponse
+	if status := requestJSON(t, app, "/api/branch-files?project=.", &got); status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	want := branchFilesResponse{Repository: true, Branch: "feature", Base: "master", MergeBase: initial.String(), Head: change.String(), Ahead: 1, Files: []git.Change{
+		{Path: "added.go", Status: git.Added},
+		{Path: "data.bin", Status: git.Modified},
+		{Path: "doc.md", Status: git.Modified},
+		{Path: "gone.md", Status: git.Deleted},
+		{Path: "large.txt", Status: git.Modified},
+		{Path: "moved.md", OldPath: "old.md", Status: git.Renamed},
+		{Path: "scope/x.zzz", Status: git.Modified},
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("branch files = %+v\nwant %+v", got, want)
+	}
+	if response := request(t, app, "/api/branch-files?project=."); response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q", response.Header().Get("Cache-Control"))
+	}
+
+	// On the base, nothing is ahead and there is no merge base.
+	gitRepo, err := gogit.PlainOpen(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName("master"), change)); err != nil {
+		t.Fatal(err)
+	}
+	body := request(t, app, "/api/branch-files?project=.").Body.String()
+	if want := `{"repository":true,"branch":"feature","base":"master","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false}`; strings.TrimSpace(body) != want {
+		t.Fatalf("nothing ahead = %s", body)
+	}
+	var unchanged diffErrorResponse
+	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != "unchanged" || unchanged.Error == "" {
+		t.Fatalf("nothing ahead diff = %d %+v", status, unchanged)
+	}
+}
+
+func TestRangeFilesCompareOldestParentWithNewest(t *testing.T) {
+	root, initial, change := historyRepo(t)
+	app := newTestApp(t, root)
+
+	var single rangeFilesResponse
+	if status := requestJSON(t, app, "/api/range-files?project=.&from="+change.String()+"&to="+change.String(), &single); status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	var commit commitFilesResponse
+	requestJSON(t, app, "/api/commit-files?project=.&commit="+change.String(), &commit)
+	if single.From != change.String() || single.To != change.String() || !reflect.DeepEqual(single.Files, commit.Files) || single.Truncated {
+		t.Fatalf("single commit range = %+v, commit = %+v", single, commit)
+	}
+	// A root oldest commit compares with an empty tree.
+	var rooted rangeFilesResponse
+	if status := requestJSON(t, app, "/api/range-files?project=.&from="+initial.String()+"&to="+change.String(), &rooted); status != http.StatusOK {
+		t.Fatalf("root range status = %d", status)
+	}
+	var names []string
+	for _, file := range rooted.Files {
+		if file.Status != git.Added || file.OldPath != "" {
+			t.Errorf("root range change %+v, want added", file)
+		}
+		names = append(names, file.Path)
+	}
+	if want := []string{"added.go", "data.bin", "doc.md", "large.txt", "moved.md", "same.md", "scope/x.zzz"}; !reflect.DeepEqual(names, want) {
+		t.Errorf("root range paths = %v", names)
+	}
+
+	for _, test := range []struct {
+		query  string
+		status int
+	}{
+		{"", http.StatusBadRequest},
+		{"&from=" + change.String(), http.StatusBadRequest},
+		{"&from=HEAD&to=" + change.String(), http.StatusBadRequest},
+		{"&from=" + change.String() + "&to=" + change.String()[:7], http.StatusBadRequest},
+		{"&from=" + strings.Repeat("1", 40) + "&to=" + change.String(), http.StatusNotFound},
+		{"&from=" + change.String() + "&to=" + strings.Repeat("1", 40), http.StatusNotFound},
+	} {
+		var failure errorResponse
+		if status := requestJSON(t, app, "/api/range-files?project=."+test.query, &failure); status != test.status || failure.Error == "" {
+			t.Errorf("%s = %d %+v", test.query, status, failure)
+		}
+	}
+}
+
+func TestBranchAndRangeFilesInFolders(t *testing.T) {
+	root := t.TempDir()
+	writeMarkdown(t, filepath.Join(root, "README.md"), "# Folder")
+	app := newTestApp(t, root)
+
+	response := request(t, app, "/api/branch-files?project=.")
+	want := `{"repository":false,"branch":"","base":"","mergeBase":"","head":"","ahead":0,"files":[],"truncated":false}`
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != want {
+		t.Fatalf("folder branch files = %d %s", response.Code, response.Body.String())
+	}
+	hash := strings.Repeat("1", 40)
+	for _, target := range []string{
+		"/api/range-files?project=.&from=" + hash + "&to=" + hash,
+		"/api/diff?project=.&path=README.md&from=" + hash + "&to=" + hash,
+		"/api/diff?project=.&path=README.md&branch=1",
+	} {
+		var failure errorResponse
+		if status := requestJSON(t, app, target, &failure); status != http.StatusNotFound || failure.Error == "" {
+			t.Errorf("%s = %d %+v", target, status, failure)
+		}
+	}
+}
+
+func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
+	root, initial, change := historyRepo(t)
+	app := newScopedApp(t, root, "*.md")
+	markdown := app.config.Types.Lookup("doc.md").Type()
+	ranged := "from=" + change.String() + "&to=" + change.String() + "&"
+
+	for _, test := range []struct {
+		query string
+		want  diffResponse
+	}{
+		{ranged + "path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{ranged + "path=moved.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{ranged + "path=gone.md", diffResponse{Path: "gone.md", Status: git.Deleted, DocumentType: markdown, Original: text("# Gone\n")}},
+		{"from=" + initial.String() + "&to=" + change.String() + "&path=doc.md", diffResponse{Path: "doc.md", Status: git.Added, DocumentType: markdown, Modified: text("# After\n")}},
+		{"branch=1&path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{"branch=1&path=moved.md&oldPath=old.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{"branch=1&path=added.go", diffResponse{Path: "added.go", Status: git.Added, DocumentType: app.config.Types.Lookup("added.go").Type(), Modified: text("package main\n")}},
+		{"branch=1&path=large.txt", diffResponse{Path: "large.txt", Status: git.Modified, DocumentType: app.config.Types.Lookup("large.txt").Type(),
+			Original: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
+	} {
+		if got := diff(t, app, test.query); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s = %s\nwant %s", test.query, describeDiff(got), describeDiff(test.want))
+		}
+	}
+
+	for _, query := range []string{ranged + "path=same.md", ranged + "path=old.md", ranged + "path=doc.md&oldPath=old.md", ranged + "path=../doc.md"} {
+		var failure diffErrorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (diffErrorResponse{Error: changeUnavailableMessage}) {
+			t.Errorf("%s = %d %+v", query, status, failure)
+		}
+	}
+	for _, query := range []string{"branch=1&path=same.md", "branch=1&path=old.md", "branch=1&path=missing.md"} {
+		var failure diffErrorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure.Code != "unchanged" || failure.Error == "" {
+			t.Errorf("%s = %d %+v", query, status, failure)
+		}
+	}
+	hash := change.String()
+	for _, query := range []string{
+		"commit=" + hash + "&branch=1&path=doc.md",
+		"commit=" + hash + "&from=" + hash + "&to=" + hash + "&path=doc.md",
+		"branch=1&from=" + hash + "&to=" + hash + "&path=doc.md",
+		"branch=1&to=" + hash + "&path=doc.md",
+		"from=" + hash + "&path=doc.md",
+		"to=" + hash + "&path=doc.md",
+		"branch=0&path=doc.md",
+		"from=HEAD&to=" + hash + "&path=doc.md",
+		"from=" + hash + "&to=" + hash,
+		"branch=1",
+	} {
+		var failure errorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusBadRequest || failure.Error == "" {
+			t.Errorf("%s = %d %+v", query, status, failure)
+		}
+	}
+}
+
+// The branch diff is resolved on every request, so a new commit shows next.
+func TestBranchDiffFollowsNewCommits(t *testing.T) {
+	root, _, _ := historyRepo(t)
+	app := newScopedApp(t, root, "*.md")
+	markdown := app.config.Types.Lookup("doc.md").Type()
+
+	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("before commit = %s", describeDiff(got))
+	}
+	var unchanged diffErrorResponse
+	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&path=fresh.md", &unchanged); status != http.StatusNotFound || unchanged.Code != "unchanged" {
+		t.Fatalf("fresh.md before commit = %d %+v", status, unchanged)
+	}
+
+	gitRepo, err := gogit.PlainOpen(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worktree, err := gitRepo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeMarkdown(t, filepath.Join(root, "fresh.md"), "# Fresh\n")
+	for _, name := range []string{"doc.md", "fresh.md"} {
+		if _, err := worktree.Add(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	signature := &object.Signature{Name: "servef", Email: "servef@example.com", When: time.Unix(1700000200, 0)}
+	if _, err := worktree.Commit("More", &gogit.CommitOptions{Author: signature, Committer: signature}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# Uncommitted\n")}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("after commit = %s", describeDiff(got))
+	}
+	if got, want := diff(t, app, "branch=1&path=fresh.md"), (diffResponse{Path: "fresh.md", Status: git.Added, DocumentType: markdown, Modified: text("# Fresh\n")}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("fresh.md after commit = %s", describeDiff(got))
+	}
+	var files branchFilesResponse
+	if requestJSON(t, app, "/api/branch-files?project=.", &files); files.Ahead != 2 {
+		t.Fatalf("ahead after commit = %d", files.Ahead)
+	}
+}
+
+// Frontend history fixtures must decode into the server's response shapes
+// and agree on the branch they describe.
+func TestHistoryFixturesMatchServerContract(t *testing.T) {
+	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	var commits, all, folder commitsResponse
+	decodeFixture(t, filepath.Join(dir, "commits.json"), &commits)
+	decodeFixture(t, filepath.Join(dir, "commits-all.json"), &all)
+	decodeFixture(t, filepath.Join(dir, "commits-not-repo.json"), &folder)
+	var files commitFilesResponse
+	decodeFixture(t, filepath.Join(dir, "commit-files.json"), &files)
+	var branch branchFilesResponse
+	decodeFixture(t, filepath.Join(dir, "branch-files.json"), &branch)
+	var ranged rangeFilesResponse
+	decodeFixture(t, filepath.Join(dir, "range-files.json"), &ranged)
+
+	for _, hash := range []string{branch.MergeBase, branch.Head, ranged.From, ranged.To} {
+		if _, ok := git.ParseHash(hash); !ok {
+			t.Errorf("fixture hash %q is not a full hash", hash)
+		}
+	}
+	if branch.Base != commits.Base || branch.Head != commits.Head || branch.Ahead != commits.Ahead || branch.Branch != commits.Branch {
+		t.Errorf("branch-files = %+v, commits = base %q head %q ahead %d", branch, commits.Base, commits.Head, commits.Ahead)
+	}
+	if oldest := commits.Commits[len(commits.Commits)-1]; len(oldest.Parents) == 0 || branch.MergeBase != oldest.Parents[0] || ranged.From != oldest.Hash || ranged.To != commits.Commits[0].Hash {
+		t.Errorf("merge base %s and range %s..%s do not match commits.json", branch.MergeBase, ranged.From, ranged.To)
+	}
+}

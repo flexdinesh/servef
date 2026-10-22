@@ -20,6 +20,11 @@ interface PageSearch {
   diff?: 1
   // commit=<hash> opens path's change in that commit instead of the file.
   commit?: string
+  // branch=1 opens path's change on this branch since its merge-base.
+  branch?: 1
+  // from=<hash>&to=<hash> opens path's net change over that commit range.
+  from?: string
+  to?: string
 }
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
@@ -29,6 +34,9 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
     diff: search.diff === 1 || search.diff === "1" ? 1 : undefined,
     commit: isCommitHash(search.commit) ? search.commit : undefined,
+    branch: search.branch === 1 || search.branch === "1" ? 1 : undefined,
+    from: isCommitHash(search.from) ? search.from : undefined,
+    to: isCommitHash(search.to) ? search.to : undefined,
   }
 }
 
@@ -99,9 +107,10 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  // A diff or commit tab loads only the tree; its pane reads /api/diff.
+  // A diff tab of any kind loads only the tree; its pane reads /api/diff.
   loaderDeps: ({ search }) => {
-    const diff = search.diff === 1 || search.commit !== undefined
+    const diff = search.diff === 1 || search.commit !== undefined || search.branch === 1
+      || (search.from !== undefined && search.to !== undefined)
     return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", diff }
   },
   loader: ({ abortController, deps }) => loadPage({

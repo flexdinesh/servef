@@ -22,6 +22,8 @@ const (
 	statusTimeout = 20 * time.Second
 
 	changeUnavailableMessage = "That change is unavailable."
+	// unchangedCode marks a 404 for a path with no changes to diff.
+	unchangedCode = "unchanged"
 )
 
 // Source Control is repository-scoped: it lists every change in the
@@ -122,7 +124,7 @@ func (a *App) serveDiff(w http.ResponseWriter, r *http.Request, projectID, name,
 	entry, err := repo.Lookup(r.Context(), name, oldPath)
 	switch {
 	case errors.Is(err, git.ErrUnchanged):
-		writeJSON(w, http.StatusNotFound, diffErrorResponse{Error: fmt.Sprintf("No changes to %s since the last commit.", name), Code: "unchanged"})
+		writeJSON(w, http.StatusNotFound, diffErrorResponse{Error: fmt.Sprintf("No changes to %s since the last commit.", name), Code: unchangedCode})
 		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})

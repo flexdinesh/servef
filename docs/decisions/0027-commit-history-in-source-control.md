@@ -1,6 +1,6 @@
 # 0027: Commit history in Source Control
 
-- Status: Accepted
+- Status: Accepted; branch and commit-range diffs added by [0030](0030-branch-and-range-diffs.md)
 - Date: 2026-10-22
 - Extends: [0024](0024-source-control-view-and-working-tree-diffs.md)
 

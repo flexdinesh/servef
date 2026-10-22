@@ -1,7 +1,8 @@
 import { isChangeStatus, type ChangeStatus } from "./changes-contract.ts"
 import { isCommitHash } from "./workspace-tabs.ts"
 
-// Transport contracts for /api/commits and /api/commit-files (decision 0027).
+// Transport contracts for /api/commits and /api/commit-files (decision 0027),
+// /api/branch-files, and /api/range-files (decision 0030).
 
 // CommitRange is base..HEAD ("branch") or HEAD's whole history ("all").
 export type CommitRange = "branch" | "all"
@@ -43,6 +44,30 @@ export interface CommitFile {
 
 export interface CommitFilesResponse {
   commit: string
+  files: CommitFile[]
+  truncated: boolean
+}
+
+// BranchFilesResponse lists the net changes from the merge-base with base to
+// head.
+export interface BranchFilesResponse {
+  repository: boolean
+  branch: string
+  // base is "" when no base branch was found.
+  base: string
+  // mergeBase is "" while nothing is ahead or there is no base.
+  mergeBase: string
+  // head is "" when HEAD is unborn.
+  head: string
+  ahead: number
+  files: CommitFile[]
+  truncated: boolean
+}
+
+// RangeFilesResponse lists the net changes from from's first parent to to.
+export interface RangeFilesResponse {
+  from: string
+  to: string
   files: CommitFile[]
   truncated: boolean
 }
@@ -98,6 +123,34 @@ function isCommitFile(value: unknown): value is CommitFile {
 export function isCommitFilesResponse(value: unknown): value is CommitFilesResponse {
   return isRecord(value)
     && isCommitHash(value.commit)
+    && Array.isArray(value.files)
+    && value.files.every(isCommitFile)
+    && typeof value.truncated === "boolean"
+}
+
+function isOptionalHash(value: unknown): boolean {
+  return value === "" || isCommitHash(value)
+}
+
+export function isBranchFilesResponse(value: unknown): value is BranchFilesResponse {
+  return isRecord(value)
+    && typeof value.repository === "boolean"
+    && typeof value.branch === "string"
+    && typeof value.base === "string"
+    && isOptionalHash(value.mergeBase)
+    && isOptionalHash(value.head)
+    && typeof value.ahead === "number"
+    && Number.isInteger(value.ahead)
+    && value.ahead >= 0
+    && Array.isArray(value.files)
+    && value.files.every(isCommitFile)
+    && typeof value.truncated === "boolean"
+}
+
+export function isRangeFilesResponse(value: unknown): value is RangeFilesResponse {
+  return isRecord(value)
+    && isCommitHash(value.from)
+    && isCommitHash(value.to)
     && Array.isArray(value.files)
     && value.files.every(isCommitFile)
     && typeof value.truncated === "boolean"

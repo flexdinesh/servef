@@ -10,6 +10,7 @@ else.
 - Format JSON, YAML, HTML, CSS, and JavaScript on demand; files stay unchanged
 - Serve several directories; switch repositories and worktrees
 - VS Code-style Explorer, Search, Source Control, tabs, and command palette
+- Diff uncommitted work, commits, a whole branch, or a range of commits
 - Go to definition and find references through installed language servers
 - Themes, Mermaid diagrams, and line links
 

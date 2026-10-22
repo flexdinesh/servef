@@ -1,33 +1,72 @@
-import type { Commit, CommitFile, CommitFilesResponse } from "./commits-contract.ts"
+import type { Commit, CommitFile } from "./commits-contract.ts"
+import { branchTab, commitTab, rangeTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
-// Pure row model for the Commits tree: commits, the expanded ones' details,
-// and their changed files under compact folders (decision 0027).
+// Pure row model for the Commits tree: a pinned compare row (decision 0030),
+// commits, the expanded ones' details, and their changed files under compact
+// folders (decision 0027).
 
-// CommitFiles is one commit's file list as the view knows it.
+// CommitFiles is one commit's, or one compare's, file list as the view
+// knows it.
 export type CommitFiles =
   | { kind: "loading" }
-  | { kind: "ready"; response: CommitFilesResponse }
+  | { kind: "ready"; response: { files: CommitFile[]; truncated: boolean } }
   | { kind: "error"; message: string }
 
+// Compare is what the pinned row shows: the branch since its merge-base with
+// base, or a selected commit range from (oldest) to to (newest).
+export type Compare =
+  | { kind: "branch"; base: string; ahead: number; mergeBase: string }
+  | { kind: "range"; from: string; to: string; count: number }
+
+// PinnedCompare is the pinned row's compare, open state, and file list.
+export interface PinnedCompare {
+  compare: Compare
+  expanded: boolean
+  files: CommitFiles | undefined
+}
+
 export type CommitRow =
+  | { kind: "compare"; key: string; compare: Compare; expanded: boolean; files: CommitFiles | undefined }
+  // compare-details describes the compared commits and the file list's state.
+  | { kind: "compare-details"; key: string; compare: Compare; files: CommitFiles | undefined }
   | { kind: "commit"; key: string; commit: Commit; expanded: boolean }
   // details holds the message, author, date, hash, and the file list's state.
   | { kind: "details"; key: string; commit: Commit; files: CommitFiles | undefined }
   // folder names a chain of single-child folders, as compact folders do.
-  | { kind: "folder"; key: string; commit: Commit; path: string; name: string; depth: number; expanded: boolean }
-  | { kind: "file"; key: string; commit: Commit; file: CommitFile; name: string; depth: number }
+  // owner is the commit hash or compare owner whose files it holds; parent is
+  // that commit's or compare's row key.
+  | { kind: "folder"; key: string; owner: string; parent: string; path: string; name: string; depth: number; expanded: boolean }
+  // tab is the diff tab the file opens.
+  | { kind: "file"; key: string; owner: string; parent: string; tab: WorkspaceTab; file: CommitFile; name: string; depth: number }
+
+// compareRowKey is the pinned row's key; Source Control's expanded set holds
+// it while the row is open.
+export const compareRowKey = "compare"
 
 export function commitRowKey(hash: string): string {
   return `commit:${hash}`
 }
 
-export function fileRowKey(hash: string, path: string): string {
-  return `file:${hash}:${path}`
+// compareOwner names a compare's files apart from every commit's.
+export function compareOwner(compare: Compare): string {
+  return compare.kind === "branch" ? "branch" : `range:${compare.from}:${compare.to}`
 }
 
-// folderKey names a folder of one commit in the collapsed set.
-export function folderKey(hash: string, path: string): string {
-  return `${hash}:${path}`
+export function fileRowKey(owner: string, path: string): string {
+  return `file:${owner}:${path}`
+}
+
+// tabRowKey is the file row an open diff tab selects, "" for other tabs.
+export function tabRowKey(tab: WorkspaceTab): string {
+  if (tab.kind === "commit") return fileRowKey(tab.commit, tab.path)
+  if (tab.kind === "branch") return fileRowKey("branch", tab.path)
+  if (tab.kind === "range") return fileRowKey(`range:${tab.from}:${tab.to}`, tab.path)
+  return ""
+}
+
+// folderKey names a folder of one commit or compare in the collapsed set.
+export function folderKey(owner: string, path: string): string {
+  return `${owner}:${path}`
 }
 
 interface Folder {
@@ -65,7 +104,14 @@ function fileName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1)
 }
 
-function folderRows(commit: Commit, folder: Folder, prefix: string, depth: number, collapsed: ReadonlySet<string>, rows: CommitRow[]) {
+// FileOwner is whose files a folder holds and how its files open.
+interface FileOwner {
+  owner: string
+  parent: string
+  tab(path: string): WorkspaceTab
+}
+
+function folderRows(owner: FileOwner, folder: Folder, prefix: string, depth: number, collapsed: ReadonlySet<string>, rows: CommitRow[]) {
   for (const name of [...folder.folders.keys()].sort(byName)) {
     let child = folder.folders.get(name)
     let label = name
@@ -79,47 +125,99 @@ function folderRows(commit: Commit, folder: Folder, prefix: string, depth: numbe
       child = next
     }
     if (!child) continue
-    const expanded = !collapsed.has(folderKey(commit.hash, path))
-    rows.push({ kind: "folder", key: `folder:${commit.hash}:${path}`, commit, path, name: label, depth, expanded })
-    if (expanded) folderRows(commit, child, `${path}/`, depth + 1, collapsed, rows)
+    const expanded = !collapsed.has(folderKey(owner.owner, path))
+    rows.push({ kind: "folder", key: `folder:${owner.owner}:${path}`, owner: owner.owner, parent: owner.parent, path, name: label, depth, expanded })
+    if (expanded) folderRows(owner, child, `${path}/`, depth + 1, collapsed, rows)
   }
   for (const file of [...folder.files].sort((left, right) => byName(fileName(left.path), fileName(right.path)))) {
-    rows.push({ kind: "file", key: fileRowKey(commit.hash, file.path), commit, file, name: fileName(file.path), depth })
+    rows.push({
+      kind: "file", key: fileRowKey(owner.owner, file.path), owner: owner.owner, parent: owner.parent,
+      tab: owner.tab(file.path), file, name: fileName(file.path), depth,
+    })
   }
 }
 
-// commitRows flattens the tree in display order. Folders open by default;
+function compareFileOwner(compare: Compare): FileOwner {
+  return {
+    owner: compareOwner(compare),
+    parent: compareRowKey,
+    tab: (path) => compare.kind === "branch" ? branchTab(path) : rangeTab(compare.from, compare.to, path),
+  }
+}
+
+// commitRows flattens the tree in display order: the pinned compare row
+// first, when there is one, then the commits. Folders open by default;
 // collapsed holds folderKey entries the user closed.
 export function commitRows(
   commits: readonly Commit[],
   expanded: ReadonlySet<string>,
   files: ReadonlyMap<string, CommitFiles>,
   collapsed: ReadonlySet<string>,
+  pinned: PinnedCompare | null = null,
 ): CommitRow[] {
   const rows: CommitRow[] = []
+  if (pinned) {
+    const { compare, expanded: open, files: state } = pinned
+    rows.push({ kind: "compare", key: compareRowKey, compare, expanded: open, files: state })
+    if (open) {
+      rows.push({ kind: "compare-details", key: "compare-details", compare, files: state })
+      if (state?.kind === "ready") folderRows(compareFileOwner(compare), folderTree(state.response.files), "", 2, collapsed, rows)
+    }
+  }
   for (const commit of commits) {
     const open = expanded.has(commit.hash)
     rows.push({ kind: "commit", key: commitRowKey(commit.hash), commit, expanded: open })
     if (!open) continue
     const state = files.get(commit.hash)
     rows.push({ kind: "details", key: `details:${commit.hash}`, commit, files: state })
-    if (state?.kind === "ready") folderRows(commit, folderTree(state.response.files), "", 2, collapsed, rows)
+    const owner: FileOwner = { owner: commit.hash, parent: commitRowKey(commit.hash), tab: (path) => commitTab(commit.hash, path) }
+    if (state?.kind === "ready") folderRows(owner, folderTree(state.response.files), "", 2, collapsed, rows)
   }
   return rows
 }
 
+// CommitSelection is a contiguous run of listed commits: from is the oldest
+// (lowest row), to the newest (highest row).
+export interface CommitSelection {
+  from: string
+  to: string
+}
+
+// rangeSelection spans the listed commits between anchor and focus, in
+// either direction. It is null unless both are listed and differ: one commit
+// is the commit itself.
+export function rangeSelection(commits: readonly Commit[], anchor: string, focus: string): CommitSelection | null {
+  const start = commits.findIndex((commit) => commit.hash === anchor)
+  const end = commits.findIndex((commit) => commit.hash === focus)
+  if (start < 0 || end < 0 || start === end) return null
+  const newest = commits[Math.min(start, end)]
+  const oldest = commits[Math.max(start, end)]
+  return newest && oldest ? { from: oldest.hash, to: newest.hash } : null
+}
+
+// selectedCommits lists a selection's hashes, newest first, or null when
+// either end is no longer listed.
+export function selectedCommits(commits: readonly Commit[], selection: CommitSelection | null): string[] | null {
+  if (!selection) return null
+  const newest = commits.findIndex((commit) => commit.hash === selection.to)
+  const oldest = commits.findIndex((commit) => commit.hash === selection.from)
+  if (newest < 0 || oldest <= newest) return null
+  return commits.slice(newest, oldest + 1).map((commit) => commit.hash)
+}
+
 // parentRowKey is the row ArrowLeft moves to: a file's or folder's folder,
-// else its commit.
+// else its commit or the compare row.
 export function parentRowKey(rows: readonly CommitRow[], index: number): string {
   const row = rows[index]
-  if (!row || row.kind === "commit") return ""
+  if (!row || row.kind === "commit" || row.kind === "compare") return ""
   if (row.kind === "details") return commitRowKey(row.commit.hash)
+  if (row.kind === "compare-details") return compareRowKey
   for (let at = index - 1; at >= 0; at--) {
     const candidate = rows[at]
-    if (!candidate || candidate.kind === "commit") return commitRowKey(row.commit.hash)
+    if (!candidate || candidate.kind === "commit" || candidate.kind === "compare") return row.parent
     if (candidate.kind === "folder" && candidate.depth < row.depth) return candidate.key
   }
-  return commitRowKey(row.commit.hash)
+  return row.parent
 }
 
 const minute = 60_000

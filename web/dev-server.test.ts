@@ -135,6 +135,13 @@ test("mockFixtureName maps supported API scenarios", () => {
   assert.deepEqual(mockFixtureName("GET", "/commits?project=%2Fwork&range=all"), { name: "commits-all.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", `/commit-files?commit=${commit}`), { name: "commit-files.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", `/commit-files?commit=${"0".repeat(40)}`), { name: "error-not-found.json", status: 404 })
+  const from = "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2"
+  assert.deepEqual(mockFixtureName("GET", "/branch-files?project=%2Fwork"), { name: "branch-files.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", `/range-files?from=${from}&to=${commit}`), { name: "range-files.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", `/range-files?from=${commit}&to=${from}`), { name: "error-not-found.json", status: 404 })
+  assert.deepEqual(mockFixtureName("GET", "/diff?path=code%2Fmain.go&branch=1"), { name: "diff-modified.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", `/diff?path=code%2Fmain.go&from=${from}&to=${commit}`), { name: "diff-modified.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", `/diff?path=code%2Fmain.go&from=${from}`), { name: "error-not-found.json", status: 404 })
   assert.deepEqual(mockFixtureName("GET", `/diff?path=code%2Fmain.go&commit=${commit}`), { name: "diff-modified.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", `/diff?path=guides%2Fnew-guide.md&commit=${commit}`), { name: "error-not-found.json", status: 404 })
   assert.deepEqual(mockFixtureName("GET", `/diff?path=code%2Fmain.go&commit=${"0".repeat(40)}`), { name: "error-not-found.json", status: 404 })
