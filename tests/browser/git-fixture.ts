@@ -68,10 +68,14 @@ function write(files: Record<string, string>) {
   }
 }
 
+// Git hooks and `git bisect run` export GIT_DIR and friends, which would aim
+// these commands at servef's own repository instead of the fixture.
+const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
+
 function git(...args: string[]): boolean {
   const result = spawnSync("git", ["-c", "user.name=servef", "-c", "user.email=servef@example.invalid", "-c", "commit.gpgsign=false", ...args], {
     cwd: gitFixtureRoot,
-    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+    env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
     stdio: "ignore",
   })
   return result.status === 0
