@@ -16,7 +16,7 @@ import {
   type ResolvedTheme,
   type Theme,
   type ThemeSnapshot,
-} from "../theme.ts"
+} from "./theme.ts"
 
 interface ThemeContextValue extends ThemeSnapshot {
   setTheme(theme: Theme): void

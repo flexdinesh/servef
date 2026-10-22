@@ -1,5 +1,5 @@
 import type { HighlightRange } from "../features/search/search-engine.ts"
-import { settingDefinitions, type SettingId } from "../settings.ts"
+import { settingDefinitions, type SettingId } from "../settings/settings.ts"
 
 export type CommandAction =
   | { kind: "open-settings" }

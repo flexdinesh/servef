@@ -4,11 +4,11 @@ import { ChevronRightIcon, FoldVerticalIcon, RefreshCwIcon, UnfoldVerticalIcon, 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react"
 
 import { Button } from "../../components/ui/button.tsx"
-import { useSettings } from "../../components/SettingsProvider.tsx"
+import { useSettings } from "../../settings/SettingsProvider.tsx"
 import type { ChangedFile } from "../../changes-contract.ts"
 import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, type PinnedCompare } from "./commit-rows.ts"
 import { CommitsView } from "./CommitsView.tsx"
-import { uiScale } from "../../settings.ts"
+import { uiScale } from "../../settings/settings.ts"
 import { maximumShare, minimumShare } from "./source-control-layout.ts"
 import { useDelayedFlag } from "../documents/use-document-format.ts"
 import type { Changes } from "./use-changes.ts"

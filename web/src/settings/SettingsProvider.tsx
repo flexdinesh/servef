@@ -14,7 +14,7 @@ import {
   storeSettings,
   type SettingKey,
   type Settings,
-} from "../settings.ts"
+} from "./settings.ts"
 
 interface SettingsContextValue {
   settings: Settings

@@ -8,8 +8,8 @@ import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "../../page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
-import { useSettings } from "../../components/SettingsProvider.tsx"
-import { uiScale } from "../../settings.ts"
+import { useSettings } from "../../settings/SettingsProvider.tsx"
+import { uiScale } from "../../settings/settings.ts"
 import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "../../workspace/workspace-memory.ts"
 
 function treePaths(nodes: readonly TreeNode[]): string[] {

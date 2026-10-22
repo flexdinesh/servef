@@ -1,5 +1,5 @@
-import { useSettings } from "./components/SettingsProvider.tsx"
-import { useTheme } from "./components/ThemeProvider.tsx"
+import { useSettings } from "./SettingsProvider.tsx"
+import { useTheme } from "./ThemeProvider.tsx"
 import {
   DEFAULT_FONT_SIZE,
   defaultSettings,

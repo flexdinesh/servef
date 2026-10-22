@@ -43,7 +43,7 @@ import { useSourceControlLayout } from "./features/source-control/use-source-con
 import {
   documentTab, includesTab, isCommitHash, routeDiffTab, tabName, tabSearch, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
-import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
+import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./features/navigation/code-navigation.ts"
 import type { CommandAction } from "./workspace/commands.ts"
@@ -53,7 +53,7 @@ import type { SourceNavigation } from "./features/documents/SourceDocument.tsx"
 import type { SourceTarget } from "./features/navigation/source-position.ts"
 import { useCodeNavigation } from "./features/navigation/use-code-navigation.ts"
 import { useNavigationStatus } from "./features/navigation/use-navigation-status.ts"
-import { useSettings } from "./components/SettingsProvider.tsx"
+import { useSettings } from "./settings/SettingsProvider.tsx"
 import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
 import { StatusBar } from "./workspace/StatusBar.tsx"
 import { TabBar } from "./workspace/TabBar.tsx"

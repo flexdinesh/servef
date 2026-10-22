@@ -8,15 +8,15 @@ import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "r
 
 import { Button } from "@/components/ui/button"
 
-import { useSettings } from "../../components/SettingsProvider.tsx"
-import { useTheme } from "../../components/ThemeProvider.tsx"
+import { useSettings } from "../../settings/SettingsProvider.tsx"
+import { useTheme } from "../../settings/ThemeProvider.tsx"
 import { binaryChangeLabel, type DiffContent } from "./diff-content.ts"
 import { diffMetrics } from "./diff-metrics.ts"
 import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff-options.ts"
 import { DIFF_THEME } from "./diff-theme.ts"
 import { formatBytes } from "../../format-bytes.ts"
 import { MAIN_THREAD_MAX_CHARACTERS } from "../../highlighting/highlight-thread.ts"
-import { uiScale } from "../../settings.ts"
+import { uiScale } from "../../settings/settings.ts"
 import { LineCopyButton } from "../documents/SourceDocument.tsx"
 import type { DiffState } from "./use-working-tree-diff.ts"
 
