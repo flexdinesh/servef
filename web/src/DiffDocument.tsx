@@ -15,6 +15,7 @@ import { diffMetrics } from "./diff-metrics.ts"
 import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff-options.ts"
 import { DIFF_THEME } from "./diff-theme.ts"
 import { formatBytes } from "./format-bytes.ts"
+import { MAIN_THREAD_MAX_CHARACTERS } from "./highlight-thread.ts"
 import { uiScale } from "./settings.ts"
 import { LineCopyButton } from "./SourceDocument.tsx"
 import type { DiffState } from "./use-working-tree-diff.ts"
@@ -22,10 +23,12 @@ import type { DiffState } from "./use-working-tree-diff.ts"
 // One servef theme serves both polarities; themeType picks the scheme.
 const theme = { light: DIFF_THEME, dark: DIFF_THEME }
 
-// Highlighting runs in two locally bundled workers while a diff is shown.
+// Highlights tokenizes small diffs on the main thread; larger ones go to two
+// locally bundled workers while a diff is shown (decision 0029).
 const poolOptions: WorkerPoolOptions = {
   workerFactory: () => new Worker(workerUrl, { type: "module" }),
   poolSize: 2,
+  mainThreadMaxCharacters: MAIN_THREAD_MAX_CHARACTERS,
 }
 
 // Browser surfaces inside Pierre's shadow root follow servef tokens.
@@ -66,7 +69,9 @@ interface DiffDocumentProps {
 // switches between diff tabs.
 export function DiffDocument(props: DiffDocumentProps) {
   // The pool reads these once; later changes go through setRenderOptions.
-  const [highlighterOptions] = useState((): WorkerInitializationRenderOptions => ({ theme, lineDiffType: lineDiffType(props.options.inline) }))
+  const [highlighterOptions] = useState((): WorkerInitializationRenderOptions => ({
+    theme, lineDiffType: lineDiffType(props.options.inline), preferredHighlighter: "highlights",
+  }))
   return (
     <WorkerPoolContextProvider poolOptions={poolOptions} highlighterOptions={highlighterOptions}>
       <DiffBody {...props} />
@@ -172,6 +177,7 @@ function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffView
   const diffOptions = useMemo((): FileDiffOptions<undefined, undefined> => ({
     theme,
     themeType: resolvedTheme,
+    preferredHighlighter: "highlights",
     diffStyle: effectiveDiffStyle(options, narrow),
     overflow: options.wrap ? "wrap" : "scroll",
     lineDiffType: inline,

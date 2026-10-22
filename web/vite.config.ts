@@ -33,13 +33,21 @@ const devServerBanner: Plugin = {
   },
 }
 
-// @pierre/diffs imports Shiki's full bundle and every Pierre and Shiki theme.
-// Production builds resolve those imports to local subsets so only the
-// grammars servef maps ship (decision 0024; src/diff-grammars.ts).
+// @pierre/diffs can load Shiki, its grammars, and every Pierre, Shiki, and
+// Highlights theme. servef highlights only with Highlights and its own theme,
+// so production builds resolve those imports to local stand-ins and none of
+// them ship (decision 0029).
+const shikiUnavailable = "./src/shiki-unavailable.ts"
 const diffsSubsets: ReadonlyMap<string, string> = new Map([
-  ["shiki", "./src/shiki-subset.ts"],
-  ["shiki/wasm", "./src/shiki-wasm-subset.ts"],
+  ["shiki", shikiUnavailable],
+  ["shiki/core", shikiUnavailable],
+  ["shiki/langs", shikiUnavailable],
+  ["shiki/textmate", shikiUnavailable],
+  ["shiki/wasm", shikiUnavailable],
+  ["shiki/engine/javascript", shikiUnavailable],
+  ["shiki/engine/oniguruma", shikiUnavailable],
   ["@pierre/theming/themes", "./src/pierre-themes-subset.ts"],
+  ["@pierre/highlights/themes/loader", "./src/highlights-themes-subset.ts"],
 ].map(([source, subset]) => [source, fileURLToPath(new URL(subset, import.meta.url))]))
 
 const diffsSubset: Plugin = {
