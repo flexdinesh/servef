@@ -763,3 +763,48 @@ func assertContains(t *testing.T, value string, substrings ...string) {
 		}
 	}
 }
+
+// TestEveryAPIFixtureDecodesStrictly keeps every frontend fixture in a server
+// response shape: unknown fields fail, and a new fixture needs a shape here.
+func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
+	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	names, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil || len(names) == 0 {
+		t.Fatalf("fixtures = %v, %v", names, err)
+	}
+	shapes := []struct {
+		pattern string
+		value   func() any
+	}{
+		{"page-*.json", func() any { return &pageData{} }},
+		{"changes*.json", func() any { return &changesResponse{} }},
+		{"diff-*.json", func() any { return &diffResponse{} }},
+		{"commits*.json", func() any { return &commitsResponse{} }},
+		{"commit-files.json", func() any { return &commitFilesResponse{} }},
+		{"branch-files.json", func() any { return &branchFilesResponse{} }},
+		{"range-files.json", func() any { return &rangeFilesResponse{} }},
+		{"projects.json", func() any { return &projectsResponse{} }},
+		{"directories.json", func() any { return &directoriesResponse{} }},
+		{"navigation-status.json", func() any { return &navigationStatus{} }},
+		{"definition.json", func() any { return &navigationResponse{} }},
+		{"references.json", func() any { return &navigationResponse{} }},
+		{"search-documents.json", func() any { return &searchDocumentsResponse{} }},
+		{"format-settings.json", func() any { return &formatResponse{} }},
+		{"format-error.json", func() any { return &errorResponse{} }},
+		{"error-*.json", func() any { return &errorResponse{} }},
+		{"metrics*.json", func() any { return &processMetrics{} }},
+	}
+	for _, name := range names {
+		matched := false
+		for _, shape := range shapes {
+			if ok, _ := filepath.Match(shape.pattern, filepath.Base(name)); ok {
+				decodeFixture(t, name, shape.value())
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			t.Errorf("%s has no server response shape", name)
+		}
+	}
+}
