@@ -1,4 +1,4 @@
-import { isRecord } from "./http.ts"
+import { isRecord } from "../../http.ts"
 import type { FileResult, SearchMatch, SearchOutcome } from "./search-engine.ts"
 
 // ResultRow is one visible row of the results tree: a file or one of its matches.

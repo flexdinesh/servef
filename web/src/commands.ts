@@ -1,4 +1,4 @@
-import type { HighlightRange } from "./search-engine.ts"
+import type { HighlightRange } from "./features/search/search-engine.ts"
 import { settingDefinitions, type SettingId } from "./settings.ts"
 
 export type CommandAction =

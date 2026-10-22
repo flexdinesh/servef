@@ -27,8 +27,8 @@ import {
   type PageData,
   type PageLoadResult,
 } from "./page-data.ts"
-import type { SearchMatch } from "./search-engine.ts"
-import { SearchView } from "./SearchView.tsx"
+import type { SearchMatch } from "./features/search/search-engine.ts"
+import { SearchView } from "./features/search/SearchView.tsx"
 import { Sidebar } from "./Sidebar.tsx"
 import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
 import { DiffDocument } from "./features/source-control/DiffDocument.tsx"
@@ -63,7 +63,7 @@ import { useDocumentWorkspace } from "./use-document-workspace.ts"
 import { useImageViewer } from "./use-image-viewer.ts"
 import { usePreviewPreference } from "./use-preview-preference.ts"
 import { useProjectMemory } from "./use-project-memory.ts"
-import { useSearchSession } from "./use-search-session.ts"
+import { useSearchSession } from "./features/search/use-search-session.ts"
 import { useSidebar } from "./use-sidebar.ts"
 
 // routeTab is the tab a route shows: a diff of any kind, or a document, else

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
 
 import { createSearchController, emptyQuery, type SearchHandlers, type SearchResults, type SearchStatus, type SearchView } from "./search-controller.ts"
-import { failureReason, fetchJSON } from "./http.ts"
-import { projectUrl } from "./project-url.ts"
+import { failureReason, fetchJSON } from "../../http.ts"
+import { projectUrl } from "../../project-url.ts"
 import { isSearchDocumentsResponse, type SearchDocumentsResponse } from "./search-documents.ts"
 import type { SearchMatch, SearchQuery } from "./search-engine.ts"
 import { adjacentMatch, type MatchPosition } from "./search-results.ts"

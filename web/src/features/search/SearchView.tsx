@@ -4,12 +4,12 @@ import {
 } from "lucide-react"
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 
-import { Button } from "./components/ui/button.tsx"
-import { FileIcon } from "./FileIcon.tsx"
+import { Button } from "../../components/ui/button.tsx"
+import { FileIcon } from "../../FileIcon.tsx"
 import type { SearchQuery } from "./search-engine.ts"
 import { highlightedParts } from "./search-highlights.ts"
 import { fileRowKey, matchRowKey, resultRows, resultSummary, type ResultRow } from "./search-results.ts"
-import { useDelayedFlag } from "./use-document-format.ts"
+import { useDelayedFlag } from "../../use-document-format.ts"
 import type { SearchSession } from "./use-search-session.ts"
 
 type Toggle = "matchCase" | "wholeWord" | "regex"

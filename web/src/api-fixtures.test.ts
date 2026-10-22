@@ -8,7 +8,7 @@ import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "./process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
-import { isSearchDocumentsResponse } from "./search-documents.ts"
+import { isSearchDocumentsResponse } from "./features/search/search-documents.ts"
 
 async function fixture(name: string): Promise<unknown> {
   const source = await readFile(
