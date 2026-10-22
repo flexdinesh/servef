@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type M
 
 import { useClipboardCopy } from "../../lib/clipboard.ts"
 import type { ColumnRange, NavigationKind } from "../navigation/code-navigation.ts"
-import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "./line-selection.ts"
+import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "../../lib/line-selection.ts"
 import { showLink, targetAt, wordRange, type SourceTarget } from "../navigation/source-position.ts"
 import { useHighlightedLines } from "../../highlighting/use-highlighted-lines.ts"
 

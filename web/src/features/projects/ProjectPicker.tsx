@@ -31,7 +31,7 @@ import {
 } from "./project-picker.ts"
 import type { DirectoriesResponse, ProjectsResponse } from "../../api/projects-contract.ts"
 import { fetchDirectories, fetchProjects, takeLandingPick } from "../../api/projects-data.ts"
-import { useDelayedFlag } from "../documents/use-document-format.ts"
+import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
 import { forgetProject, readMemory, rememberedProjects, updateMemory } from "../../workspace/workspace-memory.ts"
 
 type Load<T> =

@@ -1,7 +1,7 @@
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router"
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
-import { parseLineAnchor } from "./line-selection.ts"
+import { parseLineAnchor } from "../../lib/line-selection.ts"
 import type { PageData } from "../../api/page-data.ts"
 
 // revealLine scrolls a line anchor into view near the top third, unless visible.

@@ -20,7 +20,7 @@ import { DocumentPane } from "./features/documents/DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./features/documents/document-view.ts"
 import { FileTree } from "./features/explorer/FileTree.tsx"
 import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
-import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./features/documents/line-selection.ts"
+import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./lib/line-selection.ts"
 import {
   emptyPage,
   isPageLoadResult,
@@ -57,7 +57,8 @@ import { useSettings } from "./settings/SettingsProvider.tsx"
 import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
 import { StatusBar } from "./workspace/StatusBar.tsx"
 import { TabBar } from "./workspace/TabBar.tsx"
-import { useDelayedFlag, useDocumentFormats } from "./features/documents/use-document-format.ts"
+import { useDocumentFormats } from "./features/documents/use-document-format.ts"
+import { useDelayedFlag } from "./lib/use-delayed-flag.ts"
 import { useDocumentNavigation } from "./features/documents/use-document-navigation.ts"
 import { useDocumentWorkspace } from "./workspace/use-document-workspace.ts"
 import { useImageViewer } from "./features/documents/use-image-viewer.ts"

@@ -9,7 +9,7 @@ import { FileIcon } from "../../components/FileIcon.tsx"
 import type { SearchQuery } from "./search-engine.ts"
 import { highlightedParts } from "./search-highlights.ts"
 import { fileRowKey, matchRowKey, resultRows, resultSummary, type ResultRow } from "./search-results.ts"
-import { useDelayedFlag } from "../documents/use-document-format.ts"
+import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
 import type { SearchSession } from "./use-search-session.ts"
 
 type Toggle = "matchCase" | "wholeWord" | "regex"
