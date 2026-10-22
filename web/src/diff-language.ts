@@ -1,36 +1,36 @@
-import type { DiffGrammar } from "./diff-grammars.ts"
+import type { Lang } from "@pierre/highlights"
 
-// Shiki grammars by document family ID (internal/document.Builtins). Diffs
-// always pass a language explicitly, so Pierre never guesses one from the file
-// name. Families key the map rather than Chroma languages because TSX shares
-// Chroma's TypeScript lexer but needs Shiki's TSX grammar. Every registered
-// family needs an entry; `text` turns highlighting off (decision 0024).
-const familyGrammars = {
+// Highlights languages by document family ID (internal/document.Builtins).
+// Diffs always pass a language explicitly, so Pierre never guesses one from
+// the file name. Every registered family needs an entry; `text` turns
+// highlighting off, also for families Highlights has no lexer for
+// (decision 0029).
+const familyLanguages = {
   c: "c",
   cpp: "cpp",
   css: "css",
   diff: "diff",
-  dockerfile: "docker",
-  fish: "fish",
+  dockerfile: "dockerfile",
+  fish: "text",
   go: "go",
-  hcl: "hcl",
+  hcl: "terraform",
   html: "html",
   image: "text",
-  ini: "ini",
+  ini: "text",
   java: "java",
-  javascript: "javascript",
+  javascript: "js",
   json: "json",
   jsx: "jsx",
   kotlin: "kotlin",
   lua: "lua",
-  makefile: "make",
+  makefile: "makefile",
   markdown: "markdown",
   mermaid: "text",
   php: "php",
   powershell: "powershell",
-  properties: "properties",
+  properties: "text",
   python: "python",
-  rst: "rst",
+  rst: "text",
   ruby: "ruby",
   rust: "rust",
   scss: "scss",
@@ -42,20 +42,18 @@ const familyGrammars = {
   text: "text",
   toml: "toml",
   tsx: "tsx",
-  typescript: "typescript",
+  typescript: "ts",
   xml: "xml",
   yaml: "yaml",
-} satisfies Record<string, DiffGrammar | "text">
-
-export type DiffLanguage = DiffGrammar | "text"
+} satisfies Record<string, Lang>
 
 // A Map keeps IDs such as "constructor" from reaching prototype keys.
-const grammars: ReadonlyMap<string, DiffLanguage> = new Map(Object.entries(familyGrammars))
+const languages: ReadonlyMap<string, Lang> = new Map(Object.entries(familyLanguages))
 
-// mappedFamilies lists the family IDs with an explicit grammar choice.
-export const mappedFamilies: readonly string[] = [...grammars.keys()]
+// mappedFamilies lists the family IDs with an explicit language choice.
+export const mappedFamilies: readonly string[] = [...languages.keys()]
 
-// diffLanguage maps a document family to its Shiki grammar.
-export function diffLanguage(family: string): DiffLanguage {
-  return grammars.get(family) ?? "text"
+// diffLanguage maps a document family to its Highlights language.
+export function diffLanguage(family: string): Lang {
+  return languages.get(family) ?? "text"
 }

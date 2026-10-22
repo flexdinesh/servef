@@ -8,8 +8,13 @@ includeWorkspaceRoot: true
 # Three-day supply-chain cooling period.
 minimumReleaseAge: 4320
 # Exact-version exemption for the Mermaid renderer; remove after 2026-10-23.
+# Exact-version exemptions for Pierre Highlights (decision 0029); remove after
+# 2026-10-25.
 minimumReleaseAgeExclude:
   - ondine@0.0.3
+  - "@pierre/diffs@1.6.1"
+  - "@pierre/highlights@0.2.0"
+  - "@pierre/theming@1.0.2"
 
 allowBuilds:
   es5-ext: false
