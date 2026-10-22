@@ -18,7 +18,7 @@ import { ProjectPicker, type PickerOpenOptions } from "./features/projects/Proje
 import { DocumentModeToggle, type DocumentMode } from "./features/documents/DocumentModeToggle.tsx"
 import { DocumentPane } from "./features/documents/DocumentPane.tsx"
 import { documentView, resolveDocumentMode } from "./features/documents/document-view.ts"
-import { FileTree } from "./FileTree.tsx"
+import { FileTree } from "./features/explorer/FileTree.tsx"
 import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
 import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./features/documents/line-selection.ts"
 import {

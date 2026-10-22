@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { countFiles, filterTreeByFilename, isDefaultFilenameScope, parseFilenameFilter } from "./filename-filter.ts"
-import type { TreeNode } from "./page-contract.ts"
+import type { TreeNode } from "../../page-contract.ts"
 
 function matches(pattern: string, name: string): boolean {
   const result = parseFilenameFilter(pattern)

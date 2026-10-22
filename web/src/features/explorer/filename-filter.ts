@@ -1,4 +1,4 @@
-import type { TreeNode } from "./page-contract.ts"
+import type { TreeNode } from "../../page-contract.ts"
 
 // Filename filters mirror the CLI's --filename semantics: comma-separated Go
 // path.Match globs, matched case-insensitively against the file base name.
