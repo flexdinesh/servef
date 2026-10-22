@@ -28,7 +28,7 @@ rewriting history; update `Status` on the old record.
 | [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
-| [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | Accepted |
+| [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029 |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
@@ -36,3 +36,4 @@ rewriting history; update `Status` on the old record.
 | [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | Accepted |
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
 | [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | Accepted |
+| [0031](0031-hide-git-entries.md) | Hide .git entries | Accepted |

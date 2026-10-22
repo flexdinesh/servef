@@ -1,6 +1,6 @@
 # 0023: Git ignore sources
 
-- Status: Accepted
+- Status: `.git` file clause superseded by [0031](0031-hide-git-entries.md)
 - Date: 2026-10-18
 
 ## Context
