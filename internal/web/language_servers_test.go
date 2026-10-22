@@ -112,7 +112,7 @@ func navigationErrorCode(t *testing.T, app *App, target string, enabled bool, wa
 	}
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, req)
-	var result navigationError
+	var result errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestNavigationCancellationExplainsStartingAndQueryTimeout(t *testing.T) {
 			defer cancel()
 			response := httptest.NewRecorder()
 			app.ServeHTTP(response, req.WithContext(ctx))
-			var result navigationError
+			var result errorResponse
 			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}

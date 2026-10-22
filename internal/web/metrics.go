@@ -4,6 +4,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -141,4 +142,8 @@ func readProcessCPUTime() (time.Duration, error) {
 	}
 	const clockTicksPerSecond = 100
 	return time.Duration(userTicks+systemTicks) * time.Second / clockTicksPerSecond, nil
+}
+
+func (a *App) serveMetrics(w http.ResponseWriter) {
+	writeJSON(w, http.StatusOK, a.metrics.sample())
 }

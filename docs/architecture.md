@@ -7,9 +7,13 @@ as one Go binary.
 
 - `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
 - `internal/files/`: file discovery, filename-glob scope, and safe path resolution.
-- `internal/document/`: file families, highlighting, previews, formatting, binary/size policy.
+- `internal/projects/`: root validation, repository/worktree discovery, project resolution.
+- `internal/git/`: go-git reads for Source Control; go-git types stay inside it.
+- `internal/document/`: file families, previews, formatting, media types, binary/size policy.
+- `internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
 - `internal/control/`: authenticated discovery and shutdown of local servef processes.
-- `internal/web/`: HTTP API, indexed reads, shell/static delivery, embedded assets.
+- `internal/browser/`, `internal/version/`: browser launch and build version.
+- `internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
@@ -27,7 +31,8 @@ Requests must name `localhost` or an IP literal in `Host`; other hostnames get
 ## Dependency direction
 
 ```text
-CLI -> HTTP application -> files/metrics
+CLI -> web -> document, files, git, lsp, projects
+git, projects -> files
 React -> HTTP API -> HTTP application
 web source -> Vite -> internal/web/dist -> go:embed -> servef binary
 ```

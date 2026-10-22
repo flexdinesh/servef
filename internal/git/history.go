@@ -58,7 +58,7 @@ type LogOptions struct {
 	Range Range
 	// Head is the commit to walk from; zero resolves HEAD. Pinning it keeps
 	// pages stable while new commits arrive.
-	Head plumbing.Hash
+	Head Hash
 	// Skip and Limit page the commits; a Limit of zero or less returns all.
 	Skip, Limit int
 }
@@ -84,7 +84,7 @@ type Commit struct {
 // History is one page of commits, newest committer date first.
 type History struct {
 	// Head is the commit walked; zero when HEAD is unborn.
-	Head plumbing.Hash
+	Head Hash
 	// Base is the base branch's short name, or empty when none exists.
 	Base string
 	// Ahead counts the commits in base..Head; zero without a base.
@@ -102,17 +102,27 @@ type CommitChanges struct {
 	Truncated bool
 }
 
+// Hash is a full commit hash; the zero Hash is unset. It keeps go-git types
+// inside this package.
+type Hash plumbing.Hash
+
+// String returns the 40 hexadecimal digits.
+func (h Hash) String() string { return plumbing.Hash(h).String() }
+
+// IsZero reports whether h is unset.
+func (h Hash) IsZero() bool { return plumbing.Hash(h).IsZero() }
+
 // ParseHash parses a full commit hash: 40 lowercase hexadecimal digits.
-func ParseHash(value string) (plumbing.Hash, bool) {
+func ParseHash(value string) (Hash, bool) {
 	if len(value) != 40 {
-		return plumbing.ZeroHash, false
+		return Hash{}, false
 	}
 	for _, c := range value {
 		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			return plumbing.ZeroHash, false
+			return Hash{}, false
 		}
 	}
-	return plumbing.NewHash(value), true
+	return Hash(plumbing.NewHash(value)), true
 }
 
 // baseCandidates are the refs tried, in order, as the base branch after
@@ -164,7 +174,7 @@ func (r *Repository) Log(ctx context.Context, options LogOptions) (History, erro
 	}
 	history.Base = baseName
 
-	head := options.Head
+	head := plumbing.Hash(options.Head)
 	if head.IsZero() {
 		ref, err := storer.ResolveReference(r.storage, plumbing.HEAD)
 		if errors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -177,7 +187,7 @@ func (r *Repository) Log(ctx context.Context, options LogOptions) (History, erro
 	} else if _, err := r.commit(head); err != nil {
 		return History{}, err
 	}
-	history.Head = head
+	history.Head = Hash(head)
 
 	w, err := r.newWalker(ctx)
 	if err != nil {
@@ -586,8 +596,8 @@ func (q *commitQueue) onlyUninteresting(uninteresting map[plumbing.Hash]bool) bo
 // as a rename, both in path order. Submodules are skipped. A limit of zero
 // or less returns all changes. It returns ErrUnavailable for an unknown
 // commit.
-func (r *Repository) CommitFiles(ctx context.Context, hash plumbing.Hash, limit int) (CommitChanges, error) {
-	changes, err := r.commitChanges(ctx, hash)
+func (r *Repository) CommitFiles(ctx context.Context, hash Hash, limit int) (CommitChanges, error) {
+	changes, err := r.commitChanges(ctx, plumbing.Hash(hash))
 	if err != nil {
 		return CommitChanges{}, err
 	}
@@ -608,11 +618,11 @@ func limitChanges(changes []Change, limit int) CommitChanges {
 // Without oldPath, a path a rename created reports the rename. A deleted
 // path a rename consumed, or anything else that is not a change, is
 // ErrUnavailable.
-func (r *Repository) CommitLookup(ctx context.Context, hash plumbing.Hash, name, oldPath string) (Change, error) {
+func (r *Repository) CommitLookup(ctx context.Context, hash Hash, name, oldPath string) (Change, error) {
 	if !validLookup(name, oldPath) {
 		return Change{}, ErrUnavailable
 	}
-	changes, err := r.commitChanges(ctx, hash)
+	changes, err := r.commitChanges(ctx, plumbing.Hash(hash))
 	if err != nil {
 		return Change{}, err
 	}
@@ -638,8 +648,8 @@ func findChange(changes []Change, name, oldPath string) (Change, error) {
 // count. A root or shallow from compares with an empty tree. Statuses,
 // renames, and the limit follow CommitFiles. It returns ErrUnavailable for
 // an unknown commit.
-func (r *Repository) RangeFiles(ctx context.Context, from, to plumbing.Hash, limit int) (CommitChanges, error) {
-	changes, err := r.rangeChanges(ctx, from, to)
+func (r *Repository) RangeFiles(ctx context.Context, from, to Hash, limit int) (CommitChanges, error) {
+	changes, err := r.rangeChanges(ctx, plumbing.Hash(from), plumbing.Hash(to))
 	if err != nil {
 		return CommitChanges{}, err
 	}
@@ -648,11 +658,11 @@ func (r *Repository) RangeFiles(ctx context.Context, from, to plumbing.Hash, lim
 
 // RangeLookup validates one change of a range under RangeFiles's rules, as
 // CommitLookup does for a commit.
-func (r *Repository) RangeLookup(ctx context.Context, from, to plumbing.Hash, name, oldPath string) (Change, error) {
+func (r *Repository) RangeLookup(ctx context.Context, from, to Hash, name, oldPath string) (Change, error) {
 	if !validLookup(name, oldPath) {
 		return Change{}, ErrUnavailable
 	}
-	changes, err := r.rangeChanges(ctx, from, to)
+	changes, err := r.rangeChanges(ctx, plumbing.Hash(from), plumbing.Hash(to))
 	if err != nil {
 		return Change{}, err
 	}
@@ -685,9 +695,9 @@ type BranchRange struct {
 	Base string
 	// MergeBase is the best common ancestor of the base and Head; zero when
 	// nothing is ahead or the histories are unrelated.
-	MergeBase plumbing.Hash
+	MergeBase Hash
 	// Head is HEAD's commit; zero when HEAD is unborn.
-	Head plumbing.Hash
+	Head Hash
 	// Ahead counts the commits in base..Head, as Log does.
 	Ahead int
 }
@@ -709,7 +719,7 @@ func (r *Repository) BranchCompare(ctx context.Context) (BranchRange, error) {
 	if err != nil {
 		return BranchRange{}, fmt.Errorf("read HEAD: %w", err)
 	}
-	result.Head = ref.Hash()
+	result.Head = Hash(ref.Hash())
 	if baseName == "" {
 		return result, nil
 	}
@@ -717,9 +727,11 @@ func (r *Repository) BranchCompare(ctx context.Context) (BranchRange, error) {
 	if err != nil {
 		return BranchRange{}, err
 	}
-	branch, boundary, err := w.branch(result.Head, baseHash)
+	branch, boundary, err := w.branch(ref.Hash(), baseHash)
 	if err == nil && len(branch) > 0 {
-		result.MergeBase, err = w.mergeBase(boundary)
+		var mergeBase plumbing.Hash
+		mergeBase, err = w.mergeBase(boundary)
+		result.MergeBase = Hash(mergeBase)
 	}
 	if errors.Is(err, ErrRangeTooLarge) {
 		return BranchRange{}, rangeTooLarge{base: baseName}
@@ -766,13 +778,13 @@ func (r *Repository) branchChanges(ctx context.Context) (BranchRange, []Change, 
 	if err != nil || compared.Ahead == 0 {
 		return compared, []Change{}, err
 	}
-	head, err := r.commit(compared.Head)
+	head, err := r.commit(plumbing.Hash(compared.Head))
 	if err != nil {
 		return BranchRange{}, nil, err
 	}
 	var baseTree plumbing.Hash
 	if !compared.MergeBase.IsZero() {
-		base, err := r.commit(compared.MergeBase)
+		base, err := r.commit(plumbing.Hash(compared.MergeBase))
 		if err != nil {
 			return BranchRange{}, nil, err
 		}
@@ -787,8 +799,8 @@ func (r *Repository) branchChanges(ctx context.Context) (BranchRange, []Change, 
 
 // CommitBlob returns the file name has in a commit. It returns
 // ErrUnavailable when the commit is unknown or has no file there.
-func (r *Repository) CommitBlob(hash plumbing.Hash, name string) (Blob, error) {
-	commit, err := r.commit(hash)
+func (r *Repository) CommitBlob(hash Hash, name string) (Blob, error) {
+	commit, err := r.commit(plumbing.Hash(hash))
 	if err != nil {
 		return Blob{}, err
 	}
@@ -802,8 +814,8 @@ func (r *Repository) CommitBlob(hash plumbing.Hash, name string) (Blob, error) {
 // ParentBlob returns the file name has in a commit's first parent. It
 // returns ErrUnavailable when the commit is unknown, has no parent, or the
 // parent has no file there.
-func (r *Repository) ParentBlob(hash plumbing.Hash, name string) (Blob, error) {
-	commit, err := r.commit(hash)
+func (r *Repository) ParentBlob(hash Hash, name string) (Blob, error) {
+	commit, err := r.commit(plumbing.Hash(hash))
 	if err != nil {
 		return Blob{}, err
 	}

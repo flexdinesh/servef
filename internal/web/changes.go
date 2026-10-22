@@ -58,14 +58,7 @@ type diffResponse struct {
 	Modified     *diffSide     `json:"modified"`
 }
 
-type diffErrorResponse struct {
-	Error string `json:"error"`
-	Code  string `json:"code,omitempty"`
-}
-
 func (a *App) serveChanges(w http.ResponseWriter, r *http.Request, projectID string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -99,8 +92,6 @@ func (a *App) serveChanges(w http.ResponseWriter, r *http.Request, projectID str
 }
 
 func (a *App) serveDiff(w http.ResponseWriter, r *http.Request, projectID, name, oldPath string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -124,7 +115,7 @@ func (a *App) serveDiff(w http.ResponseWriter, r *http.Request, projectID, name,
 	entry, err := repo.Lookup(r.Context(), name, oldPath)
 	switch {
 	case errors.Is(err, git.ErrUnchanged):
-		writeJSON(w, http.StatusNotFound, diffErrorResponse{Error: fmt.Sprintf("No changes to %s since the last commit.", name), Code: unchangedCode})
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: fmt.Sprintf("No changes to %s since the last commit.", name), Code: unchangedCode})
 		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
