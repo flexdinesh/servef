@@ -7,10 +7,11 @@ import {
 } from "@tanstack/react-router"
 
 import { App } from "./App.tsx"
-import { loadPage } from "./page-data.ts"
-import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./projects-data.ts"
-import { readMemory } from "./workspace-memory.ts"
-import { isCommitHash } from "./workspace-tabs.ts"
+import { isAbort } from "./api/http.ts"
+import { loadPage } from "./api/page-data.ts"
+import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./api/projects-data.ts"
+import { readMemory } from "./workspace/workspace-memory.ts"
+import { isCommitHash } from "./workspace/workspace-tabs.ts"
 
 interface PageSearch {
   [key: string]: unknown
@@ -44,10 +45,6 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
 function withProject(search: PageSearch, project: string): PageSearch {
   const { project: _previous, ...rest } = search
   return { project, ...rest }
-}
-
-function isAbort(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError"
 }
 
 function RoutedApp() {

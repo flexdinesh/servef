@@ -7,82 +7,71 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
 
-import type { SelectedLineRange } from "@pierre/diffs"
 import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
-import { ProjectPicker, type PickerOpenOptions } from "./ProjectPicker.tsx"
-import { DocumentModeToggle, type DocumentMode } from "./DocumentModeToggle.tsx"
-import { DocumentPane } from "./DocumentPane.tsx"
-import { documentView, resolveDocumentMode } from "./document-view.ts"
-import { FileTree } from "./FileTree.tsx"
-import { ImageZoomControls } from "./ImageZoomControls.tsx"
-import { clampLineRange, lineAnchor, lineReference, parseLineAnchor, splitSourceLines, type LineRange } from "./line-selection.ts"
+import { ProjectPicker, type PickerOpenOptions } from "./features/projects/ProjectPicker.tsx"
+import { DocumentModeToggle, type DocumentMode } from "./features/documents/DocumentModeToggle.tsx"
+import { DocumentPane } from "./features/documents/DocumentPane.tsx"
+import { documentView, resolveDocumentMode } from "./features/documents/document-view.ts"
+import { FileTree } from "./features/explorer/FileTree.tsx"
+import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
+import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./lib/line-selection.ts"
 import {
   emptyPage,
-  filePaths,
   isPageLoadResult,
   type PageData,
   type PageLoadResult,
-} from "./page-data.ts"
-import type { SearchMatch } from "./search-engine.ts"
-import { SearchView } from "./SearchView.tsx"
-import { Sidebar } from "./Sidebar.tsx"
-import { SourceControlView } from "./SourceControlView.tsx"
-import { DiffDocument } from "./DiffDocument.tsx"
-import { DiffToolbar } from "./DiffToolbar.tsx"
-import { diffContent } from "./diff-content.ts"
-import { diffLineAnchor, diffLineTarget, parseDiffLineAnchor } from "./diff-line-selection.ts"
-import { effectiveDiffStyle } from "./diff-options.ts"
-import { diffStats } from "./diff-stats.ts"
-import { useChanges } from "./use-changes.ts"
-import { useCommits } from "./use-commits.ts"
-import { useDiffOptions } from "./use-diff-options.ts"
-import { releaseHighlightResources } from "./use-highlighted-lines.ts"
-import { releaseDiffResources, useParsedDiff } from "./use-parsed-diff.ts"
-import { useSourceControlLayout } from "./use-source-control-layout.ts"
-import { useWorkingTreeDiff } from "./use-working-tree-diff.ts"
+} from "./api/page-data.ts"
+import type { SearchMatch } from "./features/search/search-engine.ts"
+import { SearchView } from "./features/search/SearchView.tsx"
+import { Sidebar } from "./workspace/Sidebar.tsx"
+import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
+import { DiffDocument } from "./features/source-control/DiffDocument.tsx"
+import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
+import { diffStats } from "./features/source-control/diff-stats.ts"
+import { useChanges } from "./features/source-control/use-changes.ts"
+import { useCommits } from "./features/source-control/use-commits.ts"
+import { useDiffTab } from "./features/source-control/use-diff-tab.ts"
+import { releaseHighlightResources } from "./highlighting/use-highlighted-lines.ts"
+import { releaseDiffResources } from "./features/source-control/use-parsed-diff.ts"
+import { useSourceControlLayout } from "./features/source-control/use-source-control-layout.ts"
 import {
-  documentTab, includesTab, isCommitHash, routeDiffTab, sameTab, tabKey, tabName, type WorkspaceTab,
-} from "./workspace-tabs.ts"
-import { SettingsDialog, type OpenSettings } from "./SettingsDialog.tsx"
-import { CommandPalette } from "./CommandPalette.tsx"
-import { navigationEligibility, type NavigationKind } from "./code-navigation.ts"
-import type { CommandAction } from "./commands.ts"
-import type { NavigationLocation } from "./navigation-contract.ts"
-import { NavigationDialog } from "./NavigationDialog.tsx"
-import type { SourceNavigation } from "./SourceDocument.tsx"
-import type { SourceTarget } from "./source-position.ts"
-import { useCodeNavigation } from "./use-code-navigation.ts"
-import { useNavigationStatus } from "./use-navigation-status.ts"
-import { useSettings } from "./components/SettingsProvider.tsx"
-import { SidebarResizer } from "./SidebarResizer.tsx"
-import { StatusBar } from "./StatusBar.tsx"
-import { TabBar } from "./TabBar.tsx"
-import { useDelayedFlag, useDocumentFormats } from "./use-document-format.ts"
-import { useDocumentNavigation } from "./use-document-navigation.ts"
-import { useDocumentWorkspace } from "./use-document-workspace.ts"
-import { useImageViewer } from "./use-image-viewer.ts"
-import { usePreviewPreference } from "./use-preview-preference.ts"
-import { useProjectMemory } from "./use-project-memory.ts"
-import { useSearchSession } from "./use-search-session.ts"
-import { useSidebar } from "./use-sidebar.ts"
+  documentTab, includesTab, isCommitHash, routeDiffTab, tabName, tabSearch, type WorkspaceTab,
+} from "./workspace/workspace-tabs.ts"
+import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
+import { CommandPalette } from "./workspace/CommandPalette.tsx"
+import { navigationEligibility, type NavigationKind } from "./features/navigation/code-navigation.ts"
+import type { CommandAction } from "./workspace/commands.ts"
+import type { NavigationLocation } from "./api/navigation-contract.ts"
+import { NavigationDialog } from "./features/navigation/NavigationDialog.tsx"
+import type { SourceNavigation } from "./features/documents/SourceDocument.tsx"
+import type { SourceTarget } from "./features/navigation/source-position.ts"
+import { useCodeNavigation } from "./features/navigation/use-code-navigation.ts"
+import { useNavigationStatus } from "./features/navigation/use-navigation-status.ts"
+import { useSettings } from "./settings/SettingsProvider.tsx"
+import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
+import { StatusBar } from "./workspace/StatusBar.tsx"
+import { TabBar } from "./workspace/TabBar.tsx"
+import { useDocumentFormats } from "./features/documents/use-document-format.ts"
+import { useDelayedFlag } from "./lib/use-delayed-flag.ts"
+import { useDocumentNavigation } from "./features/documents/use-document-navigation.ts"
+import { useDocumentWorkspace } from "./workspace/use-document-workspace.ts"
+import { useImageViewer } from "./features/documents/use-image-viewer.ts"
+import { usePreviewPreference } from "./features/documents/use-preview-preference.ts"
+import { useProjectMemory } from "./workspace/use-project-memory.ts"
+import { useSearchSession } from "./features/search/use-search-session.ts"
+import { useSidebar } from "./workspace/use-sidebar.ts"
 
 // routeTab is the tab a route shows: a diff of any kind, or a document, else
 // none.
 function routeTab(diff: WorkspaceTab | null, documentPath: string): WorkspaceTab | null {
   if (diff) return diff
   return documentPath ? documentTab(documentPath) : null
-}
-
-function tabSearch(project: string, tab: WorkspaceTab) {
-  if (tab.kind === "commit") return { project, path: tab.path, commit: tab.commit }
-  if (tab.kind === "branch") return { project, path: tab.path, branch: 1 as const }
-  if (tab.kind === "range") return { project, path: tab.path, from: tab.from, to: tab.to }
-  return tab.kind === "diff" ? { project, path: tab.path, diff: 1 as const } : { project, path: tab.path }
 }
 
 function initialPage(result: PageLoadResult): PageData | null {
@@ -123,10 +112,6 @@ export function App({ project }: AppProps) {
   const diffRoute = useMemo(() => routeDiffTab({
     path: searchPath, diff: searchDiff ? 1 : undefined, commit: searchCommit, branch: searchBranch ? 1 : undefined, from: searchFrom, to: searchTo,
   }), [searchBranch, searchCommit, searchDiff, searchFrom, searchPath, searchTo])
-  const diffPath = diffRoute?.path ?? ""
-  // workingDiff is set for a working-tree diff tab; history diffs (commit,
-  // branch, range) read git objects only.
-  const workingDiffTab = diffRoute?.kind === "diff"
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
@@ -208,14 +193,11 @@ export function App({ project }: AppProps) {
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
 
-  // The open diff tab: its sides, parsed hunks, and toolbar options. A
-  // history diff's rename is resolved by the server from git itself.
-  const diffOptions = useDiffOptions()
-  const changedFile = workingDiffTab ? changes.byPath.get(diffPath) : undefined
-  const workingDiff = useWorkingTreeDiff(project, diffRoute, changedFile?.oldPath ?? "")
-  const diffState = workingDiff.state
-  const content = useMemo(() => diffState.kind === "ready" ? diffContent(diffState.diff) : null, [diffState])
-  const parsedDiff = useParsedDiff(diffRoute ? tabKey(diffRoute) : "", content, diffOptions.options.ignoreWhitespace)
+  // The open diff tab and opening diff tabs from Source Control.
+  const diff = useDiffTab({
+    project, tab: diffRoute, changes, tree: page.tree, hash, narrow: sidebar.mobile, main, prepareDocumentNavigation,
+  })
+  const { isDeleted, openDiff, openHistoryDiff } = diff
   const hasDiffTabs = workspace.tabs.some((tab) => tab.kind !== "document")
   // Closing the last diff tab frees its workers and caches until the next one.
   useEffect(() => {
@@ -226,59 +208,15 @@ export function App({ project }: AppProps) {
   useEffect(() => {
     if (!hasTabs) releaseHighlightResources()
   }, [hasTabs])
-  const { fileDiff } = parsedDiff
-  const diffSlow = useDelayedFlag(workingDiff.loading || parsedDiff.parsing, 150)
-  const diffDeleted = (diffState.kind === "ready" ? diffState.diff.status : changedFile?.status) === "deleted"
-  const isDeleted = useCallback((path: string) => changes.byPath.get(path)?.status === "deleted"
-    || (path === diffPath && workingDiffTab && diffDeleted), [changes.byPath, diffDeleted, diffPath, workingDiffTab])
-  // A history diff opens the working copy only while the tree still has it.
-  const treeFiles = useMemo(() => new Set(filePaths(page.tree)), [page.tree])
-  const openFileReason = diffRoute && !workingDiffTab
-    ? treeFiles.has(diffPath) ? "" : "This file isn't in the working tree"
-    : diffDeleted ? "This file was deleted; there's no working copy to open" : ""
   // Branch tabs name the base once Source Control has read it.
   const branchBase = commits.branch.result?.base || commits.result?.base || ""
   const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, tab.kind === "diff" && isDeleted(tab.path), branchBase), [branchBase, isDeleted])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
-
-  // openDiff opens a change's diff tab. Click keeps focus in Source Control;
-  // Enter and double-click move it to the diff, as in Search.
-  const openDiff = useCallback((path: string, focusDocument: boolean) => {
-    if (path === diffPath && workingDiffTab) {
-      if (focusDocument) main.current?.focus({ preventScroll: true })
-      return
-    }
-    if (focusDocument) prepareDocumentNavigation()
-    void navigate({ to: "/view", search: { project, path, diff: 1 }, hash: "" })
-  }, [diffPath, main, navigate, prepareDocumentNavigation, project, workingDiffTab])
-  // openHistoryDiff opens a commit, branch, or range file's diff tab,
-  // focusing as openDiff does.
-  const openHistoryDiff = useCallback((tab: WorkspaceTab, focusDocument: boolean) => {
-    if (sameTab(tab, diffRoute)) {
-      if (focusDocument) main.current?.focus({ preventScroll: true })
-      return
-    }
-    if (focusDocument) prepareDocumentNavigation()
-    void navigate({ to: "/view", search: tabSearch(project, tab), hash: "" })
-  }, [diffRoute, main, navigate, prepareDocumentNavigation, project])
-  const activeHistory = diffRoute && !workingDiffTab ? diffRoute : null
   const selectTab = useCallback((tab: WorkspaceTab) => {
     if (tab.kind === "document") navigateToDocument(tab.path)
     else if (tab.kind === "diff") openDiff(tab.path, true)
     else openHistoryDiff(tab, true)
   }, [navigateToDocument, openDiff, openHistoryDiff])
-
-  // A diff's line selection lives in its fragment too: #R12-R20, #L5.
-  const diffSelection = diffPath ? parseDiffLineAnchor(hash) : null
-  const diffTarget = fileDiff && diffSelection
-    ? diffLineTarget(fileDiff, diffSelection, effectiveDiffStyle(diffOptions.options, sidebar.mobile))
-    : null
-  const diffOldPath = diffState.kind === "ready" && diffState.diff.oldPath ? diffState.diff.oldPath : diffPath
-  const diffReference = diffTarget ? lineReference(diffTarget.side === "old" ? diffOldPath : diffPath, diffTarget.range) : ""
-  const selectDiffLines = useCallback((range: SelectedLineRange | null) => {
-    if (!activeTab || activeTab.kind === "document") return
-    void navigate({ to: "/view", search: tabSearch(project, activeTab), hash: range ? diffLineAnchor(range) : "", replace: true })
-  }, [activeTab, navigate, project])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
@@ -322,10 +260,13 @@ export function App({ project }: AppProps) {
       else explainNavigation(kind, "Click a name in the code first, then try again.")
     },
   } : undefined, [explainNavigation, navigable, page.selected, requestNavigation])
-  runNavigation.current = (kind) => {
-    if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
-    else explainNavigation(kind, navigationReason)
-  }
+  // The palette runs navigation against the current document.
+  useLayoutEffect(() => {
+    runNavigation.current = (kind) => {
+      if (sourceNavigation) sourceNavigation.onNavigate(kind, null)
+      else explainNavigation(kind, navigationReason)
+    }
+  }, [explainNavigation, navigationReason, sourceNavigation])
   useEffect(() => { closeNavigation() }, [closeNavigation, page.selected, documentMode, languageServers])
   useEffect(() => { if (isLoading) closeNavigation() }, [closeNavigation, isLoading])
   const selectedLines = showSource && lineRange ? clampLineRange(lineRange, splitSourceLines(page.source).length) : null
@@ -391,7 +332,7 @@ export function App({ project }: AppProps) {
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
           sourceControl={<SourceControlView changes={changes} commits={commits} layout={sourceControlLayout}
-            activePath={workingDiffTab ? diffPath : ""} activeHistory={activeHistory} mobile={sidebar.mobile}
+            activePath={diff.working ? diff.path : ""} activeHistory={diff.activeHistory} mobile={sidebar.mobile}
             onDismiss={sidebar.dismiss} onOpen={openDiff} onOpenTab={openHistoryDiff} />}
         />
         <SidebarResizer />
@@ -412,10 +353,10 @@ export function App({ project }: AppProps) {
               onCloseMany={closeTabs}
               onSelect={selectTab}
             />
-            {diffPath ? (
-              <DiffToolbar options={diffOptions.options} narrow={sidebar.mobile} onChange={diffOptions.change}
-                openFileReason={openFileReason}
-                onOpenFile={() => navigateToDocument(diffPath)} />
+            {diff.path ? (
+              <DiffToolbar options={diff.options.options} narrow={sidebar.mobile} onChange={diff.options.change}
+                openFileReason={diff.openFileReason}
+                onOpenFile={() => navigateToDocument(diff.path)} />
             ) : <>
               <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
                 onChange={changeDocumentMode} />
@@ -423,11 +364,11 @@ export function App({ project }: AppProps) {
             </>}
           </div>
           <DocumentPane
-            diff={diffPath ? <DiffDocument content={content} fileDiff={fileDiff} narrow={sidebar.mobile}
-              options={diffOptions.options} parseFailed={parsedDiff.failed} path={diffPath} scrollRoot={main}
+            diff={diff.path ? <DiffDocument content={diff.content} fileDiff={diff.fileDiff} narrow={sidebar.mobile}
+              options={diff.options.options} parseFailed={diff.parseFailed} path={diff.path} scrollRoot={main}
               unchangedSince={diffRoute?.kind === "branch" ? branchBase ? `vs ${branchBase}` : "on this branch" : undefined}
-              selection={{ range: diffTarget ? diffSelection : null, reference: diffReference, onChange: selectDiffLines }} state={diffState}
-              onOpenFile={() => navigateToDocument(diffPath)} onRetry={workingDiff.retry} /> : undefined}
+              selection={diff.selection} state={diff.state}
+              onOpenFile={() => navigateToDocument(diff.path)} onRetry={diff.retry} /> : undefined}
             hasData={hasData}
             image={image}
             isLoading={isLoading}
@@ -443,12 +384,12 @@ export function App({ project }: AppProps) {
           />
         </section>
       </div>
-      <StatusBar isLoading={isLoading || formatSlow || diffSlow} error={loadError || page.error} page={page}
-        diff={diffPath ? {
-          path: diffPath,
-          lines: diffTarget,
-          stats: fileDiff ? diffStats(fileDiff) : null,
-          typeLabel: diffState.kind === "ready" ? diffState.diff.documentType.label : "",
+      <StatusBar isLoading={isLoading || formatSlow || diff.slow} error={loadError || page.error} page={page}
+        diff={diff.path ? {
+          path: diff.path,
+          lines: diff.target,
+          stats: diff.fileDiff ? diffStats(diff.fileDiff) : null,
+          typeLabel: diff.state.kind === "ready" ? diff.state.diff.documentType.label : "",
         } : undefined}
         detail={showImage && image.status === "ready" && image.width > 0
           ? `${image.width} × ${image.height} · ${image.percent}%`

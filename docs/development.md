@@ -43,6 +43,7 @@ GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@e
 | Run frontend tests | `pnpm test:web` |
 | Test release tooling | `pnpm test:release` |
 | Type-check TypeScript | `pnpm typecheck` |
+| Lint React Hooks | `pnpm lint` |
 | Run every check CI runs | `pnpm check` |
 | Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
 | Run browser tests | `pnpm test:browser` |

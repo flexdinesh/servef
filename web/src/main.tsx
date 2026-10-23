@@ -2,11 +2,11 @@ import { createRoot } from "react-dom/client"
 import { RouterProvider } from "@tanstack/react-router"
 import "@fontsource-variable/inter"
 
-import { SettingsProvider } from "./components/SettingsProvider.tsx"
-import { ThemeProvider } from "./components/ThemeProvider.tsx"
+import { SettingsProvider } from "./settings/SettingsProvider.tsx"
+import { ThemeProvider } from "./settings/ThemeProvider.tsx"
 import { router } from "./router.tsx"
-import { initializeSettings } from "./settings.ts"
-import { initializeTheme } from "./theme.ts"
+import { initializeSettings } from "./settings/settings.ts"
+import { initializeTheme } from "./settings/theme.ts"
 import "./style.css"
 
 const initialTheme = initializeTheme()

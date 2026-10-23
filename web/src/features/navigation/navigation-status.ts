@@ -1,0 +1,49 @@
+import { formatBytes } from "../../lib/format-bytes.ts"
+import type { LanguageServerStatus, NavigationStatus } from "../../api/navigation-contract.ts"
+
+// LANGUAGE_SERVER_HEADER opts a navigation request into language servers. A
+// header, not a query parameter, so other sites cannot start servers.
+export const LANGUAGE_SERVER_HEADER = "X-Servef-Language-Servers"
+
+export function navigationStatusQuery(project: string, path: string, refresh: boolean): string {
+  const query = new URLSearchParams({ project, path })
+  if (refresh) query.set("refresh", "1")
+  return query.toString()
+}
+
+// providerLabel keeps availability visible beside every text language.
+export function providerLabel(status: NavigationStatus | null): string {
+  if (!status) return "LSP unknown"
+  if (!status.supported) return "LSP unavailable"
+  if (!status.enabled) return "LSP off"
+  switch (status.server?.state) {
+    case "missing": return "LSP missing"
+    case "stopped": return "LSP available"
+    case "starting": return "LSP starting…"
+    case "ready": return "LSP ready"
+    case "failed": return "LSP failed"
+    default: return "LSP unavailable"
+  }
+}
+
+// serverSummary explains a language server's state in a sentence.
+export function serverSummary(server: LanguageServerStatus, enabled: boolean): string {
+  switch (server.state) {
+    case "missing":
+      return `${server.name} is not installed.`
+    case "stopped":
+      return enabled ? `${server.name} starts on the next navigation.` : `${server.name} is installed.`
+    case "starting":
+      return `${server.name} is starting.`
+    case "ready":
+      return server.memory > 0 ? `${server.name} is running, using ${formatBytes(server.memory)}.` : `${server.name} is running.`
+    case "failed":
+      return server.message ? `${server.name} failed: ${server.message}` : `${server.name} failed.`
+  }
+}
+
+// pollsServer reports whether a status changes on its own: a running
+// server's memory and idle stop, or a start in progress.
+export function pollsServer(status: NavigationStatus | null): boolean {
+  return status !== null && status.enabled && (status.server?.state === "starting" || status.server?.state === "ready")
+}

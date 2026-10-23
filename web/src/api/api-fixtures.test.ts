@@ -1,0 +1,214 @@
+import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+import test from "node:test"
+
+import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
+import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
+import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
+import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
+import { isProcessMetrics } from "../workspace/process-metrics.ts"
+import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
+import { isSearchDocumentsResponse } from "../features/search/search-documents.ts"
+
+async function fixture(name: string): Promise<unknown> {
+  const source = await readFile(
+    new URL(`../../../testdata/api/default/${name}`, import.meta.url),
+    "utf8",
+  )
+  const value: unknown = JSON.parse(source)
+  return value
+}
+
+test("frontend API fixtures satisfy runtime contracts", async () => {
+  assert.equal(isProcessMetrics(await fixture("metrics.json")), true)
+  assert.equal(isProcessMetrics(await fixture("metrics-go.json")), true)
+  assert.equal(isSearchDocumentsResponse(await fixture("search-documents.json")), true)
+  assert.equal(isProjectsResponse(await fixture("projects.json")), true)
+  assert.equal(isDirectoriesResponse(await fixture("directories.json")), true)
+  for (const name of [
+    "page-index.json", "page-document.json", "page-missing.json", "page-json.json",
+    "page-json-broken.json", "page-image.json", "page-binary.json", "page-large.json", "page-too-large.json", "page-go.json",
+  ]) {
+    assert.equal(isPageData(await fixture(name)), true, name)
+  }
+  assert.equal(isFormatResult(await fixture("format-settings.json")), true)
+  assert.equal(isFormatResult(await fixture("format-error.json")), false)
+  assert.equal(isNavigationResult(await fixture("definition.json")), true)
+  assert.equal(isNavigationResult(await fixture("references.json")), true)
+  assert.equal(isNavigationResult(await fixture("error-not-found.json")), false)
+  assert.equal(isNavigationStatus(await fixture("navigation-status.json")), true)
+  assert.equal(isNavigationStatus(await fixture("definition.json")), false)
+})
+
+async function page(name: string): Promise<PageData> {
+  const value = await fixture(name)
+  assert.ok(isPageData(value), name)
+  return value
+}
+
+test("page fixtures follow document-shape invariants", async () => {
+  const json = await page("page-json.json")
+  assert.equal(json.documentType?.formattable, true)
+  assert.equal(json.content, "")
+
+  for (const name of ["page-image.json", "page-binary.json"]) {
+    const binary = await page(name)
+    assert.equal(binary.binary, true, name)
+    assert.equal(binary.source, "", name)
+    assert.equal(binary.highlightDisabled, true, name)
+    assert.equal(binary.content, "", name)
+  }
+  assert.equal((await page("page-image.json")).documentType?.previewKind, "image")
+  assert.equal((await page("page-binary.json")).documentType?.label, "Plain text")
+
+  const large = await page("page-large.json")
+  assert.equal(large.previewDisabled, true)
+  assert.equal(large.highlightDisabled, true)
+  assert.equal(large.searchExcluded, true)
+  assert.ok(large.fileSize > 8 * 1_048_576)
+  assert.equal(large.tooLarge, false)
+
+  const tooLarge = await page("page-too-large.json")
+  assert.equal(tooLarge.tooLarge, true)
+  assert.equal(tooLarge.binary, false)
+  assert.equal(tooLarge.previewDisabled, true)
+  assert.equal(tooLarge.searchExcluded, true)
+  assert.equal(tooLarge.source, "")
+  assert.equal(tooLarge.highlightDisabled, true)
+  assert.equal(tooLarge.content, "")
+  assert.ok(tooLarge.fileSize > 32 * 1_048_576)
+})
+
+test("contract validators reject removed and malformed fields", async () => {
+  const value = await fixture("page-document.json")
+  assert.ok(isPageData(value))
+  const { filenamePatterns: _patterns, ...withoutPatterns } = value
+  assert.equal(isPageData(withoutPatterns), false)
+  assert.equal(isPageData({ ...value, binary: "no" }), false)
+  const { tooLarge: _tooLarge, ...withoutTooLarge } = value
+  assert.equal(isPageData(withoutTooLarge), false)
+  assert.equal(isPageData({ ...value, documentType: { ...value.documentType, previewKind: "code" } }), false)
+  assert.equal(isPageData({ ...value, documentType: { ...value.documentType, filenames: null } }), false)
+  assert.equal(isPageData({ ...value, documentType: { ...value.documentType, formattable: undefined } }), false)
+  assert.equal(isPageData({ ...value, documentType: null }), false)
+  assert.equal(isPageData({ ...value, documentType: { ...value.documentType, previewLabel: "" } }), false)
+  const { highlightDisabled: _highlightDisabled, ...withoutHighlightDisabled } = value
+  assert.equal(isPageData(withoutHighlightDisabled), false)
+  assert.equal(isFormatResult({ formatted: "{}\n" }), true)
+  assert.equal(isFormatResult({ formatted: ["ok"] }), false)
+  assert.equal(isFormatResult({ formattedLines: ["ok"] }), false)
+})
+
+test("navigation contract validators reject malformed ranges and states", async () => {
+  const definition = await fixture("definition.json")
+  assert.ok(isNavigationResult(definition))
+  assert.equal(isNavigationResult({ ...definition, filtered: -1 }), false)
+  assert.equal(isNavigationResult({ ...definition, server: 1 }), false)
+  assert.equal(isNavigationResult({ ...definition, locations: [{ path: "a.go", line: 0, column: 0, endLine: 1, endColumn: 1, kind: "", snippet: "" }] }), false)
+  const status = await fixture("navigation-status.json")
+  assert.ok(isNavigationStatus(status))
+  assert.ok(status.server)
+  assert.equal(isNavigationStatus({ ...status, server: { ...status.server, state: "running" } }), false)
+  assert.equal(isNavigationStatus({ ...status, server: { ...status.server, install: [{ label: "Go" }] } }), false)
+  assert.equal(isNavigationStatus({ ...status, supported: false, eligible: false, server: null }), true)
+})
+
+test("project contract validators reject inconsistent availability", async () => {
+  const value = await fixture("projects.json")
+  assert.ok(isProjectsResponse(value))
+  const [first] = value.projects
+  assert.ok(first)
+  assert.equal(isProjectsResponse({ ...value, projects: [{ ...first, id: "" }] }), false)
+  assert.equal(isProjectsResponse({ ...value, projects: [{ ...first, kind: "submodule" }] }), false)
+  const page = await fixture("page-document.json")
+  assert.ok(isPageData(page))
+  const { project: _project, ...withoutProject } = page
+  assert.equal(isPageData(withoutProject), false)
+})
+
+async function diff(name: string): Promise<DiffResponse> {
+  const value = await fixture(name)
+  assert.ok(isDiffResponse(value), name)
+  return value
+}
+
+test("source control fixtures satisfy runtime contracts", async () => {
+  const changes = await fixture("changes.json")
+  assert.ok(isChangesResponse(changes))
+  assert.equal(changes.repository, true)
+  assert.deepEqual(changes.files.map((file) => file.path), changes.files.map((file) => file.path).toSorted())
+  assert.ok(changes.files.some((file) => file.status === "renamed" && file.oldPath))
+  const folder = await fixture("changes-not-repo.json")
+  assert.ok(isChangesResponse(folder))
+  assert.equal(folder.repository, false)
+  assert.deepEqual(folder.files, [])
+
+  const modified = await diff("diff-modified.json")
+  assert.equal(typeof modified.original?.content, "string")
+  assert.equal(typeof modified.modified?.content, "string")
+  assert.equal((await diff("diff-added.json")).original, null)
+  assert.equal((await diff("diff-deleted.json")).modified, null)
+  const untracked = await diff("diff-untracked.json")
+  assert.equal(untracked.status, "untracked")
+  assert.equal(untracked.original, null)
+  assert.ok((await diff("diff-renamed.json")).oldPath)
+  const binary = await diff("diff-binary.json")
+  assert.equal(binary.original?.binary, true)
+  assert.equal(binary.modified?.content, undefined)
+  const large = await diff("diff-too-large.json")
+  assert.equal(large.modified?.tooLarge, true)
+  assert.equal(large.modified?.content, undefined)
+  assert.equal(isDiffResponse(await fixture("error-not-found.json")), false)
+})
+
+test("commit history fixtures satisfy runtime contracts", async () => {
+  const branch = await fixture("commits.json")
+  assert.ok(isCommitsResponse(branch))
+  assert.equal(branch.range, "branch")
+  assert.equal(branch.head, branch.commits[0]?.hash)
+  assert.equal(branch.ahead, branch.commits.length)
+  assert.ok(branch.commits.some((commit) => commit.body.includes("\n")))
+  const all = await fixture("commits-all.json")
+  assert.ok(isCommitsResponse(all))
+  assert.equal(all.range, "all")
+  assert.deepEqual(all.commits.at(-1)?.parents, [])
+  const folder = await fixture("commits-not-repo.json")
+  assert.ok(isCommitsResponse(folder))
+  assert.equal(folder.repository, false)
+
+  const files = await fixture("commit-files.json")
+  assert.ok(isCommitFilesResponse(files))
+  assert.equal(files.commit, branch.head)
+  assert.deepEqual(files.files.map((file) => file.path), files.files.map((file) => file.path).toSorted())
+  assert.ok(files.files.some((file) => file.status === "renamed" && file.oldPath))
+
+  const branchFiles = await fixture("branch-files.json")
+  assert.ok(isBranchFilesResponse(branchFiles))
+  assert.equal(branchFiles.head, branch.head)
+  assert.equal(branchFiles.base, branch.base)
+  assert.equal(branchFiles.ahead, branch.ahead)
+  assert.notEqual(branchFiles.mergeBase, "")
+  const rangeFiles = await fixture("range-files.json")
+  assert.ok(isRangeFilesResponse(rangeFiles))
+  assert.equal(rangeFiles.to, branch.head)
+  assert.ok(branch.commits.some((commit) => commit.hash === rangeFiles.from))
+})
+
+test("commit contract validators reject malformed history", async () => {
+  const branch = await fixture("commits.json")
+  assert.ok(isCommitsResponse(branch))
+  const [first] = branch.commits
+  assert.ok(first)
+  assert.equal(isCommitsResponse({ ...branch, range: "everything" }), false)
+  assert.equal(isCommitsResponse({ ...branch, head: "3577ec6" }), false)
+  assert.equal(isCommitsResponse({ ...branch, ahead: -1 }), false)
+  assert.equal(isCommitsResponse({ ...branch, repository: false }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, authorTime: "yesterday" }] }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, parents: ["HEAD~1"] }] }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, author: "Dinesh" }] }), false)
+  const files = await fixture("commit-files.json")
+  assert.ok(isCommitFilesResponse(files))
+  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "untracked" }] }), false)
+  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "renamed" }] }), false)
+  assert.equal(isCommitFilesResponse({ ...files, commit: "" }), false)
+})

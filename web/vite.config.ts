@@ -37,7 +37,7 @@ const devServerBanner: Plugin = {
 // Highlights theme. servef highlights only with Highlights and its own theme,
 // so production builds resolve those imports to local stand-ins and none of
 // them ship (decision 0029).
-const shikiUnavailable = "./src/shiki-unavailable.ts"
+const shikiUnavailable = "./src/highlighting/shiki-unavailable.ts"
 const diffsSubsets: ReadonlyMap<string, string> = new Map([
   ["shiki", shikiUnavailable],
   ["shiki/core", shikiUnavailable],
@@ -46,8 +46,8 @@ const diffsSubsets: ReadonlyMap<string, string> = new Map([
   ["shiki/wasm", shikiUnavailable],
   ["shiki/engine/javascript", shikiUnavailable],
   ["shiki/engine/oniguruma", shikiUnavailable],
-  ["@pierre/theming/themes", "./src/pierre-themes-subset.ts"],
-  ["@pierre/highlights/themes/loader", "./src/highlights-themes-subset.ts"],
+  ["@pierre/theming/themes", "./src/highlighting/pierre-themes-subset.ts"],
+  ["@pierre/highlights/themes/loader", "./src/highlighting/highlights-themes-subset.ts"],
 ].map(([source, subset]) => [source, fileURLToPath(new URL(subset, import.meta.url))]))
 
 const diffsSubset: Plugin = {

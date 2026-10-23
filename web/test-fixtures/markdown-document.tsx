@@ -1,13 +1,13 @@
 import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
-import { ThemeProvider } from "../src/components/ThemeProvider.tsx"
-import { DocumentPreview } from "../src/DocumentPreview.tsx"
-import type { SearchMatch } from "../src/search-engine.ts"
-import { SearchView } from "../src/SearchView.tsx"
-import { useSearchSession } from "../src/use-search-session.ts"
-import { StatusBar } from "../src/StatusBar.tsx"
-import { emptyPage } from "../src/page-data.ts"
+import { ThemeProvider } from "../src/settings/ThemeProvider.tsx"
+import { DocumentPreview } from "../src/features/documents/DocumentPreview.tsx"
+import type { SearchMatch } from "../src/features/search/search-engine.ts"
+import { SearchView } from "../src/features/search/SearchView.tsx"
+import { useSearchSession } from "../src/features/search/use-search-session.ts"
+import { StatusBar } from "../src/workspace/StatusBar.tsx"
+import { emptyPage } from "../src/api/page-data.ts"
 import "../src/style.css"
 
 // Search reads the project named by ?project=, an absolute served path.
