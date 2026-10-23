@@ -1,0 +1,103 @@
+diff --git a/dist/react/FileDiff.d.ts b/dist/react/FileDiff.d.ts
+index d149462dc809694e66f38f124e1852878f46f6fe..88f96f46d9cb280b9dbb37cca7562af3833549fc 100644
+--- a/dist/react/FileDiff.d.ts
++++ b/dist/react/FileDiff.d.ts
+@@ -1,13 +1,15 @@
+ import { FileDiffMetadata } from "../types.js";
+ import { FileDiffEditCompleteEvent } from "../editor/types.js";
+-import { FileDiffEditChangeHandler, FileDiffEditCompleteHandler } from "../components/FileDiff.js";
++import { FileDiff as FileDiffInstance, FileDiffEditChangeHandler, FileDiffEditCompleteHandler } from "../components/FileDiff.js";
+ import { DiffBasePropsReact } from "./types.js";
+ //#region src/react/FileDiff.d.ts
+ interface FileDiffProps<LAnnotation, Caret> extends DiffBasePropsReact<LAnnotation, Caret> {
+   fileDiff: FileDiffMetadata;
+   disableWorkerPool?: boolean;
++  /** Called with the instance after it hydrates, and with null before cleanup. */
++  onInstance?(instance: FileDiffInstance<LAnnotation, Caret> | null): void;
+ }
+-declare function FileDiff<LAnnotation = undefined, Caret = undefined>({ fileDiff, options, editorOptions, editStateKey, metrics, lineAnnotations, selectedLines, className, style, prerenderedHTML, renderAnnotation, renderCustomHeader, renderHeaderPrefix, renderHeaderFilenameSuffix, renderHeaderMetadata, renderGutterUtility, disableWorkerPool, edit, onEditChange, onEditComplete }: FileDiffProps<LAnnotation, Caret>): React.JSX.Element;
++declare function FileDiff<LAnnotation = undefined, Caret = undefined>({ fileDiff, options, editorOptions, editStateKey, metrics, lineAnnotations, selectedLines, className, style, prerenderedHTML, renderAnnotation, renderCustomHeader, renderHeaderPrefix, renderHeaderFilenameSuffix, renderHeaderMetadata, renderGutterUtility, disableWorkerPool, edit, onEditChange, onEditComplete, onInstance }: FileDiffProps<LAnnotation, Caret>): React.JSX.Element;
+ //#endregion
+ export { FileDiff, type FileDiffEditChangeHandler, type FileDiffEditCompleteEvent, type FileDiffEditCompleteHandler, type FileDiffMetadata, FileDiffProps };
+ //# sourceMappingURL=FileDiff.d.ts.map
+\ No newline at end of file
+diff --git a/dist/react/FileDiff.js b/dist/react/FileDiff.js
+index e8317b88a1433ed12e550d6ff321f827917ef17c..a0b17110cf9f2ab05adb33f2a899bd5e6ab62f2c 100644
+--- a/dist/react/FileDiff.js
++++ b/dist/react/FileDiff.js
+@@ -5,7 +5,7 @@ import { templateRender } from "./utils/templateRender.js";
+ import { useFileDiffInstance } from "./utils/useFileDiffInstance.js";
+ import { jsx } from "react/jsx-runtime";
+ //#region src/react/FileDiff.tsx
+-function FileDiff({ fileDiff, options, editorOptions, editStateKey, metrics, lineAnnotations, selectedLines, className, style, prerenderedHTML, renderAnnotation, renderCustomHeader, renderHeaderPrefix, renderHeaderFilenameSuffix, renderHeaderMetadata, renderGutterUtility, disableWorkerPool = false, edit = false, onEditChange, onEditComplete }) {
++function FileDiff({ fileDiff, options, editorOptions, editStateKey, metrics, lineAnnotations, selectedLines, className, style, prerenderedHTML, renderAnnotation, renderCustomHeader, renderHeaderPrefix, renderHeaderFilenameSuffix, renderHeaderMetadata, renderGutterUtility, disableWorkerPool = false, edit = false, onEditChange, onEditComplete, onInstance }) {
+ 	const { ref, getHoveredLine, getAnnotationSlotName, fileDiff: renderedDiff, lineAnnotations: renderedAnnotations } = useFileDiffInstance({
+ 		fileDiff,
+ 		options,
+@@ -20,7 +20,8 @@ function FileDiff({ fileDiff, options, editorOptions, editStateKey, metrics, lin
+ 		disableWorkerPool,
+ 		edit,
+ 		onEditChange,
+-		onEditComplete
++		onEditComplete,
++		onInstance
+ 	});
+ 	const children = renderDiffChildren({
+ 		fileDiff: renderedDiff,
+diff --git a/dist/react/utils/useFileDiffInstance.d.ts b/dist/react/utils/useFileDiffInstance.d.ts
+index 170251f68fc2530f0b949406b19894ce732414de..73d467ae54319e9b75f4127e7f3b2dc7825b3ee8 100644
+--- a/dist/react/utils/useFileDiffInstance.d.ts
++++ b/dist/react/utils/useFileDiffInstance.d.ts
+@@ -1,6 +1,6 @@
+ import { DiffLineAnnotation, FileContents, FileDiffMetadata, SelectedLineRange, VirtualFileMetrics } from "../../types.js";
+ import { GetHoveredLineResult } from "../../managers/InteractionManager.js";
+-import { FileDiffEditChangeHandler, FileDiffEditCompleteHandler, FileDiffOptions } from "../../components/FileDiff.js";
++import { FileDiff, FileDiffEditChangeHandler, FileDiffEditCompleteHandler, FileDiffOptions } from "../../components/FileDiff.js";
+ import { EditorOptions } from "../../editor/editor.js";
+ import "../../edit/index.js";
+ //#region src/react/utils/useFileDiffInstance.d.ts
+@@ -21,6 +21,8 @@ interface UseFileDiffInstanceProps<LAnnotation, Caret> {
+   edit: boolean;
+   onEditChange?: FileDiffEditChangeHandler<LAnnotation, Caret>;
+   onEditComplete?: FileDiffEditCompleteHandler<LAnnotation, Caret>;
++  /** Called with the instance after it hydrates, and with null before cleanup. */
++  onInstance?(instance: FileDiff<LAnnotation, Caret> | null): void;
+ }
+ interface UseFileDiffInstanceReturn<LAnnotation> {
+   lineAnnotations: DiffLineAnnotation<LAnnotation>[];
+@@ -29,7 +31,7 @@ interface UseFileDiffInstanceReturn<LAnnotation> {
+   getHoveredLine(): GetHoveredLineResult<'diff'> | undefined;
+   getAnnotationSlotName(annotation: DiffLineAnnotation<LAnnotation>): string;
+ }
+-declare function useFileDiffInstance<LAnnotation, Caret>({ fileDiff, oldFile, newFile, options, editorOptions, editStateKey, lineAnnotations, selectedLines, prerenderedHTML, metrics, hasGutterRenderUtility, hasCustomHeader, disableWorkerPool, edit, onEditChange: _onEditChange, onEditComplete: _onEditComplete }: UseFileDiffInstanceProps<LAnnotation, Caret>): UseFileDiffInstanceReturn<LAnnotation>;
++declare function useFileDiffInstance<LAnnotation, Caret>({ fileDiff, oldFile, newFile, options, editorOptions, editStateKey, lineAnnotations, selectedLines, prerenderedHTML, metrics, hasGutterRenderUtility, hasCustomHeader, disableWorkerPool, edit, onEditChange: _onEditChange, onEditComplete: _onEditComplete, onInstance: _onInstance }: UseFileDiffInstanceProps<LAnnotation, Caret>): UseFileDiffInstanceReturn<LAnnotation>;
+ //#endregion
+ export { useFileDiffInstance };
+ //# sourceMappingURL=useFileDiffInstance.d.ts.map
+\ No newline at end of file
+diff --git a/dist/react/utils/useFileDiffInstance.js b/dist/react/utils/useFileDiffInstance.js
+index 4c31cf5025d726a55d07d4cada9d4ba5510998b4..83337e078b84efb4256ce91da6215af1f3ae00ff 100644
+--- a/dist/react/utils/useFileDiffInstance.js
++++ b/dist/react/utils/useFileDiffInstance.js
+@@ -16,8 +16,9 @@ import { useNextRenderData } from "./useNextRenderData.js";
+ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+ //#region src/react/utils/useFileDiffInstance.ts
+ const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+-function useFileDiffInstance({ fileDiff, oldFile, newFile, options, editorOptions, editStateKey, lineAnnotations, selectedLines, prerenderedHTML, metrics, hasGutterRenderUtility, hasCustomHeader, disableWorkerPool, edit, onEditChange: _onEditChange, onEditComplete: _onEditComplete }) {
++function useFileDiffInstance({ fileDiff, oldFile, newFile, options, editorOptions, editStateKey, lineAnnotations, selectedLines, prerenderedHTML, metrics, hasGutterRenderUtility, hasCustomHeader, disableWorkerPool, edit, onEditChange: _onEditChange, onEditComplete: _onEditComplete, onInstance: _onInstance }) {
+ 	const simpleVirtualizer = useVirtualizer();
++	const onInstance = useStableCallback((instance) => _onInstance?.(instance));
+ 	const controlledSelection = selectedLines !== void 0;
+ 	const poolManager = useContext(WorkerPoolContext);
+ 	const createEditor = useCreateEditor();
+@@ -96,8 +97,10 @@ function useFileDiffInstance({ fileDiff, oldFile, newFile, options, editorOption
+ 				lineAnnotations,
+ 				prerenderedHTML
+ 			});
++			onInstance(instanceRef.current);
+ 		} else {
+ 			if (instanceRef.current == null) throw new Error("useFileDiffInstance: A FileDiff instance should exist when unmounting");
++			onInstance(null);
+ 			pendingAttachRef.current = null;
+ 			instanceRef.current.cleanUp();
+ 			instanceRef.current = null;

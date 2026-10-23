@@ -196,6 +196,62 @@ test("diff line numbers select lines, update the URL, and copy path:line", async
   await expect(status).toHaveCount(0)
 })
 
+test("diff anchors scroll into view and open the unchanged lines they name", async ({ page }) => {
+  test.setTimeout(60_000)
+  const gutter = (line: number) => page.locator(`.diff-view [data-additions] [data-column-number="${line}"]`)
+  const status = page.locator(".status-lines")
+  // large.txt changes every twentieth line, so line 12001 is a change.
+  await page.goto(`${gitApiOrigin}/view?project=${project}&path=large.txt&diff=1#R12001`)
+  await expect(gutter(12001)).toBeInViewport({ timeout: 20_000 })
+  await expect(status).toHaveText("Ln 12001")
+
+  // Line 12010 sits in the collapsed gap between two changes.
+  await page.goto(`${gitApiOrigin}/view?project=${project}&path=large.txt&diff=1#R12010-R12011`)
+  await expect(gutter(12010)).toBeInViewport({ timeout: 20_000 })
+  await expect(page.locator(".diff-view [data-line][data-selected-line]").first()).toBeVisible()
+  await expect(status).toHaveText("Ln 12010–12011")
+
+  // Selecting from the gutter leaves the pane where it is.
+  const pane = page.locator("main")
+  const before = await pane.evaluate((element) => element.scrollTop)
+  await gutter(12012).click()
+  await expect(page).toHaveURL(/#R12012$/)
+  await expect(status).toHaveText("Ln 12012")
+  expect(await pane.evaluate((element) => element.scrollTop)).toBe(before)
+})
+
+test("F7 and the toolbar step through a diff's hunks and select them", async ({ page }) => {
+  test.setTimeout(60_000)
+  const gutter = (line: number) => page.locator(`.diff-view [data-additions] [data-column-number="${line}"]`)
+  await openDiff(page, "large.txt")
+  await expect(gutter(1)).toBeVisible({ timeout: 20_000 })
+  const pane = page.locator("main")
+  await pane.focus()
+
+  // Each hunk is its change with four lines of context either side.
+  await page.keyboard.press("F7")
+  await expect(page).toHaveURL(/#R1-R5$/)
+  await page.keyboard.press("F7")
+  await expect(page).toHaveURL(/#R17-R25$/)
+  await expect(page.getByRole("button", { name: "Copy large.txt:17-25" })).toBeVisible()
+  await page.keyboard.press("Shift+F7")
+  await expect(page).toHaveURL(/#R1-R5$/)
+
+  // Steps wrap within the file and reveal the hunk.
+  await page.keyboard.press("Shift+F7")
+  await expect(page).toHaveURL(/#R23977-R23985$/)
+  await expect(gutter(23981)).toBeInViewport({ timeout: 10_000 })
+  await page.getByRole("button", { name: "Next change" }).click()
+  await expect(page).toHaveURL(/#R1-R5$/)
+  await expect(gutter(1)).toBeInViewport({ timeout: 10_000 })
+  await page.getByRole("button", { name: "Previous change" }).click()
+  await expect(page).toHaveURL(/#R23977-R23985$/)
+
+  // A diff without hunks has nothing to step through.
+  await openDiff(page, "assets/logo.bin")
+  await expect(page.getByRole("button", { name: "Next change" })).toHaveAttribute("aria-disabled", "true")
+})
+
 test("deleted, renamed, binary, and unchanged files explain themselves", async ({ page }) => {
   await openDiff(page, "notes/removed.md")
   await expect(page.getByRole("tab", { name: "removed.md (Deleted)" })).toHaveAttribute("aria-selected", "true")

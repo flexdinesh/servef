@@ -33,9 +33,10 @@ rewriting history; update `Status` on the old record.
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
 | [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030 |
-| [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | Accepted |
+| [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | No-scroll consequence superseded by 0034 |
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
 | [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | Accepted |
 | [0031](0031-hide-git-entries.md) | Hide .git entries | Accepted |
 | [0032](0032-browser-tests-before-push.md) | Browser tests run before push, not in CI | Accepted |
 | [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |
+| [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted |
