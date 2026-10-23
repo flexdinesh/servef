@@ -284,8 +284,8 @@ func TestCommitDiffRejectsPathsOutsideTheCommit(t *testing.T) {
 		commit + "path=doc.md&oldPath=old.md",
 		"commit=" + strings.Repeat("1", 40) + "&path=doc.md",
 	} {
-		var failure diffErrorResponse
-		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (diffErrorResponse{Error: changeUnavailableMessage}) {
+		var failure errorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (errorResponse{Error: changeUnavailableMessage}) {
 			t.Errorf("%s = %d %+v", query, status, failure)
 		}
 	}
@@ -333,7 +333,7 @@ func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 	if want := `{"repository":true,"branch":"feature","base":"master","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false}`; strings.TrimSpace(body) != want {
 		t.Fatalf("nothing ahead = %s", body)
 	}
-	var unchanged diffErrorResponse
+	var unchanged errorResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != "unchanged" || unchanged.Error == "" {
 		t.Fatalf("nothing ahead diff = %d %+v", status, unchanged)
 	}
@@ -435,13 +435,13 @@ func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
 	}
 
 	for _, query := range []string{ranged + "path=same.md", ranged + "path=old.md", ranged + "path=doc.md&oldPath=old.md", ranged + "path=../doc.md"} {
-		var failure diffErrorResponse
-		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (diffErrorResponse{Error: changeUnavailableMessage}) {
+		var failure errorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (errorResponse{Error: changeUnavailableMessage}) {
 			t.Errorf("%s = %d %+v", query, status, failure)
 		}
 	}
 	for _, query := range []string{"branch=1&path=same.md", "branch=1&path=old.md", "branch=1&path=missing.md"} {
-		var failure diffErrorResponse
+		var failure errorResponse
 		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure.Code != "unchanged" || failure.Error == "" {
 			t.Errorf("%s = %d %+v", query, status, failure)
 		}
@@ -475,7 +475,7 @@ func TestBranchDiffFollowsNewCommits(t *testing.T) {
 	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("before commit = %s", describeDiff(got))
 	}
-	var unchanged diffErrorResponse
+	var unchanged errorResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&path=fresh.md", &unchanged); status != http.StatusNotFound || unchanged.Code != "unchanged" {
 		t.Fatalf("fresh.md before commit = %d %+v", status, unchanged)
 	}

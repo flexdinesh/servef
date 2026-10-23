@@ -74,11 +74,11 @@ func (s *navigationSource) readFile(name string, source bool) ([]byte, string) {
 	if !family.HasTextSource() {
 		return nil, "Binary files do not support code navigation."
 	}
-	prefix, err := io.ReadAll(io.LimitReader(file, document.SniffLength))
+	_, binary, err := readText(file, document.SniffLength)
 	if err != nil {
 		return nil, "That file is unavailable."
 	}
-	if document.IsBinary(prefix) {
+	if binary {
 		return nil, "Binary files do not support code navigation."
 	}
 	return nil, ""
@@ -179,20 +179,13 @@ type navigationResponse struct {
 	Truncated bool                 `json:"truncated"`
 }
 
-type navigationError struct {
-	Error string `json:"error"`
-	Code  string `json:"code"`
-}
-
 func navigationFailure(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, navigationError{Error: message, Code: code})
+	writeJSON(w, status, errorResponse{Error: message, Code: code})
 }
 
 // serveNavigation answers only from LSP. Empty success means the server
 // returned no eligible results, never a hidden startup or query failure.
 func (a *App) serveNavigation(w http.ResponseWriter, r *http.Request, references bool, projectID, name, lineValue, columnValue string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		navigationFailure(w, status, "unavailable", message)
@@ -483,8 +476,6 @@ type serverStatus struct {
 
 // Status and Check again discover binaries, never start processes.
 func (a *App) serveNavigationStatus(w http.ResponseWriter, r *http.Request, projectID, name string, refresh bool) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		navigationFailure(w, status, "unavailable", message)

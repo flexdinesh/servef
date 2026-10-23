@@ -1,0 +1,147 @@
+package web
+
+import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+)
+
+// contentSecurityPolicy lets pages load only servef's own scripts, styles,
+// fonts, and workers.
+const contentSecurityPolicy = "default-src 'none'; img-src data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+
+// ServeHTTP refuses requests for other hosts, then routes. Every request
+// rescans the project it names.
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if !localHost(r.Host) {
+		http.Error(w, "forbidden host", http.StatusForbidden)
+		return
+	}
+	a.routes.ServeHTTP(w, r)
+}
+
+// localHost reports whether a request's Host names this machine directly:
+// localhost or an IP literal. A site that rebinds its own hostname to this
+// address is refused, so other origins cannot read served files.
+func localHost(host string) bool {
+	if name, _, err := net.SplitHostPort(host); err == nil {
+		host = name
+	}
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
+}
+
+// apiHandler serves one JSON endpoint from its query.
+type apiHandler func(w http.ResponseWriter, r *http.Request, query url.Values)
+
+// newRoutes lists every endpoint. All are GET; JSON endpoints are never
+// cached.
+func (a *App) newRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	api := func(path string, handler apiHandler) {
+		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			handler(w, r, r.URL.Query())
+		})
+	}
+
+	mux.HandleFunc("GET /{$}", a.serveShellPage)
+	mux.HandleFunc("GET /view", a.serveShellPage)
+	mux.HandleFunc("GET /assets/{name...}", func(w http.ResponseWriter, r *http.Request) {
+		a.serveFrontendAsset(w, r.PathValue("name"))
+	})
+	for path, asset := range noticeAssets {
+		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, _ *http.Request) { a.serveAsset(w, asset) })
+	}
+
+	// Projects.
+	api("/api/projects", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveProjects(w) })
+	api("/api/directories", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveDirectories(w, query.Get("path"))
+	})
+
+	// Documents and search.
+	api("/api/page", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		selected, required := query["path"]
+		name := ""
+		if len(selected) > 0 {
+			name = selected[0]
+		}
+		a.servePageData(w, query.Get("project"), name, required)
+	})
+	api("/api/format", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveFormat(w, query.Get("project"), query.Get("path"))
+	})
+	api("/api/search-documents", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveSearchDocuments(w, query.Get("project"))
+	})
+	mux.HandleFunc("GET /api/raw", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		a.serveRaw(w, query.Get("project"), query.Get("path"))
+	})
+	mux.HandleFunc("GET /api/image", func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		a.serveImage(w, query.Get("project"), query.Get("path"))
+	})
+
+	// Code navigation.
+	api("/api/navigation-status", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveNavigationStatus(w, r, query.Get("project"), query.Get("path"), query.Get("refresh") == "1")
+	})
+	for path, references := range map[string]bool{"/api/definition": false, "/api/references": true} {
+		api(path, func(w http.ResponseWriter, r *http.Request, query url.Values) {
+			a.serveNavigation(w, r, references, query.Get("project"), query.Get("path"), query.Get("line"), query.Get("column"))
+		})
+	}
+
+	// Source Control.
+	api("/api/changes", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveChanges(w, r, query.Get("project"))
+	})
+	api("/api/diff", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveDiffs(w, r, query.Get("project"), query)
+	})
+	api("/api/commits", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveCommits(w, r, query.Get("project"), query)
+	})
+	api("/api/commit-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveCommitFiles(w, r, query.Get("project"), query.Get("commit"))
+	})
+	api("/api/branch-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveBranchFiles(w, r, query.Get("project"))
+	})
+	api("/api/range-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveRangeFiles(w, r, query.Get("project"), query.Get("from"), query.Get("to"))
+	})
+
+	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveMetrics(w) })
+	return mux
+}
+
+// serveShellPage serves the app shell. Without a project the browser
+// chooses one, so no page data is embedded; /view requires a file.
+func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	projectID := query.Get("project")
+	if projectID == "" {
+		a.serveShell(w, http.StatusOK, nil)
+		return
+	}
+	selected := ""
+	required := r.URL.Path == "/view"
+	if required {
+		selected = query.Get("path")
+	}
+	data, status := a.page(projectID, selected, required)
+	a.serveShell(w, status, &data)
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}

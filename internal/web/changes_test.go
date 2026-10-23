@@ -219,11 +219,11 @@ func TestDiffRejectsPathsOutsideTheChangeSet(t *testing.T) {
 	root := changesRepo(t)
 	app := newTestApp(t, root)
 
-	var unchanged diffErrorResponse
+	var unchanged errorResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&path=same.md", &unchanged); status != http.StatusNotFound {
 		t.Fatalf("unchanged status = %d", status)
 	}
-	if want := (diffErrorResponse{Error: "No changes to same.md since the last commit.", Code: "unchanged"}); unchanged != want {
+	if want := (errorResponse{Error: "No changes to same.md since the last commit.", Code: "unchanged"}); unchanged != want {
 		t.Fatalf("unchanged = %+v", unchanged)
 	}
 	for _, query := range []string{
@@ -235,8 +235,8 @@ func TestDiffRejectsPathsOutsideTheChangeSet(t *testing.T) {
 		"path=moved/new.md&oldPath=gone.md",
 		"path=doc.md&oldPath=old.md",
 	} {
-		var failure diffErrorResponse
-		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (diffErrorResponse{Error: changeUnavailableMessage}) {
+		var failure errorResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &failure); status != http.StatusNotFound || failure != (errorResponse{Error: changeUnavailableMessage}) {
 			t.Errorf("%s = %d %+v", query, status, failure)
 		}
 	}

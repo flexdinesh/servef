@@ -1,14 +1,22 @@
 import { spawnSync } from "node:child_process"
-import { mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import { gitApiPort } from "./ports.ts"
-
 // gitFixtureRoot is a throwaway repository with one change of every kind,
 // rebuilt before each run. Without git, it is a plain folder and the Source
-// Control specs skip.
-export const gitFixtureRoot = path.join(tmpdir(), `servef-browser-git-${gitApiPort}`)
+// Control specs skip. Each run gets its own folder, through the environment so
+// the runner, its workers, and the server command agree, so concurrent runs from
+// other worktrees cannot rebuild it mid-run.
+function fixtureRoot(): string {
+  const existing = process.env.SERVEF_BROWSER_GIT_ROOT
+  if (existing) return existing
+  const created = mkdtempSync(path.join(tmpdir(), "servef-browser-git-"))
+  process.env.SERVEF_BROWSER_GIT_ROOT = created
+  return created
+}
+
+export const gitFixtureRoot = fixtureRoot()
 
 export const gitFixtureChanges = 8
 
@@ -60,10 +68,14 @@ function write(files: Record<string, string>) {
   }
 }
 
+// Git hooks and `git bisect run` export GIT_DIR and friends, which would aim
+// these commands at servef's own repository instead of the fixture.
+const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
+
 function git(...args: string[]): boolean {
   const result = spawnSync("git", ["-c", "user.name=servef", "-c", "user.email=servef@example.invalid", "-c", "commit.gpgsign=false", ...args], {
     cwd: gitFixtureRoot,
-    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+    env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
     stdio: "ignore",
   })
   return result.status === 0

@@ -17,7 +17,7 @@ Required repository secret:
 
 1. Merge release-ready code to `main`.
 2. Run the **Release** workflow on `main`. It requires no inputs.
-3. The workflow selects the next patch version, verifies the repository, builds the embedded frontend, commits it on top of `main` as `release: vX.Y.Z`, builds release archives from that commit, then pushes only the stable tag and marks the GitHub Release as latest. `main` never tracks `internal/web/dist/`.
+3. The workflow selects the next patch version, verifies the repository with `pnpm check` (which builds the embedded frontend), commits it on top of `main` as `release: vX.Y.Z`, builds release archives from that commit, then pushes only the stable tag and marks the GitHub Release as latest. `main` never tracks `internal/web/dist/`.
 4. It generates `Formula/servef.rb` and opens or updates a pull request against `flexdinesh/homebrew-tap`.
 5. Merge the tap pull request after its Homebrew checks pass.
 

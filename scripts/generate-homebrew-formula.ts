@@ -5,7 +5,7 @@ const owner = 'flexdinesh'
 const repo = 'servef'
 const formulaName = 'servef'
 const homepage = 'https://github.com/flexdinesh/servef'
-const desc = 'Serve and browse Markdown files from a local directory'
+const desc = 'Browse local files and git changes in your browser'
 const license = 'MIT'
 
 interface Target {

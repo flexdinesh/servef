@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.24 or later
+- Go 1.26 or later
 - Node.js 26
 - pnpm 11
 
@@ -43,12 +43,19 @@ GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@e
 | Run frontend tests | `pnpm test:web` |
 | Test release tooling | `pnpm test:release` |
 | Type-check TypeScript | `pnpm typecheck` |
+| Run every check CI runs | `pnpm check` |
 | Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
 | Run browser tests | `pnpm test:browser` |
 | Run browser tests on other ports | `PORT=18090 pnpm test:browser` |
 
-Browser tests start API servers on `PORT` (default `18080`) and the next
-port, plus the Vite server on `15173`.
+`pnpm test:browser` rebuilds the embedded frontend first, since some specs load
+the Go-served UI. Browser tests start API servers on `PORT` (default `18080`)
+and the next two ports, plus the Vite server on `15173`. Each run builds its
+Source Control git fixture in its own temporary folder.
+
+CI runs `pnpm check` only. Browser tests run locally: `pnpm install` points
+Git at `.githooks/`, whose `pre-push` hook runs `pnpm check` and
+`pnpm test:browser` (decision 0032). Skip it once with `git push --no-verify`.
 
 On Linux with unprivileged user namespaces, `pnpm test:browser` runs Playwright,
 its servers, and Chromium in a private loopback-only network namespace. Host

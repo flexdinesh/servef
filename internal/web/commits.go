@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/go-git/go-git/v5/plumbing"
-
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/git"
 )
@@ -59,8 +57,6 @@ type commitFilesResponse struct {
 }
 
 func (a *App) serveCommits(w http.ResponseWriter, r *http.Request, projectID string, query url.Values) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -151,8 +147,6 @@ func logOptions(query url.Values) (git.LogOptions, string) {
 }
 
 func (a *App) serveCommitFiles(w http.ResponseWriter, r *http.Request, projectID, commit string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -219,8 +213,6 @@ func (a *App) serveDiffs(w http.ResponseWriter, r *http.Request, projectID strin
 }
 
 func writeDiffQueryError(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusBadRequest, errorResponse{Error: message})
 }
 
@@ -245,8 +237,6 @@ type rangeFilesResponse struct {
 // serveBranchFiles lists the branch's net changes: the merge base with the
 // base branch against HEAD. It is read live, never pinned.
 func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -283,7 +273,7 @@ func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID
 }
 
 // hashString is a full hash, or empty for zero.
-func hashString(hash plumbing.Hash) string {
+func hashString(hash git.Hash) string {
 	if hash.IsZero() {
 		return ""
 	}
@@ -293,8 +283,6 @@ func hashString(hash plumbing.Hash) string {
 // serveRangeFiles lists a commit range's net changes: from's first parent,
 // from being the oldest commit, against to, the newest.
 func (a *App) serveRangeFiles(w http.ResponseWriter, r *http.Request, projectID, from, to string) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -334,9 +322,7 @@ func (a *App) serveRangeFiles(w http.ResponseWriter, r *http.Request, projectID,
 // openHistoryDiff validates a history diff request in order (project, path,
 // then each commit hash) and opens the repository. It writes the failure
 // and returns false when the request cannot proceed.
-func (a *App) openHistoryDiff(w http.ResponseWriter, projectID, name string, commits ...string) (*git.Repository, []plumbing.Hash, bool) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
+func (a *App) openHistoryDiff(w http.ResponseWriter, projectID, name string, commits ...string) (*git.Repository, []git.Hash, bool) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -346,7 +332,7 @@ func (a *App) openHistoryDiff(w http.ResponseWriter, projectID, name string, com
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "No file was selected."})
 		return nil, nil, false
 	}
-	hashes := make([]plumbing.Hash, 0, len(commits))
+	hashes := make([]git.Hash, 0, len(commits))
 	for _, commit := range commits {
 		hash, ok := git.ParseHash(commit)
 		if !ok {
@@ -427,7 +413,7 @@ func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID,
 	compared, change, err := repo.BranchLookup(ctx, name, oldPath)
 	switch {
 	case errors.Is(err, git.ErrUnavailable):
-		writeJSON(w, http.StatusNotFound, diffErrorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
 		return
 	case err != nil:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})

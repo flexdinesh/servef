@@ -662,18 +662,48 @@ func TestAppRejectsUnknownRoutesAndMethods(t *testing.T) {
 		t.Fatalf("unknown status = %d, want %d", unknown.Code, http.StatusNotFound)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req := localRequest(http.MethodPost, "/")
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, req)
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/search-documents?project=.", nil)
+	req = localRequest(http.MethodPost, "/api/search-documents?project=.")
 	response = httptest.NewRecorder()
 	app.ServeHTTP(response, req)
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST search status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+// localRequest addresses the server as a browser on this machine does.
+func localRequest(method, target string) *http.Request {
+	req := httptest.NewRequest(method, target, nil)
+	req.Host = "127.0.0.1:7971"
+	return req
+}
+
+func TestServerRefusesOtherHosts(t *testing.T) {
+	app := newTestApp(t, t.TempDir())
+	for host, want := range map[string]int{
+		"localhost:7971":    http.StatusOK,
+		"LOCALHOST":         http.StatusOK,
+		"127.0.0.1:7971":    http.StatusOK,
+		"[::1]:7971":        http.StatusOK,
+		"192.168.1.20:7971": http.StatusOK,
+		// A rebound DNS name resolves here but names another site.
+		"attacker.example:7971": http.StatusForbidden,
+		"localhost.example":     http.StatusForbidden,
+		"":                      http.StatusForbidden,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/api/projects", nil)
+		req.Host = host
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, req)
+		if response.Code != want {
+			t.Errorf("Host %q status = %d, want %d", host, response.Code, want)
+		}
 	}
 }
 
@@ -695,7 +725,7 @@ func request(t *testing.T, handler http.Handler, target string) *httptest.Respon
 	if app, ok := handler.(*App); ok {
 		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
 	}
-	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req := localRequest(http.MethodGet, target)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 	return response
@@ -730,6 +760,51 @@ func assertContains(t *testing.T, value string, substrings ...string) {
 	for _, substring := range substrings {
 		if !strings.Contains(value, substring) {
 			t.Errorf("response does not contain %q\n%s", substring, value)
+		}
+	}
+}
+
+// TestEveryAPIFixtureDecodesStrictly keeps every frontend fixture in a server
+// response shape: unknown fields fail, and a new fixture needs a shape here.
+func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
+	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	names, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil || len(names) == 0 {
+		t.Fatalf("fixtures = %v, %v", names, err)
+	}
+	shapes := []struct {
+		pattern string
+		value   func() any
+	}{
+		{"page-*.json", func() any { return &pageData{} }},
+		{"changes*.json", func() any { return &changesResponse{} }},
+		{"diff-*.json", func() any { return &diffResponse{} }},
+		{"commits*.json", func() any { return &commitsResponse{} }},
+		{"commit-files.json", func() any { return &commitFilesResponse{} }},
+		{"branch-files.json", func() any { return &branchFilesResponse{} }},
+		{"range-files.json", func() any { return &rangeFilesResponse{} }},
+		{"projects.json", func() any { return &projectsResponse{} }},
+		{"directories.json", func() any { return &directoriesResponse{} }},
+		{"navigation-status.json", func() any { return &navigationStatus{} }},
+		{"definition.json", func() any { return &navigationResponse{} }},
+		{"references.json", func() any { return &navigationResponse{} }},
+		{"search-documents.json", func() any { return &searchDocumentsResponse{} }},
+		{"format-settings.json", func() any { return &formatResponse{} }},
+		{"format-error.json", func() any { return &errorResponse{} }},
+		{"error-*.json", func() any { return &errorResponse{} }},
+		{"metrics*.json", func() any { return &processMetrics{} }},
+	}
+	for _, name := range names {
+		matched := false
+		for _, shape := range shapes {
+			if ok, _ := filepath.Match(shape.pattern, filepath.Base(name)); ok {
+				decodeFixture(t, name, shape.value())
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			t.Errorf("%s has no server response shape", name)
 		}
 	}
 }

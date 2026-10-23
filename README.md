@@ -24,7 +24,7 @@ brew install flexdinesh/tap/servef
 
 ### Go
 
-Requires Go 1.24 or later.
+Requires Go 1.26 or later.
 
 Latest stable release:
 

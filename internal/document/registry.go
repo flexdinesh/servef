@@ -188,6 +188,17 @@ func newFamily(handler Handler) (Family, error) {
 	} else if !highlightLanguage.MatchString(definition.Language) {
 		return Family{}, fmt.Errorf("invalid highlight language %q for %q", definition.Language, definition.ID)
 	}
+	// Image previews serve raw bytes, so each name needs a media type.
+	if definition.PreviewKind == PreviewImage {
+		if len(definition.Filenames) > 0 {
+			return Family{}, fmt.Errorf("image file type %q must match by extension", definition.ID)
+		}
+		for _, extension := range definition.Extensions {
+			if _, ok := imageMediaTypes[extension]; !ok {
+				return Family{}, fmt.Errorf("image file type %q has no media type for %q", definition.ID, extension)
+			}
+		}
+	}
 	family := Family{handler: handler, definition: definition}
 	if formattable {
 		family.formatter = formatter
@@ -214,6 +225,29 @@ func (r *Registry) Lookup(name string) Family {
 		return family
 	}
 	return r.fallback
+}
+
+// imageMediaTypes are the media types image previews are served as.
+var imageMediaTypes = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+	".avif": "image/avif",
+	".svg":  "image/svg+xml",
+	".ico":  "image/x-icon",
+	".bmp":  "image/bmp",
+}
+
+// MediaType returns the media type a file's raw bytes are served as. Only
+// image-preview families have one.
+func (r *Registry) MediaType(name string) (string, bool) {
+	if r.Lookup(name).definition.PreviewKind != PreviewImage {
+		return "", false
+	}
+	mediaType, ok := imageMediaTypes[strings.ToLower(path.Ext(name))]
+	return mediaType, ok
 }
 
 // Types lists registered families, fallback first.

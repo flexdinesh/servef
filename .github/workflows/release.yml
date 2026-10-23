@@ -33,14 +33,11 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Select release version
         id: version
@@ -73,34 +70,9 @@ jobs:
           echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
           echo "release_exists=$release_exists" >> "$GITHUB_OUTPUT"
 
-      - name: Test
-        run: |
-          go test ./...
-          pnpm test:web
-          pnpm test:release
-          pnpm typecheck
-
-      - name: Test browser
-        run: pnpm test:browser
-
-      - name: Upload Playwright diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-diagnostics
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
-        run: |
-          pnpm build:web
-          go build ./...
+      # Browser tests run locally before push (decision 0032).
+      - name: Check
+        run: pnpm check
 
       # Release tags point at main plus the built frontend so go install works;
       # main itself never tracks internal/web/dist.
@@ -162,6 +134,24 @@ jobs:
             cd release-dist
             shasum -a 256 *.tar.gz > checksums.txt
           )
+
+      # Run the shipped linux/amd64 binary: version stamp and embedded UI.
+      - name: Smoke test release archive
+        if: steps.version.outputs.release_exists != 'true'
+        shell: bash
+        env:
+          NUMBER: ${{ steps.version.outputs.number }}
+        run: |
+          set -euo pipefail
+
+          dir="$(mktemp -d)"
+          tar -C "$dir" -xzf "release-dist/servef_${NUMBER}_linux_amd64.tar.gz"
+          bin="$dir/servef_${NUMBER}_linux_amd64/servef"
+          "$bin" --version | grep -F "servef ${NUMBER} "
+          "$bin" "$dir" --port 7999 --no-open &
+          trap 'kill $!' EXIT
+          for _ in $(seq 50); do curl -fsS -o /dev/null http://127.0.0.1:7999/ && break; sleep 0.2; done
+          curl -fsS http://127.0.0.1:7999/ | grep -q '<div id="root"'
 
       - name: Create release tag
         if: steps.version.outputs.tag_exists != 'true'

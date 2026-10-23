@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 
 // Chromium aborts in-flight requests with ERR_NETWORK_CHANGED whenever the
 // host's interfaces change, e.g. when Docker creates a veth link for a
@@ -16,7 +19,10 @@ function isolated(): boolean {
   return probe.status === 0
 }
 
+// One git fixture folder per run; see tests/browser/git-fixture.ts.
+const gitFixtureRoot = mkdtempSync(path.join(tmpdir(), 'servef-browser-git-'))
 const [command, args] = isolated() ? ['unshare', [...isolate, ...playwright]] : [playwright[0], playwright.slice(1)]
-const result = spawnSync(command, args, { stdio: 'inherit' })
+const result = spawnSync(command, args, { stdio: 'inherit', env: { ...process.env, SERVEF_BROWSER_GIT_ROOT: gitFixtureRoot } })
+rmSync(gitFixtureRoot, { recursive: true, force: true })
 if (result.error) throw result.error
 process.exitCode = result.status ?? 1

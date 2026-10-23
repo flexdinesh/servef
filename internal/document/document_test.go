@@ -135,6 +135,8 @@ func TestRegistryRejectsInvalidComposition(t *testing.T) {
 		"source-only preview":             {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, DefaultMode: "preview"})},
 		"unknown preview kind":            {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, PreviewKind: "code", PreviewLabel: "Formatted"})},
 		"missing preview label":           {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, PreviewKind: PreviewImage})},
+		"image without media type":        {plainText(), source(Type{ID: "other", Extensions: []string{".tiff"}, PreviewKind: PreviewImage, PreviewLabel: "Preview"})},
+		"image by filename":               {plainText(), source(Type{ID: "other", Filenames: []string{"logo"}, PreviewKind: PreviewImage, PreviewLabel: "Preview"})},
 		"uppercase language":              {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Language: "Go"})},
 		"language with space":             {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Language: "plain text"})},
 		"language with leading dash":      {plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Language: "-go"})},
@@ -159,6 +161,24 @@ func TestRegistryRejectsInvalidComposition(t *testing.T) {
 	for _, language := range []string{"text", "c++", "c#", "objective-c", "x86_64", "4d"} {
 		if _, err := NewRegistry(plainText(), source(Type{ID: "other", Extensions: []string{".other"}, Language: language})); err != nil {
 			t.Errorf("well-formed language %q rejected: %v", language, err)
+		}
+	}
+}
+
+func TestOnlyImagePreviewsHaveMediaTypes(t *testing.T) {
+	registry := Builtins()
+	for name, want := range map[string]string{
+		"logo.PNG":     "image/png",
+		"photo.jpeg":   "image/jpeg",
+		"icons/a.svg":  "image/svg+xml",
+		"favicon.ico":  "image/x-icon",
+		"notes.md":     "",
+		"Dockerfile":   "",
+		"archive.tiff": "",
+	} {
+		got, ok := registry.MediaType(name)
+		if got != want || ok != (want != "") {
+			t.Errorf("MediaType(%q) = %q, %v; want %q", name, got, ok, want)
 		}
 	}
 }
@@ -312,5 +332,31 @@ func TestFormatterCannotMutateOriginalBytes(t *testing.T) {
 	}
 	if string(source) != "original" {
 		t.Fatal("formatter changed original bytes")
+	}
+}
+
+func TestAvailabilityAppliesSizeAndBinaryLimits(t *testing.T) {
+	registry := Builtins()
+	text, svg, png := registry.Lookup("a.md").Type(), registry.Lookup("a.svg").Type(), registry.Lookup("a.png").Type()
+	tests := []struct {
+		name     string
+		fileType Type
+		size     int64
+		binary   bool
+		want     Availability
+	}{
+		{"small text", text, 10, false, Availability{}},
+		{"binary text", text, 10, true, Availability{HighlightDisabled: true, SearchExcluded: true}},
+		{"over preview limit", text, PreviewLimit + 1, false, Availability{PreviewDisabled: true, HighlightDisabled: true}},
+		{"over search limit", text, SearchLimit + 1, false, Availability{PreviewDisabled: true, HighlightDisabled: true, SearchExcluded: true}},
+		{"at display limit", text, DisplayLimit, false, Availability{PreviewDisabled: true, HighlightDisabled: true, SearchExcluded: true}},
+		{"over display limit", text, DisplayLimit + 1, false, Availability{TooLarge: true, PreviewDisabled: true, HighlightDisabled: true, SearchExcluded: true}},
+		{"large svg keeps preview", svg, DisplayLimit + 1, false, Availability{HighlightDisabled: true, SearchExcluded: true}},
+		{"raster image", png, 10, true, Availability{HighlightDisabled: true, SearchExcluded: true}},
+	}
+	for _, test := range tests {
+		if got := Available(test.fileType, test.size, test.binary); got != test.want {
+			t.Errorf("%s: Available = %+v, want %+v", test.name, got, test.want)
+		}
 	}
 }
