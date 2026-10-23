@@ -1,50 +1,26 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
-const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md border text-sm font-medium transition-colors outline-none select-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-accent bg-accent text-on-accent shadow-control hover:bg-accent-hover",
-        outline:
-          "border-border bg-surface-raised text-text-secondary shadow-control hover:border-border-strong hover:bg-surface-secondary hover:text-text-primary",
-        ghost:
-          "border-transparent text-text-secondary hover:bg-surface-secondary hover:text-text-primary",
-        destructive:
-          "border-destructive bg-destructive-subtle text-destructive hover:bg-destructive hover:text-on-accent",
-        link:
-          "border-transparent text-accent underline-offset-4 hover:text-accent-hover hover:underline",
-      },
-      size: {
-        default: "h-10 gap-2 px-3",
-        sm: "h-8 gap-1 px-2",
-        icon: "size-10",
-        "icon-sm": "size-8",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-)
+export type ButtonVariant = "primary" | "outline" | "ghost" | "destructive" | "link"
+export type ButtonSize = "sm" | "md" | "lg" | "inline"
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+type ButtonProps = ButtonPrimitive.Props & {
+  variant?: ButtonVariant
+  size?: ButtonSize
+}
+
+// Button is the text action. Sizes: sm 24px, md 28px (default), lg 32px, and
+// inline for text-flow actions such as More/Less; touch layouts raise all but
+// inline to 44px.
+export function Button({ className, variant = "primary", size = "md", type = "button", ...props }: ButtonProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-variant={variant}
+      data-size={size}
+      type={type}
+      className={cn("ui-button", className)}
       {...props}
     />
   )
 }
-
-export { Button, buttonVariants }

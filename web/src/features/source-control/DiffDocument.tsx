@@ -7,6 +7,7 @@ import workerUrl from "@pierre/diffs/worker/worker.js?worker&url"
 import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Notice } from "@/components/ui/notice"
 
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import { useTheme } from "../../settings/ThemeProvider.tsx"
@@ -107,21 +108,21 @@ function DiffBody({
   const notices = (
     <>
       {diff.status === "renamed" && diff.oldPath && (
-        <p className="document-notice document-notice-info" role="note">Renamed from <code>{diff.oldPath}</code></p>
+        <Notice layout="bar" className="document-notice" role="note"><span>Renamed from <code>{diff.oldPath}</code></span></Notice>
       )}
       {content.kind === "binary" && (
-        <p className="document-notice document-notice-warning" role="note">{binaryChangeLabel(content.before, content.after)}</p>
+        <Notice tone="warning" layout="bar" className="document-notice" role="note">{binaryChangeLabel(content.before, content.after)}</Notice>
       )}
       {content.kind === "tooLarge" && (
-        <p className="document-notice document-notice-warning" role="note">Large file ({formatBytes(content.size)}): diff is off.</p>
+        <Notice tone="warning" layout="bar" className="document-notice" role="note">Large file ({formatBytes(content.size)}): diff is off.</Notice>
       )}
       {content.kind === "text" && parseFailed && (
-        <p className="document-notice document-notice-error" role="alert">Couldn't compute this diff.</p>
+        <Notice tone="error" layout="bar" className="document-notice">Couldn't compute this diff.</Notice>
       )}
       {fileDiff && fileDiff.hunks.length === 0 && (
-        <p className="document-notice document-notice-info" role="note">
+        <Notice layout="bar" className="document-notice" role="note">
           {options.ignoreWhitespace ? "No changes apart from whitespace." : "File contents are unchanged."}
-        </p>
+        </Notice>
       )}
     </>
   )

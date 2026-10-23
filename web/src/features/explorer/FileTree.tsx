@@ -8,6 +8,10 @@ import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "../../api/page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
+import { Button } from "../../components/ui/button.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { TextField } from "../../components/ui/text-field.tsx"
+import { treeRowHeight } from "../../components/ui/tree-rows.ts"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import { uiScale } from "../../settings/settings.ts"
 import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "../../workspace/workspace-memory.ts"
@@ -87,7 +91,7 @@ export function FileTree(props: FileTreeProps) {
     return () => query.removeEventListener("change", update)
   }, [saveState])
 
-  const itemHeight = Math.round((mobile ? 32 : 24) * rowScale)
+  const itemHeight = treeRowHeight(mobile, rowScale)
   return <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
     itemHeight={itemHeight} filter={filter} state={state} />
 }
@@ -274,19 +278,19 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
   return (
     <aside className="file-explorer" aria-label="Files">
       <div className="explorer-header">
-        <button type="button" className="project-trigger" aria-haspopup="dialog"
+        <Button variant="ghost" size="sm" className="project-trigger" aria-haspopup="dialog"
           aria-label={`Switch project (${projectName || "none"})`}
           aria-keyshortcuts="Control+O Meta+O" title={`Switch project (${projectShortcutLabel})`} onClick={onOpenProjects}>
           <span>{projectName || "Files"}</span>
           <ChevronDownIcon aria-hidden="true" />
-        </button>
+        </Button>
         {page.branch && (page.worktrees > 1
           ? (
-            <button type="button" className="project-branch" aria-haspopup="dialog"
+            <Button variant="ghost" size="sm" className="project-branch" aria-haspopup="dialog"
               aria-label={`Switch worktree (${page.branch})`} title={`Switch worktree (${page.branch})`} onClick={onOpenWorktrees}>
               {branchIcon}
               <span>{page.branch}</span>
-            </button>
+            </Button>
           )
           : (
             <span className="project-branch" title={`${page.projectKind === "worktree" ? "Worktree" : "Branch"} ${page.branch}`}>
@@ -294,23 +298,22 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
               <span>{page.branch}</span>
             </span>
           ))}
-        <button ref={searchButton} type="button" aria-label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
-          onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }}>
-          <SearchIcon aria-hidden="true" />
-        </button>
-        <button type="button" aria-label={hasExpanded ? "Collapse all folders" : "Expand all folders"}
+        <IconButton ref={searchButton} label="Search files" aria-expanded={search.isOpen} title="Search files (⌘K / Ctrl+K)"
+          icon={<SearchIcon aria-hidden="true" />}
+          onClick={() => { if (model.isSearchOpen()) model.closeSearch(); else model.openSearch() }} />
+        <IconButton label={hasExpanded ? "Collapse all folders" : "Expand all folders"}
           disabled={!hasData || directoryPaths.length === 0 || search.value.length > 0}
           title={search.value.length > 0 ? "Clear filename search to collapse or expand folders" : hasExpanded ? "Collapse all folders" : "Expand all folders"}
-          onClick={toggleDirectories}>
-          {hasExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
-        </button>
-        {mobile && <button type="button" aria-label="Close files" onClick={onDismiss}><XIcon aria-hidden="true" /></button>}
+          icon={hasExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
+          onClick={toggleDirectories} />
+        {mobile && <IconButton label="Close files" icon={<XIcon aria-hidden="true" />} onClick={onDismiss} />}
       </div>
       <div className="explorer-shelf">
         {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
           totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
         <div className="file-search" hidden={!search.isOpen}>
-          <input ref={searchInput} className="file-search-input" aria-label="Search…" placeholder="Search…"
+          <TextField className="file-search-field" inputClassName="file-search-input" inputRef={searchInput}
+            aria-label="Search…" placeholder="Search…"
             value={search.value} onChange={(event) => model.setSearch(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") model.focusNextSearchMatch()
@@ -334,15 +337,15 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
         : page.empty ? <p className="muted">No files found.</p>
         : paths.length === 0 ? <p className="muted explorer-empty">
           No files match <code>{filter.applied}</code>
-          <button type="button" className="explorer-empty-action" onClick={filter.clear}>Clear filter</button>
+          <Button variant="outline" className="explorer-empty-action" onClick={filter.clear}>Clear filter</Button>
         </p>
         : <>
           {searchUnmatched && <p className="muted explorer-empty">
             No files match <code>{search.value}</code>
-            <button type="button" className="explorer-empty-action" onClick={() => {
+            <Button variant="outline" className="explorer-empty-action" onClick={() => {
               model.setSearch("")
               searchInput.current?.focus()
-            }}>Clear search</button>
+            }}>Clear search</Button>
           </p>}
           <PierreFileTree model={model} className="file-tree-host" aria-label="Files" hidden={searchUnmatched} onClick={() => {
             const focused = model.getFocusedPath()

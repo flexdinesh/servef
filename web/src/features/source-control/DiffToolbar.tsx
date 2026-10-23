@@ -1,8 +1,10 @@
 import { Menu } from "@base-ui/react/menu"
 import { CheckIcon, Columns2Icon, FileInputIcon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
 
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { menuItemClass, menuPopupClass, menuPositionerClass } from "../../components/ui/menu.ts"
+import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { effectiveDiffStyle, inlineChoices, type DiffOptions } from "./diff-options.ts"
-import "../../workspace/tab-menu.css"
 
 interface DiffToolbarProps {
   options: DiffOptions
@@ -21,39 +23,40 @@ export function DiffToolbar({ narrow, onChange, onOpenFile, openFileReason, opti
   const inline = inlineChoices.find((choice) => choice.value === options.inline) ?? inlineChoices[0]
   return (
     <div className="diff-toolbar">
-      <div className="document-mode-toggle diff-layout" role="group" aria-label="Diff layout">
-        <button type="button" aria-label="Split" aria-pressed={style === "split"} aria-disabled={narrow || undefined}
+      <SegmentedControl className="document-mode-toggle diff-layout" aria-label="Diff layout">
+        <SegmentedItem aria-label="Split" pressed={style === "split"} aria-disabled={narrow || undefined}
           title={narrow ? splitUnavailable : "Split"} onClick={() => { if (!narrow) onChange({ style: "split" }) }}>
           <Columns2Icon aria-hidden="true" />
-        </button>
-        <button type="button" aria-label="Unified" aria-pressed={style === "unified"} title="Unified"
+        </SegmentedItem>
+        <SegmentedItem aria-label="Unified" pressed={style === "unified"} title="Unified"
           onClick={() => onChange({ style: "unified" })}>
           <Rows2Icon aria-hidden="true" />
-        </button>
-      </div>
-      <div className="document-mode-toggle" role="group" aria-label="Diff options">
-        <button type="button" aria-label="Wrap lines" aria-pressed={options.wrap} title="Wrap lines"
+        </SegmentedItem>
+      </SegmentedControl>
+      <SegmentedControl className="document-mode-toggle" aria-label="Diff options">
+        <SegmentedItem aria-label="Wrap lines" pressed={options.wrap} title="Wrap lines"
           onClick={() => onChange({ wrap: !options.wrap })}>
           <WrapTextIcon aria-hidden="true" />
-        </button>
-        <button type="button" aria-label="Ignore whitespace" aria-pressed={options.ignoreWhitespace}
+        </SegmentedItem>
+        <SegmentedItem aria-label="Ignore whitespace" pressed={options.ignoreWhitespace}
           title="Ignore leading and trailing whitespace" onClick={() => onChange({ ignoreWhitespace: !options.ignoreWhitespace })}>
           <SpaceIcon aria-hidden="true" />
-        </button>
+        </SegmentedItem>
         <Menu.Root>
           <Menu.Trigger className="diff-inline-trigger" aria-label={`Inline changes: ${inline?.label ?? "Word"}`}
-            title={`Inline changes: ${inline?.label ?? "Word"}`} data-active={options.inline !== "none" || undefined}>
+            title={`Inline changes: ${inline?.label ?? "Word"}`} data-active={options.inline !== "none" || undefined}
+            render={<SegmentedItem />}>
             <HighlighterIcon aria-hidden="true" />
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Positioner className="tab-menu-positioner" sideOffset={4} align="end">
-              <Menu.Popup className="tab-menu diff-inline-menu" aria-label="Inline changes">
+            <Menu.Positioner className={menuPositionerClass} sideOffset={4} align="end">
+              <Menu.Popup className={menuPopupClass} aria-label="Inline changes">
                 <Menu.RadioGroup value={options.inline} onValueChange={(value: unknown) => {
                   const choice = inlineChoices.find((entry) => entry.value === value)
                   if (choice) onChange({ inline: choice.value })
                 }}>
                   {inlineChoices.map((choice) => (
-                    <Menu.RadioItem key={choice.value} className="tab-menu-item diff-inline-item" value={choice.value} closeOnClick>
+                    <Menu.RadioItem key={choice.value} className={menuItemClass} value={choice.value} closeOnClick>
                       <Menu.RadioItemIndicator className="diff-inline-check" keepMounted>
                         <CheckIcon aria-hidden="true" />
                       </Menu.RadioItemIndicator>
@@ -65,15 +68,13 @@ export function DiffToolbar({ narrow, onChange, onOpenFile, openFileReason, opti
             </Menu.Positioner>
           </Menu.Portal>
         </Menu.Root>
-        <button type="button" aria-label="Expand unchanged lines" aria-pressed={options.expandUnchanged}
+        <SegmentedItem aria-label="Expand unchanged lines" pressed={options.expandUnchanged}
           title="Expand unchanged lines" onClick={() => onChange({ expandUnchanged: !options.expandUnchanged })}>
           <UnfoldVerticalIcon aria-hidden="true" />
-        </button>
-      </div>
-      <button type="button" className="files-toggle diff-open-file" aria-label="Open File" aria-disabled={openFileReason ? true : undefined}
-        title={openFileReason || "Open File"} onClick={() => { if (!openFileReason) onOpenFile() }}>
-        <FileInputIcon aria-hidden="true" />
-      </button>
+        </SegmentedItem>
+      </SegmentedControl>
+      <IconButton className="diff-open-file" label="Open File" icon={<FileInputIcon aria-hidden="true" />}
+        disabledReason={openFileReason || undefined} onClick={onOpenFile} />
     </div>
   )
 }

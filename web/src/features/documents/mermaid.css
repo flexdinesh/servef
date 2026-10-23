@@ -1,0 +1,82 @@
+.mermaid-diagram {
+  position: relative;
+  max-width: 100%;
+  margin: var(--space-5) 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.mermaid-svg {
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-svg svg {
+  display: block;
+}
+
+.mermaid-svg .ondine {
+  --ondine-bg: var(--color-surface);
+  --ondine-fg: var(--color-text-primary);
+  --ondine-line: var(--color-text-secondary);
+  --ondine-border: var(--color-text-secondary);
+  --ondine-muted: var(--color-text-muted);
+  --ondine-surface: var(--color-surface);
+  --ondine-surface-alt: var(--color-surface-secondary);
+  --ondine-accent: var(--color-accent);
+  --ondine-critical: var(--color-destructive);
+  --ondine-font: var(--font-mono);
+  --ondine-radius: var(--radius-sm);
+}
+
+.mermaid-diagram-controls {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.mermaid-dialog-shell {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.mermaid-dialog-zoom {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The canvas keeps the diagram's own surface inside the raised dialog. */
+.mermaid-viewer {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--color-surface);
+  cursor: grab;
+  touch-action: none;
+}
+
+.mermaid-viewer:active {
+  cursor: grabbing;
+}
+
+.mermaid-viewer-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.mermaid-viewer-content .mermaid-svg svg {
+  max-width: none !important;
+}
+
+.mermaid-error {
+  color: var(--color-destructive);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}

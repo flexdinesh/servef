@@ -1,0 +1,37 @@
+.file-icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Pierre colors tree icons inside its shadow root; tabs map the same hue families to theme tokens. */
+.file-icon:is([data-icon-token="bash"], [data-icon-token="markdown"], [data-icon-token="svgo"], [data-icon-token="vue"]) {
+  color: var(--color-success);
+}
+
+.file-icon:is([data-icon-token="babel"], [data-icon-token="browserslist"], [data-icon-token="javascript"],
+  [data-icon-token="claude"], [data-icon-token="git"], [data-icon-token="html"], [data-icon-token="json"],
+  [data-icon-token="rust"], [data-icon-token="svg"], [data-icon-token="swift"], [data-icon-token="zig"],
+  [data-icon-token="zip"]) {
+  color: var(--color-warning);
+}
+
+.file-icon:is([data-icon-token="graphql"], [data-icon-token="image"], [data-icon-token="npm"],
+  [data-icon-token="postcss"], [data-icon-token="ruby"], [data-icon-token="sass"], [data-icon-token="svelte"],
+  [data-icon-token="yml"]) {
+  color: var(--color-destructive);
+}
+
+.file-icon:is([data-icon-token="biome"], [data-icon-token="c"], [data-icon-token="cpp"], [data-icon-token="docker"],
+  [data-icon-token="go"], [data-icon-token="mcp"], [data-icon-token="oxc"], [data-icon-token="prettier"],
+  [data-icon-token="python"], [data-icon-token="react"], [data-icon-token="table"], [data-icon-token="tailwind"],
+  [data-icon-token="typescript"], [data-icon-token="vscode"], [data-icon-token="webpack"]) {
+  color: var(--color-accent);
+}
+
+.file-icon:is([data-icon-token="astro"], [data-icon-token="bootstrap"], [data-icon-token="css"],
+  [data-icon-token="database"], [data-icon-token="eslint"], [data-icon-token="terraform"], [data-icon-token="vite"],
+  [data-icon-token="wasm"]) {
+  color: var(--color-syntax-function);
+}

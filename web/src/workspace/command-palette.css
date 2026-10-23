@@ -1,0 +1,51 @@
+/* Sits before the input like VS Code's ">" prefix. */
+.command-prompt {
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.command-palette .search-shell {
+  min-height: 0;
+}
+
+.command-results {
+  padding-top: var(--space-2);
+}
+
+.command-option {
+  gap: var(--space-1);
+  font-size: var(--text-label);
+}
+
+.command-category,
+.command-separator {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.command-separator {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.command-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-option mark {
+  color: var(--color-accent);
+  background: transparent;
+  font-weight: 600;
+}
+
+.command-value {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+}

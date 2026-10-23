@@ -56,23 +56,16 @@ test("settings footer matches the header and categories align with search", asyn
   // The selection starts at the search field's edge and fills to the rail's border.
   expect(selected.x).toBeCloseTo(search.x, 0)
   expect(selected.x + selected.width).toBeCloseTo(rail.x + rail.width - 1, 0)
-  // The select's chevron ink is inset from the right as far as its text is from the left.
-  const inset = await dialog.getByRole("combobox", { name: "Appearance: Theme" }).evaluate((select) => {
-    const icon = select.parentElement?.querySelector("svg")
-    const path = icon?.querySelector("path")
-    if (!icon || !(path instanceof SVGGraphicsElement)) return null
-    const box = icon.getBoundingClientRect()
-    const scale = box.width / icon.viewBox.baseVal.width
-    const ink = path.getBBox()
-    const inkRight = box.left + (ink.x + ink.width + parseFloat(getComputedStyle(path).strokeWidth) / 2) * scale
-    const style = getComputedStyle(select)
-    return {
-      left: parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
-      right: select.getBoundingClientRect().right - inkRight,
-    }
+  // The select's chevron ink sits as far from the right as its text starts from the left.
+  const select = dialog.getByRole("combobox", { name: "Appearance: Theme" })
+  const insets = await select.evaluate((element) => {
+    const style = getComputedStyle(element)
+    // The chevron's right half is the Select primitive's last background
+    // layer, computed as calc(100% - <inset>px) from the padding edge.
+    const inset = /calc\(100% - ([\d.]+)px\)/.exec(style.backgroundPosition.split(",").at(-1) ?? "")
+    return { left: parseFloat(style.paddingLeft), right: inset ? parseFloat(inset[1] ?? "") : Number.NaN }
   })
-  expect(inset).not.toBeNull()
-  if (inset) expect(Math.abs(inset.right - inset.left)).toBeLessThan(0.5)
+  expect(insets.right).toBeCloseTo(insets.left, 0)
 })
 
 test("settings keeps controls and footer reachable on short desktop and mobile", async ({ page }) => {

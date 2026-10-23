@@ -1,0 +1,66 @@
+/* Icon-only actions. Rest ink is secondary; hover and press add translucent
+   ink so the control reads on any surface. Contexts that need touch targets
+   set --icon-button-min. */
+.ui-icon-button {
+  --icon-button-size: var(--control-sm);
+  --icon-button-glyph: var(--icon-md);
+  display: inline-grid;
+  width: max(var(--icon-button-size), var(--icon-button-min, 0px));
+  height: max(var(--icon-button-size), var(--icon-button-min, 0px));
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ui-icon-button[data-size="xs"] {
+  --icon-button-size: var(--control-xs);
+  --icon-button-glyph: var(--icon-xs);
+}
+
+.ui-icon-button[data-size="md"] {
+  --icon-button-size: var(--control-md);
+}
+
+.ui-icon-button[data-size="bar"] {
+  --icon-button-size: var(--bar-size, var(--chrome-height));
+  --icon-button-glyph: var(--icon-sm);
+  border-radius: 0;
+}
+
+.ui-icon-button > svg {
+  width: var(--icon-button-glyph);
+  height: var(--icon-button-glyph);
+}
+
+.ui-icon-button:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--color-text-primary);
+  background: var(--color-hover);
+}
+
+.ui-icon-button:active:not(:disabled, [aria-disabled="true"]) {
+  background: var(--color-active);
+}
+
+.ui-icon-button:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.ui-icon-button[data-tone="success"] {
+  color: var(--color-success);
+}
+
+.ui-icon-button[data-tone="destructive"] {
+  color: var(--color-destructive);
+}
+
+.ui-icon-button:disabled,
+.ui-icon-button[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.5;
+}

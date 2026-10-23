@@ -1,0 +1,55 @@
+.ui-toggle {
+  display: inline-flex;
+  width: max(var(--control-xs), var(--toggle-min, 0px));
+  height: max(var(--control-xs), var(--toggle-min, 0px));
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ui-toggle > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+}
+
+.ui-toggle[data-size="text"] {
+  width: auto;
+  height: max(var(--control-md), var(--toggle-min, 0px));
+  padding: 0 var(--space-2);
+}
+
+.ui-toggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-hover);
+}
+
+.ui-toggle[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  color: var(--color-selected-text);
+  background: var(--color-selected);
+}
+
+.ui-toggle:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.ui-toggle:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 48rem) {
+  .ui-toggle {
+    --toggle-min: var(--control-lg);
+  }
+}

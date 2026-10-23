@@ -1,0 +1,65 @@
+.ui-copy-button {
+  display: inline-flex;
+  min-width: var(--control-xs);
+  height: var(--control-xs);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+.ui-copy-button-icon {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  flex: none;
+}
+
+.ui-copy-button[data-variant="raised"],
+.ui-copy-button[data-variant="chip"] {
+  height: var(--control-sm);
+  min-width: var(--control-sm);
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+}
+
+.ui-copy-button[data-variant="chip"] {
+  padding: 0 var(--space-2);
+}
+
+/* Bordered variants share Button's radius. */
+.ui-copy-button:is([data-variant="raised"], [data-variant="chip"], [data-variant="gutter"]) {
+  border-radius: var(--radius-md);
+}
+
+.ui-copy-button[data-variant="gutter"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+}
+
+.ui-copy-button:hover {
+  color: var(--color-text-primary);
+  background-image: linear-gradient(var(--color-hover), var(--color-hover));
+}
+
+.ui-copy-button:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.ui-copy-button[data-status="copied"] {
+  color: var(--color-success);
+}
+
+.ui-copy-button[data-status="failed"] {
+  color: var(--color-destructive);
+}

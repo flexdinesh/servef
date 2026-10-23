@@ -1,0 +1,55 @@
+.ui-notice {
+  --notice-ink: var(--color-text-secondary);
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--notice-ink) 35%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--notice-ink);
+  background: var(--color-surface-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.ui-notice[data-tone="warning"] {
+  --notice-ink: var(--color-warning);
+  background: var(--color-warning-subtle);
+}
+
+.ui-notice[data-tone="error"] {
+  --notice-ink: var(--color-destructive);
+  background: var(--color-destructive-subtle);
+}
+
+.ui-notice[data-layout="bar"] {
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.ui-notice > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+  margin-top: calc(var(--space-1) / 2);
+}
+
+.ui-status-message {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.ui-status-message[data-tone="info"] {
+  color: var(--color-text-secondary);
+}
+
+.ui-status-message[data-tone="warning"] {
+  color: var(--color-warning);
+}
+
+.ui-status-message[data-tone="error"] {
+  color: var(--color-destructive);
+}

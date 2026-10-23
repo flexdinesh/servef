@@ -38,3 +38,4 @@ rewriting history; update `Status` on the old record.
 | [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | Accepted |
 | [0031](0031-hide-git-entries.md) | Hide .git entries | Accepted |
 | [0032](0032-browser-tests-before-push.md) | Browser tests run before push, not in CI | Accepted |
+| [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |

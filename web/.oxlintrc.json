@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn", "oxc"],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/forbid-elements": ["error", {
+      "forbid": [
+        { "element": "button", "message": "Use Button, IconButton, ToggleButton, or a row primitive from components/ui." },
+        { "element": "input", "message": "Use TextField from components/ui." },
+        { "element": "select", "message": "Use Select from components/ui." },
+        { "element": "textarea", "message": "Add a field primitive to components/ui." },
+        { "element": "dialog", "message": "Use DialogShell from components/ui." }
+      ]
+    }]
+  },
+  "overrides": [
+    { "files": ["src/components/ui/**"], "rules": { "react/forbid-elements": "off" } }
+  ]
+}

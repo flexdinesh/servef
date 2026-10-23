@@ -1,0 +1,234 @@
+.explorer-header .project-trigger {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-start;
+  gap: var(--space-1);
+  margin-left: calc(var(--space-1) * -1);
+  padding: 0 var(--space-1);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.explorer-header .project-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-header .project-trigger svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  color: var(--color-text-muted);
+}
+
+/* The branch sits beside the project name; the name yields space first. */
+.explorer-header .project-trigger:has(+ .project-branch) {
+  flex: 0 1 auto;
+}
+
+/* A static branch is text, not a control: no hover or pointer. */
+.explorer-header .project-branch {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  max-width: 50%;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: auto;
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 400;
+}
+
+.explorer-header .project-branch span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-header .project-branch svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  flex: none;
+}
+
+/* Linked worktrees carry a colored fork wherever they are listed. */
+.explorer-header .project-branch .worktree-icon,
+.project-option .worktree-icon {
+  color: var(--color-success);
+}
+
+/* The back button prefixes the field while worktrees are listed. */
+.project-prefix {
+  max-width: 40%;
+  overflow: hidden;
+}
+
+.project-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.project-results {
+  padding-top: var(--space-2);
+}
+
+.project-group + .project-group {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.project-group-title {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.project-option-row {
+  position: relative;
+}
+
+.project-option {
+  font-size: var(--text-label);
+}
+
+.project-option.disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.project-option.disabled:hover {
+  background: transparent;
+}
+
+.project-option svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.project-option.disabled svg {
+  color: var(--color-text-muted);
+}
+
+.project-option-name {
+  max-width: 60%;
+  flex: none;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-option.disabled .project-option-name {
+  font-weight: 400;
+}
+
+.project-option-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-to-left flow moves the ellipsis to the start; the inner span keeps
+   the path itself left-to-right. */
+.project-option-path-tail {
+  direction: rtl;
+  text-align: left;
+}
+
+.project-option-grow {
+  flex: 1;
+}
+
+.project-option-meta {
+  flex: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+.project-option-current {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+}
+
+.project-option-current svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  color: inherit;
+}
+
+/* Row actions float over the row's end. */
+.project-forget,
+.project-drill {
+  position: absolute;
+  top: 50%;
+  right: var(--space-1);
+  transform: translateY(-50%);
+}
+
+.project-forget {
+  opacity: 0;
+}
+
+.project-option-row:hover .project-forget,
+.project-option-row:has([data-active]) .project-forget {
+  opacity: 1;
+}
+
+.project-option-row.drillable .project-option {
+  padding-right: 2rem;
+}
+
+.project-option-branch {
+  flex: none;
+  max-width: 30%;
+  overflow: hidden;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-unavailable p {
+  margin: 0 0 var(--space-3);
+}
+
+@media (max-width: 48rem) {
+  /* The project switcher sits after the files toggle, before the tabs. */
+
+  .project-toggle {
+    border-left: 1px solid var(--color-border);
+    border-radius: 0;
+  }
+
+  .project-forget {
+    opacity: 1;
+  }
+
+  .project-option-row.drillable .project-option {
+    padding-right: 3rem;
+  }
+}

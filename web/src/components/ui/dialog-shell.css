@@ -1,0 +1,68 @@
+/* Overlays share one surface: raised fill, strong border, overlay radius and
+   shadow. Popovers and menus use the same recipe. */
+.ui-dialog,
+.ui-popover,
+.ui-menu {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-overlay);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-overlay);
+}
+
+.ui-dialog {
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--space-6));
+  padding: 0;
+  overflow: hidden;
+}
+
+.ui-dialog[data-variant="palette"] {
+  width: min(40rem, calc(100vw - var(--space-6)));
+  margin: 12vh auto auto;
+}
+
+.ui-dialog[data-variant="panel"] {
+  width: min(56rem, calc(100vw - var(--space-6)));
+  margin: auto;
+}
+
+.ui-dialog[data-variant="viewer"] {
+  width: calc(100vw - var(--space-6));
+  height: calc(100dvh - var(--space-6));
+  margin: auto;
+}
+
+.ui-dialog[data-variant="drawer"] {
+  inset: var(--space-1) auto var(--space-1) var(--space-1);
+  width: min(85vw, 22rem);
+  height: calc(100dvh - var(--space-2));
+  max-height: none;
+  margin: 0;
+}
+
+.ui-dialog[data-backdrop="transparent"]::backdrop {
+  background: transparent;
+}
+
+.ui-dialog[data-backdrop="overlay"]::backdrop {
+  background: var(--color-overlay);
+}
+
+.ui-popover {
+  padding: var(--space-1);
+}
+
+@media (max-width: 48rem) {
+  /* Modal actions grow to touch size. The drawer hosts views whose chrome
+     bands keep their own sizes. */
+  .ui-dialog:not([data-variant="drawer"]) {
+    --icon-button-min: var(--control-touch);
+  }
+
+  .ui-dialog[data-variant="palette"] {
+    width: calc(100vw - var(--space-4));
+    max-height: calc(100dvh - var(--space-4));
+    margin-top: var(--space-2);
+  }
+}

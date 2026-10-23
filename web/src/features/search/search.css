@@ -1,0 +1,112 @@
+.search-view {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+.search-details-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.search-details-toggle > .ui-icon-button[aria-expanded="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-hover);
+}
+
+.search-details {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.search-scope {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-xs);
+}
+
+.search-message,
+.source-control-message {
+  display: grid;
+  flex: none;
+  justify-items: start;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.search-message:empty,
+.source-control-message:empty {
+  display: none;
+}
+
+.search-message p,
+.source-control-message p {
+  margin: 0;
+}
+
+.search-tree {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding-bottom: var(--space-2);
+}
+
+.search-file,
+.search-match {
+  white-space: nowrap;
+}
+
+.search-file {
+  gap: var(--space-1);
+}
+
+.search-file .file-icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: none;
+}
+
+.search-file-name {
+  max-width: 70%;
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-file-directory {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+}
+
+.search-match {
+  padding-left: 2.5rem;
+}
+
+.search-match-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-match mark {
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  background: var(--color-warning-subtle);
+  box-shadow: 0 0 0 1px var(--color-warning-subtle);
+}
+
+@media (max-width: 48rem) {
+  .search-details-toggle > .ui-icon-button {
+    --icon-button-min: var(--control-lg);
+  }
+}

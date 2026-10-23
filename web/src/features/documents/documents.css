@@ -1,0 +1,128 @@
+.document-mode-toggle {
+  margin: 0 var(--space-1);
+}
+
+/* The zoom level keeps its width as the percentage changes. */
+.image-zoom-level {
+  min-width: 3.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+article,
+.error,
+.empty {
+  width: 100%;
+  max-width: var(--reading-width);
+  margin-right: auto;
+  margin-left: 0;
+}
+
+.document-notice code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.image-document {
+  display: flex;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  padding: var(--space-4);
+}
+
+.image-document:focus-visible {
+  outline-offset: -2px;
+}
+
+.image-document-frame {
+  position: relative;
+  flex: none;
+  margin: auto;
+  background-color: var(--color-surface);
+  background-image: conic-gradient(
+    var(--color-surface-secondary) 0 25%,
+    transparent 0 50%,
+    var(--color-surface-secondary) 0 75%,
+    transparent 0
+  );
+  background-size: var(--checker-size) var(--checker-size);
+  outline: 1px solid var(--color-border);
+}
+
+.image-document-frame img {
+  display: block;
+  max-width: none;
+}
+
+.image-document-frame.loading {
+  width: 16rem;
+  height: 10rem;
+  background: var(--color-surface-secondary);
+  outline: 0;
+}
+
+.image-document-frame.loading img {
+  position: absolute;
+  visibility: hidden;
+}
+
+.image-document-message {
+  margin: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.binary-document-meta {
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-destructive);
+  border-radius: var(--radius-md);
+  color: var(--color-destructive);
+  background: var(--color-destructive-subtle);
+  font-size: var(--text-sm);
+}
+
+.empty {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.empty > button {
+  align-self: center;
+}
+
+.empty h1 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.empty p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.error code {
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 48rem) {
+  .document-mode-toggle .ui-segmented-item {
+    padding: 0 var(--space-1);
+  }
+
+  .image-zoom-controls {
+    margin-left: 0;
+  }
+}

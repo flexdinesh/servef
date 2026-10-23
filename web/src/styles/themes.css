@@ -1,0 +1,175 @@
+/* Light and Dark resolve the light-dark() values in tokens.css; System
+   follows the browser through the default "light dark" color-scheme.
+   Named themes override every theme value. */
+:root.light {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+:root[data-theme="dracula"] {
+  --color-bg: #191a21;
+  --color-canvas: #101116;
+  --color-surface: #282a36;
+  --color-surface-secondary: #21222c;
+  --color-surface-raised: #343746;
+  --color-text-primary: #f8f8f2;
+  --color-text-secondary: #d6d6e0;
+  --color-text-muted: #9ea8d0;
+  --color-border: #343746;
+  --color-border-strong: #6272a4;
+  --color-accent: #bd93f9;
+  --color-accent-hover: #ff79c6;
+  --color-accent-subtle: #3d3557;
+  --color-on-accent: #282a36;
+  --color-success: #50fa7b;
+  --color-warning: #ffb86c;
+  --color-warning-subtle: #4a3a2c;
+  --color-destructive: #ff5555;
+  --color-destructive-subtle: #4a2a33;
+  --color-overlay: rgb(25 26 33 / 70%);
+  --color-syntax-comment: #6272a4;
+  --color-syntax-keyword: #ff79c6;
+  --color-syntax-type: #8be9fd;
+  --color-syntax-function: #50fa7b;
+  --color-syntax-variable: #f8f8f2;
+  --color-syntax-string: #f1fa8c;
+  --color-syntax-number: #bd93f9;
+  --color-syntax-operator: #ff79c6;
+  --shadow-control: 0 1px 2px rgb(25 26 33 / 35%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(25 26 33 / 65%);
+}
+
+:root[data-theme="gruvbox-dark"] {
+  --color-bg: #1d2021;
+  --color-canvas: #111314;
+  --color-surface: #282828;
+  --color-surface-secondary: #32302f;
+  --color-surface-raised: #45403d;
+  --color-text-primary: #ebdbb2;
+  --color-text-secondary: #bdae93;
+  --color-text-muted: #928374;
+  --color-border: #3c3836;
+  --color-border-strong: #665c54;
+  --color-accent: #fabd2f;
+  --color-accent-hover: #fe8019;
+  --color-accent-subtle: #504945;
+  --color-on-accent: #282828;
+  --color-success: #b8bb26;
+  --color-warning: #fabd2f;
+  --color-warning-subtle: #50452b;
+  --color-destructive: #fb4934;
+  --color-destructive-subtle: #4b2b28;
+  --color-overlay: rgb(0 0 0 / 62%);
+  --color-syntax-comment: #928374;
+  --color-syntax-keyword: #fe8019;
+  --color-syntax-type: #fabd2f;
+  --color-syntax-function: #fabd2f;
+  --color-syntax-variable: #ebdbb2;
+  --color-syntax-string: #b8bb26;
+  --color-syntax-number: #d3869b;
+  --color-syntax-operator: #fe8019;
+  --shadow-control: 0 1px 2px rgb(0 0 0 / 25%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+
+:root[data-theme="catppuccin-mocha"] {
+  --color-bg: #181825;
+  --color-canvas: #0b0b12;
+  --color-surface: #1e1e2e;
+  --color-surface-secondary: #313244;
+  --color-surface-raised: #45475a;
+  --color-text-primary: #cdd6f4;
+  --color-text-secondary: #a6adc8;
+  --color-text-muted: #7f849c;
+  --color-border: #45475a;
+  --color-border-strong: #585b70;
+  --color-accent: #cba6f7;
+  --color-accent-hover: #89b4fa;
+  --color-accent-subtle: #3b3452;
+  --color-on-accent: #1e1e2e;
+  --color-success: #a6e3a1;
+  --color-warning: #f9e2af;
+  --color-warning-subtle: #403b34;
+  --color-destructive: #f38ba8;
+  --color-destructive-subtle: #46303d;
+  --color-overlay: rgb(17 17 27 / 72%);
+  --color-syntax-comment: #6c7086;
+  --color-syntax-keyword: #cba6f7;
+  --color-syntax-type: #f9e2af;
+  --color-syntax-function: #89b4fa;
+  --color-syntax-variable: #f5e0dc;
+  --color-syntax-string: #a6e3a1;
+  --color-syntax-number: #fab387;
+  --color-syntax-operator: #89dceb;
+  --shadow-control: 0 1px 2px rgb(17 17 27 / 35%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(17 17 27 / 65%);
+}
+
+:root[data-theme="nord"] {
+  --color-bg: #242933;
+  --color-canvas: #171a21;
+  --color-surface: #2e3440;
+  --color-surface-secondary: #3b4252;
+  --color-surface-raised: #434c5e;
+  --color-text-primary: #eceff4;
+  --color-text-secondary: #d8dee9;
+  --color-text-muted: #81a1c1;
+  --color-border: #434c5e;
+  --color-border-strong: #4c566a;
+  --color-accent: #88c0d0;
+  --color-accent-hover: #8fbcbb;
+  --color-accent-subtle: #354b55;
+  --color-on-accent: #2e3440;
+  --color-success: #a3be8c;
+  --color-warning: #ebcb8b;
+  --color-warning-subtle: #4b4436;
+  --color-destructive: #bf616a;
+  --color-destructive-subtle: #4c333a;
+  --color-overlay: rgb(20 24 31 / 68%);
+  --color-syntax-comment: #616e87;
+  --color-syntax-keyword: #81a1c1;
+  --color-syntax-type: #8fbcbb;
+  --color-syntax-function: #88c0d0;
+  --color-syntax-variable: #d8dee9;
+  --color-syntax-string: #a3be8c;
+  --color-syntax-number: #b48ead;
+  --color-syntax-operator: #81a1c1;
+  --shadow-control: 0 1px 2px rgb(20 24 31 / 35%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(20 24 31 / 65%);
+}
+
+:root[data-theme="solarized-light"] {
+  --color-bg: #eee8d5;
+  --color-canvas: #ddd6c1;
+  --color-surface: #fdf6e3;
+  --color-surface-secondary: #eee8d5;
+  --color-surface-raised: #fffdf2;
+  --color-text-primary: #586e75;
+  --color-text-secondary: #657b83;
+  --color-text-muted: #839496;
+  --color-border: #d8d1bc;
+  --color-border-strong: #93a1a1;
+  --color-accent: #268bd2;
+  --color-accent-hover: #2aa198;
+  --color-accent-subtle: #d9ebee;
+  --color-on-accent: #fdf6e3;
+  --color-success: #859900;
+  --color-warning: #b58900;
+  --color-warning-subtle: #eee0ad;
+  --color-destructive: #dc322f;
+  --color-destructive-subtle: #f5d5cc;
+  --color-overlay: rgb(0 43 54 / 38%);
+  --color-syntax-comment: #93a1a1;
+  --color-syntax-keyword: #859900;
+  --color-syntax-type: #cb4b16;
+  --color-syntax-function: #268bd2;
+  --color-syntax-variable: #268bd2;
+  --color-syntax-string: #2aa198;
+  --color-syntax-number: #2aa198;
+  --color-syntax-operator: #859900;
+  --shadow-control: 0 1px 2px rgb(0 43 54 / 10%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(0 43 54 / 25%);
+}

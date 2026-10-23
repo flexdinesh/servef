@@ -1,16 +1,23 @@
 import type { GitStatusEntry } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree } from "@pierre/trees/react"
-import { ChevronRightIcon, FoldVerticalIcon, RefreshCwIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
+import { FoldVerticalIcon, RefreshCwIcon, UnfoldVerticalIcon, XIcon } from "lucide-react"
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react"
 
+import { Badge } from "../../components/ui/badge.tsx"
 import { Button } from "../../components/ui/button.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { StatusMessage } from "../../components/ui/notice.tsx"
+import { ProgressBar } from "../../components/ui/progress-bar.tsx"
+import { SectionToggle } from "../../components/ui/section-toggle.tsx"
+import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
+import { treeRowHeight } from "../../components/ui/tree-rows.ts"
+import { ViewHeader } from "../../components/ui/view-header.tsx"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import type { ChangedFile } from "../../api/changes-contract.ts"
 import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, type PinnedCompare } from "./commit-rows.ts"
 import { CommitsView } from "./CommitsView.tsx"
 import { uiScale } from "../../settings/settings.ts"
 import { maximumShare, minimumShare } from "./source-control-layout.ts"
-import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
 import type { Changes } from "./use-changes.ts"
 import { rangeKey, type Commits } from "./use-commits.ts"
 import type { SourceControlLayoutState } from "./use-source-control-layout.ts"
@@ -55,9 +62,8 @@ interface SourceControlViewProps {
 export function SourceControlView({ activeHistory, activePath, changes, commits, layout, mobile, onDismiss, onOpen, onOpenTab }: SourceControlViewProps) {
   const { error, loading, refresh, result } = changes
   const files = result?.files
-  const reading = useDelayedFlag(loading || commits.loading, 150)
   const scale = uiScale(useSettings().settings)
-  const itemHeight = Math.round((mobile ? 32 : 24) * scale)
+  const itemHeight = treeRowHeight(mobile, scale)
   const [anyExpanded, setAnyExpanded] = useState(true)
   const [collapseRequest, setCollapseRequest] = useState<{ expand: boolean; id: number } | null>(null)
   const [expandedCommits, setExpandedCommits] = useState<ReadonlySet<string>>(() => new Set())
@@ -106,21 +112,17 @@ export function SourceControlView({ activeHistory, activePath, changes, commits,
 
   return (
     <section className="source-control-view" aria-label="Source Control">
-      <div className="explorer-header sidebar-header">
-        <h2 className="sidebar-title">Source Control</h2>
-        <button type="button" aria-label="Refresh" title="Refresh" onClick={refreshAll}>
-          <RefreshCwIcon aria-hidden="true" />
-        </button>
-        <button type="button" aria-label={anyExpanded ? "Collapse All" : "Expand All"} title={anyExpanded ? "Collapse All" : "Expand All"}
-          disabled={count === 0 || layout.changesCollapsed} onClick={() => setCollapseRequest({ expand: !anyExpanded, id: (collapseRequest?.id ?? 0) + 1 })}>
-          {anyExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
-        </button>
-        {mobile && <button type="button" aria-label="Close source control" onClick={onDismiss}><XIcon aria-hidden="true" /></button>}
-      </div>
-      <div className={`search-progress${reading ? " active" : ""}`} aria-hidden="true" />
+      <ViewHeader className="explorer-header sidebar-header" title="Source Control" titleClassName="sidebar-title" actions={<>
+        <IconButton label="Refresh" icon={<RefreshCwIcon aria-hidden="true" />} onClick={refreshAll} />
+        <IconButton label={anyExpanded ? "Collapse All" : "Expand All"}
+          icon={anyExpanded ? <FoldVerticalIcon aria-hidden="true" /> : <UnfoldVerticalIcon aria-hidden="true" />}
+          disabled={count === 0 || layout.changesCollapsed} onClick={() => setCollapseRequest({ expand: !anyExpanded, id: (collapseRequest?.id ?? 0) + 1 })} />
+        {mobile && <IconButton label="Close source control" icon={<XIcon aria-hidden="true" />} onClick={onDismiss} />}
+      </>} />
+      <ProgressBar active={loading || commits.loading} />
       {!repository ? (
         <div className="source-control-message" role="status" aria-live="polite">
-          <p>This folder isn't a git repository.</p>
+          <StatusMessage>This folder isn't a git repository.</StatusMessage>
         </div>
       ) : (
         <div ref={sections} className="source-control-sections">
@@ -128,21 +130,19 @@ export function SourceControlView({ activeHistory, activePath, changes, commits,
             style={layout.changesCollapsed ? undefined : { flexGrow: share }}>
             <div className="source-control-group">
               <h3 aria-label={`Changes, ${count === 1 ? "1 change" : `${count.toLocaleString()} changes`}`}>
-                <button type="button" className="source-control-section-toggle" aria-expanded={!layout.changesCollapsed}
-                  aria-controls="source-control-changes" onClick={layout.toggleChanges}>
-                  <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+                <SectionToggle expanded={!layout.changesCollapsed} aria-controls="source-control-changes" onExpandedChange={layout.toggleChanges}>
                   Changes
-                </button>
+                </SectionToggle>
               </h3>
-              {files && <span className="search-count" aria-hidden="true">{count.toLocaleString()}</span>}
+              {files && <Badge className="source-control-count" aria-hidden="true">{count.toLocaleString()}</Badge>}
             </div>
             <div id="source-control-changes" className="source-control-section-body" hidden={layout.changesCollapsed}>
               <div className="source-control-message" role="status" aria-live="polite">
-                {error ? <p className="search-status-error">{error}</p>
-                  : result && count === 0 ? <p>No changes since last commit.</p>
+                {error ? <StatusMessage tone="error">{error}</StatusMessage>
+                  : result && count === 0 ? <StatusMessage>No changes since last commit.</StatusMessage>
                   : null}
-                {error && <Button type="button" size="sm" variant="outline" onClick={refresh}>Retry</Button>}
-                {result?.truncated && <p>Showing the first {count.toLocaleString()} changes. Commit or ignore files to see the rest.</p>}
+                {error && <Button variant="outline" onClick={refresh}>Retry</Button>}
+                {result?.truncated && <StatusMessage>Showing the first {count.toLocaleString()} changes. Commit or ignore files to see the rest.</StatusMessage>}
               </div>
               {files && count > 0 && (
                 <ChangeTree key={itemHeight} files={files} byPath={changes.byPath} activePath={activePath} itemHeight={itemHeight}
@@ -164,27 +164,23 @@ export function SourceControlView({ activeHistory, activePath, changes, commits,
             style={layout.commitsCollapsed ? undefined : { flexGrow: 1 - share }}>
             <div className="source-control-group">
               <h3>
-                <button type="button" className="source-control-section-toggle" aria-expanded={!layout.commitsCollapsed}
-                  aria-controls="source-control-commits" onClick={layout.toggleCommits}>
-                  <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+                <SectionToggle expanded={!layout.commitsCollapsed} aria-controls="source-control-commits" onExpandedChange={layout.toggleCommits}>
                   Commits
-                </button>
+                </SectionToggle>
               </h3>
               {history && history.range === "branch" && history.base && (
                 <span className="source-control-range-note" title={`${history.ahead.toLocaleString()} commits on ${history.branch || "HEAD"} that ${history.base} does not have`}>
                   {history.ahead.toLocaleString()} ahead of {history.base}
                 </span>
               )}
-              <div className="source-control-range" role="group" aria-label="Commit range">
-                <button type="button" aria-pressed={layout.range === "branch"} title="Commits on this branch only"
-                  onClick={() => setRange("branch")}>Branch</button>
-                <button type="button" aria-pressed={layout.range === "all"} title="All history of HEAD"
-                  onClick={() => setRange("all")}>All</button>
-              </div>
-              <button type="button" className="source-control-group-action" aria-label="Collapse All Commits" title="Collapse All Commits"
-                disabled={layout.commitsCollapsed || !anyCommitExpanded} onClick={() => setExpandedCommits(new Set())}>
-                <FoldVerticalIcon aria-hidden="true" />
-              </button>
+              <SegmentedControl size="sm" className="source-control-range" aria-label="Commit range">
+                <SegmentedItem pressed={layout.range === "branch"} title="Commits on this branch only"
+                  onClick={() => setRange("branch")}>Branch</SegmentedItem>
+                <SegmentedItem pressed={layout.range === "all"} title="All history of HEAD"
+                  onClick={() => setRange("all")}>All</SegmentedItem>
+              </SegmentedControl>
+              <IconButton size="xs" className="source-control-group-action" label="Collapse All Commits" icon={<FoldVerticalIcon aria-hidden="true" />}
+                disabled={layout.commitsCollapsed || !anyCommitExpanded} onClick={() => setExpandedCommits(new Set())} />
             </div>
             <div id="source-control-commits" className="source-control-section-body" hidden={layout.commitsCollapsed}>
               <CommitsView commits={commits} range={layout.range} active={activeHistory} expanded={expandedCommits} mobile={mobile}

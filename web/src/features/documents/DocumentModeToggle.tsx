@@ -1,3 +1,4 @@
+import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { documentModes, modeDisabledReason } from "./document-view.ts"
 import type { DocumentMode, PageData } from "../../api/page-contract.ts"
 export type { DocumentMode } from "../../api/page-contract.ts"
@@ -18,24 +19,23 @@ export function DocumentModeToggle({ page, mode, busyMode, onChange }: DocumentM
   const modes = documentModes(page)
   if (modes.length < 2) return null
   return (
-    <div className="document-mode-toggle" role="group" aria-label="Document view">
+    <SegmentedControl className="document-mode-toggle" aria-label="Document view">
       {modes.map((value) => {
         const disabledReason = modeDisabledReason(page, value)
         const busy = busyMode === value
         return (
-          <button
+          <SegmentedItem
             key={value}
-            type="button"
-            aria-pressed={mode === value}
+            pressed={mode === value}
             aria-busy={busy || undefined}
             aria-disabled={disabledReason ? true : undefined}
             title={disabledReason || undefined}
             onClick={() => { if (!disabledReason) onChange(value) }}
           >
             {modeLabel(page, value)}
-          </button>
+          </SegmentedItem>
         )
       })}
-    </div>
+    </SegmentedControl>
   )
 }

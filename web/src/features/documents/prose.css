@@ -1,0 +1,232 @@
+article {
+  color: var(--color-text-primary);
+  font-size: var(--preview-font-size);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+article > :first-child {
+  margin-top: 0;
+}
+
+article > :last-child {
+  margin-bottom: 0;
+}
+
+article h1,
+article h2,
+article h3,
+article h4,
+article h5,
+article h6 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+article h1 {
+  margin: var(--space-6) 0 var(--space-4);
+  font-size: var(--preview-h1);
+}
+
+article h2 {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: var(--preview-h2);
+}
+
+article h3 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--preview-h3);
+}
+
+article h4 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--preview-h4);
+}
+
+article h5,
+article h6 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--text-base);
+}
+
+article h6 {
+  color: var(--color-text-secondary);
+}
+
+article p,
+article ul,
+article ol,
+article blockquote,
+article pre,
+article table,
+article hr {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+article ul,
+article ol {
+  padding-left: var(--space-5);
+}
+
+article ul {
+  list-style: disc;
+}
+
+article ol {
+  list-style: decimal;
+}
+
+article li ul {
+  list-style: circle;
+}
+
+article li:has(> input[type="checkbox"]:first-child) {
+  list-style: none;
+}
+
+article li + li {
+  margin-top: var(--space-1);
+}
+
+article li > ul,
+article li > ol {
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+article a {
+  color: var(--color-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  text-underline-offset: 0.16em;
+}
+
+article a:hover {
+  color: var(--color-accent-hover);
+  text-decoration-color: currentColor;
+}
+
+article img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+article pre {
+  overflow: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-secondary);
+  line-height: 1.6;
+}
+
+.code-block {
+  position: relative;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+article .code-block > pre {
+  margin: 0;
+}
+
+.code-block-controls-portal {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.code-block-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.code-block-control-language {
+  font-family: var(--font-mono);
+}
+
+/* A captioned chip names its language at rest and turns into the copy icon
+   while the block is hovered, focused, or reporting a copy. */
+.code-block-control-language + .code-block-control-copy {
+  display: none;
+}
+
+.code-block:hover .code-block-control-copy,
+.code-block-control:focus-visible .code-block-control-copy,
+.code-block-control:not([data-status="idle"]) .code-block-control-copy {
+  display: block;
+}
+
+.code-block:hover .code-block-control-language,
+.code-block-control:focus-visible .code-block-control-language,
+.code-block-control:not([data-status="idle"]) .code-block-control-language {
+  display: none;
+}
+
+.code-block:hover .code-block-control,
+.code-block-control:focus-visible,
+.code-block-control:not([data-status="idle"]) {
+  padding: 0;
+}
+
+article code {
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  font-variant-ligatures: none;
+}
+
+article :not(pre) > code {
+  padding: 0.15em 0.35em;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-secondary);
+  white-space: nowrap;
+}
+
+article blockquote {
+  margin-left: 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: var(--border-quote) solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+article blockquote > :first-child {
+  margin-top: 0;
+}
+
+article blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+article table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+article th,
+article td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+article th {
+  background: var(--color-surface-secondary);
+  font-weight: 600;
+}
+
+article hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}

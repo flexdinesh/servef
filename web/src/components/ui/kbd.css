@@ -1,0 +1,15 @@
+.ui-kbd {
+  display: inline-flex;
+  height: var(--control-xs);
+  flex: none;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-secondary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  line-height: 1;
+  white-space: nowrap;
+}

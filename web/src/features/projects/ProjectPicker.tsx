@@ -14,6 +14,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 
 import { Button } from "../../components/ui/button.tsx"
+import { DialogShell } from "../../components/ui/dialog-shell.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { Kbd } from "../../components/ui/kbd.tsx"
+import { ListRow } from "../../components/ui/list-row.tsx"
+import { TextField } from "../../components/ui/text-field.tsx"
 import { isAbort } from "../../api/http.ts"
 import {
   browseRows,
@@ -311,8 +316,10 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
   const activeID = active ? `project-option-${active.key}` : undefined
 
   return (
-    <dialog
+    <DialogShell
       ref={dialog}
+      variant="palette"
+      backdrop="transparent"
       className="search-dialog project-dialog"
       aria-labelledby="project-picker-title"
       onCancel={(event) => { event.preventDefault(); close() }}
@@ -322,38 +329,36 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
         <h2 id="project-picker-title" className="visually-hidden">
           {mode === "projects" ? "Switch project" : "Open folder"}
         </h2>
-        <div className="search-field project-field">
-          {mode === "browse" ? <FolderSearchIcon aria-hidden="true" /> : listedGroup ? <GitBranchIcon aria-hidden="true" /> : <FolderGit2Icon aria-hidden="true" />}
-          {mode === "projects" && listedGroup && (
-            <button type="button" className="project-prefix project-back" title="Back to projects (Backspace)"
+        <TextField
+          variant="palette"
+          icon={mode === "browse" ? <FolderSearchIcon aria-hidden="true" /> : listedGroup ? <GitBranchIcon aria-hidden="true" /> : <FolderGit2Icon aria-hidden="true" />}
+          leading={mode === "projects" && listedGroup && (
+            <Button variant="ghost" size="sm" className="project-prefix project-back" title="Back to projects (Backspace)"
               aria-label="Back to projects" onClick={() => listGroup("")}>
               <ChevronLeftIcon aria-hidden="true" />{listedName}
-            </button>
+            </Button>
           )}
-          <input
-            ref={input}
-            className="search-input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={mode === "browse" ? "Type a folder path" : listedGroup ? "Filter worktrees" : "Switch project, → for worktrees, / to browse"}
-            aria-label={label}
-            role="combobox"
-            aria-controls="project-results"
-            aria-expanded={open}
-            aria-autocomplete="list"
-            aria-activedescendant={activeID}
-            value={mode === "projects" ? query : path}
-            onChange={(event) => changeInput(event.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <kbd>Esc</kbd>
-        </div>
+          trailing={<Kbd>Esc</Kbd>}
+          inputRef={input}
+          type="text"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={mode === "browse" ? "Type a folder path" : listedGroup ? "Filter worktrees" : "Switch project, → for worktrees, / to browse"}
+          aria-label={label}
+          role="combobox"
+          aria-controls="project-results"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          aria-activedescendant={activeID}
+          value={mode === "projects" ? query : path}
+          onChange={(event) => changeInput(event.target.value)}
+          onKeyDown={onKeyDown}
+        />
         {(status || warnings.length > 0) && (
           <div className={`search-status project-status${status?.tone === "error" ? " search-status-error" : ""}`} role="status" aria-live="polite">
             {status && <span>{status.text}</span>}
             {status?.tone === "error" && mode === "projects" && (
-              <Button type="button" size="sm" variant="outline" onClick={loadProjects}>Retry</Button>
+              <Button variant="outline" onClick={loadProjects}>Retry</Button>
             )}
             {!status && warnings.length > 0 && (
               <span title={warnings.join("\n")}>
@@ -379,7 +384,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
           ))}
         </div>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }
 
@@ -394,16 +399,13 @@ interface PickerOptionProps {
 
 function PickerOption({ row, active, onActivate, onHover, onDrill, onForget }: PickerOptionProps) {
   const disabled = row.kind === "project" && row.disabled
-  const className = [
-    "project-option",
-    active ? "active" : "",
-    disabled ? "disabled" : "",
-  ].filter(Boolean).join(" ")
   return (
     <div className={onDrill ? "project-option-row drillable" : "project-option-row"} data-key={row.key}>
-      <div
+      <ListRow
         id={`project-option-${row.key}`}
-        className={className}
+        density="pick"
+        active={active}
+        className={disabled ? "project-option disabled" : "project-option"}
         role="option"
         aria-selected={active}
         aria-disabled={disabled || undefined}
@@ -412,19 +414,16 @@ function PickerOption({ row, active, onActivate, onHover, onDrill, onForget }: P
       >
         <OptionIcon row={row} />
         <OptionText row={row} />
-      </div>
+      </ListRow>
       {onDrill && row.kind === "project" && (
-        <button type="button" className="project-drill" tabIndex={-1}
-          aria-label={`Show ${row.name} worktrees`} title="Show worktrees (→)" onClick={onDrill}>
-          <ChevronRightIcon aria-hidden="true" />
-        </button>
+        <IconButton size="xs" className="project-drill" tabIndex={-1}
+          label={`Show ${row.name} worktrees`} title="Show worktrees (→)" icon={<ChevronRightIcon aria-hidden="true" />}
+          onClick={onDrill} />
       )}
       {onForget && (
-        <button type="button" className="project-forget" tabIndex={-1}
-          aria-label={`Forget ${row.kind === "project" ? row.path : ""}`} title="Remove from opened folders"
-          onClick={onForget}>
-          <XIcon aria-hidden="true" />
-        </button>
+        <IconButton size="xs" className="project-forget" tabIndex={-1}
+          label={`Forget ${row.kind === "project" ? row.path : ""}`} title="Remove from opened folders"
+          icon={<XIcon aria-hidden="true" />} onClick={onForget} />
       )}
     </div>
   )

@@ -1,0 +1,45 @@
+.ui-row {
+  --row-height: var(--row-list);
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--row-height);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 0;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  user-select: none;
+}
+
+/* List rows run edge to edge; picker rows are inset chips. */
+.ui-row[data-density="pick"] {
+  --row-height: var(--row-pick);
+  border-radius: var(--radius-sm);
+}
+
+.ui-row[data-density="menu"] {
+  --row-height: var(--row-menu);
+}
+
+.ui-row[data-density="drawer"] {
+  --row-height: var(--row-drawer);
+}
+
+.ui-row:hover {
+  background: var(--color-hover);
+}
+
+.ui-row:is([data-active], [data-selected], [aria-selected="true"], [aria-current="page"]) {
+  color: var(--color-selected-text);
+  background: var(--color-selected);
+}
+
+.ui-row:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}

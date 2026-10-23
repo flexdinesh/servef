@@ -1,6 +1,8 @@
 import { FilesIcon, GitBranchIcon, SearchIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { DialogShell } from "../components/ui/dialog-shell.tsx"
+import { IconButton } from "../components/ui/icon-button.tsx"
 import type { SidebarState, SidebarView } from "./use-sidebar.ts"
 
 const mac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
@@ -34,7 +36,7 @@ export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceContr
   const { drawer, hidden, mobile, view } = sidebar
   // Only the mobile drawer is a dialog; inline, the element is presentational.
   return (
-    <dialog ref={drawer} className="sidebar-drawer explorer-drawer" role={mobile ? undefined : "none"}
+    <DialogShell ref={drawer} variant="drawer" className="sidebar-drawer explorer-drawer" role={mobile ? undefined : "none"}
       aria-label={mobile ? viewNames[view] : undefined}
       onClick={(event) => { if (event.target === drawer.current) sidebar.dismiss() }}>
       <nav className="activity-bar" aria-label="Views">
@@ -42,13 +44,14 @@ export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceContr
           const badge = activity.view === "source-control" && pendingChanges > 0 ? badgeLabel(pendingChanges) : ""
           const label = badge ? `${activity.label}, ${pendingChanges.toLocaleString()} pending ${pendingChanges === 1 ? "change" : "changes"}` : activity.label
           return (
-            <button key={activity.view} type="button" className="activity-item" data-view={activity.view}
-              aria-label={label} aria-pressed={!hidden && view === activity.view}
+            <IconButton key={activity.view} size="bar" className="activity-item" data-view={activity.view}
+              label={label} aria-pressed={!hidden && view === activity.view}
               aria-keyshortcuts={activity.keys} title={`${label} (${activity.shortcut})`}
-              onClick={() => sidebar.select(activity.view)}>
-              {activity.icon}
-              {badge && <span className="activity-badge" aria-hidden="true">{badge}</span>}
-            </button>
+              icon={<>
+                {activity.icon}
+                {badge && <span className="activity-badge" aria-hidden="true">{badge}</span>}
+              </>}
+              onClick={() => sidebar.select(activity.view)} />
           )
         })}
       </nav>
@@ -57,6 +60,6 @@ export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceContr
         <div className="sidebar-view" hidden={view !== "search"}>{search}</div>
         <div className="sidebar-view" hidden={view !== "source-control"}>{sourceControl}</div>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }

@@ -1,0 +1,105 @@
+.source-document {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: auto;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  cursor: text;
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  font-feature-settings: "calt" 1, "zero" 1, "cv02" 1, "cv08" 1, "ss01" 1;
+  font-variant-ligatures: normal;
+  tab-size: 4;
+}
+
+.source-document code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  font: inherit;
+  line-height: var(--source-line-height);
+}
+
+.source-document:focus-visible {
+  outline-offset: -2px;
+}
+
+.source-document-line {
+  display: flex;
+  height: var(--source-line-height);
+}
+
+.source-document-line.active {
+  background: var(--color-surface-secondary);
+}
+
+.source-document-line-number {
+  position: sticky;
+  left: 0;
+  z-index: var(--z-raised);
+  flex: none;
+  box-sizing: border-box;
+  padding: 0 var(--source-gutter-end) 0 var(--source-gutter-start);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.source-document-line.active .source-document-line-number {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.source-document.selecting-lines,
+.source-document.selecting-lines .source-document-line-number {
+  cursor: pointer;
+  user-select: none;
+}
+
+.source-document-line.selected,
+.source-document-line.selected .source-document-line-number {
+  background: var(--color-accent-subtle);
+}
+
+.source-document-line.selected .source-document-line-number {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* The gutter copy keeps a raised surface so it covers the line number. */
+.source-line-copy-button {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+}
+
+.source-document-line-content {
+  min-width: max-content;
+  flex: 1;
+  padding-right: var(--source-line-end);
+  white-space: pre;
+}
+
+/* Ctrl/Cmd over a name: a link to its definition, as in VS Code. */
+.source-document.navigation-linking .source-document-line-content {
+  cursor: pointer;
+}
+
+::highlight(servef-navigation-link) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.source-stack {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.source-stack > .source-document {
+  flex: 1 0 auto;
+}

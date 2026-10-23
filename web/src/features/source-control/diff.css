@@ -1,0 +1,68 @@
+.diff-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.diff-toolbar .document-mode-toggle {
+  margin: 0 0 0 var(--space-1);
+}
+
+/* Phones are always Unified; give the layout group's room to tabs. */
+@media (max-width: 30rem) {
+  .diff-toolbar .diff-layout {
+    display: none;
+  }
+}
+
+.diff-open-file {
+  margin: 0 var(--space-1);
+}
+
+.diff-inline-check {
+  display: inline-grid;
+  width: var(--icon-sm);
+  place-items: center;
+}
+
+.diff-inline-check[data-unchecked] {
+  visibility: hidden;
+}
+
+.diff-inline-check svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+/* Pierre's diff renders in a shadow root; these inherited variables carry
+   servef's tokens and Source type roles across it. */
+.diff-view {
+  --diffs-font-family: var(--font-mono);
+  --diffs-header-font-family: var(--font-sans);
+  --diffs-font-size: var(--text-code);
+  --diffs-line-height: var(--source-line-height);
+  --diffs-addition-color-override: var(--color-success);
+  --diffs-deletion-color-override: var(--color-destructive);
+  --diffs-modified-color-override: var(--color-accent);
+  /* Changed lines mix the status hue into the surface; changed words mix more. */
+  --diffs-bg-addition-emphasis-override: color-mix(in srgb, var(--color-success) 30%, var(--color-surface));
+  --diffs-bg-deletion-emphasis-override: color-mix(in srgb, var(--color-destructive) 30%, var(--color-surface));
+  --diffs-fg-number-override: var(--color-text-muted);
+  --diffs-bg-separator-override: var(--color-surface-secondary);
+  display: block;
+  flex: 1 0 auto;
+}
+
+/* Pierre's gutter utility slot ends at the line number's right edge; the copy
+   button sits inside the number cell, as Pierre's own utility does. */
+.diff-line-copy {
+  position: relative;
+  z-index: var(--z-raised);
+  display: block;
+  height: 100%;
+}
+
+.diff-line-copy .source-line-copy-button {
+  right: 2px;
+  left: auto;
+}

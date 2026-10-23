@@ -1,0 +1,168 @@
+/* Design tokens, in three tiers:
+   1. Theme values: Light and Dark share one light-dark() block that resolves
+      against the root color-scheme (themes.css); named themes override them.
+   2. Semantic roles: surfaces, text, state, type, motion, depth.
+   3. Component tokens: control, icon, and row sizes shared by ui primitives.
+   Raw values live only here and in themes.css. */
+
+@theme {
+  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --color-bg: light-dark(#f8f8f8, #181818);
+  --color-canvas: light-dark(#d4d4d4, #0b0b0b);
+  --color-surface: light-dark(#ffffff, #1f1f1f);
+  --color-surface-secondary: light-dark(#f3f3f3, #181818);
+  --color-surface-raised: light-dark(#ffffff, #252526);
+  --color-text-primary: light-dark(#333333, #e8eaf0);
+  --color-text-secondary: light-dark(#515866, #b2b8c4);
+  --color-text-muted: light-dark(#6d7685, #8992a1);
+  --color-border: light-dark(#e5e5e5, #2b2b2b);
+  --color-border-strong: light-dark(#c5cbd4, #414855);
+  --color-accent: light-dark(#2563eb, #78a8ff);
+  --color-accent-hover: light-dark(#1d4ed8, #9bbfff);
+  --color-accent-subtle: light-dark(#e8efff, #1d3155);
+  --color-on-accent: #ffffff;
+  --color-success: light-dark(#16794b, #62d09b);
+  --color-warning: light-dark(#9a5800, #efb15a);
+  --color-warning-subtle: light-dark(#fff1cf, #3c2d18);
+  --color-destructive: light-dark(#bd3029, #ff827a);
+  --color-destructive-subtle: light-dark(#fff0ef, #422523);
+  --color-overlay: light-dark(rgb(15 18 23 / 48%), rgb(0 0 0 / 62%));
+  --color-syntax-comment: light-dark(#57606a, #8b949e);
+  --color-syntax-keyword: light-dark(#cf222e, #ff7b72);
+  --color-syntax-type: light-dark(#0550ae, #f0883e);
+  --color-syntax-function: light-dark(#6639ba, #d2a8ff);
+  --color-syntax-variable: light-dark(#953800, #79c0ff);
+  --color-syntax-string: light-dark(#0a3069, #a5d6ff);
+  --color-syntax-number: light-dark(#0550ae, #79c0ff);
+  --color-syntax-operator: light-dark(#0550ae, #ff7b72);
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --shadow-control: 0 1px 2px light-dark(rgb(15 18 23 / 8%), rgb(0 0 0 / 24%));
+  --shadow-overlay: 0 1.5rem 4rem light-dark(rgb(15 18 23 / 22%), rgb(0 0 0 / 42%));
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces derived from theme values. Chrome sits halfway between the
+     document surface and the canvas so island edges stay visible. */
+  --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
+
+  /* State roles. Hover and pressed layers are translucent ink, so they read on
+     any surface. Selected rows and pressed toggles share the accent tint. */
+  --color-hover: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  --color-active: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --color-selected: var(--color-accent-subtle);
+  --color-selected-text: var(--color-accent-hover);
+  --color-focus: var(--color-accent);
+  --color-field-bg: var(--color-surface);
+  --color-field-border: var(--color-border-strong);
+
+  /* Spacing scale. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* The Font Size setting. Every size is in rem, so 1rem tracks it; the
+     scale is authored at 13px, where 1rem is 16px. */
+  --font-size-base: 13px;
+
+  /* Type roles on top of the Tailwind scale. */
+  --text-badge: 0.5625rem;
+  --text-metadata: var(--text-xs);
+  --text-label: 0.8125rem;
+  --text-supporting: var(--text-sm);
+  --text-code: 0.8125rem;
+  --reading-width: 75ch;
+  --preview-font-size: 0.875rem;
+  --preview-h1: 1.625rem;
+  --preview-h2: 1.3125rem;
+  --preview-h3: 1.0625rem;
+  --preview-h4: 0.9375rem;
+
+  /* Radius roles. */
+  --radius-island: 0.625rem;
+  --radius-overlay: var(--radius-lg);
+
+  /* Motion. */
+  --duration-fast: 100ms;
+  --duration-base: 120ms;
+  --duration-progress: 800ms;
+  --duration-loop: 1s;
+  --duration-feedback: 1.6s;
+  --duration-instant: 0.01ms;
+  /* Short work finishes before a progress indicator appears. */
+  --delay-progress: 150ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Stacking for non-top-layer floating UI. */
+  --z-raised: 1;
+  --z-sticky: 5;
+  --z-popover: 20;
+  --z-progress: 30;
+  --z-menu: 60;
+
+  /* Component tokens: controls, icons, rows. */
+  --control-xs: 1.25rem;
+  --control-sm: 1.5rem;
+  --control-md: 1.75rem;
+  --control-lg: 2rem;
+  --control-touch: 2.75rem;
+  --icon-xs: 0.75rem;
+  --icon-sm: 0.875rem;
+  --icon-md: 1rem;
+  --icon-lg: 1.125rem;
+  --row-list: 1.375rem;
+  --row-menu: 1.75rem;
+  --row-pick: 2rem;
+  --row-drawer: 2rem;
+  --chrome-height: var(--control-lg);
+  --field-height: var(--control-md);
+  --status-height: var(--control-md);
+
+  /* Source rows and gutter geometry (Pierre and the copy control align to it). */
+  --source-line-height: 1.375rem;
+  --source-gutter-start: 22px;
+  --source-gutter-end: 14px;
+  --source-line-end: 40px;
+  --checker-size: 16px;
+  --separator-hit: 5px;
+  --border-quote: 3px;
+  /* Masks read alpha only. */
+  --mask-opaque: black;
+
+  /* Workspace layout. */
+  --sidebar-width: 18rem;
+  --activity-width: 2.5rem;
+  --workspace-inset: 0.375rem;
+  --workspace-gap: 0.375rem;
+}
+
+@media (max-width: 48rem) {
+  :root {
+    --workspace-inset: var(--space-1);
+    --preview-font-size: 0.9375rem;
+    --status-height: var(--control-touch);
+    --activity-width: var(--chrome-height);
+    --row-list: 2rem;
+    --row-pick: var(--control-touch);
+    --row-menu: var(--control-touch);
+  }
+}

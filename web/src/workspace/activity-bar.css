@@ -1,0 +1,66 @@
+.activity-bar {
+  --bar-size: var(--activity-width);
+  display: flex;
+  width: var(--activity-width);
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-workspace-chrome);
+}
+
+/* Items are bar icon buttons whose state layers sit on an inset tile. */
+.activity-item {
+  --icon-button-glyph: var(--icon-lg);
+  position: relative;
+  background: transparent;
+}
+
+.activity-item svg {
+  position: relative;
+  stroke-width: 1.75;
+}
+
+.activity-item[aria-pressed="true"] {
+  color: var(--color-text-primary);
+}
+
+.activity-item::before {
+  position: absolute;
+  inset: var(--space-1);
+  border-radius: var(--radius-md);
+  content: "";
+}
+
+.activity-item:hover::before {
+  background: var(--color-hover);
+}
+
+.activity-item:active::before {
+  background: var(--color-active);
+}
+
+.activity-item[aria-pressed="true"]::before {
+  background: var(--color-surface);
+}
+
+/* Pending-change count at the tile's lower right, as in VS Code. Surface text
+   keeps contrast on the accent in every theme. */
+.activity-badge {
+  position: absolute;
+  top: calc(50% + 0.0625rem);
+  left: calc(50% + 0.0625rem);
+  min-width: 0.875rem;
+  height: 0.875rem;
+  padding: 0 0.1875rem;
+  border-radius: var(--radius-lg);
+  color: var(--color-surface);
+  background: var(--color-accent);
+  /* VS Code's 9px badge; the type ramp starts at 12px, too large for the tile. */
+  font-size: var(--text-badge);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.875rem;
+  text-align: center;
+  pointer-events: none;
+}

@@ -1,0 +1,104 @@
+.buffer-tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  column-gap: calc(var(--space-1) / 2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-workspace-chrome);
+  scrollbar-width: none;
+}
+
+.buffer-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.buffer-tab {
+  --tab-radius: var(--radius-lg);
+  position: relative;
+  display: flex;
+  max-width: 12.5rem;
+  flex: none;
+  align-items: center;
+  margin-top: var(--space-1);
+  border-radius: var(--tab-radius) var(--tab-radius) 0 0;
+  color: var(--color-text-secondary);
+  background: var(--color-workspace-chrome);
+}
+
+.buffer-tab:hover {
+  color: var(--color-text-primary);
+  background-image: linear-gradient(var(--color-hover), var(--color-hover));
+}
+
+.buffer-tab.active {
+  z-index: var(--z-raised);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.buffer-tab:not(.active)::after {
+  position: absolute;
+  inset: var(--space-2) 0 var(--space-2) auto;
+  width: 1px;
+  background: var(--color-border);
+  content: "";
+}
+
+.buffer-tab:has(+ .buffer-tab.active)::after {
+  display: none;
+}
+
+/* Concave shoulders join the selected tab to the document surface. */
+.buffer-tab.active::before,
+.buffer-tab.active::after {
+  position: absolute;
+  bottom: 0;
+  width: var(--tab-radius);
+  height: var(--tab-radius);
+  background: var(--color-surface);
+  content: "";
+  pointer-events: none;
+}
+
+.buffer-tab.active::before {
+  right: 100%;
+  mask-image: radial-gradient(circle at 0 0, transparent var(--tab-radius), var(--mask-opaque) calc(var(--tab-radius) + 0.5px));
+}
+
+.buffer-tab.active::after {
+  left: 100%;
+  mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), var(--mask-opaque) calc(var(--tab-radius) + 0.5px));
+}
+
+/* The tab owns hover; the target and close action only lay out inside it. */
+.buffer-tab-target {
+  min-width: 0;
+  height: 100%;
+  flex: 0 1 auto;
+  gap: var(--space-1);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  color: inherit;
+  background-image: none;
+  font-size: var(--text-label);
+}
+
+.buffer-tab-target:focus-visible {
+  outline-offset: -1px;
+}
+
+.buffer-tab-target > svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  color: var(--color-text-secondary);
+}
+
+.buffer-tab-target > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buffer-tab-close {
+  margin-right: var(--space-1);
+}

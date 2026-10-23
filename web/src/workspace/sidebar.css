@@ -1,0 +1,54 @@
+/* Activity bar and sidebar share one island; mobile opens it as a modal
+   drawer. */
+.sidebar-drawer:not([open]) {
+  position: static;
+  display: flex;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-island);
+  box-shadow: none;
+}
+
+.sidebar,
+.sidebar-view {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-secondary);
+}
+
+.sidebar-view {
+  flex: 1;
+}
+
+.sidebar {
+  flex: 1;
+}
+
+.sidebar[hidden],
+.sidebar-view[hidden],
+.search-details[hidden] {
+  display: none;
+}
+
+.sidebar-view > .file-explorer {
+  flex: 1;
+}
+
+@media (max-width: 48rem) {
+  .sidebar-drawer:not([open]) {
+    display: none;
+  }
+
+  .sidebar-drawer[open] {
+    display: flex;
+  }
+}

@@ -1,0 +1,292 @@
+.status-bar {
+  /* Metadata needs stronger contrast on the canvas than inside the panels. */
+  --color-text-muted: var(--color-text-secondary);
+  display: grid;
+  grid-template-columns: calc(var(--workspace-inset) + var(--activity-width) + var(--sidebar-width) + var(--workspace-gap)) minmax(0, 1fr);
+  min-width: 0;
+  align-items: center;
+  --bar-size: var(--status-height);
+  color: var(--color-text-muted);
+  background: var(--color-canvas);
+  height: calc(var(--status-height) + var(--workspace-inset));
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.status-explorer,
+.status-document {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+}
+
+.status-explorer {
+  padding-left: calc(var(--workspace-inset) + var(--space-3));
+}
+
+.status-state {
+  /* Status hues blend toward text so labels keep contrast on the deeper canvas. */
+  color: color-mix(in srgb, var(--color-success), var(--color-text-primary) 30%);
+}
+
+.status-state.loading {
+  color: color-mix(in srgb, var(--color-warning), var(--color-text-primary) 30%);
+}
+
+.status-path {
+  min-width: 0;
+  max-width: 22rem;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+}
+
+.status-grow {
+  flex: 1;
+}
+
+.status-document-detail,
+.status-diff-stats {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.status-lines {
+  font-variant-numeric: tabular-nums;
+}
+
+.status-copy-path {
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.status-settings {
+  margin-right: calc(-1 * var(--space-2));
+}
+
+@media (max-width: 48rem) {
+  .status-bar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .status-explorer,
+  .status-document {
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+  }
+
+  .status-document {
+    gap: var(--space-1);
+  }
+
+  .status-document-detail,
+  .status-lines,
+  .status-file-size,
+  .status-file-type,
+  .status-file-count,
+  .status-search kbd,
+  .status-process {
+    display: none;
+  }
+
+  .status-navigation {
+    display: block;
+  }
+
+  .status-navigation .status-navigation-panel {
+    position: fixed;
+    right: var(--space-2);
+    bottom: calc(var(--status-height) + var(--workspace-inset) + var(--space-1));
+    left: auto;
+    width: calc(100vw - var(--space-4));
+    max-height: calc(100dvh - var(--status-height) - var(--workspace-inset) - var(--space-4));
+    overflow: auto;
+  }
+
+  .status-navigation-panel {
+    --icon-button-min: var(--control-touch);
+  }
+
+  .status-navigation .navigation-status-actions > a {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
+  .status-search {
+    width: var(--status-height);
+    min-height: var(--status-height);
+    justify-content: center;
+    padding: 0;
+  }
+
+  .status-search span {
+    display: none;
+  }
+
+  /* Narrower than the band so the document actions fit a 320px screen. */
+  .status-copy-path {
+    width: calc(var(--control-lg) + var(--space-1));
+    margin-left: calc(-1 * var(--space-1));
+  }
+
+  .status-settings {
+    margin-right: calc(-1 * var(--space-1));
+  }
+}
+
+.status-brand {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Band items fill the status height, square and flush like the bar icon buttons. */
+.status-search {
+  height: var(--status-height);
+  gap: var(--space-2);
+  border-radius: 0;
+  font-weight: 400;
+}
+
+.status-search:focus-visible {
+  outline-width: 1px;
+  outline-offset: -1px;
+}
+
+.status-process summary:hover {
+  background: var(--color-hover);
+}
+
+.status-process summary:active {
+  background: var(--color-active);
+}
+
+.status-process summary:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.search-field svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+}
+
+.status-search kbd {
+  color: var(--color-text-muted);
+  font: inherit;
+}
+
+.status-process {
+  position: relative;
+}
+
+.status-process summary {
+  display: flex;
+  height: var(--status-height);
+  align-items: center;
+  padding: 0 var(--space-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.status-process summary::-webkit-details-marker {
+  display: none;
+}
+
+.status-state.failed {
+  color: color-mix(in srgb, var(--color-destructive), var(--color-text-primary) 30%);
+}
+
+.status-process-panel {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 0;
+  z-index: var(--z-popover);
+  min-width: 15rem;
+  padding: var(--space-3);
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.status-process-panel p {
+  margin: var(--space-2) 0 0;
+}
+
+.status-process-panel span {
+  display: block;
+}
+
+.status-navigation summary {
+  color: var(--color-text-muted);
+}
+
+.status-navigation summary[data-state="ready"],
+.status-navigation summary[data-state="stopped"] {
+  color: var(--color-text-primary);
+}
+
+.status-navigation summary[data-state="failed"] {
+  color: color-mix(in srgb, var(--color-destructive), var(--color-text-primary) 30%);
+}
+
+.status-navigation-panel {
+  right: 0;
+  left: auto;
+  width: min(26rem, calc(100vw - var(--space-4)));
+}
+
+.navigation-installs {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navigation-install {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.status-process-panel .navigation-install-label {
+  display: inline;
+  color: var(--color-text-muted);
+}
+
+.navigation-install code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+}
+
+.navigation-install-prerequisites {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+.navigation-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.navigation-status-actions a {
+  color: var(--color-accent);
+}
+
+.navigation-status-actions a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}

@@ -1,0 +1,51 @@
+.ui-progress {
+  position: relative;
+  height: 2px;
+  flex: none;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) ease-out;
+}
+
+.ui-progress[data-variant="edge"] {
+  /* Overlays the divider so activity reads on the boundary itself. */
+  margin-top: -1px;
+}
+
+.ui-progress[data-variant="page"] {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: var(--z-progress);
+}
+
+.ui-progress::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  content: "";
+  background: var(--color-accent);
+}
+
+.ui-progress[data-active] {
+  opacity: 1;
+  transition-delay: var(--delay-progress);
+}
+
+.ui-progress[data-active]::before {
+  animation: ui-progress var(--duration-loop) var(--ease-out-expo) infinite;
+}
+
+@keyframes ui-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-progress[data-active]::before {
+    width: 100%;
+    animation: none;
+  }
+}

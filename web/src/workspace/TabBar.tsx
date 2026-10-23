@@ -3,8 +3,10 @@ import { XIcon } from "lucide-react"
 import { useEffect, useRef, type KeyboardEvent } from "react"
 
 import { FileIcon } from "../components/FileIcon.tsx"
+import { Button } from "../components/ui/button.tsx"
+import { IconButton } from "../components/ui/icon-button.tsx"
+import { menuItemClass, menuPopupClass, menuPositionerClass, menuSeparatorClass } from "../components/ui/menu.ts"
 import { includesTab, sameTab, tabKey, type TabName, type WorkspaceTab } from "./workspace-tabs.ts"
-import "./tab-menu.css"
 
 interface TabBarProps {
   active: WorkspaceTab | null
@@ -83,9 +85,10 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
         return (
           <ContextMenu.Root key={tabKey(tab)}>
             <ContextMenu.Trigger className={`buffer-tab${selected ? " active" : ""}`}>
-              <button
+              <Button
                 className="buffer-tab-target"
-                type="button"
+                variant="ghost"
+                size="inline"
                 role="tab"
                 data-tab={tabKey(tab)}
                 aria-haspopup="menu"
@@ -97,34 +100,32 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
               >
                 <FileIcon path={tab.path} />
                 <span>{name}</span>
-              </button>
-              <button
+              </Button>
+              <IconButton
                 className="buffer-tab-close"
-                type="button"
-                aria-label={`Close ${title}`}
-                title={`Close ${title}`}
+                size="xs"
+                label={`Close ${title}`}
+                icon={<XIcon aria-hidden="true" />}
                 onClick={() => onClose(tab)}
-              >
-                <XIcon aria-hidden="true" />
-              </button>
+              />
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
-              <ContextMenu.Positioner className="tab-menu-positioner" sideOffset={2}>
-                <ContextMenu.Popup className="tab-menu" aria-label={`Tab actions for ${name}`}
+              <ContextMenu.Positioner className={menuPositionerClass} sideOffset={2}>
+                <ContextMenu.Popup className={menuPopupClass} aria-label={`Tab actions for ${name}`}
                   finalFocus={() => focusTab(tab)}>
-                  <ContextMenu.Item className="tab-menu-item" onClick={() => closeFromMenu([tab], tab)}>
+                  <ContextMenu.Item className={menuItemClass} onClick={() => closeFromMenu([tab], tab)}>
                     Close
                   </ContextMenu.Item>
-                  <ContextMenu.Item className="tab-menu-item" disabled={tabs.length < 2}
+                  <ContextMenu.Item className={menuItemClass} disabled={tabs.length < 2}
                     onClick={() => closeFromMenu(tabs.filter((entry) => !sameTab(entry, tab)), tab)}>
                     Close Others
                   </ContextMenu.Item>
-                  <ContextMenu.Item className="tab-menu-item" disabled={index === tabs.length - 1}
+                  <ContextMenu.Item className={menuItemClass} disabled={index === tabs.length - 1}
                     onClick={() => closeFromMenu(tabs.slice(index + 1), tab)}>
                     Close to the Right
                   </ContextMenu.Item>
-                  <ContextMenu.Separator className="tab-menu-separator" />
-                  <ContextMenu.Item className="tab-menu-item" onClick={() => closeFromMenu(tabs, tab)}>
+                  <ContextMenu.Separator className={menuSeparatorClass} />
+                  <ContextMenu.Item className={menuItemClass} onClick={() => closeFromMenu(tabs, tab)}>
                     Close All
                   </ContextMenu.Item>
                 </ContextMenu.Popup>

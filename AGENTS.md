@@ -17,7 +17,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
 - `internal/web/` owns indexed-file reads, HTTP routing, the local-Host check, and transport contracts. Every JSON error is `errorResponse` (`{error, code?}`). Delegate format behavior to document handlers.
 - `internal/control/` owns authenticated discovery and shutdown of local servef processes; `internal/browser/` opens the browser; `internal/version/` reports the build version.
-- Frontend source: `web/`. `web/src/` keeps `main.tsx`, `router.tsx`, `App.tsx` (composition only), and `style.css` at its root; `api/` holds the HTTP adapter (`http.ts`), transport contracts, and data adapters; `features/<feature>/` holds each feature's views, hooks, and pure logic; `highlighting/` is shared by documents and diffs; `workspace/` holds tabs, memory, sidebar, status bar, and palette; `settings/` holds settings and their providers; `lib/` holds shared helpers.
+- Frontend source: `web/`. `web/src/` keeps `main.tsx`, `router.tsx`, `App.tsx` (composition only), and `style.css` (import manifest and cascade layers only) at its root; `styles/` holds tokens, themes, base, layout, and print CSS; `components/ui/` holds the UI primitives; `gallery/` is the dev-only primitive gallery (`/__ui` in `pnpm dev:mock`); `api/` holds the HTTP adapter (`http.ts`), transport contracts, and data adapters; `features/<feature>/` holds each feature's views, hooks, and pure logic; `highlighting/` is shared by documents and diffs; `workspace/` holds tabs, memory, sidebar, status bar, and palette; `settings/` holds settings and their providers; `lib/` holds shared helpers.
 - Every API read goes through `fetchJSON` in `web/src/api/http.ts`, which turns network, non-JSON, server-rejected, and invalid responses into user-facing errors.
 - React owns interaction and presentation. Use server metadata for file families and view capabilities; never duplicate extension detection in the UI.
 - User docs site: `site/` (Vocs, static, build-time only; `docs/decisions/0026-vocs-user-docs-site.md`). Contributor docs stay in `docs/`.
@@ -40,6 +40,7 @@ Key files:
 | Syntax highlighting | `web/src/highlighting/` (`syntax-highlight.ts` pure rows, `syntax-theme.ts`, `highlights-loader.ts`, `highlight-thread.ts`, `source-highlighter.ts`, `highlight-worker.ts`, `use-highlighted-lines.ts`), `web/src/features/documents/DocumentPreview.tsx` (fences), `docs/decisions/0029-highlights-syntax-highlighting.md` |
 | Code navigation | `internal/lsp/`, `internal/web/navigation.go`, `web/src/features/navigation/code-navigation.ts` (pure), `use-code-navigation.ts`, `source-position.ts`, `NavigationDialog.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
 | Language servers | `internal/lsp/` (`servers.go` data, `manager.go`, `client.go`, `lsptest/` fake), `internal/web/navigation.go` (`/api/navigation-status`), `web/src/features/navigation/navigation-status.ts` (pure), `use-navigation-status.ts`, `NavigationStatusPanel.tsx`, `docs/decisions/0018-lsp-only-navigation.md` |
+| Design system | `web/src/styles/tokens.css`, `themes.css`, `web/src/style.css` (manifest), `web/src/components/ui/`, `web/src/gallery/`, `web/.oxlintrc.json`, `web/stylelint.config.mjs`, `DESIGN.md`, `docs/decisions/0033-design-tokens-and-ui-primitives.md` |
 | Explorer filter | `web/src/features/explorer/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
 
 ## Patterns
@@ -129,7 +130,9 @@ For every addition:
 
 - Make minimal, surgical changes.
 - Preserve strict TypeScript safety: no `any`, non-null assertions, or type assertions.
-- Keep shared UI primitives in `web/src/components/ui/`; shadcn-generated code must follow `DESIGN.md` and repository type-safety rules.
+- Build UI from the primitives in `web/src/components/ui/` (decision 0033). They are hand-owned React components with co-located CSS in `layer(ui)`; add a missing capability to the primitive instead of forking it in a feature. Never use raw `button`, `input`, `select`, `textarea`, or `dialog` outside `components/ui/`.
+- Co-locate each feature's CSS beside it and import it from `style.css` in `layer(features)`. Use tokens from `web/src/styles/tokens.css`: no color literals, raw font sizes, radii, z-indexes, durations, or px above 2. Tailwind stays for its theme and utilities; primitives do not use Tailwind classes.
+- `pnpm lint` runs oxlint (Hooks rules, primitive-only elements) and stylelint (tokens only); both must report nothing.
 - Format Go with `gofmt`; test behavior, not implementation details.
 
 ## Iteration

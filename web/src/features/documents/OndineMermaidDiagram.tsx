@@ -1,8 +1,11 @@
 import { Maximize2Icon, RotateCcwIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react"
 import { use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react"
+import { createPortal } from "react-dom"
 import type { Render } from "ondine/compiler/wasm"
 
-import { Button } from "../../components/ui/button.tsx"
+import { DialogShell } from "../../components/ui/dialog-shell.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { ViewHeader } from "../../components/ui/view-header.tsx"
 import {
   diagramZoomStep,
   fitDiagramView,
@@ -86,21 +89,18 @@ export default function OndineMermaidDiagram({ source }: { source: string }) {
         <div className="mermaid-diagram">
           <DiagramSVG className="mermaid-svg" svg={rendered.diagram.svg} />
           <div className="mermaid-diagram-controls">
-            <Button
-              aria-label="Expand diagram"
-              className="size-6 rounded-md p-0"
+            <IconButton
+              label="Expand diagram"
+              icon={<Maximize2Icon aria-hidden="true" />}
               onClick={() => setExpanded(true)}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <Maximize2Icon aria-hidden="true" className="size-3" />
-            </Button>
+            />
           </div>
         </div>
       )}
-      {expandedDiagram !== null && "diagram" in expandedDiagram && (
-        <MermaidDiagramDialog diagram={expandedDiagram.diagram} onClose={() => setExpanded(false)} />
+      {/* The dialog renders outside the article so prose styles stay off its chrome. */}
+      {expandedDiagram !== null && "diagram" in expandedDiagram && createPortal(
+        <MermaidDiagramDialog diagram={expandedDiagram.diagram} onClose={() => setExpanded(false)} />,
+        document.body,
       )}
     </div>
   )
@@ -167,31 +167,27 @@ function MermaidDiagramDialog({ diagram, onClose }: MermaidDiagramDialogProps) {
   const endDrag = () => { drag.current = null }
 
   return (
-    <dialog
+    <DialogShell
       ref={dialog}
+      variant="viewer"
       className="mermaid-dialog"
       aria-label="Mermaid diagram"
       onClick={(event) => { if (event.target === dialog.current) dialog.current.close() }}
       onClose={onClose}
     >
       <div className="mermaid-dialog-shell">
-        <header className="mermaid-dialog-header">
+        <ViewHeader
+          variant="dialog"
+          title="Mermaid diagram"
+          actions={<>
+            <IconButton label="Zoom out" icon={<ZoomOutIcon aria-hidden="true" />} onClick={() => zoomBy(1 / diagramZoomStep)} />
+            <IconButton label="Zoom in" icon={<ZoomInIcon aria-hidden="true" />} onClick={() => zoomBy(diagramZoomStep)} />
+            <IconButton label="Reset zoom" icon={<RotateCcwIcon aria-hidden="true" />} onClick={fit} />
+            <IconButton label="Close diagram" icon={<XIcon aria-hidden="true" />} onClick={() => dialog.current?.close()} />
+          </>}
+        >
           <span className="mermaid-dialog-zoom" role="status">{view ? `${Math.round(view.zoom * 100)}%` : ""}</span>
-          <div className="mermaid-dialog-tools">
-            <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / diagramZoomStep)}>
-              <ZoomOutIcon aria-hidden="true" />
-            </button>
-            <button type="button" aria-label="Zoom in" onClick={() => zoomBy(diagramZoomStep)}>
-              <ZoomInIcon aria-hidden="true" />
-            </button>
-            <button type="button" aria-label="Reset zoom" onClick={fit}>
-              <RotateCcwIcon aria-hidden="true" />
-            </button>
-            <button type="button" aria-label="Close diagram" onClick={() => dialog.current?.close()}>
-              <XIcon aria-hidden="true" />
-            </button>
-          </div>
-        </header>
+        </ViewHeader>
         <div
           ref={viewport}
           className="mermaid-viewer"
@@ -208,6 +204,6 @@ function MermaidDiagramDialog({ diagram, onClose }: MermaidDiagramDialogProps) {
           </div>
         </div>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }
