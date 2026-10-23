@@ -39,9 +39,11 @@ type App struct {
 	roots    []string
 	metrics  metricsCollector
 	openFile func(string) (fs.File, error)
-	shell    string
-	servers  *lsp.Manager
-	routes   *http.ServeMux
+	// statsBudget bounds the bytes one compare-stats request reads.
+	statsBudget int64
+	shell       string
+	servers     *lsp.Manager
+	routes      *http.ServeMux
 }
 
 // errorResponse is every JSON error body. Code, when set, names a failure
@@ -87,7 +89,7 @@ func New(config Config) (*App, error) {
 	if err := checkLanguageServers(config.LanguageServers.Servers(), config.Types); err != nil {
 		return nil, err
 	}
-	app := &App{config: config, roots: roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers}
+	app := &App{config: config, roots: roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers}
 	app.routes = app.newRoutes()
 	return app, nil
 }

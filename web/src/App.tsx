@@ -32,17 +32,26 @@ import type { SearchMatch } from "./features/search/search-engine.ts"
 import { SearchView } from "./features/search/SearchView.tsx"
 import { Sidebar } from "./workspace/Sidebar.tsx"
 import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
-import { DiffDocument, type HunkStep } from "./features/source-control/DiffDocument.tsx"
+import { ReviewDocument, type HunkStep, type ReviewStatus } from "./features/source-control/ReviewDocument.tsx"
 import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
-import { diffStats } from "./features/source-control/diff-stats.ts"
+import type { CollapseRequest } from "./features/source-control/FilesTree.tsx"
+import {
+  compareKey, compareSearch, isLiveCompare, parseReviewFragment, reviewFragment, routeCompare, sameCompare, workingCompare,
+  type Compare, type CompareContext,
+} from "./features/source-control/compare.ts"
 import { useChanges } from "./features/source-control/use-changes.ts"
 import { useCommits } from "./features/source-control/use-commits.ts"
-import { useDiffTab } from "./features/source-control/use-diff-tab.ts"
+import { useCompareData } from "./features/source-control/use-compare-data.ts"
+import { useDiffOptions } from "./features/source-control/use-diff-options.ts"
+import { useRefs } from "./features/source-control/use-refs.ts"
+import { useReviewViewed } from "./features/source-control/use-review-viewed.ts"
 import { releaseHighlightResources } from "./highlighting/use-highlighted-lines.ts"
-import { releaseDiffResources } from "./features/source-control/use-parsed-diff.ts"
+import { releaseReviewDiffs } from "./features/source-control/review-diffs.ts"
 import { useSourceControlLayout } from "./features/source-control/use-source-control-layout.ts"
+import { filePaths } from "./api/page-data.ts"
+import { isCommitHash } from "./lib/commit-hash.ts"
 import {
-  documentTab, includesTab, isCommitHash, routeDiffTab, tabName, tabSearch, type WorkspaceTab,
+  documentTab, includesTab, reviewTab, tabName, tabSearch, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
@@ -56,7 +65,8 @@ import { useCodeNavigation } from "./features/navigation/use-code-navigation.ts"
 import { useNavigationStatus } from "./features/navigation/use-navigation-status.ts"
 import { useSettings } from "./settings/SettingsProvider.tsx"
 import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
-import { StatusBar } from "./workspace/StatusBar.tsx"
+import { StatusBar, type DiffStatus } from "./workspace/StatusBar.tsx"
+import type { CompareData } from "./features/source-control/use-compare-data.ts"
 import { TabBar } from "./workspace/TabBar.tsx"
 import { useDocumentFormats } from "./features/documents/use-document-format.ts"
 import { useDelayedFlag } from "./lib/use-delayed-flag.ts"
@@ -68,11 +78,24 @@ import { useProjectMemory } from "./workspace/use-project-memory.ts"
 import { useSearchSession } from "./features/search/use-search-session.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
 
-// routeTab is the tab a route shows: a diff of any kind, or a document, else
-// none.
-function routeTab(diff: WorkspaceTab | null, documentPath: string): WorkspaceTab | null {
-  if (diff) return diff
+// routeTab is the tab a route shows: a review, or a document, else none.
+function routeTab(review: WorkspaceTab | null, documentPath: string): WorkspaceTab | null {
+  if (review) return review
   return documentPath ? documentTab(documentPath) : null
+}
+
+// reviewStatusBar describes the review's file in view, or the one holding
+// selected lines.
+function reviewStatusBar(status: ReviewStatus | null, currentFile: string, data: CompareData | null): DiffStatus | undefined {
+  const path = status?.path ?? currentFile
+  if (!path) return undefined
+  const stats = data?.stats?.byPath.get(path)
+  return {
+    path,
+    lines: status?.target ?? null,
+    stats: stats?.status === "counted" ? { additions: stats.additions, deletions: stats.deletions } : null,
+    typeLabel: status?.typeLabel ?? "",
+  }
 }
 
 function initialPage(result: PageLoadResult): PageData | null {
@@ -101,18 +124,20 @@ export function App({ project }: AppProps) {
   const isLoading = useRouterState({ select: (state) => state.isLoading })
   const hash = useRouterState({ select: (state) => state.location.hash })
   const lineRange = parseLineAnchor(hash)
-  // A diff tab routes as /view?path=…&diff=1, a commit diff tab as
-  // &commit=<hash>, a branch diff as &branch=1, and a range diff as
-  // &from=<hash>&to=<hash>; their page carries only the tree.
+  // A review tab routes without a path as /view?review=working,
+  // ?review=branch (&base=), ?commit=<hash>, or ?from=<hash>&to=<hash>; its
+  // page carries only the tree, and #f=<path> names the file in view.
   const searchPath = useSearch({ strict: false, select: (search) => typeof search.path === "string" ? search.path : "" })
-  const searchDiff = useSearch({ strict: false, select: (search) => search.diff === 1 })
+  const searchReview = useSearch({ strict: false, select: (search) => search.review === "working" || search.review === "branch" ? search.review : "" })
+  const searchBase = useSearch({ strict: false, select: (search) => typeof search.base === "string" ? search.base : "" })
   const searchCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) ? search.commit : "" })
-  const searchBranch = useSearch({ strict: false, select: (search) => search.branch === 1 })
   const searchFrom = useSearch({ strict: false, select: (search) => isCommitHash(search.from) ? search.from : "" })
   const searchTo = useSearch({ strict: false, select: (search) => isCommitHash(search.to) ? search.to : "" })
-  const diffRoute = useMemo(() => routeDiffTab({
-    path: searchPath, diff: searchDiff ? 1 : undefined, commit: searchCommit, branch: searchBranch ? 1 : undefined, from: searchFrom, to: searchTo,
-  }), [searchBranch, searchCommit, searchDiff, searchFrom, searchPath, searchTo])
+  const reviewRoute = useMemo(() => {
+    const compare = routeCompare({ path: searchPath, review: searchReview, base: searchBase, commit: searchCommit, from: searchFrom, to: searchTo })
+    return compare ? reviewTab(compare) : null
+  }, [searchBase, searchCommit, searchFrom, searchPath, searchReview, searchTo])
+  const reviewCompare = reviewRoute?.kind === "review" ? reviewRoute.compare : null
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
@@ -153,9 +178,12 @@ export function App({ project }: AppProps) {
   const revealExplorer = useCallback(() => revealSidebar("explorer"), [revealSidebar])
   const revealSearch = useCallback(() => revealSidebar("search"), [revealSidebar])
   const sourceControlActive = !sidebar.hidden && sidebar.view === "source-control"
-  const changes = useChanges(project, sourceControlActive)
-  const sourceControlLayout = useSourceControlLayout()
-  const commits = useCommits(project, sourceControlActive, sourceControlLayout.range)
+  // A live review rereads its compare like an open Source Control view.
+  const reviewLive = reviewCompare !== null && isLiveCompare(reviewCompare)
+  const changes = useChanges(project, sourceControlActive || reviewCompare?.kind === "working")
+  const sourceControlLayout = useSourceControlLayout(project)
+  const commits = useCommits(project, sourceControlActive || reviewLive, sourceControlLayout.range, sourceControlLayout.base)
+  const refs = useRefs(project)
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
 
@@ -164,9 +192,9 @@ export function App({ project }: AppProps) {
   const loadError = result?.kind === "failure" ? result.message : ""
   const routedPage = result?.kind === "page" ? result.page : null
   const routedDocument = routedPage?.hasFile ? routedPage.selected : ""
-  const routedTab = useMemo(() => routeTab(diffRoute, routedDocument), [diffRoute, routedDocument])
+  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument), [reviewRoute, routedDocument])
   const activeDocument = page.hasFile ? page.selected : ""
-  const activeTab = useMemo(() => routeTab(diffRoute, activeDocument), [activeDocument, diffRoute])
+  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument), [activeDocument, reviewRoute])
   const workspace = useDocumentWorkspace(routedTab)
   const { setDocumentMode } = workspace
   const previewPreference = usePreviewPreference(project)
@@ -196,32 +224,71 @@ export function App({ project }: AppProps) {
     if (needsFormat) requestFormat(page.selected, page.source)
   }, [needsFormat, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
-    forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError)
+    forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError,
+    reviewCompare ? compareKey(reviewCompare) : "")
 
-  // The open diff tab and opening diff tabs from Source Control.
-  const diff = useDiffTab({
-    project, tab: diffRoute, changes, tree: page.tree, hash, narrow: sidebar.mobile, main, prepareDocumentNavigation,
-  })
-  const { isDeleted, openDiff, openHistoryDiff } = diff
-  const hasDiffTabs = workspace.tabs.some((tab) => tab.kind !== "document")
-  // Closing the last diff tab frees its workers and caches until the next one.
+  // Source Control's selection: the compare its Files pane shows. It follows
+  // the open review; until chosen it is the uncommitted changes when there
+  // are any, else the branch.
+  const [chosen, setChosen] = useState<Compare | null>(null)
+  const [followed, setFollowed] = useState("")
+  const reviewKey = reviewCompare ? compareKey(reviewCompare) : ""
+  if (reviewKey !== followed) {
+    setFollowed(reviewKey)
+    if (reviewCompare) setChosen(reviewCompare)
+  }
+  const branchCompare = useMemo((): Compare => ({ kind: "branch", base: sourceControlLayout.base }), [sourceControlLayout.base])
+  const selection = chosen ?? (changes.result && changes.result.files.length === 0 ? branchCompare : workingCompare)
+  const selectionData = useCompareData(project, selection, changes, commits)
+  const reviewData = useCompareData(project, reviewCompare, changes, commits)
+  const diffOptions = useDiffOptions()
+  const viewed = useReviewViewed(project)
+  const fragment = reviewCompare ? parseReviewFragment(hash) : null
+  const [currentFile, setCurrentFile] = useState("")
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null)
+  const [expandRequest, setExpandRequest] = useState<CollapseRequest | null>(null)
+  const [anyFileExpanded, setAnyFileExpanded] = useState(true)
+  const treeFiles = useMemo(() => new Set(filePaths(page.tree)), [page.tree])
+
+  // openReview opens a compare's review tab; focusDocument moves focus to it.
+  const openReview = useCallback((compare: Compare, focusDocument: boolean, path = "") => {
+    if (reviewCompare && sameCompare(compare, reviewCompare) && !path) {
+      if (focusDocument) main.current?.focus({ preventScroll: true })
+      return
+    }
+    if (focusDocument) prepareDocumentNavigation()
+    void navigate({ to: "/view", search: { project, ...compareSearch(compare) }, hash: path ? reviewFragment(path) : "",
+      replace: Boolean(reviewCompare && sameCompare(compare, reviewCompare)) })
+    if (focusDocument && reviewCompare && sameCompare(compare, reviewCompare)) main.current?.focus({ preventScroll: true })
+  }, [main, navigate, prepareDocumentNavigation, project, reviewCompare])
+  const selectReviewLines = useCallback((path: string, lines: Parameters<typeof reviewFragment>[1]) => {
+    if (!reviewCompare) return
+    void navigate({ to: "/view", search: { project, ...compareSearch(reviewCompare) }, hash: reviewFragment(path, lines), replace: true })
+  }, [navigate, project, reviewCompare])
+  const hasReviewTabs = workspace.tabs.some((tab) => tab.kind === "review")
+  // Closing the last review tab frees its workers and caches until the next one.
   useEffect(() => {
-    if (!hasDiffTabs) releaseDiffResources()
-  }, [hasDiffTabs])
+    if (!hasReviewTabs) releaseReviewDiffs()
+  }, [hasReviewTabs])
   // Closing the last tab frees the Source highlight worker the same way.
   const hasTabs = workspace.tabs.length > 0
   useEffect(() => {
     if (!hasTabs) releaseHighlightResources()
   }, [hasTabs])
-  // Branch tabs name the base once Source Control has read it.
-  const branchBase = commits.branch.result?.base || commits.result?.base || ""
-  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, tab.kind === "diff" && isDeleted(tab.path), branchBase), [branchBase, isDeleted])
+  // Branch tabs name the base once Source Control has read it; commit tabs
+  // their subject once listed.
+  const defaultBase = commits.branches.get("")?.result?.base || (sourceControlLayout.base ? "" : commits.result?.base) || ""
+  const listed = commits.result?.commits
+  const compareContext = useMemo((): CompareContext => ({
+    base: defaultBase,
+    subject: (hash) => listed?.find((commit) => commit.hash === hash)?.subject ?? "",
+  }), [defaultBase, listed])
+  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, compareContext), [compareContext])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
   const selectTab = useCallback((tab: WorkspaceTab) => {
     if (tab.kind === "document") navigateToDocument(tab.path)
-    else if (tab.kind === "diff") openDiff(tab.path, true)
-    else openHistoryDiff(tab, true)
-  }, [navigateToDocument, openDiff, openHistoryDiff])
+    else openReview(tab.compare, true)
+  }, [navigateToDocument, openReview])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
@@ -336,9 +403,12 @@ export function App({ project }: AppProps) {
           />}
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
-          sourceControl={<SourceControlView changes={changes} commits={commits} layout={sourceControlLayout}
-            activePath={diff.working ? diff.path : ""} activeHistory={diff.activeHistory} mobile={sidebar.mobile}
-            onDismiss={sidebar.dismiss} onOpen={openDiff} onOpenTab={openHistoryDiff} />}
+          sourceControl={<SourceControlView changes={changes} commits={commits} layout={sourceControlLayout} refs={refs}
+            selection={selection} data={selectionData}
+            activePath={reviewCompare && sameCompare(reviewCompare, selection) ? currentFile : ""} mobile={sidebar.mobile}
+            onDismiss={sidebar.dismiss} onSelect={setChosen}
+            onOpenFile={(path, focusDocument) => openReview(selection, focusDocument, path)}
+            onOpenReview={openReview} />}
         />
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
@@ -356,10 +426,11 @@ export function App({ project }: AppProps) {
               onCloseMany={closeTabs}
               onSelect={selectTab}
             />
-            {diff.path ? (
-              <DiffToolbar options={diff.options.options} narrow={sidebar.mobile} onChange={diff.options.change}
-                openFileReason={diff.openFileReason} hasChanges={(diff.fileDiff?.hunks.length ?? 0) > 0}
-                onOpenFile={() => navigateToDocument(diff.path)} onStepHunk={(direction) => stepHunk.current(direction)} />
+            {reviewCompare ? (
+              <DiffToolbar options={diffOptions.options} narrow={sidebar.mobile} onChange={diffOptions.change}
+                hasChanges={reviewData?.list.kind === "ready" && reviewData.list.files.length > 0}
+                anyExpanded={anyFileExpanded} onStepHunk={(direction) => stepHunk.current(direction)}
+                onExpandAll={(expand) => setExpandRequest({ expand, id: (expandRequest?.id ?? 0) + 1 })} />
             ) : <>
               <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
                 onChange={changeDocumentMode} />
@@ -367,11 +438,12 @@ export function App({ project }: AppProps) {
             </>}
           </div>
           <DocumentPane
-            diff={diff.path ? <DiffDocument content={diff.content} fileDiff={diff.fileDiff} narrow={sidebar.mobile}
-              options={diff.options.options} parseFailed={diff.parseFailed} path={diff.path} scrollRoot={main}
-              unchangedSince={diffRoute?.kind === "branch" ? branchBase ? `vs ${branchBase}` : "on this branch" : undefined}
-              selection={diff.selection} state={diff.state} onRegisterHunkStep={registerHunkStep}
-              onOpenFile={() => navigateToDocument(diff.path)} onRetry={diff.retry} /> : undefined}
+            diff={reviewCompare ? <ReviewDocument key={compareKey(reviewCompare)} project={project} compare={reviewCompare}
+              name={nameTab(reviewTab(reviewCompare))} data={reviewData} options={diffOptions.options} narrow={sidebar.mobile}
+              scrollRoot={main} selection={fragment} expandRequest={expandRequest} treeFiles={treeFiles}
+              viewed={viewed.isViewed} onViewedChange={viewed.mark} onSelectLines={selectReviewLines}
+              onCurrentFile={setCurrentFile} onStatus={setReviewStatus} onOpenFile={navigateToDocument}
+              onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} /> : undefined}
             hasData={hasData}
             image={image}
             isLoading={isLoading}
@@ -387,13 +459,8 @@ export function App({ project }: AppProps) {
           />
         </section>
       </div>
-      <StatusBar isLoading={isLoading || formatSlow || diff.slow} error={loadError || page.error} page={page}
-        diff={diff.path ? {
-          path: diff.path,
-          lines: diff.target,
-          stats: diff.fileDiff ? diffStats(diff.fileDiff) : null,
-          typeLabel: diff.state.kind === "ready" ? diff.state.diff.documentType.label : "",
-        } : undefined}
+      <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page}
+        diff={reviewCompare ? reviewStatusBar(reviewStatus, currentFile, reviewData) : undefined}
         detail={showImage && image.status === "ready" && image.width > 0
           ? `${image.width} × ${image.height} · ${image.percent}%`
           : undefined}

@@ -24,7 +24,20 @@ const (
 
 	commitUnavailableMessage = "That commit is unavailable."
 	invalidCommitMessage     = "That commit hash is invalid."
+	unknownBaseMessage       = "That base branch doesn't exist."
+	// unknownBaseCode marks a 400 for a base branch /api/refs does not list.
+	unknownBaseCode = "unknownBase"
 )
+
+// writeUnknownBase writes the failure for a base branch the repository does
+// not list and reports whether err was one.
+func writeUnknownBase(w http.ResponseWriter, err error) bool {
+	if !errors.Is(err, git.ErrUnknownBase) {
+		return false
+	}
+	writeJSON(w, http.StatusBadRequest, errorResponse{Error: unknownBaseMessage, Code: unknownBaseCode})
+	return true
+}
 
 // History, like changes, is repository-scoped: commits and their files are
 // listed whatever the CLI filename scope, and file sides are read from git
@@ -83,6 +96,8 @@ func (a *App) serveCommits(w http.ResponseWriter, r *http.Request, projectID str
 	defer cancel()
 	history, err := repo.Log(ctx, options)
 	switch {
+	case writeUnknownBase(w, err):
+		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: commitUnavailableMessage})
 		return
@@ -112,10 +127,10 @@ func (a *App) serveCommits(w http.ResponseWriter, r *http.Request, projectID str
 }
 
 // logOptions parses a history query: range defaults to branch, skip to 0,
-// limit to 50 of at most 100, and head to HEAD. It returns a message for
-// invalid input.
+// limit to 50 of at most 100, head to HEAD, and base to the default base
+// branch. It returns a message for invalid input.
 func logOptions(query url.Values) (git.LogOptions, string) {
-	options := git.LogOptions{Range: git.RangeBranch, Limit: commitsDefaultLimit}
+	options := git.LogOptions{Range: git.RangeBranch, Limit: commitsDefaultLimit, Base: query.Get("base")}
 	if value := query.Get("range"); value != "" {
 		options.Range = git.Range(value)
 		if options.Range != git.RangeBranch && options.Range != git.RangeAll {
@@ -197,12 +212,14 @@ func (a *App) serveDiffs(w http.ResponseWriter, r *http.Request, projectID strin
 	switch {
 	case kinds > 1:
 		writeDiffQueryError(w, "Choose one of commit, branch, or from and to.")
+	case query.Has("base") && !branch:
+		writeDiffQueryError(w, "Base applies to branch diffs only.")
 	case commit:
 		a.serveCommitDiff(w, r, projectID, query.Get("commit"), name, oldPath)
 	case branch && query.Get("branch") != "1":
 		writeDiffQueryError(w, "Branch must be 1.")
 	case branch:
-		a.serveBranchDiff(w, r, projectID, name, oldPath)
+		a.serveBranchDiff(w, r, projectID, query.Get("base"), name, oldPath)
 	case ranged && (!query.Has("from") || !query.Has("to")):
 		writeDiffQueryError(w, "A commit range needs both from and to.")
 	case ranged:
@@ -235,8 +252,9 @@ type rangeFilesResponse struct {
 }
 
 // serveBranchFiles lists the branch's net changes: the merge base with the
-// base branch against HEAD. It is read live, never pinned.
-func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID string) {
+// base branch, base or else the default, against HEAD. It is read live,
+// never pinned.
+func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID, base string) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -256,7 +274,10 @@ func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	compared, changes, err := repo.BranchFiles(ctx, commitFilesLimit)
+	compared, changes, err := repo.BranchFiles(ctx, base, commitFilesLimit)
+	if writeUnknownBase(w, err) {
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
 		return
@@ -398,10 +419,11 @@ func (a *App) serveRangeDiff(w http.ResponseWriter, r *http.Request, projectID, 
 }
 
 // serveBranchDiff pairs the merge base (Original) with HEAD (Modified) for
-// one change of the branch, resolved again on every request. A path
-// outside the branch's changes, including when nothing is ahead, is
-// unchanged, as in the working tree diff.
-func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID, name, oldPath string) {
+// one change of the branch against base, or else the default base branch,
+// resolved again on every request. A path outside the branch's changes,
+// including when nothing is ahead, is unchanged, as in the working tree
+// diff.
+func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID, base, name, oldPath string) {
 	repo, _, ok := a.openHistoryDiff(w, projectID, name)
 	if !ok {
 		return
@@ -410,8 +432,10 @@ func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID,
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	compared, change, err := repo.BranchLookup(ctx, name, oldPath)
+	compared, change, err := repo.BranchLookup(ctx, base, name, oldPath)
 	switch {
+	case writeUnknownBase(w, err):
+		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
 		return

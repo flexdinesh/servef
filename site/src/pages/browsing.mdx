@@ -54,12 +54,14 @@ stays visible; comment syntax inside code stays literal.
   `path:12-20`; share `#L12-L20` links that open with the range highlighted.
 - Diffs select lines the same way and copy the side's own lines: `path:12-20`
   for the new side, HEAD's (or the parent commit's) numbers for deleted lines.
-  Links use `#R12-R20` for the new side and `#L5` for the old; they open
-  scrolled to the lines, expanding unchanged lines they name.
-- Step through a diff's changes with F7 and Shift+F7 or the toolbar's
-  Previous change and Next change; each step selects the change, so its link
-  and `path:12-20` copy are one click away.
-- Copy the open file's or diff's path from the status bar.
+  Links name the file and side: `#f=src/App.tsx&R12-R20` for the new side,
+  `&L5` for the old; they open scrolled to the lines, expanding unchanged
+  lines they name.
+- Step through a review's changes with F7 and Shift+F7 or the toolbar's
+  Previous change and Next change; steps cross into the next or previous
+  file and select the change, so its link and `path:12-20` copy are one
+  click away.
+- Copy the open file's or reviewed file's path from the status bar.
 
 ## Search
 
@@ -71,25 +73,28 @@ global excludes and linked-worktree excludes.
 
 ## Source Control
 
-Review uncommitted changes in Source Control: every modified, added, untracked,
-deleted, or renamed file in the checkout since the last commit, with a count
-badge and Explorer decorations. Each opens as a highlighted diff tab with split
-or unified view, wrap, ignore whitespace, word or character inline changes, and
-expand unchanged. servef reads git data directly; `git` need not be installed.
+Source Control lists what you can review: Uncommitted (every modified, added,
+untracked, deleted, or renamed file since the last commit), Branch (every file
+your branch changed since it left its base, as a pull request shows), then
+your branch's commits. The base defaults to `origin/HEAD`, `main`, or
+`master`; pick another branch from the Branch row, and servef remembers it
+per project. Switch to All for the whole history, 50 commits at a time.
+servef reads git data directly; `git` need not be installed.
 
-Below Changes, Commits lists the commits on your branch that its base branch
-(`origin/HEAD`, `main`, or `master`) does not have; switch to All for the whole
-history, 50 commits at a time. Expand a commit to read its message, author,
-date, and hash (Cmd/Ctrl+C copies it), then open any changed file as a diff
-against the commit's parent; the collapse action beside the range closes every
-open commit. Collapse either section, or drag between them to resize; the
-layout and range are remembered in the browser.
+Click a row to see its files below the list, with line counts, status
+letters, and Expand/Collapse All Folders; a commit also shows its message,
+author, date, and hash (Cmd/Ctrl+C copies it). Shift-click or Shift+Arrow
+across commits to see only their combined changes; Escape or Clear range
+narrows back to one commit. Drag between the list and the files to resize.
 
-To review a branch as a whole, expand “All changes vs main” at the top of
-Commits: it lists every file the branch changed since it left its base, as a
-pull request does. Shift-click or Shift+Arrow across commits to see only their
-combined changes instead; Escape or the row's Clear action returns to the
-branch. Branch diff tabs follow new commits; range diff tabs stay fixed.
+Open a file, or press Enter on a row, to review the whole selection in one
+tab: every file's diff stacked under a sticky header, loaded as you scroll,
+with split or unified view, wrap, ignore whitespace, word or character inline
+changes, expand unchanged, and Expand/Collapse All Files. Mark files Viewed to
+fold them away; a mark clears when the file changes again. Uncommitted and
+Branch reviews follow new edits and commits; commit and range reviews stay
+fixed. On phones, tap a row to see its files and Back to return; long-press a
+commit, then tap another, to select a range.
 
 ## Settings and commands
 

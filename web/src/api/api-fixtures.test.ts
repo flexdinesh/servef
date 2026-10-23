@@ -4,6 +4,8 @@ import test from "node:test"
 
 import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
 import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
+import { isCompareStatsResponse } from "./compare-stats-contract.ts"
+import { isRefsResponse, unknownBaseCode } from "./refs-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "../workspace/process-metrics.ts"
@@ -211,4 +213,61 @@ test("commit contract validators reject malformed history", async () => {
   assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "untracked" }] }), false)
   assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "renamed" }] }), false)
   assert.equal(isCommitFilesResponse({ ...files, commit: "" }), false)
+})
+
+test("compare fixtures satisfy runtime contracts", async () => {
+  const refs = await fixture("refs.json")
+  assert.ok(isRefsResponse(refs))
+  const commits = await fixture("commits.json")
+  assert.ok(isCommitsResponse(commits))
+  assert.equal(refs.branch, commits.branch)
+  assert.equal(refs.defaultBase, commits.base)
+  const names = refs.branches.map((branch) => branch.name)
+  assert.ok(names.includes(refs.defaultBase))
+  // Local branches lead, then remote-tracking ones, each sorted by name.
+  const local = refs.branches.filter((branch) => !branch.remote).map((branch) => branch.name)
+  const remote = refs.branches.filter((branch) => branch.remote).map((branch) => branch.name)
+  assert.deepEqual(names, [...local.toSorted(), ...remote.toSorted()])
+
+  const unknownBase = await fixture("error-unknown-base.json")
+  assert.deepEqual(unknownBase, { error: "That base branch doesn't exist.", code: unknownBaseCode })
+
+  const changes = await fixture("changes.json")
+  assert.ok(isChangesResponse(changes))
+  const working = await fixture("compare-stats.json")
+  assert.ok(isCompareStatsResponse(working))
+  assert.deepEqual(working.files.map((file) => file.path), changes.files.map((file) => file.path))
+  assert.ok(working.files.some((file) => file.status === "binary"))
+  assert.ok(working.files.some((file) => file.status === "tooLarge" && file.blob === ""))
+  const commitFiles = await fixture("commit-files.json")
+  assert.ok(isCommitFilesResponse(commitFiles))
+  const history = await fixture("compare-stats-history.json")
+  assert.ok(isCompareStatsResponse(history))
+  assert.deepEqual(history.files.map((file) => file.path), commitFiles.files.map((file) => file.path))
+})
+
+test("compare contract validators reject malformed refs and stats", async () => {
+  const refs = await fixture("refs.json")
+  assert.ok(isRefsResponse(refs))
+  assert.equal(isRefsResponse({ ...refs, branches: [{ name: "", remote: false }] }), false)
+  assert.equal(isRefsResponse({ ...refs, branches: [{ name: "main" }] }), false)
+  assert.equal(isRefsResponse({ ...refs, repository: false }), false)
+  assert.equal(isRefsResponse({ ...refs, defaultBase: null }), false)
+  assert.equal(isRefsResponse({ repository: false, branch: "", defaultBase: "", branches: [], truncated: false }), true)
+
+  const stats = await fixture("compare-stats.json")
+  assert.ok(isCompareStatsResponse(stats))
+  const blob = "62610a06115d711b3548a0231dde95ba14288358"
+  const valid = (file: unknown, budgetExceeded = false) => isCompareStatsResponse({ files: [file], budgetExceeded })
+  assert.equal(valid({ path: "a.go", status: "counted", additions: 1, deletions: 0, blob }), true)
+  assert.equal(valid({ path: "a.go", status: "budget", blob: "" }, true), true)
+  assert.equal(valid({ path: "a.go", status: "budget", blob }), false)
+  assert.equal(valid({ path: "a.go", status: "counted", additions: 1, blob }), false)
+  assert.equal(valid({ path: "a.go", status: "counted", additions: -1, deletions: 0, blob }), false)
+  assert.equal(valid({ path: "a.go", status: "counted", additions: 1.5, deletions: 0, blob }), false)
+  assert.equal(valid({ path: "a.go", status: "binary", additions: 0, deletions: 0, blob }), false)
+  assert.equal(valid({ path: "a.go", status: "skipped", blob }), false)
+  assert.equal(valid({ path: "a.go", status: "tooLarge", blob: "3577ec6" }), false)
+  assert.equal(valid({ path: "", status: "tooLarge", blob: "" }), false)
+  assert.equal(isCompareStatsResponse({ files: [] }), false)
 })

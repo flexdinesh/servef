@@ -10,6 +10,9 @@ export interface ChangesState {
   result: ChangesResponse | null
   error: string
   loading: boolean
+  // read counts successful reads; stats and diffs of the working tree reread
+  // when it moves.
+  read: number
 }
 
 function fetchChanges(project: string, signal: AbortSignal): Promise<ChangesResponse> {
@@ -20,7 +23,7 @@ function fetchChanges(project: string, signal: AbortSignal): Promise<ChangesResp
 // load, when the Source Control view opens, on window focus or visibility
 // (throttled), and on refresh. It never polls.
 export function useChanges(project: string, viewActive: boolean) {
-  const [state, setState] = useState<ChangesState>({ result: null, error: "", loading: project !== "" })
+  const [state, setState] = useState<ChangesState>({ result: null, error: "", loading: project !== "", read: 0 })
   const controller = useRef<AbortController | null>(null)
   const lastRead = useRef(0)
 
@@ -32,7 +35,7 @@ export function useChanges(project: string, viewActive: boolean) {
     lastRead.current = Date.now()
     setState((previous) => previous.loading ? previous : { ...previous, loading: true })
     fetchChanges(project, current.signal).then((result) => {
-      if (controller.current === current) setState({ result, error: "", loading: false })
+      if (controller.current === current) setState((previous) => ({ result, error: "", loading: false, read: previous.read + 1 }))
     }, (error: unknown) => {
       if (controller.current !== current || current.signal.aborted) return
       setState((previous) => ({ ...previous, error: error instanceof Error ? error.message : gitStatusError("unknown error"), loading: false }))

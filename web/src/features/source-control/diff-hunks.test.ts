@@ -5,7 +5,7 @@ import type { FileDiffMetadata } from "@pierre/diffs"
 
 import { parseTextDiff } from "./diff-content.ts"
 import { diffLineTarget } from "./diff-line-selection.ts"
-import { adjacentHunk, gapForLine, hunkCursor, hunkSelection } from "./diff-hunks.ts"
+import { adjacentHunk, fileOrder, gapForLine, hunkCursor, hunkInFile, hunkSelection } from "./diff-hunks.ts"
 
 function diff(before: string | null, after: string | null): FileDiffMetadata {
   const side = (contents: string | null) => contents === null ? null : { name: "notes.txt", contents }
@@ -82,4 +82,24 @@ test("gaps between hunks hold the unchanged lines they collapse", () => {
   assert.deepEqual(gapForLine(edited, "additions", 40), { hunkIndex: 2, lines: 6, newLine: 40 })
   for (const line of [6, 15, 34, 41]) assert.equal(gapForLine(edited, "additions", line), null, String(line))
   assert.equal(gapForLine(edited, "deletions", 30), null)
+})
+
+test("review steps leave a file at its ends instead of wrapping", () => {
+  assert.equal(hunkInFile(2, { kind: "at", index: 0 }, 1), 1)
+  assert.equal(hunkInFile(2, { kind: "at", index: 1 }, 1), null)
+  assert.equal(hunkInFile(2, { kind: "at", index: 0 }, -1), null)
+  assert.equal(hunkInFile(2, { kind: "before", index: 1 }, 1), 1)
+  assert.equal(hunkInFile(2, { kind: "before", index: 1 }, -1), 0)
+  assert.equal(hunkInFile(2, { kind: "before", index: 2 }, 1), null)
+  assert.equal(hunkInFile(0, { kind: "before", index: 0 }, 1), null)
+})
+
+test("review steps visit the other files in order, wrapping back to the first", () => {
+  assert.deepEqual(fileOrder(4, 1, 1), [2, 3, 0, 1])
+  assert.deepEqual(fileOrder(4, 1, -1), [0, 3, 2, 1])
+  assert.deepEqual(fileOrder(1, 0, 1), [0])
+  // Without a file to start from, steps start at the first file, or the last going back.
+  assert.deepEqual(fileOrder(3, -1, 1), [0, 1, 2])
+  assert.deepEqual(fileOrder(3, -1, -1), [2, 1, 0])
+  assert.deepEqual(fileOrder(0, 0, 1), [])
 })

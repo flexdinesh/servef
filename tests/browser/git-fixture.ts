@@ -91,6 +91,8 @@ export function createGitFixture() {
   }
   git("add", "--all")
   git("commit", "--quiet", "--message", "Initial")
+  // A second base for the branch compare's base picker.
+  git("branch", "release")
   // One commit on a feature branch, so Commits has a branch range against main.
   git("switch", "--quiet", "--create", "feature")
   write(featureCommit)

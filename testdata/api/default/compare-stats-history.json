@@ -1,0 +1,33 @@
+{
+  "files": [
+    {
+      "path": "code/app.js",
+      "status": "counted",
+      "additions": 2,
+      "deletions": 0,
+      "blob": "62610a06115d711b3548a0231dde95ba14288358"
+    },
+    {
+      "path": "code/main.go",
+      "status": "counted",
+      "additions": 1,
+      "deletions": 1,
+      "blob": "3fb0013c02e9358ab366f18cddfce4bca592c707"
+    },
+    {
+      "path": "config/servef.toml",
+      "status": "counted",
+      "additions": 0,
+      "deletions": 8,
+      "blob": "17bb5ea3e0da8c185b27aed86a59ede9968beae2"
+    },
+    {
+      "path": "guides/getting-started.md",
+      "status": "counted",
+      "additions": 0,
+      "deletions": 0,
+      "blob": "fb89881dd301cf313e6d2de6a1cc54e2a18f196c"
+    }
+  ],
+  "budgetExceeded": false
+}

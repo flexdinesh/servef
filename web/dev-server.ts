@@ -79,6 +79,39 @@ function mockRange(params: URLSearchParams): boolean {
 
 const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
+// Bases refs.json lists; another base is unknown. The branch fixtures stay
+// the same whichever base is chosen.
+const mockBases: ReadonlySet<string> = new Set([
+  "feature/commit-history",
+  "main",
+  "release/0.9",
+  "origin/feature/commit-history",
+  "origin/main",
+  "origin/release/0.9",
+])
+
+function mockUnknownBase(params: URLSearchParams): MockFixture | undefined {
+  const base = params.get("base")
+  return base === null || base === "" || mockBases.has(base) ? undefined : { name: "error-unknown-base.json", status: 400 }
+}
+
+// compare-stats.json counts changes.json's files; compare-stats-history.json
+// counts the files the mock commit, branch, and range share.
+function mockCompareStats(params: URLSearchParams): MockFixture {
+  switch (params.get("compare")) {
+    case "working":
+      return { name: "compare-stats.json", status: 200 }
+    case "branch":
+      return mockUnknownBase(params) ?? { name: "compare-stats-history.json", status: 200 }
+    case "commit":
+      return params.get("commit") === mockCommit ? { name: "compare-stats-history.json", status: 200 } : notFound
+    case "range":
+      return mockRange(params) ? { name: "compare-stats-history.json", status: 200 } : notFound
+    default:
+      return notFound
+  }
+}
+
 export function primaryLanIpv4(
   interfaces: NetworkInterfaces,
 ): string | undefined {
@@ -156,17 +189,24 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     case "/changes":
       return { name: "changes.json", status: 200 }
     case "/diff": {
+      const unknownBase = url.searchParams.has("branch") ? mockUnknownBase(url.searchParams) : undefined
+      if (unknownBase) return unknownBase
       const diff = historyDiffs(url.searchParams)?.get(url.searchParams.get("path") ?? "")
       return diff ? { name: diff, status: 200 } : notFound
     }
     case "/commits":
-      return { name: url.searchParams.get("range") === "all" ? "commits-all.json" : "commits.json", status: 200 }
+      return mockUnknownBase(url.searchParams)
+        ?? { name: url.searchParams.get("range") === "all" ? "commits-all.json" : "commits.json", status: 200 }
     case "/commit-files":
       return url.searchParams.get("commit") === mockCommit ? { name: "commit-files.json", status: 200 } : notFound
     case "/branch-files":
-      return { name: "branch-files.json", status: 200 }
+      return mockUnknownBase(url.searchParams) ?? { name: "branch-files.json", status: 200 }
     case "/range-files":
       return mockRange(url.searchParams) ? { name: "range-files.json", status: 200 } : notFound
+    case "/refs":
+      return { name: "refs.json", status: 200 }
+    case "/compare-stats":
+      return mockCompareStats(url.searchParams)
     default:
       return undefined
   }

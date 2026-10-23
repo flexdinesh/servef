@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, Columns2Icon, FileInputIcon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownUpIcon, ChevronsUpDownIcon, Columns2Icon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
 
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { menuItemClass, menuPopupClass, menuPositionerClass } from "../../components/ui/menu.ts"
@@ -9,20 +9,20 @@ import { effectiveDiffStyle, inlineChoices, type DiffOptions } from "./diff-opti
 interface DiffToolbarProps {
   options: DiffOptions
   narrow: boolean
-  // openFileReason explains why Open File is unavailable, else "".
-  openFileReason: string
-  // hasChanges: the shown diff has hunks to step through.
+  // hasChanges: the review has files whose changes steps can reach.
   hasChanges: boolean
+  // anyExpanded: some file's diff is open, so the action collapses all.
+  anyExpanded: boolean
   onChange(change: Partial<DiffOptions>): void
-  onOpenFile(): void
+  onExpandAll(expand: boolean): void
   onStepHunk(direction: 1 | -1): void
 }
 
 const splitUnavailable = "Split view needs a wider window"
 const noChanges = "No changes to step through"
 
-// DiffToolbar sits in the document mode-toggle slot for a diff tab.
-export function DiffToolbar({ hasChanges, narrow, onChange, onOpenFile, onStepHunk, openFileReason, options }: DiffToolbarProps) {
+// DiffToolbar sits in the document mode-toggle slot for a review tab.
+export function DiffToolbar({ anyExpanded, hasChanges, narrow, onChange, onExpandAll, onStepHunk, options }: DiffToolbarProps) {
   const style = effectiveDiffStyle(options, narrow)
   const inline = inlineChoices.find((choice) => choice.value === options.inline) ?? inlineChoices[0]
   return (
@@ -85,8 +85,9 @@ export function DiffToolbar({ hasChanges, narrow, onChange, onOpenFile, onStepHu
           icon={<ChevronDownIcon aria-hidden="true" />} disabledReason={hasChanges ? undefined : noChanges}
           onClick={() => onStepHunk(1)} />
       </span>
-      <IconButton className="diff-open-file" label="Open File" icon={<FileInputIcon aria-hidden="true" />}
-        disabledReason={openFileReason || undefined} onClick={onOpenFile} />
+      <IconButton className="diff-open-file" label={anyExpanded ? "Collapse All Files" : "Expand All Files"}
+        icon={anyExpanded ? <ChevronsDownUpIcon aria-hidden="true" /> : <ChevronsUpDownIcon aria-hidden="true" />}
+        onClick={() => onExpandAll(!anyExpanded)} />
     </div>
   )
 }

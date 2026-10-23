@@ -1,0 +1,32 @@
+{
+  "repository": true,
+  "branch": "feature/commit-history",
+  "defaultBase": "main",
+  "branches": [
+    {
+      "name": "feature/commit-history",
+      "remote": false
+    },
+    {
+      "name": "main",
+      "remote": false
+    },
+    {
+      "name": "release/0.9",
+      "remote": false
+    },
+    {
+      "name": "origin/feature/commit-history",
+      "remote": true
+    },
+    {
+      "name": "origin/main",
+      "remote": true
+    },
+    {
+      "name": "origin/release/0.9",
+      "remote": true
+    }
+  ],
+  "truncated": false
+}

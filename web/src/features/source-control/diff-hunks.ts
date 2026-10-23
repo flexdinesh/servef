@@ -84,3 +84,20 @@ export function gapForLine(fileDiff: FileDiffMetadata, side: SelectionSide, line
   }
   return inGap(fileDiff.hunks.length, fileDiff.additionLines.length - newLine + 1)
 }
+
+// hunkInFile steps to the next or previous hunk without wrapping, null past
+// the file's ends; a review then moves on to another file.
+export function hunkInFile(count: number, cursor: HunkCursor, direction: 1 | -1): number | null {
+  const next = direction === 1
+    ? cursor.kind === "at" ? cursor.index + 1 : cursor.index
+    : cursor.index - 1
+  return next >= 0 && next < count ? next : null
+}
+
+// fileOrder lists the files a review step visits after from, in direction,
+// wrapping past the ends and ending on from itself (decision 0035).
+export function fileOrder(count: number, from: number, direction: 1 | -1): number[] {
+  if (count <= 0) return []
+  const start = from >= 0 && from < count ? from : direction === 1 ? count - 1 : 0
+  return Array.from({ length: count }, (_, step) => (((start + direction * (step + 1)) % count) + count) % count)
+}

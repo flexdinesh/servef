@@ -1,5 +1,5 @@
 import { ContextMenu } from "@base-ui/react/context-menu"
-import { XIcon } from "lucide-react"
+import { GitCompareArrowsIcon, XIcon } from "lucide-react"
 import { useEffect, useRef, type KeyboardEvent } from "react"
 
 import { FileIcon } from "../components/FileIcon.tsx"
@@ -11,7 +11,7 @@ import { includesTab, sameTab, tabKey, type TabName, type WorkspaceTab } from ".
 interface TabBarProps {
   active: WorkspaceTab | null
   tabs: readonly WorkspaceTab[]
-  // name labels a tab; diff tabs say which side they compare.
+  // name labels a tab; review tabs say what they compare.
   name(tab: WorkspaceTab): TabName
   onClose(tab: WorkspaceTab): void
   onCloseMany(tabs: readonly WorkspaceTab[]): void
@@ -98,7 +98,7 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
                 onClick={() => onSelect(tab)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
               >
-                <FileIcon path={tab.path} />
+                {tab.kind === "review" ? <GitCompareArrowsIcon className="file-icon" aria-hidden="true" /> : <FileIcon path={tab.path} />}
                 <span>{name}</span>
               </Button>
               <IconButton

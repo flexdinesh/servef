@@ -1,6 +1,6 @@
 # 0028: Diff line links and copy
 
-- Status: Accepted; no-scroll consequence superseded by [0034](0034-diff-anchor-reveal-and-hunk-navigation.md)
+- Status: Accepted; no-scroll consequence superseded by [0034](0034-diff-anchor-reveal-and-hunk-navigation.md); per-file diff routes superseded by [0035](0035-compare-list-and-review-tab.md) (anchors ride in `#f=`)
 - Date: 2026-10-22
 - Extends: [0008](0008-line-links-and-copy-path.md), [0024](0024-source-control-view-and-working-tree-diffs.md)
 

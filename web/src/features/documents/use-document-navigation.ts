@@ -12,7 +12,9 @@ function revealLine(pane: HTMLElement, line: Element) {
   pane.scrollTop += lineBox.top - paneBox.top - pane.clientHeight / 3
 }
 
-export function useDocumentNavigation(project: string, page: PageData, isLoading: boolean, loadError: string) {
+// review is the open review tab's key, "" for documents; reviews remember
+// their scroll like documents, and their file fragments scroll themselves.
+export function useDocumentNavigation(project: string, page: PageData, isLoading: boolean, loadError: string, review = "") {
   const navigate = useNavigate()
   const router = useRouter()
   const location = useRouterState({ select: (state) => state.location })
@@ -21,9 +23,7 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
   const displayedPath = useRef("")
   const documentPositions = useRef(new Map<string, number>())
   const historyPositions = useRef(new Map<string, { path: string; top: number }>())
-  // placed is the last route shown, without its fragment.
-  const placed = useRef("")
-  const selected = page.hasFile && !page.error && !loadError ? page.selected : ""
+  const selected = review ? `\n${review}` : page.hasFile && !page.error && !loadError ? page.selected : ""
 
   useLayoutEffect(() => { displayedPath.current = selected }, [selected])
 
@@ -39,9 +39,6 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
 
   useEffect(() => {
     if (isLoading || loadError) return
-    const place = location.pathname + location.searchStr
-    const hashOnly = place === placed.current
-    placed.current = place
     if (focusDocument.current) {
       focusDocument.current = false
       main.current?.focus({ preventScroll: true })
@@ -49,6 +46,8 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
     const frame = window.requestAnimationFrame(() => {
       const pane = main.current
       if (!pane) return
+      // A review's file fragment scrolls the review to that file.
+      if (review && location.hash.startsWith("f=")) return
       let hash = location.hash
       try { hash = decodeURIComponent(hash) } catch { /* Keep malformed fragments literal. */ }
       const lines = parseLineAnchor(hash)
@@ -58,16 +57,13 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
         revealLine(pane, line)
       } else if (anchor && pane.contains(anchor)) {
         anchor.scrollIntoView({ block: "start" })
-      } else if (!selected && hashOnly) {
-        // A diff tab owns its scroll; its fragment is its line selection.
       } else {
         const entry = historyPositions.current.get(location.state.__TSR_key ?? location.href)
         pane.scrollTop = entry?.path === selected ? entry.top : documentPositions.current.get(selected) ?? 0
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [isLoading, loadError, location.hash, location.href, location.pathname, location.searchStr, location.state.__TSR_key,
-    page.content, selected])
+  }, [isLoading, loadError, location.hash, location.href, location.state.__TSR_key, page.content, review, selected])
 
   const prepareDocumentNavigation = useCallback(() => { focusDocument.current = true }, [])
 
