@@ -103,4 +103,4 @@ jobs:
           export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
           edge_commit="$(git commit-tree "$tree" "${parents[@]}" -m "edge: ${GITHUB_SHA:0:12} with built frontend")"
 
-          git push --force-with-lease="refs/heads/edge:${current_edge}" origin "${edge_commit}:refs/heads/edge"
+          git push --no-verify --force-with-lease="refs/heads/edge:${current_edge}" origin "${edge_commit}:refs/heads/edge"

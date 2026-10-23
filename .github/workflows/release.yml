@@ -157,7 +157,7 @@ jobs:
         if: steps.version.outputs.tag_exists != 'true'
         run: |
           git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          git push --no-verify origin "${{ steps.version.outputs.tag }}"
 
       - name: Publish GitHub release
         if: steps.version.outputs.release_exists != 'true'
@@ -229,7 +229,7 @@ jobs:
 
           git add Formula/servef.rb
           git commit -m "Update servef to v${version}"
-          git push --force-with-lease origin "HEAD:${branch}"
+          git push --no-verify --force-with-lease origin "HEAD:${branch}"
 
           pr_number="$(gh pr list \
             --repo "$tap_repo" \
