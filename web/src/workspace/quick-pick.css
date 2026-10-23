@@ -19,8 +19,7 @@
   display: none;
 }
 
-.search-status-warning,
-.search-warning {
+.search-status-warning {
   color: var(--color-warning);
 }
 
@@ -46,14 +45,6 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-weight: 700;
-}
-
-.search-empty,
-.search-warning {
-  margin: 0;
-  padding: var(--space-3) var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
 }
 
 @media (max-width: 48rem) {

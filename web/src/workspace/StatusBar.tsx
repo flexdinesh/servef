@@ -62,7 +62,7 @@ export function StatusBar({ detail, diff, isLoading, error, lines, navigation, o
           <summary className={`status-state${isLoading ? " loading" : error ? " failed" : ""}`} title="Process information">
             {isLoading ? "Loading…" : error ? "Error" : "Ready"}
           </summary>
-          <div className="status-process-panel">
+          <div className="ui-popover status-process-panel">
             <strong>servef process</strong>
             {error && <p>{error}</p>}
             {metrics ? <p>{processTitle?.split("\n").slice(1).map((line) => <span key={line}>{line}</span>)}</p>

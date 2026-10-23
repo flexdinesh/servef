@@ -12,7 +12,7 @@ const tokenOnly = [
 ]
 
 export default {
-  defaultSeverity: "warning",
+  defaultSeverity: "error",
   plugins: ["stylelint-declaration-strict-value"],
   rules: {
     "color-no-hex": true,

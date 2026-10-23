@@ -1,6 +1,7 @@
 import { StrictMode, useCallback, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 
+import { Button } from "../src/components/ui/button.tsx"
 import { ThemeProvider } from "../src/settings/ThemeProvider.tsx"
 import { DocumentPreview } from "../src/features/documents/DocumentPreview.tsx"
 import type { SearchMatch } from "../src/features/search/search-engine.ts"
@@ -30,10 +31,10 @@ function LifecycleFixture() {
   const session = useSearchSession({ documentPane: pane, openMatch, project, registerOpen, reveal: () => {} })
   return (
     <>
-      <button type="button" onClick={() => setHTML(replacementHTML)}>Update Markdown</button>
-      <button type="button" onClick={() => setVisible((current) => !current)}>Toggle document</button>
-      <button type="button" onClick={() => setNavigationPrefix("updated")}>Update navigation</button>
-      <button type="button" onClick={() => openSearch.current?.()}>Open search</button>
+      <Button variant="outline" onClick={() => setHTML(replacementHTML)}>Update Markdown</Button>
+      <Button variant="outline" onClick={() => setVisible((current) => !current)}>Toggle document</Button>
+      <Button variant="outline" onClick={() => setNavigationPrefix("updated")}>Update navigation</Button>
+      <Button variant="outline" onClick={() => openSearch.current?.()}>Open search</Button>
       <output aria-label="Navigation">{navigation}</output>
       {visible && <DocumentPreview html={html} navigate={() => {}} />}
       {visible && <StatusBar isLoading={false} error="" page={emptyPage} onSearch={() => openSearch.current?.()} onSettings={() => {}} />}

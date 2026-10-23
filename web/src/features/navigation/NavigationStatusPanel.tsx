@@ -47,7 +47,7 @@ export function NavigationStatusPanel({ status, onCheck, onOpenSetting }: Naviga
       <summary className="status-navigation-provider" title="Language server status" data-state={server?.state}>
         {providerLabel(status)}
       </summary>
-      <div className="status-process-panel status-navigation-panel">
+      <div className="ui-popover status-process-panel status-navigation-panel">
         <strong>Language server</strong>
         {!status && <p>Could not check language server availability. Check again to retry.</p>}
         {status && !status.supported && <p>No language server is configured for this language.</p>}

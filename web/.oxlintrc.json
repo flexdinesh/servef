@@ -4,7 +4,7 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",
-    "react/forbid-elements": ["warn", {
+    "react/forbid-elements": ["error", {
       "forbid": [
         { "element": "button", "message": "Use Button, IconButton, ToggleButton, or a row primitive from components/ui." },
         { "element": "input", "message": "Use TextField from components/ui." },

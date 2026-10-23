@@ -3,7 +3,6 @@
 @layer theme, base, components, utilities, foundation, ui, features;
 
 @import "tailwindcss";
-@import "./workspace/tab-menu.css" layer(features);
 @import "./styles/tokens.css";
 @import "./styles/themes.css";
 @import "./styles/base.css" layer(foundation);

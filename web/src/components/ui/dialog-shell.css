@@ -51,7 +51,6 @@
 
 .ui-popover {
   padding: var(--space-1);
-  font-size: var(--text-label);
 }
 
 @media (max-width: 48rem) {
