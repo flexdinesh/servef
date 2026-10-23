@@ -54,7 +54,7 @@ the Go-served UI. Browser tests start API servers on `PORT` (default `18080`)
 and the next two ports, plus the Vite server on `15173`. Each run builds its
 Source Control git fixture in its own temporary folder.
 
-CI runs `pnpm check` only. Browser tests run locally: `pnpm install` points
+CI runs `pnpm check` only. Browser tests run locally: outside CI, `pnpm install` points
 Git at `.githooks/`, whose `pre-push` hook runs `pnpm check` and
 `pnpm test:browser` (decision 0032). Skip it once with `git push --no-verify`.
 
