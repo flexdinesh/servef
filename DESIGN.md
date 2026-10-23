@@ -89,6 +89,8 @@ rounded:
   sm: "0.125rem"
   md: "0.25rem"
   lg: "0.375rem"
+  overlay: "0.375rem"
+  island: "0.625rem"
 spacing:
   space-1: "0.25rem"
   space-2: "0.5rem"
@@ -97,58 +99,84 @@ spacing:
   space-5: "1.5rem"
   space-6: "2rem"
   space-7: "3rem"
-  space-8: "4rem"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.on-accent}"
     rounded: "{rounded.md}"
-    height: "2.5rem"
+    height: "1.75rem"
     padding: "0 0.75rem"
-    typography: "{typography.supporting}"
+    typography: "{typography.label}"
   button-outline:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.text-secondary}"
     rounded: "{rounded.md}"
-    height: "2.5rem"
+    height: "1.75rem"
     padding: "0 0.75rem"
-    typography: "{typography.supporting}"
+    typography: "{typography.label}"
   button-ghost:
     textColor: "{colors.text-secondary}"
     rounded: "{rounded.md}"
-    height: "2.5rem"
+    height: "1.75rem"
     padding: "0 0.75rem"
-    typography: "{typography.supporting}"
+    typography: "{typography.label}"
   button-destructive:
     backgroundColor: "{colors.destructive-subtle}"
     textColor: "{colors.destructive}"
     rounded: "{rounded.md}"
-    height: "2.5rem"
+    height: "1.75rem"
     padding: "0 0.75rem"
-    typography: "{typography.supporting}"
+    typography: "{typography.label}"
   button-link:
     textColor: "{colors.accent}"
-    rounded: "{rounded.md}"
-    height: "2.5rem"
-    padding: "0 0.75rem"
-    typography: "{typography.supporting}"
-  footer-action:
-    textColor: "{colors.text-secondary}"
-    height: "1.75rem"
-    padding: "0 0.5rem"
-    typography: "{typography.metadata}"
-  search-field:
-    textColor: "{colors.text-primary}"
-    backgroundColor: "{colors.surface-raised}"
-    padding: "0.5rem"
-  sidebar-shelf:
-    backgroundColor: "{colors.workspace-chrome}"
-    padding: "0.25rem 0.75rem 0.5rem"
-  explorer-row:
-    backgroundColor: "{colors.surface-secondary}"
-    textColor: "{colors.text-secondary}"
-    height: "24px"
     typography: "{typography.label}"
+  icon-button:
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.sm}"
+    height: "1.5rem"
+    width: "1.5rem"
+  toggle-button:
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.sm}"
+    height: "1.25rem"
+    width: "1.25rem"
+  segmented-control:
+    rounded: "{rounded.lg}"
+    height: "1.5rem"
+    padding: "0.125rem"
+    typography: "{typography.metadata}"
+  text-field:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.sm}"
+    height: "1.75rem"
+    padding: "0 0.125rem 0 0.5rem"
+    typography: "{typography.label}"
+  list-row:
+    textColor: "{colors.text-secondary}"
+    height: "1.375rem"
+    padding: "0 0.5rem"
+    typography: "{typography.label}"
+  picker-row:
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.sm}"
+    height: "2rem"
+    padding: "0 0.5rem"
+    typography: "{typography.label}"
+  view-header:
+    textColor: "{colors.text-primary}"
+    height: "2rem"
+    padding: "0 0.25rem 0 0.75rem"
+  overlay:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.overlay}"
+  badge:
+    backgroundColor: "{colors.border}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.lg}"
+    height: "1.125rem"
+    typography: "{typography.metadata}"
   document-tab:
     backgroundColor: "{colors.workspace-chrome}"
     textColor: "{colors.text-secondary}"
@@ -178,7 +206,15 @@ Workspace identity sits above the explorer as the project picker trigger. App id
 - Left-aligned proportional prose and monospace code.
 - Shared semantic roles across named editor themes.
 
-Implementation authority: `web/src/style.css`, `web/src/features/explorer/FileTree.tsx`, shared primitives in `web/src/components/ui/`, and `web/src/settings/theme.ts`. Frontmatter captures base Light tokens and effective component roles. Theme overrides remain in CSS; the sidecar adds metadata and examples.
+Implementation authority (decision 0033): tokens in `web/src/styles/tokens.css` and `themes.css`, UI primitives in `web/src/components/ui/` (each with co-located CSS), feature CSS beside each feature, and `web/src/style.css` as the import manifest and cascade-layer order. `pnpm dev:mock` serves every primitive and state at `/__ui`. Frontmatter captures base Light tokens and effective component roles; theme overrides remain in CSS.
+
+### Token tiers
+
+1. **Theme values**: `light-dark()` colors in Tailwind's `@theme`, resolved by the root `color-scheme`; named themes override them in `themes.css`.
+2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
+3. **Component tokens**: controls (`--control-xs` 20, `sm` 24, `md` 28, `lg` 32, `touch` 44px), icons (`--icon-xs` 12, `sm` 14, `md` 16, `lg` 18px), rows (`--row-list` 22, `--row-menu` 28, `--row-pick` 32, `--row-drawer` 32px; list 32 and pick/menu 44px on narrow screens), `--chrome-height`, `--field-height`, `--status-height`.
+
+Feature CSS references tokens only; stylelint rejects color literals, raw font sizes, radii, z-indexes, durations, and px above 2. Raw `button`, `input`, `select`, `textarea`, and `dialog` elements live only in `components/ui/`; oxlint rejects them elsewhere.
 
 ## Colors
 
@@ -192,6 +228,13 @@ Choices: Light, Dark, Catppuccin Mocha, Dracula, Gruvbox Dark, Nord, Solarized L
 
 **The Functional Accent Rule.** Use accent for state and interaction; keep routine prose headings and large surfaces neutral.
 
+**State roles** (VS Code conventions, shared by every interactive element):
+
+- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on chrome, islands, and overlays.
+- `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles, highlighted menu items.
+- `--color-focus` (= `accent`): keyboard focus.
+- `--color-field-bg` (= `surface`) and `--color-field-border` (= `border-strong`): text fields and selects.
+
 ## Typography
 
 Inter Variable is bundled locally for UI and prose; code/source use the system monospace stack. No runtime font service.
@@ -201,6 +244,8 @@ One base size drives the whole scale: the Font Size setting (default 13px, 10–
 | Role | Effective size / line-height | Treatment |
 | --- | --- | --- |
 | Preview H1 / H2 / H3 / H4 | 26 / 21 / 17 / 15px; 1.25 | 600 weight, -0.02em tracking |
+| Labels, fields, rows, buttons (`--text-label`) | 13px (= base) | Buttons 500 weight |
+| View and dialog titles | 12px | 600 weight |
 | Preview prose | 14px / 1.6 desktop; 15px / 1.6 mobile | 400 weight, 75ch maximum |
 | Explorer / tabs / result names | 13px (= base) | Compact labels |
 | Supporting UI / search input / tables | 14px / 20px | Shared small text role |
@@ -208,49 +253,65 @@ One base size drives the whole scale: the Font Size setting (default 13px, 10–
 | Source | 13px / 22px (= base) | Monospace, fixed line rows |
 | Preview code | 13px | Monospace; block line-height 1.6 |
 
-Source matches the explorer so code never looks oversized beside the tree; prose sits one step above. Project name uses 12px and 600 weight. The generic Tailwind scale serves primitives; preview uses `--preview-*` roles.
+Source matches the explorer so code never looks oversized beside the tree; prose sits one step above. Project name uses 12px and 600 weight. UI uses the `--text-*` roles; preview uses `--preview-*` roles.
 
 ## Layout
 
-Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer, Search, or Source Control); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--workspace-radius` is 0.625rem (10px). The full-width footer uses the canvas surface and owns the bottom canvas inset: its 28px controls center in the band between the islands and the viewport edge. Document status aligns to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
+Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer, Search, or Source Control); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--radius-island` is 0.625rem (10px). The full-width footer uses the canvas surface and owns the bottom canvas inset: its 28px controls center in the band between the islands and the viewport edge. Document status aligns to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
 
-Tabs and explorer headers are 32px tall at every viewport width and share the workspace-chrome surface. Activity rows are squares the rail's width; header labels and actions center vertically in the 32px band. Pierre rows are 24px on desktop. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
+Tabs and explorer headers are 32px tall at every viewport width and share the workspace-chrome surface. Activity rows are squares the rail's width; header labels and actions center vertically in the 32px band. List rows (Explorer, Changes, Commits, Search) are 22px on desktop. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
-At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a rounded native modal drawer, `min(85vw, 22rem)` wide, with the same outer inset, activity bar (32px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 32px tree/search rows. Tabs and explorer headers stay 32px; footer controls remain 44px, centered in the band above the 4px inset. Explorer and search fields stay at 28px, following the same rem scale as desktop. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
+At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a native modal drawer (`DialogShell` drawer: overlay surface and radius), `min(85vw, 22rem)` wide, inset 4px, activity bar (32px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 32px tree/search rows. Tabs and explorer headers stay 32px; footer controls remain 44px, centered in the band above the 4px inset. Fields grow to 44px touch height; their trailing actions to 32px. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
 
-Content palette (command palette, project picker, navigation results): maximum 38rem wide / 40rem tall, 48px from top, transparent backdrop. The full-width input field is 32px tall, matching tabs, headers, and rows, with a 14px input and accent underline on focus. Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
+Content palette (command palette, project picker, navigation results; `DialogShell` palette): 40rem wide, 12vh from top, transparent backdrop. The palette `TextField` is borderless and 32px tall, matching tabs and headers, with a 13px input and accent underline on focus. Rows are 32px picker rows (44px mobile). Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
-Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
+Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 
 ## Elevation & Depth
 
 Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
-- `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; palettes, theme menus, process panels.
-- Dark and named themes override shadows in CSS. Drawer uses its boundary and backdrop.
+- `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
+- Dark and named themes override shadows in CSS.
 
-Motion is functional: progress uses 120ms opacity / 800ms transform; theme menus use 100ms transitions. Honor reduced motion.
+**One overlay surface.** Dialogs, the drawer, popovers (status panels), and menus share `border-strong`, `surface-raised`, `--shadow-overlay`, and the 6px `--radius-overlay` (`.ui-dialog`, `.ui-popover`, `.ui-menu`).
+
+Motion is functional: state changes use `--duration-fast`, progress fades in after `--delay-progress` and sweeps every `--duration-loop`, copy feedback holds `--duration-feedback`. Honor reduced motion.
 
 ## Shapes
 
-Navigation and document islands use 10px corners, including the mobile drawer. Explorer rows and footer actions are square rectangles within their shells. Activity selections use a 4px-radius tile inset 4px on every side of its row (32px desktop, 24px mobile); tabs use 6px top corners and concave lower shoulders. Small controls, inline code, and search results use 2px radius; generic buttons, code blocks, diagrams, palette, and theme menu use 4px. The 6px token remains available to shared primitives. Keyboard outlines at clipped workspace edges sit inside their controls.
+Navigation and document islands use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, Commits) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
 
-Icons: 16px generic, 14px footer/search/filter, 12px tabs; inherit text color. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family (unmapped icons inherit; unresolved files fall back to a generic file icon). Focus defaults to 2px accent outline with 2px offset, or an equally visible component boundary.
+Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px in rows, tabs, and segmented items; rest ink `text-secondary`, `text-primary` on hover. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family.
+
+**Focus.** Rows, icon buttons, toggles, segmented items, and copy controls draw a 1px `--color-focus` outline inset 1px. Standalone buttons draw 2px, offset 1px. Fields replace their border with `--color-focus` and add a 1px ring. Invalid fields use `destructive` for the full border and ring.
 
 ## Components
 
-### Buttons
+### Primitives
 
-Shared `Button`: primary, outline, ghost, destructive, link. Default 40px height, 4px radius, 14px medium label, 12px horizontal padding; compact sizes 32px. Hover changes color/surface without layout shift. Disabled controls suppress interaction and reduce opacity. Icon-only actions require accessible names. Footer overrides use square transparent 28px controls, 44px on mobile.
+Every view composes these from `web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
+
+- **Button**: primary, outline, ghost, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; disabled is 50% opacity. Actions such as Retry, Load more, Open File, and Clear filter are outline md.
+- **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. Dialogs raise targets to 44px on narrow screens.
+- **ToggleButton**: independent on/off options (match case, Show modified). Pressed uses an accent border with the selection fill and ink.
+- **SegmentedControl**: mutually exclusive modes (Preview/Source, zoom, diff layout, Branch/All). A translucent `--color-hover` track; the pressed item lifts onto `surface` with the control shadow. Icon-only items are square.
+- **TextField** and **Select**: 28px fields with icon, leading, and trailing slots; the palette variant is borderless with an accent underline.
+- **ListRow** / **ListButton**: list density 22px (square), pick 32px (2px radius), menu, and drawer. Hover adds the state layer; active and selected rows use the selection fill and ink.
+- **SectionToggle** and **Chevron**: 22px disclosure rows; the chevron rotates inside any `aria-expanded="true"` row.
+- **ViewHeader**: the 32px band naming a view or dialog: 12px 600 title, actions at the end.
+- **Badge** (neutral counts, accent activity), **Kbd**, **Notice** (info, warning, error; bar or block; errors are alerts), **StatusMessage**, **ProgressBar** (2px sweep, edge or page), **CopyButton** (plain, raised, chip, gutter; check or X feedback for 1.6s, announced), **DialogShell** (palette, panel, viewer, drawer), and the Menu class names for Base UI menus.
+
+Activity bar, tab strip, Pierre trees and diffs, prose, and the Mermaid canvas are feature CSS on tokens; they use the same state roles.
 
 ### Activity bar
 
-A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-muted`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners) and `aria-pressed`; hover shows the same tile in `surface-raised`. The full button remains the click target; keyboard focus retains its accent outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners) and `aria-pressed`; hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
-Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 24px desktop / 32px narrow, both scaled by the Font Size setting. The project name sits above as a trigger for the project picker. Selection uses accent text and subtle fill. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
+Pierre compact tree: complete built-in colored file icons, native folder expansion chevrons, square rows, semantic token overrides, 22px desktop / 32px narrow, both scaled by the Font Size setting. The project name sits above as a trigger for the project picker. Hover, selection, and focus use the shared state roles. Preserve editor keyboard selection, expansion, and Ctrl/Cmd-click semantics. File/path search starts hidden; the search icon toggles it, Ctrl/Cmd+K opens it (Ctrl/Cmd+P alias), and Escape hides it. Mobile opens the drawer first. Preserve expansion/search across the breakpoint.
 
 Below the header, a shelf on the same `workspace-chrome` band holds the explorer's
 query fields (4px top, 8px bottom, 12px sides, 4px between fields) and ends in a
@@ -264,7 +325,7 @@ filename search field's width and appearance: funnel icon, placeholder
 polite live region plus a clear action. It accepts comma-separated,
 case-insensitive base-name globs with the CLI's `--filename` semantics (`*`, `?`,
 `[...]`); empty shows all. Input applies after 150ms. An invalid glob marks the
-field `aria-invalid`, adds a destructive bottom boundary and “Invalid pattern”
+field `aria-invalid`, turns its border destructive, adds an “Invalid pattern”
 helper, and keeps the last valid filter. No matches show “No files match …” with
 a Clear filter action. When the CLI narrows `--filename`, a muted “Serving …” line
 sits under the field. Escape clears a value, otherwise blurs; Enter or ArrowDown
@@ -302,7 +363,7 @@ picker is a quick pick on the content-palette frame with two modes:
   a muted `git` label. Tab completes, Enter on a folder descends, Backspace on a
   trailing slash goes up a level and on an empty path returns to Projects.
 
-Rows are 32px desktop / 44px mobile with 14px icons (folder, repository,
+Rows are 32px picker rows (44px mobile) with 14px icons (folder, repository,
 worktree, opened folder); paths truncate from the start so the deepest folders
 stay visible. Status lines read “Scanning for projects…” and “Reading folder…”
 after 150ms, name list or folder errors with Retry, and count unreadable
@@ -314,13 +375,13 @@ project's remembered tabs return. A project that no longer resolves shows
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is inset 4px vertically in the 32px toolbar: a 24px-high secondary surface with 6px outer corners, 2px padding/gaps, and 4px button corners. Buttons use 12px labels and 8px horizontal padding (4px on narrow screens); the pressed one uses `aria-pressed`, primary text on the document surface, and the control shadow. Keyboard focus stays inset. Image zoom controls share this compact treatment; narrow screens use 24px minimum zoom-button widths and 24px-wide toolbar icon actions so SVG view/zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is a `SegmentedControl` inset 4px vertically in the 32px toolbar. Image zoom controls share the same `SegmentedControl`; icon-only items are square, so SVG view and zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 
 ### Line selection
 
-Source works like GitHub and VS Code line links. Clicking a line number selects that line; dragging across line numbers (or on into the code) previews a range and commits it on release; Shift-click extends from the last pressed line in either direction; Escape in the source clears. Touch selects on tap only, keeping scroll. The URL fragment owns the selection (`#L12`, `#L12-L20`, replace history, no refetch), so loading an anchor highlights the range, clamps it to the file, and scrolls its first line to the upper third unless visible. A line anchor opens Markdown/SVG in Source; switching to Preview or Format clears it, since line numbers address the original file only. Selected rows use `accent-subtle` with accent, 600-weight line numbers. A 19px raised copy control (2px radius, strong border, control shadow) sits in the gutter's 22px left inset on the first selected line and copies the project-relative `path:12` or `path:12-20`; “Copied” appears beside the gutter.
+Source works like GitHub and VS Code line links. Clicking a line number selects that line; dragging across line numbers (or on into the code) previews a range and commits it on release; Shift-click extends from the last pressed line in either direction; Escape in the source clears. Touch selects on tap only, keeping scroll. The URL fragment owns the selection (`#L12`, `#L12-L20`, replace history, no refetch), so loading an anchor highlights the range, clamps it to the file, and scrolls its first line to the upper third unless visible. A line anchor opens Markdown/SVG in Source; switching to Preview or Format clears it, since line numbers address the original file only. Selected rows use `accent-subtle` with accent, 600-weight line numbers. A 20px gutter `CopyButton` sits in the gutter's 22px left inset on the first selected line and copies the project-relative `path:12` or `path:12-20`; its icon checks once copied and a status announces it.
 
 Unregistered text files open as Source and the footer names the type (“Plain text”). Files over 4 MiB show a slim warning-subtle bar above Source, “Large file (6.2 MB): preview and formatting are off.”, adding “Not included in search.” past 8 MiB; Preview/Format stay visible but `aria-disabled` with the reason as a tooltip.
 
@@ -350,21 +411,21 @@ label. No line selection.
 
 ### Settings
 
-The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a surface-secondary fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width native select of the named themes, default System; selects draw a 14px secondary chevron whose ink sits as far from the right border as the text from the left), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a flat full-height Reset all action (14px icon, 12px label, 16px side padding, `surface-raised` hover like Close), disabled when nothing differs; it restores System, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
+The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a surface-secondary fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default System; its chevron sits as far from the right border as the text from the left), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a ghost Reset all action, disabled when nothing differs; it restores System, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
 
 Opened at a setting (from the command palette), Settings clears its search, scrolls the item into view, focuses its control (selecting a number's text), and flashes the item: `accent-subtle` fill and a 1px inset accent ring hold for the first third of 1.6s, then ease out (`cubic-bezier(0.16, 1, 0.3, 1)`). Reduced motion shows the highlight statically for 1.6s.
 
 ### Command palette
 
-Ctrl/Cmd+Shift+P or F1 opens a VS Code-style command palette on the content-palette frame (38rem, 12vh from top, sized to its rows). The field shows a muted `>` prompt, “Type a command”, and an Esc hint. Rows are 32px (44px mobile), 14px: secondary category, a 12px chevron, then the primary title, e.g. “Settings › Font Size”, with the current value right-aligned in muted 12px (“13px”, “System”). Typed terms must each match the category or title; matches render in accent, 600 weight. Commands with a title word starting with the first term rank first. The first row is active; arrows wrap, hover activates, Enter or click runs, Escape or the backdrop closes and restores focus. No matches reads “No matching commands”. Each option is named “Category: Title, value”. First is “Preferences › Open Settings”, showing its shortcut (Ctrl+, / ⌘,) in place of a value; it opens Settings with search focused. Every setting follows as a command that opens Settings at that setting.
+Ctrl/Cmd+Shift+P or F1 opens a VS Code-style command palette on the content-palette frame (40rem, 12vh from top, sized to its rows). The field shows a muted `>` prompt, “Type a command”, and an Esc hint. Rows are 32px picker rows (44px mobile), 13px: secondary category, a 12px chevron, then the primary title, e.g. “Settings › Font Size”, with the current value right-aligned in muted 12px (“13px”, “System”). Typed terms must each match the category or title; matches render in accent, 600 weight. Commands with a title word starting with the first term rank first. The first row is active; arrows wrap, hover activates, Enter or click runs, Escape or the backdrop closes and restores focus. No matches reads “No matching commands”. Each option is named “Category: Title, value”. First is “Preferences › Open Settings”, showing its shortcut (Ctrl+, / ⌘,) in place of a value; it opens Settings with search focused. Every setting follows as a command that opens Settings at that setting.
 
 ### Content search
 
-Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field, seeding it from a single-line document selection. The 32px header reads “Search” (12px, 600) with Refresh, Clear Search Results, and Collapse All/Expand All icon actions (Close on mobile). The field matches the filename filter (1.75rem, 1px border, 2px radius, accent focus ring; 28px at every viewport width), placeholder “Search”, with inline 22px toggles: Match Case, Match Whole Word, Use Regular Expression (Alt+C/W/R); pressed toggles use accent text, accent border, and `accent-subtle` fill. A right-aligned “…” Toggle Search Details reveals “files to include” and “files to exclude” (12px labels, same field style, placeholders “e.g. *.ts, src/**/include”). Invalid regexes or globs mark the field `aria-invalid` with a destructive bottom boundary and a 12px destructive message.
+Ctrl/Cmd+Shift+F or Find in files reveals the Search view and focuses its field, seeding it from a single-line document selection. The 32px header reads “Search” (12px, 600) with Refresh, Clear Search Results, and Collapse All/Expand All icon actions (Close on mobile). The field matches the filename filter (1.75rem, 1px border, 2px radius, accent focus ring; 28px at every viewport width), placeholder “Search”, with inline 20px toggles: Match Case, Match Whole Word, Use Regular Expression (Alt+C/W/R); pressed toggles use the accent border with the selection fill and ink. A right-aligned “…” Toggle Search Details reveals “files to include” and “files to exclude” (12px labels, same field style, placeholders “e.g. *.ts, src/**/include”). Invalid regexes or globs mark the field `aria-invalid` with a destructive border and a 12px destructive message.
 
 A 2px accent progress bar runs after 150ms while searching; previous results stay until new ones arrive. A polite 12px message reads “3 results in 2 files” (“2,000+ results” when truncated), then any notice: “No results found[ in '…' excluding '…'].”, unreadable-file warnings, the truncation advice, or “Search is unavailable.” with Retry search.
 
-Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses `surface-raised`; keyboard focus a 1px inset accent outline; the opened match `accent-subtle`. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
+Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px chevron, the Pierre file icon, the name in `text-primary`, the muted 12px folder, and a right-aligned count badge (6px radius) on `border`; match rows indent 2.5rem and show a trimmed line preview whose match uses `warning-subtle`. Hover uses the state layer; keyboard focus a 1px inset accent outline; the opened match the selection fill and ink. Arrows, Home/End, Left/Right (collapse, parent, expand, first child), Space (open, keep focus), Enter (open, focus document), click (open, keep focus), double-click (open, focus document), F4/Shift+F4 (next/previous match). ArrowDown from the field enters the tree; ArrowUp from the first row returns. Escape leaves for the document (closes the drawer on mobile). Opening a match navigates to `#L<line>`, which selects that source line.
 
 ### Source Control
 
@@ -397,10 +458,9 @@ disclosure. Mobile shows the view in the drawer like Search.
 ### Commits
 
 The Commits header follows its title with a muted “2 ahead of main” in the
-branch range, then a right-aligned [Branch][All] segmented control (12px,
-16px tall, 24px narrow) on `workspace-chrome` with the pressed item on
-`surface` with the control shadow, then a 20px (28px narrow) Collapse All
-Commits icon action (14px fold icon, `surface-raised` hover) that closes every
+branch range, then a right-aligned [Branch][All] small `SegmentedControl` (12px,
+20px tall, 28px narrow), then a 20px (28px narrow) Collapse All
+Commits icon action (12px fold icon) that closes every
 open commit; it only collapses, and is disabled while no commit is open. The list is a `role="tree"` with the Search
 view's rows: commit rows (level 1) show a chevron, the subject in
 `text-primary`, and a muted right-aligned compact age (`3h`, `2d`, `4mo`; the
@@ -414,7 +474,7 @@ hash. Files follow under compact folders (single-child chains join, folders
 before files, open by default), indented 12px per level, with the Explorer's
 icons and the Changes status letters and colors; deleted names strike through
 and renames show a muted “from <old path>”. File rows are named “name,
-Status”; the open commit diff is selected with `accent-subtle`.
+Status”; the open commit diff is selected.
 
 Keyboard follows Search: arrows, Home/End, Right expands or enters, Left
 collapses or moves to the parent, Space opens a file and keeps focus, Enter
@@ -433,7 +493,7 @@ git-compare icon, the label in `text-primary`, and the Search count badge of
 net files (named “All changes vs main, 4 files”). Shift-click or Shift+Arrow
 on commit rows (desktop only; the tree is `aria-multiselectable`) selects a
 contiguous run from the anchor, the last commit clicked or reached without
-Shift; selected rows take `accent-subtle` with `aria-selected`, and the
+Shift; selected rows take the selection fill and ink with `aria-selected`, and the
 pinned row turns into “3 commits”, a muted 12px monospace `a1b2c3d..e4f5g6h`
 span, and a 20px Clear icon action (title “Clear selection (Escape)”),
 opening on its files. Escape in the tree, Clear, or switching range clears
@@ -480,7 +540,7 @@ ends every diff worker.
 
 ### Markdown, code, diagrams
 
-One prose system across documents. Tables: 14px, neutral headers, horizontal overflow. Quotes: 3px strong border. Code blocks: 8px vertical/12px horizontal padding, 4px radius, neutral fill, 1px border. Floating copy control has the same 4px radius, 8px inset and language-label padding. It shows recognized language until hover/focus and gives copy feedback; no extra header row. Markdown Preview hides leading closed YAML/TOML frontmatter and HTML comments; Source retains them and code literals stay visible. Diagrams retain local assets, resolved theme polarity, and compact floating controls. Errors pair destructive text/fill with alert semantics. Cards and chips are not current workspace patterns.
+One prose system across documents. Tables: 14px, neutral headers, horizontal overflow. Quotes: 3px strong border. Code blocks: 8px vertical/12px horizontal padding, 4px radius, neutral fill, 1px border. The floating `CopyButton` chip has the same 4px radius and an 8px inset. It shows the recognized language until hover/focus and gives copy feedback; no extra header row. Markdown Preview hides leading closed YAML/TOML frontmatter and HTML comments; Source retains them and code literals stay visible. Diagrams retain local assets, resolved theme polarity, and compact floating controls. Errors pair destructive text/fill with alert semantics. Cards and chips are not current workspace patterns.
 
 ## Do's and Don'ts
 
@@ -492,12 +552,14 @@ One prose system across documents. Tables: 14px, neutral headers, horizontal ove
 - Do keep file/path search (Explorer) separate from content search (Search view).
 - Do preserve keyboard focus, accessible labels, modal behavior, and reduced motion.
 - Do keep fonts, icons, and runtime assets local to the embedded Go distribution.
-- Do review shadcn-generated code against this system and strict TypeScript: no `any`, non-null assertions, or type assertions.
+- Do build UI from the primitives and tokens; extend a primitive rather than restyling it in a feature.
+- Do keep strict TypeScript: no `any`, non-null assertions, or type assertions.
 
 ### Don't:
 
 - Don't add a top app header or logo; keep workspace identity above the explorer and app identity in the footer.
 - Don't restore the mobile split; use the files drawer with 32px rows/toolbar and a 44px footer.
+- Don't hand-roll buttons, fields, rows, or overlays; don't add color, size, radius, or motion literals outside the token files.
 - Don't center preview prose or substitute generic heading/body tokens for the preview scale.
 - Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.
 - Don't rely on color alone for selection, focus, errors, or status.
