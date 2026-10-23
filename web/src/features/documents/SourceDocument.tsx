@@ -1,7 +1,6 @@
-import { CheckIcon, CopyIcon } from "lucide-react"
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
 
-import { useClipboardCopy } from "../../lib/clipboard.ts"
+import { CopyButton } from "../../components/ui/copy-button.tsx"
 import type { ColumnRange, NavigationKind } from "../navigation/code-navigation.ts"
 import { clampLineRange, lineReference, spanLines, splitSourceLines, startLineSelection, type LineRange } from "../../lib/line-selection.ts"
 import { showLink, targetAt, wordRange, type SourceTarget } from "../navigation/source-position.ts"
@@ -43,32 +42,14 @@ interface SourceDocumentProps {
   navigation?: SourceNavigation
 }
 
-// LineCopyButton copies a line reference from the gutter.
+// LineCopyButton copies a line reference from the gutter. Its presses stay
+// out of the gutter, which selects lines.
 export function LineCopyButton({ reference }: { reference: string }) {
-  const { status, copy } = useClipboardCopy()
-  const Icon = status === "copied" ? CheckIcon : CopyIcon
+  const stop = (event: { stopPropagation(): void }) => event.stopPropagation()
   return (
-    <>
-      <button
-        type="button"
-        className="source-line-copy-button"
-        onPointerDown={(event) => event.stopPropagation()}
-        onMouseDown={(event) => event.stopPropagation()}
-        aria-label={`Copy ${reference}`}
-        title={`Copy ${reference}`}
-        onClick={(event) => {
-          event.stopPropagation()
-          void copy(reference)
-        }}
-      >
-        <Icon aria-hidden="true" />
-      </button>
-      {status !== "idle" && (
-        <span className={`source-line-copy-status ${status}`} role="status">
-          {status === "copied" ? "Copied" : "Copy failed"}
-        </span>
-      )}
-    </>
+    <span className="source-line-copy" onPointerDown={stop} onMouseDown={stop} onClick={stop}>
+      <CopyButton text={reference} label={`Copy ${reference}`} variant="gutter" className="source-line-copy-button" />
+    </span>
   )
 }
 

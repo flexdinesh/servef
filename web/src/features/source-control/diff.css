@@ -8,11 +8,6 @@
   margin: 0 0 0 var(--space-1);
 }
 
-.diff-toolbar .document-mode-toggle button {
-  min-width: 1.5rem;
-  padding: 0 var(--space-1);
-}
-
 /* Phones are always Unified; give the layout group's room to tabs. */
 @media (max-width: 30rem) {
   .diff-toolbar .diff-layout {
@@ -20,53 +15,8 @@
   }
 }
 
-.diff-toolbar svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-}
-
-/* The Inline menu trigger shows as pressed only while its menu is open. */
-.diff-toolbar .diff-inline-trigger[data-popup-open] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-control);
-}
-
 .diff-open-file {
-  display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
-  flex: none;
-  place-items: center;
   margin: 0 var(--space-1);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  background: transparent;
-  cursor: pointer;
-}
-
-.diff-open-file:hover:not([aria-disabled="true"]) {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.diff-open-file:focus-visible {
-  outline-offset: -2px;
-}
-
-.diff-open-file[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.diff-inline-menu {
-  min-width: 10rem;
-}
-
-.diff-inline-item {
-  gap: var(--space-2);
 }
 
 .diff-inline-check {

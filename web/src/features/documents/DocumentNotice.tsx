@@ -1,3 +1,4 @@
+import { Notice } from "../../components/ui/notice.tsx"
 import { formatFailureMessage } from "./document-format.ts"
 import { formatBytes } from "../../lib/format-bytes.ts"
 
@@ -8,17 +9,17 @@ interface LargeFileNoticeProps {
 
 export function LargeFileNotice({ size, searchExcluded }: LargeFileNoticeProps) {
   return (
-    <p className="document-notice document-notice-warning" role="note">
+    <Notice tone="warning" layout="bar" className="document-notice" role="note">
       Large file ({formatBytes(size)}): preview and formatting are off.
       {searchExcluded && " Not included in search."}
-    </p>
+    </Notice>
   )
 }
 
 export function FormatErrorNotice({ reason }: { reason: string }) {
   return (
-    <p className="document-notice document-notice-error" role="alert">
+    <Notice tone="error" layout="bar" className="document-notice">
       {formatFailureMessage(reason)}
-    </p>
+    </Notice>
   )
 }

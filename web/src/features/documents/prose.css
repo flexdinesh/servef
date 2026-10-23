@@ -148,59 +148,32 @@ article .code-block > pre {
   align-items: center;
 }
 
-.code-block-copy-status {
-  position: absolute;
-  top: 50%;
-  right: calc(100% + var(--space-2));
-  padding: var(--space-1) var(--space-2);
-  transform: translateY(-50%);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-control);
-  font-size: var(--text-xs);
-  line-height: 1;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.code-block-copy-status.failed {
-  color: var(--color-destructive);
-}
-
 .code-block-control-language {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }
 
-.code-block-control-copy {
+/* A captioned chip names its language at rest and turns into the copy icon
+   while the block is hovered, focused, or reporting a copy. */
+.code-block-control-language + .code-block-control-copy {
   display: none;
-  width: var(--icon-xs);
-  height: var(--icon-xs);
-  color: var(--color-text-secondary);
-  stroke-width: 2;
 }
 
-.code-block-control-copy.visible,
-.code-block-control.feedback .code-block-control-copy,
 .code-block:hover .code-block-control-copy,
-.code-block-control:focus-visible .code-block-control-copy {
+.code-block-control:focus-visible .code-block-control-copy,
+.code-block-control:not([data-status="idle"]) .code-block-control-copy {
   display: block;
 }
 
 .code-block:hover .code-block-control-language,
-.code-block-control.feedback .code-block-control-language,
-.code-block-control:focus-visible .code-block-control-language {
+.code-block-control:focus-visible .code-block-control-language,
+.code-block-control:not([data-status="idle"]) .code-block-control-language {
   display: none;
 }
 
-.code-block-control.icon-only,
 .code-block:hover .code-block-control,
-.code-block-control:focus-visible {
-  width: var(--space-5);
-  padding-right: 0;
-  padding-left: 0;
+.code-block-control:focus-visible,
+.code-block-control:not([data-status="idle"]) {
+  padding: 0;
 }
 
 article code {
