@@ -20,3 +20,8 @@ allowBuilds:
   es5-ext: false
   esbuild: true
   vue-demi: false
+
+# Exposes React FileDiff's instance for diff anchor reveal and hunk steps
+# (decision 0034); drop once Pierre exposes it or a scroll-to-line API.
+patchedDependencies:
+  '@pierre/diffs@1.6.1': patches/@pierre__diffs@1.6.1.patch

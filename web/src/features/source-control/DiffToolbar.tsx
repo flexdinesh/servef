@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu"
-import { CheckIcon, Columns2Icon, FileInputIcon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, Columns2Icon, FileInputIcon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
 
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { menuItemClass, menuPopupClass, menuPositionerClass } from "../../components/ui/menu.ts"
@@ -11,14 +11,18 @@ interface DiffToolbarProps {
   narrow: boolean
   // openFileReason explains why Open File is unavailable, else "".
   openFileReason: string
+  // hasChanges: the shown diff has hunks to step through.
+  hasChanges: boolean
   onChange(change: Partial<DiffOptions>): void
   onOpenFile(): void
+  onStepHunk(direction: 1 | -1): void
 }
 
 const splitUnavailable = "Split view needs a wider window"
+const noChanges = "No changes to step through"
 
 // DiffToolbar sits in the document mode-toggle slot for a diff tab.
-export function DiffToolbar({ narrow, onChange, onOpenFile, openFileReason, options }: DiffToolbarProps) {
+export function DiffToolbar({ hasChanges, narrow, onChange, onOpenFile, onStepHunk, openFileReason, options }: DiffToolbarProps) {
   const style = effectiveDiffStyle(options, narrow)
   const inline = inlineChoices.find((choice) => choice.value === options.inline) ?? inlineChoices[0]
   return (
@@ -73,6 +77,14 @@ export function DiffToolbar({ narrow, onChange, onOpenFile, openFileReason, opti
           <UnfoldVerticalIcon aria-hidden="true" />
         </SegmentedItem>
       </SegmentedControl>
+      <span className="diff-hunk-steps">
+        <IconButton label="Previous change" title="Previous change (Shift+F7)" aria-keyshortcuts="Shift+F7"
+          icon={<ChevronUpIcon aria-hidden="true" />} disabledReason={hasChanges ? undefined : noChanges}
+          onClick={() => onStepHunk(-1)} />
+        <IconButton label="Next change" title="Next change (F7)" aria-keyshortcuts="F7"
+          icon={<ChevronDownIcon aria-hidden="true" />} disabledReason={hasChanges ? undefined : noChanges}
+          onClick={() => onStepHunk(1)} />
+      </span>
       <IconButton className="diff-open-file" label="Open File" icon={<FileInputIcon aria-hidden="true" />}
         disabledReason={openFileReason || undefined} onClick={onOpenFile} />
     </div>

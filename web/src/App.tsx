@@ -32,7 +32,7 @@ import type { SearchMatch } from "./features/search/search-engine.ts"
 import { SearchView } from "./features/search/SearchView.tsx"
 import { Sidebar } from "./workspace/Sidebar.tsx"
 import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
-import { DiffDocument } from "./features/source-control/DiffDocument.tsx"
+import { DiffDocument, type HunkStep } from "./features/source-control/DiffDocument.tsx"
 import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
 import { diffStats } from "./features/source-control/diff-stats.ts"
 import { useChanges } from "./features/source-control/use-changes.ts"
@@ -118,6 +118,7 @@ export function App({ project }: AppProps) {
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
   const openSettings = useRef<OpenSettings>(() => {})
   const openCommands = useRef<() => void>(() => {})
+  const stepHunk = useRef<HunkStep>(() => {})
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
   useEffect(() => {
     if (result?.kind === "page") setLastPage(result.page)
@@ -125,6 +126,9 @@ export function App({ project }: AppProps) {
 
   const registerSearch = useCallback((open: (() => void) | null) => {
     openSearch.current = open ?? (() => {})
+  }, [])
+  const registerHunkStep = useCallback((step: HunkStep | null) => {
+    stepHunk.current = step ?? (() => {})
   }, [])
   const registerFiles = useCallback((open: (() => void) | null) => {
     openFiles.current = open ?? (() => {})
@@ -354,8 +358,8 @@ export function App({ project }: AppProps) {
             />
             {diff.path ? (
               <DiffToolbar options={diff.options.options} narrow={sidebar.mobile} onChange={diff.options.change}
-                openFileReason={diff.openFileReason}
-                onOpenFile={() => navigateToDocument(diff.path)} />
+                openFileReason={diff.openFileReason} hasChanges={(diff.fileDiff?.hunks.length ?? 0) > 0}
+                onOpenFile={() => navigateToDocument(diff.path)} onStepHunk={(direction) => stepHunk.current(direction)} />
             ) : <>
               <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
                 onChange={changeDocumentMode} />
@@ -366,7 +370,7 @@ export function App({ project }: AppProps) {
             diff={diff.path ? <DiffDocument content={diff.content} fileDiff={diff.fileDiff} narrow={sidebar.mobile}
               options={diff.options.options} parseFailed={diff.parseFailed} path={diff.path} scrollRoot={main}
               unchangedSince={diffRoute?.kind === "branch" ? branchBase ? `vs ${branchBase}` : "on this branch" : undefined}
-              selection={diff.selection} state={diff.state}
+              selection={diff.selection} state={diff.state} onRegisterHunkStep={registerHunkStep}
               onOpenFile={() => navigateToDocument(diff.path)} onRetry={diff.retry} /> : undefined}
             hasData={hasData}
             image={image}

@@ -1,10 +1,13 @@
-import { Virtualizer, type FileDiffMetadata, type LineDiffTypes, type SelectedLineRange } from "@pierre/diffs"
+import {
+  Virtualizer, VirtualizedFileDiff,
+  type FileDiff as FileDiffInstance, type FileDiffMetadata, type LineDiffTypes, type SelectedLineRange, type SelectionSide,
+} from "@pierre/diffs"
 import {
   FileDiff, VirtualizerContext, WorkerPoolContextProvider, useWorkerPool,
   type FileDiffOptions, type WorkerInitializationRenderOptions, type WorkerPoolOptions,
 } from "@pierre/diffs/react"
 import workerUrl from "@pierre/diffs/worker/worker.js?worker&url"
-import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Notice } from "@/components/ui/notice"
@@ -12,6 +15,8 @@ import { Notice } from "@/components/ui/notice"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import { useTheme } from "../../settings/ThemeProvider.tsx"
 import { binaryChangeLabel, type DiffContent } from "./diff-content.ts"
+import { adjacentHunk, gapForLine, hunkCursor, hunkSelection, type HunkCursor } from "./diff-hunks.ts"
+import { diffLineAnchor } from "./diff-line-selection.ts"
 import { diffMetrics } from "./diff-metrics.ts"
 import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff-options.ts"
 import { DIFF_THEME } from "./diff-theme.ts"
@@ -65,9 +70,18 @@ interface DiffDocumentProps {
   // unchangedSince ends the “No changes to path …” line: “since the last
   // commit” for working-tree diffs, “vs main” for branch diffs.
   unchangedSince?: string
+  // onRegisterHunkStep hands the toolbar the next/previous change command
+  // while a text diff is shown, and null when it is gone.
+  onRegisterHunkStep(step: HunkStep | null): void
   onOpenFile(): void
   onRetry(): void
 }
+
+// A HunkStep selects and reveals the next (1) or previous (-1) hunk.
+export type HunkStep = (direction: 1 | -1) => void
+
+// revealTop is where a revealed line lands: the pane's top third, as in Source.
+const revealTop = 1 / 3
 
 // DiffDocument keeps one worker pool while any diff tab is shown, across
 // switches between diff tabs.
@@ -84,7 +98,8 @@ export function DiffDocument(props: DiffDocumentProps) {
 }
 
 function DiffBody({
-  content, fileDiff, narrow, options, parseFailed, path, scrollRoot, selection, state, unchangedSince = "since the last commit", onOpenFile, onRetry,
+  content, fileDiff, narrow, options, parseFailed, path, scrollRoot, selection, state, unchangedSince = "since the last commit",
+  onRegisterHunkStep, onOpenFile, onRetry,
 }: DiffDocumentProps) {
   if (state.kind === "error") {
     return (
@@ -130,7 +145,7 @@ function DiffBody({
     <div className="source-stack diff-stack">
       {notices}
       {fileDiff && fileDiff.hunks.length > 0 && <DiffView fileDiff={fileDiff} narrow={narrow} options={options} scrollRoot={scrollRoot}
-        selection={selection} />}
+        selection={selection} onRegisterHunkStep={onRegisterHunkStep} />}
     </div>
   )
 }
@@ -141,10 +156,26 @@ interface DiffViewProps {
   options: DiffOptions
   scrollRoot: RefObject<HTMLElement | null>
   selection: DiffLineSelection
+  onRegisterHunkStep(step: HunkStep | null): void
+}
+
+type DiffInstance = VirtualizedFileDiff<undefined, undefined>
+
+// expandToLine opens the collapsed gap holding a line, whole.
+function expandToLine(instance: DiffInstance, fileDiff: FileDiffMetadata, side: SelectionSide, line: number) {
+  const gap = gapForLine(fileDiff, side, line)
+  if (gap && !instance.isLineRenderable(gap.newLine)) instance.expandHunk(gap.hunkIndex, "up", gap.lines)
+}
+
+// lineTop is a line's offset in the pane's scroll content.
+function lineTop(instance: DiffInstance, side: SelectionSide, line: number): { top: number; height: number } | null {
+  const position = instance.getLinePosition(line, side)
+  if (!position || instance.top === undefined) return null
+  return { top: instance.top + position.top, height: position.height }
 }
 
 // DiffView renders only the rows near the pane's viewport.
-function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffViewProps) {
+function DiffView({ fileDiff, narrow, options, scrollRoot, selection, onRegisterHunkStep }: DiffViewProps) {
   const { resolvedTheme } = useTheme()
   const pool = useWorkerPool()
   const [virtualizer] = useState(() => new Virtualizer())
@@ -170,6 +201,77 @@ function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffView
     root.addEventListener("keydown", clear)
     return () => root.removeEventListener("keydown", clear)
   }, [hasSelection, onChange, scrollRoot])
+  const style = effectiveDiffStyle(options, narrow)
+  // Pierre hands over its virtualized instance, which places and expands rows.
+  const [instance, setInstance] = useState<DiffInstance | null>(null)
+  const onInstance = useCallback((next: FileDiffInstance<undefined, undefined> | null) => {
+    setInstance(next instanceof VirtualizedFileDiff ? next : null)
+  }, [])
+  const anchor = selection.range ? diffLineAnchor(selection.range) : ""
+  // A gutter selection is already where the pointer is; only anchors from
+  // links, history, and hunk steps reveal.
+  const [pointerAnchor, setPointerAnchor] = useState("")
+  // The reveal reads the latest rows without revealing again when they
+  // refresh.
+  const latest = useRef({ fileDiff, range: selection.range })
+  useLayoutEffect(() => { latest.current = { fileDiff, range: selection.range } })
+  useEffect(() => {
+    const root = scrollRoot.current
+    if (!root || !instance || !anchor || anchor === pointerAnchor) return
+    const frame = window.requestAnimationFrame(() => {
+      const { fileDiff: rows, range } = latest.current
+      if (!range) return
+      const side = range.side ?? "additions"
+      expandToLine(instance, rows, side, range.start)
+      expandToLine(instance, rows, range.endSide ?? side, range.end)
+      const line = lineTop(instance, side, range.start)
+      if (!line) return
+      const { scrollTop, clientHeight } = root
+      if (line.top >= scrollTop && line.top + line.height <= scrollTop + clientHeight) return
+      // The pane scrolls itself: the virtualizer clamps to a cached height.
+      root.scrollTop = line.top - clientHeight * revealTop
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [anchor, instance, pointerAnchor, scrollRoot])
+  // Hunk steps start from the selection, else from the pane's top.
+  const stepHunk = useCallback((direction: 1 | -1) => {
+    if (!instance) return
+    const range = selection.range
+    let cursor: HunkCursor = { kind: "before", index: fileDiff.hunks.length }
+    if (range) {
+      cursor = hunkCursor(fileDiff, range.side ?? "additions", range.start)
+    } else {
+      const scrollTop = virtualizer.getScrollTop()
+      const below = fileDiff.hunks.findIndex((_, index) => {
+        const first = hunkSelection(fileDiff, index, style)
+        const line = first ? lineTop(instance, first.side ?? "additions", first.start) : null
+        return line !== null && line.top >= scrollTop
+      })
+      if (below >= 0) cursor = { kind: "before", index: below }
+    }
+    const index = adjacentHunk(fileDiff.hunks.length, cursor, direction)
+    const next = index === null ? null : hunkSelection(fileDiff, index, style)
+    if (!next) return
+    setPointerAnchor("")
+    onChange(next)
+  }, [fileDiff, instance, onChange, selection.range, style, virtualizer])
+  useLayoutEffect(() => {
+    onRegisterHunkStep(stepHunk)
+    return () => onRegisterHunkStep(null)
+  }, [onRegisterHunkStep, stepHunk])
+  // F7 and Shift+F7 step through hunks while focus is in the pane, as in
+  // VS Code's diff editor.
+  useEffect(() => {
+    const root = scrollRoot.current
+    if (!root) return
+    const step = (event: KeyboardEvent) => {
+      if (event.key !== "F7" || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return
+      event.preventDefault()
+      stepHunk(event.shiftKey ? -1 : 1)
+    }
+    root.addEventListener("keydown", step)
+    return () => root.removeEventListener("keydown", step)
+  }, [scrollRoot, stepHunk])
   // Pierre reads row metrics once, so a Font Size change remounts the diff.
   const scale = uiScale(useSettings().settings)
   const metrics = useMemo(() => diffMetrics(scale), [scale])
@@ -184,7 +286,7 @@ function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffView
     theme,
     themeType: resolvedTheme,
     preferredHighlighter: "highlights",
-    diffStyle: effectiveDiffStyle(options, narrow),
+    diffStyle: style,
     overflow: options.wrap ? "wrap" : "scroll",
     lineDiffType: inline,
     expandUnchanged: options.expandUnchanged,
@@ -199,11 +301,15 @@ function DiffView({ fileDiff, narrow, options, scrollRoot, selection }: DiffView
       scrollRoot.current?.focus({ preventScroll: true })
       onChange(range)
     },
-  }), [inline, narrow, onChange, options, resolvedTheme, scrollRoot])
+    // Only pointer gestures end a selection; programmatic ones commit only.
+    onLineSelectionEnd(range) {
+      setPointerAnchor(range ? diffLineAnchor(range) : "")
+    },
+  }), [inline, onChange, options, resolvedTheme, scrollRoot, style])
   return (
     <VirtualizerContext.Provider value={virtualizer}>
       <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={fileDiff} options={diffOptions} metrics={metrics}
-        selectedLines={selection.range}
+        selectedLines={selection.range} onInstance={onInstance}
         renderGutterUtility={() => selection.range && selection.reference
           ? <span className="diff-line-copy"><LineCopyButton reference={selection.reference} /></span>
           : null} />
