@@ -3,6 +3,9 @@ import { useCallback, useEffect, useId, useRef, useState } from "react"
 
 import { isDefaultFilenameScope, parseFilenameFilter, type FilenameMatcher } from "./filename-filter.ts"
 
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { TextField } from "../../components/ui/text-field.tsx"
+
 const debounceMs = 150
 
 interface SettledFilter {
@@ -73,36 +76,34 @@ export function FilenameFilter({ filter, scopePatterns, totalCount, visibleCount
   const active = filter.matcher !== null
 
   return <div className="filename-filter">
-    <div className="filename-filter-field" data-invalid={filter.invalidPattern !== null || undefined}>
-      <FunnelIcon aria-hidden="true" />
-      <input ref={input} className="filename-filter-input" type="text" aria-label="Filter files by name"
-        placeholder="Filter: *.md, *.go" value={filter.text} spellCheck={false} autoComplete="off" autoCapitalize="off"
-        aria-invalid={filter.invalidPattern !== null || undefined} aria-describedby={describedBy || undefined}
-        onChange={(event) => filter.setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            if (filter.text) filter.clear()
-            else input.current?.blur()
-          } else if (event.key === "Enter" || event.key === "ArrowDown") {
-            onFocusTree()
-          } else return
-          event.preventDefault()
-          event.stopPropagation()
-        }} />
-      <span className="filename-filter-count" role="status">
-        {active && <>
-          <span aria-hidden="true">{visibleCount} / {totalCount}</span>
-          <span className="visually-hidden">{visibleCount} of {totalCount} files match</span>
-        </>}
-      </span>
-      {filter.text && <button type="button" className="filename-filter-clear" aria-label="Clear filter" title="Clear filter"
-        onClick={() => {
-          filter.clear()
-          input.current?.focus()
-        }}>
-        <XIcon aria-hidden="true" />
-      </button>}
-    </div>
+    <TextField className="filename-filter-field" inputClassName="filename-filter-input" inputRef={input}
+      icon={<FunnelIcon />} invalid={filter.invalidPattern !== null} type="text" aria-label="Filter files by name"
+      placeholder="Filter: *.md, *.go" value={filter.text} spellCheck={false} autoComplete="off" autoCapitalize="off"
+      aria-describedby={describedBy || undefined}
+      onChange={(event) => filter.setText(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          if (filter.text) filter.clear()
+          else input.current?.blur()
+        } else if (event.key === "Enter" || event.key === "ArrowDown") {
+          onFocusTree()
+        } else return
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      trailing={<>
+        <span className="filename-filter-count" role="status">
+          {active && <>
+            <span aria-hidden="true">{visibleCount} / {totalCount}</span>
+            <span className="visually-hidden">{visibleCount} of {totalCount} files match</span>
+          </>}
+        </span>
+        {filter.text && <IconButton className="filename-filter-clear" size="xs" label="Clear filter" icon={<XIcon aria-hidden="true" />}
+          onClick={() => {
+            filter.clear()
+            input.current?.focus()
+          }} />}
+      </>} />
     {filter.invalidPattern !== null && <p id={errorId} className="filename-filter-error">Invalid pattern "{filter.invalidPattern}"</p>}
     {scoped && <p id={scopeId} className="filename-filter-scope" title={scopePatterns.join(", ")}>Serving {scopePatterns.join(", ")}</p>}
   </div>

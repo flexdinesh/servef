@@ -125,7 +125,7 @@ test("collapse and expand all include filtered folders and the filter survives r
   const drawer = page.getByRole("dialog", { name: "Files", exact: true })
   const drawerFilter = drawer.getByRole("textbox", { name: "Filter files by name" })
   await expect(drawerFilter).toHaveValue("*.json")
-  expect(await drawer.locator(".filename-filter-field").evaluate((element) => element.getBoundingClientRect().height)).toBe(28)
+  expect(await drawer.locator(".filename-filter-field").evaluate((element) => element.getBoundingClientRect().height)).toBe(44)
   await drawer.getByRole("button", { name: "Expand all folders" }).click()
   await expect(drawer.getByRole("treeitem", { name: "settings.json" })).toBeVisible()
   await expect(drawer.getByRole("treeitem", { name: "getting-started.md" })).toHaveCount(0)

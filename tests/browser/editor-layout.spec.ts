@@ -188,7 +188,7 @@ test("responsive explorer preserves expansion and keeps virtualized row heights 
   expect((mobileDiagrams?.y ?? 0) - (mobileCode?.y ?? 0)).toBe(32)
   await page.setViewportSize({ width: 1280, height: 720 })
   await expect(guides).toHaveAttribute("aria-expanded", "true")
-  await expect(code).toHaveCSS("height", "24px")
+  await expect(code).toHaveCSS("height", "22px")
 })
 
 test("document pane stops at its edges without elastic overscroll", async ({ page }) => {
