@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -40,9 +41,14 @@ var (
 	walkLimit = 100_000
 )
 
-// ErrRangeTooLarge is returned when a branch range exceeds branchLimit or its
-// walk exceeds walkLimit.
-var ErrRangeTooLarge = errors.New("too many commits to compare")
+var (
+	// ErrRangeTooLarge is returned when a branch range exceeds branchLimit or
+	// its walk exceeds walkLimit.
+	ErrRangeTooLarge = errors.New("too many commits to compare")
+	// ErrUnknownBase is returned for a base branch name Branches does not
+	// list.
+	ErrUnknownBase = errors.New("unknown base branch")
+)
 
 // rangeTooLarge names the base a range was too large to compare with.
 type rangeTooLarge struct{ base string }
@@ -61,6 +67,9 @@ type LogOptions struct {
 	Head Hash
 	// Skip and Limit page the commits; a Limit of zero or less returns all.
 	Skip, Limit int
+	// Base names the base branch as Branches lists it; empty finds it as
+	// DefaultBase does.
+	Base string
 }
 
 // Author is who wrote a commit.
@@ -134,10 +143,15 @@ var baseCandidates = []plumbing.ReferenceName{
 	plumbing.NewRemoteReferenceName("origin", "master"),
 }
 
-// base finds the base branch: origin's HEAD target, then main, master,
-// origin/main, and origin/master. It returns an empty name when none
+// DefaultBase finds the base branch: origin's HEAD target, then main,
+// master, origin/main, and origin/master. It returns an empty name when none
 // resolves.
-func (r *Repository) base() (string, plumbing.Hash, error) {
+func (r *Repository) DefaultBase() (string, error) {
+	name, _, err := r.defaultBase()
+	return name, err
+}
+
+func (r *Repository) defaultBase() (string, plumbing.Hash, error) {
 	candidates := baseCandidates
 	if ref, err := r.storage.Reference(plumbing.NewRemoteHEADReferenceName("origin")); err == nil {
 		name := ref.Name()
@@ -161,14 +175,109 @@ func (r *Repository) base() (string, plumbing.Hash, error) {
 	return "", plumbing.ZeroHash, nil
 }
 
+// base resolves a base branch named as Branches lists it, or finds the
+// default when name is empty. A name that is not a listed branch is
+// ErrUnknownBase.
+func (r *Repository) base(name string) (string, plumbing.Hash, error) {
+	if name == "" {
+		return r.defaultBase()
+	}
+	for _, full := range []plumbing.ReferenceName{plumbing.NewBranchReferenceName(name), plumbing.ReferenceName(remotePrefix + name)} {
+		if full.Validate() != nil {
+			continue
+		}
+		ref, err := r.storage.Reference(full)
+		if errors.Is(err, plumbing.ErrReferenceNotFound) {
+			continue
+		}
+		if err != nil {
+			return "", plumbing.ZeroHash, fmt.Errorf("read %s: %w", name, err)
+		}
+		if listedBranch(ref) {
+			return name, ref.Hash(), nil
+		}
+	}
+	return "", plumbing.ZeroHash, ErrUnknownBase
+}
+
+const (
+	branchPrefix = "refs/heads/"
+	remotePrefix = "refs/remotes/"
+)
+
+// listedBranch reports whether Branches lists ref: a local or
+// remote-tracking branch that names a commit directly, not a symbolic ref
+// such as origin/HEAD.
+func listedBranch(ref *plumbing.Reference) bool {
+	name := ref.Name().String()
+	if ref.Type() != plumbing.HashReference {
+		return false
+	}
+	if strings.HasPrefix(name, branchPrefix) {
+		return len(name) > len(branchPrefix)
+	}
+	rest, ok := strings.CutPrefix(name, remotePrefix)
+	return ok && rest != "" && path.Base(rest) != "HEAD"
+}
+
+// BranchRef is a branch a compare may use as its base. Name is git's short
+// form: "main" for a local branch, "origin/main" for a remote-tracking one.
+type BranchRef struct {
+	Name   string `json:"name"`
+	Remote bool   `json:"remote"`
+}
+
+// BranchList is a repository's branches: local ones, then remote-tracking
+// ones, each sorted by name in byte order.
+type BranchList struct {
+	Branches []BranchRef
+	// Truncated reports that the limit dropped branches.
+	Truncated bool
+}
+
+// Branches lists the local and remote-tracking branches, leaving out
+// symbolic refs such as origin/HEAD. A limit of zero or less lists all.
+func (r *Repository) Branches(limit int) (BranchList, error) {
+	refs, err := r.storage.IterReferences()
+	if err != nil {
+		return BranchList{}, fmt.Errorf("read refs: %w", err)
+	}
+	defer refs.Close()
+	var local, remote []BranchRef
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if !listedBranch(ref) {
+			return nil
+		}
+		if ref.Name().IsRemote() {
+			remote = append(remote, BranchRef{Name: strings.TrimPrefix(ref.Name().String(), remotePrefix), Remote: true})
+		} else {
+			local = append(local, BranchRef{Name: strings.TrimPrefix(ref.Name().String(), branchPrefix)})
+		}
+		return nil
+	})
+	if err != nil {
+		return BranchList{}, fmt.Errorf("read refs: %w", err)
+	}
+	for _, group := range [][]BranchRef{local, remote} {
+		sort.Slice(group, func(a, b int) bool { return group[a].Name < group[b].Name })
+	}
+	result := BranchList{Branches: append(append(make([]BranchRef, 0, len(local)+len(remote)), local...), remote...)}
+	if limit > 0 && len(result.Branches) > limit {
+		result.Branches = result.Branches[:limit]
+		result.Truncated = true
+	}
+	return result, nil
+}
+
 // Log lists one page of history from options.Head. Commits are ordered like
 // git log: newest committer date first, from a priority queue, so a parent
 // can precede a child only under clock skew. It returns ErrUnavailable when a
 // given Head is not a commit, and ErrRangeTooLarge when the base..Head range
-// exceeds its bounds. RangeAll still lists a page then, with Ahead zero.
+// exceeds its bounds. RangeAll still lists a page then, with Ahead zero. An
+// options.Base Branches does not list is ErrUnknownBase.
 func (r *Repository) Log(ctx context.Context, options LogOptions) (History, error) {
 	history := History{Commits: []Commit{}}
-	baseName, baseHash, err := r.base()
+	baseName, baseHash, err := r.base(options.Base)
 	if err != nil {
 		return History{}, err
 	}
@@ -691,7 +800,8 @@ func (r *Repository) rangeChanges(ctx context.Context, from, to plumbing.Hash) (
 
 // BranchRange is HEAD's branch range against the base branch.
 type BranchRange struct {
-	// Base is the base branch's short name, or empty when none exists.
+	// Base is the base branch's short name, or empty when none was given and
+	// none exists.
 	Base string
 	// MergeBase is the best common ancestor of the base and Head; zero when
 	// nothing is ahead or the histories are unrelated.
@@ -704,10 +814,11 @@ type BranchRange struct {
 
 // BranchCompare finds HEAD's branch range and merge base within the bounds
 // of Log's branch walk. With several best common ancestors, as after
-// criss-cross merges, the newest committer date wins. It returns
-// ErrRangeTooLarge past the bounds.
-func (r *Repository) BranchCompare(ctx context.Context) (BranchRange, error) {
-	baseName, baseHash, err := r.base()
+// criss-cross merges, the newest committer date wins. base names the base
+// branch as Branches lists it, or is empty for DefaultBase's. It returns
+// ErrUnknownBase for an unlisted base and ErrRangeTooLarge past the bounds.
+func (r *Repository) BranchCompare(ctx context.Context, base string) (BranchRange, error) {
+	baseName, baseHash, err := r.base(base)
 	if err != nil {
 		return BranchRange{}, err
 	}
@@ -746,9 +857,9 @@ func (r *Repository) BranchCompare(ctx context.Context) (BranchRange, error) {
 // BranchFiles compares the merge base's tree with Head's, as git diff
 // base...HEAD does; unrelated histories compare with an empty tree.
 // Nothing ahead lists no changes. Statuses, renames, and the limit follow
-// CommitFiles.
-func (r *Repository) BranchFiles(ctx context.Context, limit int) (BranchRange, CommitChanges, error) {
-	compared, changes, err := r.branchChanges(ctx)
+// CommitFiles; base follows BranchCompare.
+func (r *Repository) BranchFiles(ctx context.Context, base string, limit int) (BranchRange, CommitChanges, error) {
+	compared, changes, err := r.branchChanges(ctx, base)
 	if err != nil {
 		return BranchRange{}, CommitChanges{}, err
 	}
@@ -757,14 +868,15 @@ func (r *Repository) BranchFiles(ctx context.Context, limit int) (BranchRange, C
 
 // BranchLookup validates one change of the branch under BranchFiles's
 // rules, as CommitLookup does for a commit. Sides read through CommitBlob
-// at MergeBase and Head.
-func (r *Repository) BranchLookup(ctx context.Context, name, oldPath string) (BranchRange, Change, error) {
-	if !validLookup(name, oldPath) {
-		return BranchRange{}, Change{}, ErrUnavailable
-	}
-	compared, changes, err := r.branchChanges(ctx)
+// at MergeBase and Head. base follows BranchCompare; an unknown base is
+// ErrUnknownBase whatever the path.
+func (r *Repository) BranchLookup(ctx context.Context, base, name, oldPath string) (BranchRange, Change, error) {
+	compared, changes, err := r.branchChanges(ctx, base)
 	if err != nil {
 		return BranchRange{}, Change{}, err
+	}
+	if !validLookup(name, oldPath) {
+		return BranchRange{}, Change{}, ErrUnavailable
 	}
 	change, err := findChange(changes, name, oldPath)
 	if err != nil {
@@ -773,8 +885,8 @@ func (r *Repository) BranchLookup(ctx context.Context, name, oldPath string) (Br
 	return compared, change, nil
 }
 
-func (r *Repository) branchChanges(ctx context.Context) (BranchRange, []Change, error) {
-	compared, err := r.BranchCompare(ctx)
+func (r *Repository) branchChanges(ctx context.Context, base string) (BranchRange, []Change, error) {
+	compared, err := r.BranchCompare(ctx, base)
 	if err != nil || compared.Ahead == 0 {
 		return compared, []Change{}, err
 	}

@@ -113,10 +113,16 @@ func (a *App) newRoutes() *http.ServeMux {
 		a.serveCommitFiles(w, r, query.Get("project"), query.Get("commit"))
 	})
 	api("/api/branch-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveBranchFiles(w, r, query.Get("project"))
+		a.serveBranchFiles(w, r, query.Get("project"), query.Get("base"))
 	})
 	api("/api/range-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
 		a.serveRangeFiles(w, r, query.Get("project"), query.Get("from"), query.Get("to"))
+	})
+	api("/api/refs", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveRefs(w, query.Get("project"))
+	})
+	api("/api/compare-stats", func(w http.ResponseWriter, r *http.Request, query url.Values) {
+		a.serveCompareStats(w, r, query.Get("project"), query)
 	})
 
 	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveMetrics(w) })
@@ -124,7 +130,8 @@ func (a *App) newRoutes() *http.ServeMux {
 }
 
 // serveShellPage serves the app shell. Without a project the browser
-// chooses one, so no page data is embedded; /view requires a file.
+// chooses one, so no page data is embedded; /view requires a file unless it
+// opens a review tab.
 func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	projectID := query.Get("project")
@@ -133,12 +140,18 @@ func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	selected := ""
-	required := r.URL.Path == "/view"
+	required := r.URL.Path == "/view" && !reviewQuery(query)
 	if required {
 		selected = query.Get("path")
 	}
 	data, status := a.page(projectID, selected, required)
 	a.serveShell(w, status, &data)
+}
+
+// reviewQuery reports a pathless /view that opens a review tab (decision
+// 0035): review=working|branch, commit=<hash>, or from=<hash>&to=<hash>.
+func reviewQuery(query url.Values) bool {
+	return !query.Has("path") && (query.Has("review") || query.Has("commit") || query.Has("from") && query.Has("to"))
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

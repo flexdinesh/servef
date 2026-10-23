@@ -102,63 +102,187 @@
   outline: 0;
 }
 
-.commit-list {
+.compare-list {
   display: flex;
   min-height: 0;
   flex: 1;
   flex-direction: column;
 }
 
-.commit-tree {
+.compare-rows {
   min-height: 0;
   flex: 1;
   overflow: auto;
   padding: var(--space-1) 0 var(--space-2);
 }
 
-/* Commit rows are ListRows; the tree keeps its own indent and secondary ink. */
-.commit-row {
+/* Compare rows are ListRows; selected rows take the selection fill. */
+.compare-row {
   height: var(--row-list);
   gap: var(--space-1);
-  padding: 0 var(--space-3) 0 var(--space-2);
+  padding: 0 var(--space-3);
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
-.commit-row[aria-selected="true"] {
-  color: var(--color-selected-text);
-}
-
-.commit-details:hover {
-  background: var(--color-hover);
-}
-
-.commit-details:focus-visible {
+.compare-row:focus-visible {
   outline: 1px solid var(--color-focus);
   outline-offset: -1px;
 }
 
-.commit-subject,
-.commit-file-name {
+/* Uncommitted and the branch lead the list and end in a divider. */
+.compare-row-branch {
+  margin-bottom: var(--space-1);
+  box-shadow: inset 0 -1px var(--color-border);
+}
+
+/* A range's middle commits share the fill without each reading as the cursor. */
+.compare-row[data-range] + .compare-row[data-range] {
+  box-shadow: inset 0 1px var(--color-selected);
+}
+
+.compare-row[data-pending] {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: -1px;
+}
+
+.compare-row-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.compare-row-label {
   min-width: 0;
+  flex: 1;
   overflow: hidden;
+  color: var(--color-text-primary);
   text-overflow: ellipsis;
 }
 
-.commit-subject {
-  flex: 1;
-  color: var(--color-text-primary);
+.compare-row-branch .compare-row-label {
+  flex: 0 1 auto;
 }
 
-.commit-row[aria-selected="true"] .commit-subject {
+/* The list header has no toggle, so its title takes the toggle's inset. */
+.source-control-list-title {
+  padding-left: var(--space-3);
+}
+
+.compare-row[data-selected] .compare-row-label {
   color: inherit;
 }
 
-.commit-age {
+.compare-row-picker {
+  display: inline-flex;
+  flex: 1;
+}
+
+.compare-row-age {
   flex: none;
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
+}
+
+.compare-list-hint {
+  padding: var(--space-1) var(--space-3);
+}
+
+.files-pane {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.files-pane-header {
+  padding-left: var(--space-3);
+}
+
+.files-pane-header .files-pane-title {
+  min-width: 0;
+  flex: 0 1 auto;
+  margin: 0;
+  overflow: hidden;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-pane-span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-pane-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.files-pane-details {
+  flex: none;
+  padding-left: var(--space-3);
+}
+
+.files-pane-body .file-tree-host {
+  min-height: 12rem;
+  flex: 1;
+}
+
+.base-picker {
+  display: flex;
+  width: 18rem;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.base-picker-list {
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.base-picker-option {
+  gap: var(--space-2);
+}
+
+.base-picker-check {
+  display: inline-grid;
+  width: var(--icon-sm);
+  flex: none;
+  place-items: center;
+}
+
+.base-picker-check svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.base-picker-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.base-picker-detail {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.base-picker-note {
+  padding: var(--space-1) var(--space-2);
 }
 
 .commit-details {
@@ -223,27 +347,6 @@
   margin-top: var(--space-1);
 }
 
-.commit-file .file-icon {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  flex: none;
-  /* Files align their icon with a sibling folder's name, past its chevron. */
-  margin-left: 1rem;
-}
-
-.commit-file-name[data-status="deleted"] {
-  text-decoration: line-through;
-}
-
-.commit-file-from {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-}
-
 .commit-file-status {
   width: 1rem;
   flex: none;
@@ -260,34 +363,6 @@
 .commit-file-status[data-status="deleted"] { color: var(--color-destructive); }
 
 .commit-file-status[data-status="renamed"] { color: var(--color-accent); }
-
-/* The pinned compare group ends in a divider above the commits. */
-.commit-tree [data-compare-end] {
-  margin-bottom: var(--space-1);
-  box-shadow: inset 0 -1px var(--color-border);
-}
-
-.commit-compare-icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  flex: none;
-  color: var(--color-text-secondary);
-}
-
-.commit-compare-count {
-  flex: none;
-  color: var(--color-text-primary);
-}
-
-.commit-compare-span {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-}
 
 .commit-compare-meta {
   margin-top: 0;

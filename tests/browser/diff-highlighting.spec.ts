@@ -14,8 +14,8 @@ const project = encodeURIComponent(gitFixtureRoot)
 // Builds ship only Highlights and servef's theme (decision 0029); this guards
 // that a mapped family still highlights with servef's syntax tokens.
 test("diffs highlight mapped families with servef syntax colors", async ({ page }) => {
-  await page.goto(`${gitApiOrigin}/view?project=${project}&path=${encodeURIComponent("src/app.ts")}&diff=1`)
-  const diff = page.locator(".diff-view")
+  await page.goto(`${gitApiOrigin}/view?project=${project}&review=working#f=src/app.ts`)
+  const diff = page.getByRole("main").getByRole("region", { name: "src/app.ts", exact: true }).locator(".diff-view")
   await expect(diff.locator('[data-line-type="change-addition"]').first()).toBeVisible()
   await expect.poll(() => diff.evaluate((host) => {
     const keyword = getComputedStyle(document.documentElement).getPropertyValue("--color-syntax-keyword").trim()

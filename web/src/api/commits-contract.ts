@@ -1,6 +1,6 @@
 import { isChangeStatus, type ChangeStatus } from "./changes-contract.ts"
 import { isRecord } from "./http.ts"
-import { isCommitHash } from "../workspace/workspace-tabs.ts"
+import { isCommitHash } from "../lib/commit-hash.ts"
 
 // Transport contracts for /api/commits and /api/commit-files (decision 0027),
 // /api/branch-files, and /api/range-files (decision 0030).

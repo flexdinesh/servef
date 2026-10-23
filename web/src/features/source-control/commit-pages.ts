@@ -26,8 +26,10 @@ export function appendedCommits(previous: CommitsResponse, page: CommitsResponse
   return { ...previous, commits: [...previous.commits, ...page.commits.filter((commit) => !seen.has(commit.hash))], more: page.more }
 }
 
-export function commitsUrl(project: string, range: CommitsResponse["range"], head: string, skip: number): string {
+// commitsUrl reads a page; base is the chosen base branch, "" for the default.
+export function commitsUrl(project: string, range: CommitsResponse["range"], head: string, skip: number, base = ""): string {
   const params = new URLSearchParams({ project, range, limit: String(commitPageSize) })
+  if (base) params.set("base", base)
   if (head) params.set("head", head)
   if (skip > 0) params.set("skip", String(skip))
   return `/api/commits?${params.toString()}`

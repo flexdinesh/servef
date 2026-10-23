@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import type { CommitFiles } from "./commit-rows.ts"
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
+import type { FileList } from "./compare-files.ts"
 import {
   historyError, isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
-  type BranchFilesResponse, type CommitRange, type CommitsResponse,
+  type BranchFilesResponse, type CommitFile, type CommitRange, type CommitsResponse,
 } from "../../api/commits-contract.ts"
 import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
@@ -24,18 +24,12 @@ function fetchHistory<T>(url: string, signal: AbortSignal, valid: (value: unknow
   return fetchJSON(url, { signal }, valid, (failure) => historyError(failureReason(failure)))
 }
 
-// BranchState is the branch's net file list: null until read, kept while a
+// BranchState is one base's net file list: null until read, kept while a
 // reread runs or fails.
 export interface BranchState {
   result: BranchFilesResponse | null
   error: string
   loading: boolean
-}
-
-// branchCurrent reports whether a branch read still matches the listed
-// history: the same head, base, and ahead count mean the same merge-base.
-function branchCurrent(branch: BranchFilesResponse | null, history: CommitsResponse): boolean {
-  return branch !== null && branch.head === history.head && branch.base === history.base && branch.ahead === history.ahead
 }
 
 // rangeKey names a commit range in the range file lists.
@@ -47,43 +41,66 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : historyError("unknown error")
 }
 
-// useCommits owns the project's commit list, the file lists of commits the
-// view expands, the branch's net file list, and selected ranges' file lists.
-// The list reads on project load, when the Source Control view opens, on
-// window focus or visibility (throttled), on refresh, and when the range
+function readyList(response: { files: CommitFile[]; truncated: boolean }): FileList {
+  return { kind: "ready", files: response.files, truncated: response.truncated }
+}
+
+// sameBranch keeps a reread that found the same compare from replacing the
+// list, so its stats and diffs stay.
+function sameBranch(left: BranchFilesResponse | null, right: BranchFilesResponse): boolean {
+  return left !== null && left.head === right.head && left.base === right.base && left.mergeBase === right.mergeBase
+    && left.ahead === right.ahead && left.truncated === right.truncated && left.files.length === right.files.length
+    && left.files.every((file, index) => {
+      const other = right.files[index]
+      return other !== undefined && other.path === file.path && other.status === file.status && other.oldPath === file.oldPath
+    })
+}
+
+// useCommits owns the project's commit list, commits' and ranges' file
+// lists, and the branch's net file list per base. The list and the branch
+// read on project load, when Source Control or a live review opens, on window
+// focus or visibility (throttled), on refresh, and when the range or base
 // changes. It never polls. Commits never change, so commit and range file
-// lists are read once; the branch list rereads when the branch range's head,
-// base, or ahead count changes.
-export function useCommits(project: string, viewActive: boolean, range: CommitRange) {
+// lists are read once. base is the chosen base branch, "" for the default.
+export function useCommits(project: string, viewActive: boolean, range: CommitRange, base: string) {
   const [state, setState] = useState<CommitsState>({ result: null, error: "", loading: project !== "", loadingMore: false, moreError: "" })
-  const [files, setFiles] = useState<ReadonlyMap<string, CommitFiles>>(() => new Map())
+  const [files, setFiles] = useState<ReadonlyMap<string, FileList>>(() => new Map())
   const controller = useRef<AbortController | null>(null)
   const moreController = useRef<AbortController | null>(null)
   const filesRequests = useRef(new Map<string, AbortController>())
   const lastRead = useRef(0)
-  const [branch, setBranch] = useState<BranchState>({ result: null, error: "", loading: false })
-  const branchController = useRef<AbortController | null>(null)
-  const branchResult = useRef<BranchFilesResponse | null>(null)
-  const [rangeFiles, setRangeFiles] = useState<ReadonlyMap<string, CommitFiles>>(() => new Map())
+  const [branches, setBranches] = useState<ReadonlyMap<string, BranchState>>(() => new Map())
+  const branchRequests = useRef(new Map<string, AbortController>())
+  // knownBases are the bases read so far; a refresh rereads them all.
+  const knownBases = useRef(new Set<string>())
+  const [rangeFiles, setRangeFiles] = useState<ReadonlyMap<string, FileList>>(() => new Map())
   const rangeRequests = useRef(new Map<string, AbortController>())
 
-  // readBranch reads the branch's files once the branch range lists commits
-  // ahead of a base, unless the last read still matches.
-  const readBranch = useCallback((history: CommitsResponse, force: boolean) => {
-    if (!project || history.range !== "branch" || history.ahead === 0 || !history.base) return
-    if (!force && branchCurrent(branchResult.current, history)) return
-    branchController.current?.abort()
+  // loadBranch reads a base's files; "" is the default base. Without reread
+  // it joins a read already running.
+  const loadBranch = useCallback((branchBase: string, reread = false) => {
+    if (!project) return
+    if (!reread && branchRequests.current.has(branchBase)) return
+    knownBases.current.add(branchBase)
+    branchRequests.current.get(branchBase)?.abort()
     const current = new AbortController()
-    branchController.current = current
-    setBranch((previous) => ({ ...previous, loading: true }))
+    branchRequests.current.set(branchBase, current)
+    const update = (change: (previous: BranchState) => BranchState) => setBranches((previous) => {
+      const next = new Map(previous)
+      next.set(branchBase, change(previous.get(branchBase) ?? { result: null, error: "", loading: false }))
+      return next
+    })
+    update((previous) => ({ ...previous, loading: true }))
     const params = new URLSearchParams({ project })
+    if (branchBase) params.set("base", branchBase)
     fetchHistory(`/api/branch-files?${params.toString()}`, current.signal, isBranchFilesResponse).then((result) => {
-      if (branchController.current !== current) return
-      branchResult.current = result
-      setBranch({ result, error: "", loading: false })
+      if (branchRequests.current.get(branchBase) !== current) return
+      branchRequests.current.delete(branchBase)
+      update((previous) => ({ result: sameBranch(previous.result, result) ? previous.result : result, error: "", loading: false }))
     }, (error: unknown) => {
-      if (branchController.current !== current || current.signal.aborted) return
-      setBranch((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
+      if (branchRequests.current.get(branchBase) !== current || current.signal.aborted) return
+      branchRequests.current.delete(branchBase)
+      update((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
     })
   }, [project])
 
@@ -95,29 +112,29 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     controller.current = current
     lastRead.current = Date.now()
     setState((previous) => ({ ...previous, loading: true, loadingMore: false, moreError: "" }))
-    fetchHistory(commitsUrl(project, range, "", 0), current.signal, isCommitsResponse).then((first) => {
+    fetchHistory(commitsUrl(project, range, "", 0, base), current.signal, isCommitsResponse).then((first) => {
       if (controller.current !== current) return
       setState((previous) => ({ ...previous, result: refreshedCommits(previous.result, first), error: "", loading: false }))
-      readBranch(first, false)
     }, (error: unknown) => {
       if (controller.current !== current || current.signal.aborted) return
       setState((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
     })
-  }, [project, range, readBranch])
+    loadBranch(base, true)
+    for (const known of knownBases.current) if (known !== base) loadBranch(known, true)
+  }, [base, loadBranch, project, range])
 
   useEffect(() => {
     refresh()
     return () => {
       controller.current?.abort()
       moreController.current?.abort()
-      branchController.current?.abort()
     }
   }, [refresh])
 
   useRefreshOnReturn(refresh, { lastRead, viewActive })
 
-  // A list read for the other range is not this range's history, even while
-  // the switch reads or after it fails.
+  // A list read for the other range or base is not this one's history, even
+  // while the switch reads or after it fails.
   const loaded = state.result?.range === range ? state.result : null
   const loadMore = useCallback(() => {
     if (!project || !loaded?.more || !loaded.head) return
@@ -125,7 +142,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     const current = new AbortController()
     moreController.current = current
     setState((previous) => ({ ...previous, loadingMore: true, moreError: "" }))
-    fetchHistory(commitsUrl(project, loaded.range, loaded.head, loaded.commits.length), current.signal, isCommitsResponse).then((page) => {
+    fetchHistory(commitsUrl(project, loaded.range, loaded.head, loaded.commits.length, base), current.signal, isCommitsResponse).then((page) => {
       if (moreController.current !== current) return
       setState((previous) => ({
         ...previous,
@@ -136,7 +153,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
       if (moreController.current !== current || current.signal.aborted) return
       setState((previous) => ({ ...previous, loadingMore: false, moreError: errorMessage(error) }))
     })
-  }, [loaded, project])
+  }, [base, loaded, project])
 
   // loadFiles reads a commit's files unless they are loaded or loading.
   const loadFiles = useCallback((hash: string, retry = false) => {
@@ -149,7 +166,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     const params = new URLSearchParams({ project, commit: hash })
     fetchHistory(`/api/commit-files?${params.toString()}`, current.signal, isCommitFilesResponse).then((response) => {
       filesRequests.current.delete(hash)
-      setFiles((previous) => new Map(previous).set(hash, { kind: "ready", response }))
+      setFiles((previous) => new Map(previous).set(hash, readyList(response)))
     }, (error: unknown) => {
       filesRequests.current.delete(hash)
       if (isAbort(error)) {
@@ -177,7 +194,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     const params = new URLSearchParams({ project, from, to })
     fetchHistory(`/api/range-files?${params.toString()}`, current.signal, isRangeFilesResponse).then((response) => {
       rangeRequests.current.delete(key)
-      setRangeFiles((previous) => new Map(previous).set(key, { kind: "ready", response }))
+      setRangeFiles((previous) => new Map(previous).set(key, readyList(response)))
     }, (error: unknown) => {
       rangeRequests.current.delete(key)
       if (isAbort(error)) {
@@ -192,21 +209,25 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     })
   }, [project, rangeFiles])
 
-  // retryBranch rereads the branch's files after a failure.
-  const retryBranch = useCallback(() => {
-    if (loaded) readBranch(loaded, true)
-  }, [loaded, readBranch])
-
   useEffect(() => {
     const requests = filesRequests.current
     const ranges = rangeRequests.current
+    const branchReads = branchRequests.current
     return () => {
       for (const request of requests.values()) request.abort()
       for (const request of ranges.values()) request.abort()
+      for (const request of branchReads.values()) request.abort()
     }
   }, [])
 
-  return { ...state, result: loaded, branch, files, loadFiles, loadMore, loadRangeFiles, rangeFiles, refresh, retryBranch }
+  return { ...state, result: loaded, branches, files, loadBranch, loadFiles, loadMore, loadRangeFiles, rangeFiles, refresh }
 }
 
 export type Commits = ReturnType<typeof useCommits>
+
+// branchList is a base's file list as a FileList.
+export function branchList(state: BranchState | undefined): FileList | undefined {
+  if (!state) return undefined
+  if (state.result) return readyList(state.result)
+  return state.error ? { kind: "error", message: state.error } : { kind: "loading" }
+}

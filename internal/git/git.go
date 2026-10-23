@@ -105,6 +105,14 @@ type Blob struct {
 	storage *filesystem.Storage
 }
 
+// Hash returns the blob's 40-hexadecimal-digit git hash.
+func (b Blob) Hash() string { return b.hash.String() }
+
+// BlobHash returns the git blob hash content would be stored under.
+func BlobHash(content []byte) string {
+	return plumbing.ComputeHash(plumbing.BlobObject, content).String()
+}
+
 // Open returns the blob's content.
 func (b Blob) Open() (io.ReadCloser, error) {
 	obj, err := b.storage.EncodedObject(plumbing.BlobObject, b.hash)
@@ -426,6 +434,26 @@ func (r *Repository) Lookup(ctx context.Context, name, oldPath string) (Entry, e
 		return Entry{}, ErrUnavailable
 	}
 	return entry, nil
+}
+
+// Entries completes changes Status listed with what reading their worktree
+// sides needs: whether each path is now a symbolic link, and its target
+// text. Deleted changes have no worktree side and are returned as they are.
+func (r *Repository) Entries(changes []Change) ([]Entry, error) {
+	worktree := r.newWorktree(stagedFiles{entries: map[string]stagedEntry{}})
+	entries := make([]Entry, len(changes))
+	for i, change := range changes {
+		entries[i].Change = change
+		if change.Status == Deleted || !validPath(change.Path) {
+			continue
+		}
+		file, err := worktree.file(change.Path)
+		if err != nil {
+			return nil, err
+		}
+		entries[i].Symlink, entries[i].Link = file.mode == filemode.Symlink, file.link
+	}
+	return entries, nil
 }
 
 // untracked reports whether git would list name as untracked if it is not

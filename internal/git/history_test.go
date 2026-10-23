@@ -676,7 +676,7 @@ func mustBlob(t *testing.T) func(Blob, error) Blob {
 
 func compareBranch(t *testing.T, repo *Repository) BranchRange {
 	t.Helper()
-	compared, err := repo.BranchCompare(context.Background())
+	compared, err := repo.BranchCompare(context.Background(), "")
 	if err != nil {
 		t.Fatalf("BranchCompare error = %v", err)
 	}
@@ -685,7 +685,7 @@ func compareBranch(t *testing.T, repo *Repository) BranchRange {
 
 func branchFiles(t *testing.T, repo *Repository) (BranchRange, []Change) {
 	t.Helper()
-	compared, changes, err := repo.BranchFiles(context.Background(), 0)
+	compared, changes, err := repo.BranchFiles(context.Background(), "", 0)
 	if err != nil {
 		t.Fatalf("BranchFiles error = %v", err)
 	}
@@ -715,11 +715,11 @@ func TestBranchFilesCompareMergeBaseWithHead(t *testing.T) {
 		t.Fatalf("Log Ahead = %d, BranchCompare Ahead = %d", history.Ahead, compared.Ahead)
 	}
 	ctx := context.Background()
-	if _, change, err := repo.BranchLookup(ctx, "shared.txt", ""); err != nil || change != (Change{Path: "shared.txt", Status: Modified}) {
+	if _, change, err := repo.BranchLookup(ctx, "", "shared.txt", ""); err != nil || change != (Change{Path: "shared.txt", Status: Modified}) {
 		t.Fatalf("BranchLookup(shared.txt) = %+v, %v", change, err)
 	}
 	for _, name := range []string{"base.txt", "main.txt", "missing.txt", "../shared.txt"} {
-		if _, change, err := repo.BranchLookup(ctx, name, ""); !errors.Is(err, ErrUnavailable) {
+		if _, change, err := repo.BranchLookup(ctx, "", name, ""); !errors.Is(err, ErrUnavailable) {
 			t.Errorf("BranchLookup(%s) = %+v, %v; want ErrUnavailable", name, change, err)
 		}
 	}
@@ -810,7 +810,7 @@ func TestBranchFilesWithNothingAheadOrNoBase(t *testing.T) {
 	if want := (BranchRange{Head: Hash(tip)}); compared != want || changes == nil || len(changes) != 0 {
 		t.Fatalf("no base = %+v, %+v", compared, changes)
 	}
-	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, ErrUnavailable) {
+	if _, _, err := repo.BranchLookup(ctx, "", "a.txt", ""); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("no base lookup error = %v", err)
 	}
 
@@ -819,7 +819,7 @@ func TestBranchFilesWithNothingAheadOrNoBase(t *testing.T) {
 	if want := (BranchRange{Base: "main", Head: Hash(tip)}); compared != want || len(changes) != 0 {
 		t.Fatalf("on base = %+v, %+v", compared, changes)
 	}
-	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, ErrUnavailable) {
+	if _, _, err := repo.BranchLookup(ctx, "", "a.txt", ""); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("on base lookup error = %v", err)
 	}
 	// Behind the base is nothing ahead too.
@@ -846,20 +846,20 @@ func TestBranchCompareIsBoundedAndCancellable(t *testing.T) {
 	defer func(branch, walk int) { branchLimit, walkLimit = branch, walk }(branchLimit, walkLimit)
 	for _, limits := range [][2]int{{3, 100}, {100, 3}} {
 		branchLimit, walkLimit = limits[0], limits[1]
-		if _, err := repo.BranchCompare(context.Background()); !errors.Is(err, ErrRangeTooLarge) || err.Error() != "the branch has too many commits to compare with main" {
+		if _, err := repo.BranchCompare(context.Background(), ""); !errors.Is(err, ErrRangeTooLarge) || err.Error() != "the branch has too many commits to compare with main" {
 			t.Errorf("limits %v: BranchCompare error = %v", limits, err)
 		}
-		if _, _, err := repo.BranchFiles(context.Background(), 0); !errors.Is(err, ErrRangeTooLarge) {
+		if _, _, err := repo.BranchFiles(context.Background(), "", 0); !errors.Is(err, ErrRangeTooLarge) {
 			t.Errorf("limits %v: BranchFiles error = %v", limits, err)
 		}
 	}
 	branchLimit, walkLimit = 10_000, 100_000
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := repo.BranchCompare(ctx); !errors.Is(err, context.Canceled) {
+	if _, err := repo.BranchCompare(ctx, ""); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancelled BranchCompare error = %v", err)
 	}
-	if _, _, err := repo.BranchLookup(ctx, "a.txt", ""); !errors.Is(err, context.Canceled) {
+	if _, _, err := repo.BranchLookup(ctx, "", "a.txt", ""); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancelled BranchLookup error = %v", err)
 	}
 }

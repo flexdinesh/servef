@@ -9,23 +9,27 @@ import {
 import { App } from "./App.tsx"
 import { isAbort } from "./api/http.ts"
 import { loadPage } from "./api/page-data.ts"
+import { parseDiffLineAnchor } from "./features/source-control/diff-line-selection.ts"
 import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./api/projects-data.ts"
 import { readMemory } from "./workspace/workspace-memory.ts"
-import { isCommitHash } from "./workspace/workspace-tabs.ts"
+import { compareSearch, legacyCompare, reviewFragment, routeCompare } from "./features/source-control/compare.ts"
+import { isCommitHash } from "./lib/commit-hash.ts"
 
 interface PageSearch {
   [key: string]: unknown
   path?: string
   project?: string
-  // diff=1 opens path's working-tree diff instead of the file.
-  diff?: 1
-  // commit=<hash> opens path's change in that commit instead of the file.
+  // Without a path, review=working, review=branch (with base), commit=<hash>,
+  // or from=<hash>&to=<hash> open a review tab (decision 0035).
+  review?: "working" | "branch"
+  base?: string
   commit?: string
-  // branch=1 opens path's change on this branch since its merge-base.
-  branch?: 1
-  // from=<hash>&to=<hash> opens path's net change over that commit range.
   from?: string
   to?: string
+  // With a path, diff=1, commit=, branch=1, and from=&to= are per-file diff
+  // routes from before review tabs; they redirect to the review.
+  diff?: 1
+  branch?: 1
 }
 
 function validateSearch(search: Record<string, unknown>): PageSearch {
@@ -33,6 +37,8 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     ...search,
     path: typeof search.path === "string" ? search.path : undefined,
     project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
+    review: search.review === "working" || search.review === "branch" ? search.review : undefined,
+    base: typeof search.base === "string" && search.base !== "" ? search.base : undefined,
     diff: search.diff === 1 || search.diff === "1" ? 1 : undefined,
     commit: isCommitHash(search.commit) ? search.commit : undefined,
     branch: search.branch === 1 || search.branch === "1" ? 1 : undefined,
@@ -94,6 +100,17 @@ const viewRoute = createRoute({
   validateSearch,
   // A path without a project is relative to the first served root.
   beforeLoad: async ({ search, location, abortController }) => {
+    // A per-file diff route opens its review at that file, keeping its lines.
+    const legacy = legacyCompare(search)
+    if (legacy) {
+      const lines = parseDiffLineAnchor(location.hash)
+      throw redirect({
+        to: "/view",
+        search: { ...(search.project ? { project: search.project } : {}), ...compareSearch(legacy.compare) },
+        hash: reviewFragment(legacy.path, lines),
+        replace: true,
+      })
+    }
     if (search.project) return
     let project = ""
     try {
@@ -104,10 +121,9 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  // A diff tab of any kind loads only the tree; its pane reads /api/diff.
+  // A review tab loads only the tree; its pane reads /api/diff per file.
   loaderDeps: ({ search }) => {
-    const diff = search.diff === 1 || search.commit !== undefined || search.branch === 1
-      || (search.from !== undefined && search.to !== undefined)
+    const diff = routeCompare(search) !== null
     return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", diff }
   },
   loader: ({ abortController, deps }) => loadPage({

@@ -31,18 +31,17 @@ async function styles(locator: Locator, properties: readonly string[]): Promise<
   }, properties)
 }
 
-test("list rows are 22px in Explorer, Changes, Commits, and Search", async ({ page }) => {
+test("list rows are 22px in Explorer, the compare list, Files, and Search", async ({ page }) => {
   await page.goto(`${gitApiOrigin}/?project=${project}`)
   const explorer = page.getByRole("complementary", { name: "Files" })
   expect(await height(explorer.getByRole("treeitem", { name: "README.md" }))).toBe(22)
 
   await page.keyboard.press("ControlOrMeta+Shift+g")
-  // The Changes tree comes first in the view.
-  expect(await height(sourceControl(page).getByRole("treeitem").first())).toBe(22)
-  expect(await height(sourceControl(page).getByRole("tree", { name: "Commits" }).getByRole("treeitem").first())).toBe(22)
-  for (const name of ["Changes", "Commits"]) {
-    expect(await height(sourceControl(page).getByRole("button", { name, exact: true }))).toBe(22)
-  }
+  const options = sourceControl(page).getByRole("listbox", { name: "Compare" }).getByRole("option")
+  await expect(options).toHaveCount(3)
+  for (const option of await options.all()) expect(await height(option)).toBe(22)
+  const files = sourceControl(page).getByRole("region", { name: /^Files: / })
+  expect(await height(files.getByRole("treeitem", { name: "README.md" }))).toBe(22)
 
   await page.getByRole("button", { name: /^Find in files/ }).click()
   await page.getByRole("textbox", { name: "Search", exact: true }).fill("Fixture")

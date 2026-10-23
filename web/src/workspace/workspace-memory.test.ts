@@ -13,7 +13,9 @@ import {
   restoreTabs,
   restoreExpanded,
 } from "./workspace-memory.ts"
-import { commitTab, diffTab, documentTab } from "./workspace-tabs.ts"
+import { documentTab, reviewTab } from "./workspace-tabs.ts"
+
+const working = reviewTab({ kind: "working" })
 
 const docs = (...paths: string[]) => paths.map(documentTab)
 
@@ -106,40 +108,31 @@ test("stored expansion is optional for existing memories and rejects malformed v
   assert.equal(projectMemory(memory, "invalid")?.expanded, undefined)
 })
 
-test("diff tabs are remembered beside legacy document paths", () => {
-  const tabs = [documentTab("README.md"), diffTab("README.md"), diffTab("removed.md")]
-  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, diffTab("removed.md"))
-  assert.deepEqual(projectMemory(memory, "/a/api"), {
-    tabs: ["README.md", { diff: "README.md" }, { diff: "removed.md" }], active: { diff: "removed.md" },
-  })
-  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, diffTab("closed.md")), "/a/api")?.active, "")
+test("review tabs are remembered beside legacy document paths", () => {
+  const tabs = [documentTab("README.md"), working]
+  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, working)
+  assert.deepEqual(projectMemory(memory, "/a/api"), { tabs: ["README.md", { review: "working" }], active: { review: "working" } })
+  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, reviewTab({ kind: "branch", base: "" })), "/a/api")?.active, "")
 })
 
-test("restored diff tabs need no tree entry; documents still do", () => {
-  const files = new Set(["README.md"])
-  assert.deepEqual(restoreTabs({
-    tabs: ["README.md", { diff: "README.md" }, { diff: "removed.md" }, "removed.md", { diff: "removed.md" }],
-    active: { diff: "removed.md" },
-  }, files), { tabs: [documentTab("README.md"), diffTab("README.md"), diffTab("removed.md")], active: diffTab("removed.md") })
-  assert.deepEqual(restoreTabs({ tabs: [{ diff: "a.md" }], active: "a.md" }, files), { tabs: [diffTab("a.md")], active: null })
-})
-
-test("commit tabs are remembered and restore without a tree entry", () => {
+test("restored review tabs need no tree entry; documents still do", () => {
   const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
-  const tabs = [documentTab("README.md"), commitTab(hash, "removed.md")]
-  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, commitTab(hash, "removed.md"))
-  const remembered = projectMemory(memory, "/a/api")
-  assert.deepEqual(remembered, {
-    tabs: ["README.md", { commit: hash, path: "removed.md" }], active: { commit: hash, path: "removed.md" },
-  })
-  assert.deepEqual(restoreTabs(remembered, new Set(["README.md"])), { tabs, active: commitTab(hash, "removed.md") })
+  const commit = reviewTab({ kind: "commit", hash })
+  assert.deepEqual(restoreTabs({ tabs: ["README.md", { review: "commit", commit: hash }, "removed.md"], active: { review: "commit", commit: hash } },
+    new Set(["README.md"])), { tabs: [documentTab("README.md"), commit], active: commit })
 })
 
-test("stored tabs migrate legacy strings and drop malformed diff entries", () => {
+test("per-file diff tabs stored before reviews restore as one review per compare", () => {
+  const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
   const memory = parseMemory({ projects: { p: {
-    tabs: ["a.md", { diff: "b.md" }, { diff: 3 }, { diff: "" }, "", { path: "c.md" }, ["d.md"], null],
-    active: { diff: "b.md" },
-  }, q: { tabs: [], active: { diff: null } } } })
-  assert.deepEqual(projectMemory(memory, "p"), { tabs: ["a.md", { diff: "b.md" }], active: { diff: "b.md" } })
-  assert.deepEqual(projectMemory(memory, "q"), { tabs: [], active: "" })
+    tabs: ["a.md", { diff: "b.md" }, { diff: "c.md" }, { commit: hash, path: "a.md" }, { commit: hash, path: "b.md" }, { diff: 3 }, "", null],
+    active: { diff: "c.md" },
+  } } })
+  assert.deepEqual(projectMemory(memory, "p"), {
+    tabs: ["a.md", { review: "working" }, { review: "working" }, { review: "commit", commit: hash }, { review: "commit", commit: hash }],
+    active: { review: "working" },
+  })
+  assert.deepEqual(restoreTabs(projectMemory(memory, "p"), new Set(["a.md"])), {
+    tabs: [documentTab("a.md"), working, reviewTab({ kind: "commit", hash })], active: working,
+  })
 })

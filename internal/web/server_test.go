@@ -653,6 +653,17 @@ func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {
 	if noSelection.Code != http.StatusBadRequest {
 		t.Fatalf("empty selection status = %d, want %d", noSelection.Code, http.StatusBadRequest)
 	}
+
+	// Review tabs name a compare, not a file (decision 0035).
+	for _, target := range []string{"/view?project=.&review=working", "/view?project=.&commit=" + strings.Repeat("a", 40)} {
+		review := request(t, app, target)
+		if review.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want %d", target, review.Code, http.StatusOK)
+		}
+		if strings.Contains(review.Body.String(), "No file was selected.") {
+			t.Fatalf("%s embedded a missing-file error", target)
+		}
+	}
 }
 
 func TestAppRejectsUnknownRoutesAndMethods(t *testing.T) {
@@ -783,6 +794,8 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"commit-files.json", func() any { return &commitFilesResponse{} }},
 		{"branch-files.json", func() any { return &branchFilesResponse{} }},
 		{"range-files.json", func() any { return &rangeFilesResponse{} }},
+		{"refs.json", func() any { return &refsResponse{} }},
+		{"compare-stats*.json", func() any { return &compareStatsResponse{} }},
 		{"projects.json", func() any { return &projectsResponse{} }},
 		{"directories.json", func() any { return &directoriesResponse{} }},
 		{"navigation-status.json", func() any { return &navigationStatus{} }},
