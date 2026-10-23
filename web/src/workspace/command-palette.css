@@ -1,0 +1,71 @@
+.command-prompt {
+  flex: none;
+  /* Sits beside the input like VS Code's ">" prefix. */
+  margin-right: calc(var(--space-3) * -1 + var(--space-1));
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+  line-height: var(--control-height-sm);
+}
+
+.command-palette .search-shell {
+  min-height: 0;
+}
+
+.command-results {
+  padding-top: var(--space-2);
+}
+
+.command-option {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+
+.command-option.active {
+  background: var(--color-accent-subtle);
+}
+
+.command-category,
+.command-separator {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.command-separator {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.command-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-option mark {
+  color: var(--color-accent);
+  background: transparent;
+  font-weight: 600;
+}
+
+.command-value {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 48rem) {
+  .command-option {
+    min-height: 2.75rem;
+  }
+}

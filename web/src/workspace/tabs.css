@@ -1,0 +1,124 @@
+.buffer-tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  column-gap: calc(var(--space-1) / 2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-workspace-chrome);
+  scrollbar-width: none;
+}
+
+.buffer-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.buffer-tab {
+  --tab-radius: var(--radius-lg);
+  position: relative;
+  display: flex;
+  max-width: 12.5rem;
+  flex: none;
+  align-items: center;
+  margin-top: var(--space-1);
+  border-radius: var(--tab-radius) var(--tab-radius) 0 0;
+  color: var(--color-text-secondary);
+  background: var(--color-workspace-chrome);
+}
+
+.buffer-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+}
+
+.buffer-tab.active {
+  z-index: 1;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.buffer-tab:not(.active)::after {
+  position: absolute;
+  inset: var(--space-2) 0 var(--space-2) auto;
+  width: 1px;
+  background: var(--color-border);
+  content: "";
+}
+
+.buffer-tab:has(+ .buffer-tab.active)::after {
+  display: none;
+}
+
+/* Concave shoulders join the selected tab to the document surface. */
+.buffer-tab.active::before,
+.buffer-tab.active::after {
+  position: absolute;
+  bottom: 0;
+  width: var(--tab-radius);
+  height: var(--tab-radius);
+  background: var(--color-surface);
+  content: "";
+  pointer-events: none;
+}
+
+.buffer-tab.active::before {
+  right: 100%;
+  mask-image: radial-gradient(circle at 0 0, transparent var(--tab-radius), #000 calc(var(--tab-radius) + 0.5px));
+}
+
+.buffer-tab.active::after {
+  left: 100%;
+  mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), #000 calc(var(--tab-radius) + 0.5px));
+}
+
+.buffer-tab-target {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.buffer-tab-target > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.buffer-tab-target > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.buffer-tab-close {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  margin-right: var(--space-1);
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.buffer-tab-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.buffer-tab-close svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}

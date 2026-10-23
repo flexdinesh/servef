@@ -4,7 +4,6 @@ import { useEffect, useRef, type KeyboardEvent } from "react"
 
 import { FileIcon } from "../components/FileIcon.tsx"
 import { includesTab, sameTab, tabKey, type TabName, type WorkspaceTab } from "./workspace-tabs.ts"
-import "./tab-menu.css"
 
 interface TabBarProps {
   active: WorkspaceTab | null

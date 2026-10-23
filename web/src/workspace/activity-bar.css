@@ -1,0 +1,75 @@
+.activity-bar {
+  display: flex;
+  width: var(--activity-width);
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-workspace-chrome);
+}
+
+.activity-item {
+  position: relative;
+  display: grid;
+  height: var(--activity-width);
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.activity-item svg {
+  position: relative;
+  width: 1.125rem;
+  height: 1.125rem;
+  stroke-width: 1.75;
+}
+
+.activity-item:hover,
+.activity-item[aria-pressed="true"] {
+  color: var(--color-text-primary);
+}
+
+.activity-item::before {
+  position: absolute;
+  inset: var(--space-1);
+  border-radius: var(--radius-md);
+  content: "";
+}
+
+.activity-item:hover::before {
+  background: var(--color-surface-raised);
+}
+
+.activity-item[aria-pressed="true"]::before {
+  background: var(--color-surface);
+}
+
+.activity-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Pending-change count at the tile's lower right, as in VS Code. Surface text
+   keeps contrast on the accent in every theme. */
+.activity-badge {
+  position: absolute;
+  top: calc(50% + 0.0625rem);
+  left: calc(50% + 0.0625rem);
+  min-width: 0.875rem;
+  height: 0.875rem;
+  padding: 0 0.1875rem;
+  border-radius: var(--radius-lg);
+  color: var(--color-surface);
+  background: var(--color-accent);
+  /* VS Code's 9px badge; the type ramp starts at 12px, too large for the tile. */
+  font-size: 0.5625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.875rem;
+  text-align: center;
+  pointer-events: none;
+}

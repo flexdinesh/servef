@@ -1,0 +1,311 @@
+.file-explorer {
+  --explorer-input-height: 1.75rem;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-secondary);
+}
+
+.explorer-header {
+  display: flex;
+  height: var(--tabs-height);
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  background: var(--color-workspace-chrome);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.explorer-header > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-header button,
+.files-toggle {
+  display: grid;
+  width: var(--space-5);
+  height: var(--space-5);
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.explorer-header button:hover,
+.files-toggle:hover {
+  background: var(--color-surface-raised);
+}
+
+.explorer-header button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  background: transparent;
+}
+
+.explorer-header svg,
+.files-toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.files-toggle {
+  display: none;
+}
+
+.file-tree-host {
+  --trees-padding-inline-override: 0.5rem;
+  --trees-bg-override: var(--color-surface-secondary);
+  --trees-bg-muted-override: var(--color-surface-raised);
+  --trees-fg-override: var(--color-text-secondary);
+  --trees-fg-muted-override: var(--color-text-muted);
+  --trees-accent-override: var(--color-accent);
+  --trees-border-color-override: var(--color-border);
+  --trees-border-radius-override: 0px;
+  --trees-font-family-override: var(--font-sans);
+  --trees-font-size-override: 0.8125rem;
+  --trees-selected-bg-override: var(--color-accent-subtle);
+  --trees-selected-fg-override: var(--color-accent);
+  --trees-search-bg-override: var(--color-surface);
+  --trees-search-fg-override: var(--color-text-primary);
+  --trees-status-modified-override: var(--color-warning);
+  --trees-status-added-override: var(--color-success);
+  --trees-status-untracked-override: var(--color-success);
+  --trees-status-deleted-override: var(--color-destructive);
+  --trees-status-renamed-override: var(--color-accent);
+  min-height: 0;
+  flex: 1;
+  padding: var(--space-1);
+}
+
+.explorer-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(85vw, 22rem);
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.explorer-drawer::backdrop {
+  background: var(--color-overlay);
+}
+
+.explorer-drawer .file-explorer {
+  height: 100%;
+}
+
+aside .muted {
+  margin: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.warnings {
+  flex: none;
+  max-height: 30%;
+  overflow: auto;
+  padding: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.warnings summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.warnings ul {
+  margin-top: var(--space-2);
+  color: var(--color-warning);
+}
+
+@media (max-width: 48rem) {
+  .files-toggle {
+    display: grid;
+    width: var(--space-5);
+    height: var(--tabs-height);
+  }
+}
+
+/* Sidebar shelf: query fields extend the chrome header band, divided from the list below. */
+.explorer-shelf,
+.search-form {
+  display: grid;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-workspace-chrome);
+}
+
+.explorer-shelf:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+.filename-filter,
+.file-search {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.filename-filter-field,
+.file-search-input {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: var(--explorer-input-height);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.file-search[hidden],
+.file-tree-host[hidden] {
+  display: none;
+}
+
+.file-search-input::placeholder,
+.filename-filter-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.filename-filter-field {
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+  cursor: text;
+}
+
+.filename-filter-field:hover {
+  border-color: var(--color-border-strong);
+}
+
+.filename-filter-field:has(.filename-filter-input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.filename-filter-field[data-invalid] {
+  border-bottom-color: var(--color-destructive);
+  box-shadow: inset 0 -1px var(--color-destructive);
+}
+
+.filename-filter-field > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.filename-filter-input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.filename-filter-count {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.filename-filter-clear {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.filename-filter-clear:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+}
+
+.filename-filter-clear svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.filename-filter-error,
+.filename-filter-scope {
+  margin: var(--space-1) 0 0;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filename-filter-error {
+  color: var(--color-destructive);
+}
+
+.filename-filter-scope {
+  color: var(--color-text-muted);
+}
+
+.file-explorer .explorer-empty {
+  margin: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.explorer-empty code {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.explorer-empty-action {
+  display: block;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  color: var(--color-accent);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.explorer-empty-action:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

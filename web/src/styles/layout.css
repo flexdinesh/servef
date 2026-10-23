@@ -1,0 +1,122 @@
+.navigation-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  width: 35%;
+  height: 2px;
+  background: var(--color-accent);
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: opacity 120ms ease, transform 800ms ease;
+}
+
+.navigation-progress.active {
+  opacity: 1;
+  transform: scaleX(2.7);
+}
+
+.layout {
+  display: grid;
+  /* The footer owns the bottom canvas gutter so its controls center in the band. */
+  height: calc(100dvh - var(--status-height) - var(--workspace-inset));
+  min-height: 0;
+  grid-template-columns: calc(var(--activity-width) + var(--sidebar-width)) var(--workspace-gap) minmax(0, 1fr);
+  padding: var(--workspace-inset) var(--workspace-inset) 0;
+}
+
+.layout[data-sidebar="hidden"] {
+  grid-template-columns: var(--activity-width) var(--workspace-gap) minmax(0, 1fr);
+}
+
+.layout[data-sidebar="hidden"] .sidebar-resizer {
+  display: none;
+}
+
+main {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: none;
+  padding: var(--space-6);
+  background: var(--color-surface);
+}
+
+main.source-mode,
+main.image-mode {
+  padding: 0;
+}
+
+.sidebar-resizer {
+  position: relative;
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sidebar-resizer::after {
+  position: absolute;
+  inset: var(--workspace-radius) calc((var(--workspace-gap) - 2px) / 2);
+  border-radius: var(--radius-sm);
+  content: "";
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after {
+  background: var(--color-accent);
+}
+
+.sidebar-resizer:focus-visible {
+  outline: 0;
+}
+
+.workspace {
+  display: grid;
+  grid-column: 3;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: var(--tabs-height) minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: var(--workspace-radius);
+  background: var(--color-surface);
+}
+
+.workspace :is(main, .buffer-tab-target):focus-visible {
+  outline-offset: -2px;
+}
+
+.workspace-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  background: var(--color-workspace-chrome);
+}
+
+@media (max-width: 48rem) {
+  .layout,
+  .layout[data-sidebar="hidden"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace {
+    grid-column: 1;
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  main {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+:root:has(.layout[data-sidebar="hidden"]) .status-bar {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.layout[data-sidebar="hidden"] .activity-bar {
+  border-right: 0;
+}

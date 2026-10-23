@@ -1,0 +1,46 @@
+@media print {
+  .file-explorer,
+  .explorer-drawer,
+  .search-dialog,
+  .settings-dialog {
+    display: none;
+  }
+
+  .layout {
+    display: block;
+    height: auto;
+    padding: 0;
+  }
+
+  .workspace {
+    display: block;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  body,
+  main {
+    height: auto;
+    overflow: visible;
+  }
+
+  .sidebar-resizer,
+  .workspace-toolbar,
+  .status-bar {
+    display: none;
+  }
+
+  main {
+    padding: 0;
+  }
+
+  article {
+    max-width: none;
+  }
+}
+
+@media print {
+  .sidebar-drawer:not([open]) {
+    display: none;
+  }
+}

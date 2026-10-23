@@ -1,0 +1,101 @@
+@theme {
+  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --color-bg: #f8f8f8;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f3f3f3;
+  --color-surface-raised: #ffffff;
+  --color-text-primary: #333333;
+  --color-text-secondary: #515866;
+  --color-text-muted: #6d7685;
+  --color-border: #e5e5e5;
+  --color-border-strong: #c5cbd4;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-subtle: #e8efff;
+  --color-on-accent: #ffffff;
+  --color-success: #16794b;
+  --color-warning: #9a5800;
+  --color-warning-subtle: #fff1cf;
+  --color-destructive: #bd3029;
+  --color-destructive-subtle: #fff0ef;
+  --color-overlay: rgb(15 18 23 / 48%);
+  --color-syntax-comment: #57606a;
+  --color-syntax-keyword: #cf222e;
+  --color-syntax-type: #0550ae;
+  --color-syntax-function: #6639ba;
+  --color-syntax-variable: #953800;
+  --color-syntax-string: #0a3069;
+  --color-syntax-number: #0550ae;
+  --color-syntax-operator: #0550ae;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.625rem;
+
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --shadow-control: 0 1px 2px rgb(15 18 23 / 8%);
+  --shadow-overlay: 0 1.5rem 4rem rgb(15 18 23 / 22%);
+}
+
+:root {
+  color-scheme: light dark;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --sidebar-width: 18rem;
+  --activity-width: 2.5rem;
+  --workspace-inset: 0.375rem;
+  --workspace-gap: 0.375rem;
+  --workspace-radius: 0.625rem;
+  /* Each theme sets a canvas that recedes below every island surface; chrome
+     sits halfway between it and the document so island edges stay visible. */
+  --color-canvas: #d4d4d4;
+  --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
+  /* The Font Size setting. Every size is in rem, so 1rem tracks it; the
+     scale is authored at 13px, where 1rem is 16px. */
+  --font-size-base: 13px;
+  --reading-width: 75ch;
+  --preview-font-size: 0.875rem;
+  --preview-h1: 1.625rem;
+  --preview-h2: 1.3125rem;
+  --preview-h3: 1.0625rem;
+  --preview-h4: 0.9375rem;
+  --tabs-height: var(--control-height-sm);
+  --status-height: 1.75rem;
+  --control-height-sm: 2rem;
+  --control-height-md: 2.5rem;
+}
+
+@media (max-width: 48rem) {
+  :root {
+    --workspace-inset: var(--space-1);
+    --preview-font-size: 0.9375rem;
+    --status-height: 2.75rem;
+  }
+}
+
+@media (max-width: 48rem) {
+  :root {
+    --activity-width: var(--tabs-height);
+  }
+}

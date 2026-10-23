@@ -2,7 +2,6 @@ import { Menu } from "@base-ui/react/menu"
 import { CheckIcon, Columns2Icon, FileInputIcon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
 
 import { effectiveDiffStyle, inlineChoices, type DiffOptions } from "./diff-options.ts"
-import "../../workspace/tab-menu.css"
 
 interface DiffToolbarProps {
   options: DiffOptions
