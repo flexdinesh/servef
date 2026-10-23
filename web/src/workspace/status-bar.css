@@ -5,6 +5,7 @@
   grid-template-columns: calc(var(--workspace-inset) + var(--activity-width) + var(--sidebar-width) + var(--workspace-gap)) minmax(0, 1fr);
   min-width: 0;
   align-items: center;
+  --bar-size: var(--status-height);
   color: var(--color-text-muted);
   background: var(--color-canvas);
   height: calc(var(--status-height) + var(--workspace-inset));
@@ -61,69 +62,11 @@
 }
 
 .status-copy-path {
-  display: inline-flex;
-  width: 1.75rem;
-  height: var(--status-height);
-  flex: none;
-  align-items: center;
-  justify-content: center;
   margin-left: calc(-1 * var(--space-2));
-  padding: 0;
-  border: 0;
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.status-copy-path:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.status-copy-path:focus-visible {
-  outline-offset: -2px;
-}
-
-.status-copy-path[data-status="copied"] {
-  color: var(--color-success);
-}
-
-.status-copy-path[data-status="failed"] {
-  color: var(--color-destructive);
-}
-
-.status-copy-path svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .status-settings {
-  display: inline-flex;
-  width: 1.75rem;
-  height: var(--status-height);
-  flex: none;
-  align-items: center;
-  justify-content: center;
   margin-right: calc(-1 * var(--space-2));
-  padding: 0;
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  cursor: pointer;
-}
-
-.status-settings:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.status-settings:focus-visible {
-  outline-offset: -2px;
-}
-
-.status-settings svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .status-metrics {
@@ -172,12 +115,11 @@
     overflow: auto;
   }
 
-  .status-navigation .navigation-install-copy {
-    width: 2.75rem;
-    height: 2.75rem;
+  .status-navigation-panel {
+    --icon-button-min: var(--control-touch);
   }
 
-  .status-navigation .navigation-status-actions > * {
+  .status-navigation .navigation-status-actions > a {
     display: inline-flex;
     min-height: 2.75rem;
     align-items: center;
@@ -194,13 +136,13 @@
     display: none;
   }
 
+  /* Narrower than the band so the document actions fit a 320px screen. */
   .status-copy-path {
-    width: 2.25rem;
+    width: calc(var(--control-lg) + var(--space-1));
     margin-left: calc(-1 * var(--space-1));
   }
 
   .status-settings {
-    width: var(--status-height);
     margin-right: calc(-1 * var(--space-1));
   }
 }
@@ -211,29 +153,32 @@
   text-decoration: none;
 }
 
+/* Band items fill the status height, square and flush like the bar icon buttons. */
 .status-search {
-  display: inline-flex;
-  flex-shrink: 0;
   height: var(--status-height);
-  align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-2);
-  border: 0;
   border-radius: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  box-shadow: none;
-  cursor: pointer;
-  font-size: var(--text-xs);
   font-weight: 400;
 }
 
-.status-search:hover,
-.status-process summary:hover {
-  background: var(--color-surface-raised);
+.status-search:focus-visible {
+  outline-width: 1px;
+  outline-offset: -1px;
 }
 
-.status-search svg,
+.status-process summary:hover {
+  background: var(--color-hover);
+}
+
+.status-process summary:active {
+  background: var(--color-active);
+}
+
+.status-process summary:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
 .search-field svg {
   width: var(--icon-sm);
   height: var(--icon-sm);
@@ -274,7 +219,7 @@
   min-width: 15rem;
   padding: var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-overlay);
   color: var(--color-text-primary);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-overlay);
@@ -341,57 +286,19 @@
   color: var(--color-text-secondary);
 }
 
-.navigation-install-copy {
-  display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.navigation-install-copy:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.navigation-install-copy[data-status="copied"] {
-  color: var(--color-success);
-}
-
-.navigation-install-copy[data-status="failed"] {
-  color: var(--color-destructive);
-}
-
-.navigation-install-copy svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-}
-
 .navigation-status-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
   margin-top: var(--space-3);
 }
 
-.navigation-status-actions button,
 .navigation-status-actions a {
-  padding: 0;
-  border: 0;
   color: var(--color-accent);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
 }
 
-.navigation-status-actions button:hover,
 .navigation-status-actions a:hover {
+  color: var(--color-accent-hover);
   text-decoration: underline;
 }

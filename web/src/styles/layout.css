@@ -83,7 +83,7 @@ main.image-mode {
   background: var(--color-surface);
 }
 
-.workspace :is(main, .buffer-tab-target):focus-visible {
+.workspace main:focus-visible {
   outline-offset: -2px;
 }
 
@@ -92,6 +92,11 @@ main.image-mode {
   min-width: 0;
   align-items: stretch;
   background: var(--color-workspace-chrome);
+}
+
+/* Files and project toggles stand in for the sidebar on touch layouts. */
+.workspace-toggle {
+  display: none;
 }
 
 @media (max-width: 48rem) {
@@ -106,6 +111,10 @@ main.image-mode {
 
   .sidebar-resizer {
     display: none;
+  }
+
+  .workspace-toggle {
+    display: inline-grid;
   }
 
   main {

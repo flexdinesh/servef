@@ -28,7 +28,7 @@
 
 .buffer-tab:hover {
   color: var(--color-text-primary);
-  background: var(--color-surface-raised);
+  background-image: linear-gradient(var(--color-hover), var(--color-hover));
 }
 
 .buffer-tab.active {
@@ -71,25 +71,26 @@
   mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), var(--mask-opaque) calc(var(--tab-radius) + 0.5px));
 }
 
+/* The tab owns hover; the target and close action only lay out inside it. */
 .buffer-tab-target {
-  display: flex;
   min-width: 0;
   height: 100%;
-  align-items: center;
+  flex: 0 1 auto;
   gap: var(--space-1);
   padding: 0 var(--space-1) 0 var(--space-2);
-  border: 0;
   color: inherit;
-  background: transparent;
-  cursor: pointer;
+  background-image: none;
   font-size: var(--text-label);
+}
+
+.buffer-tab-target:focus-visible {
+  outline-offset: -1px;
 }
 
 .buffer-tab-target > svg {
   width: var(--icon-xs);
   height: var(--icon-xs);
-  flex: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 .buffer-tab-target > span {
@@ -99,26 +100,5 @@
 }
 
 .buffer-tab-close {
-  display: grid;
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
   margin-right: var(--space-1);
-  padding: 0;
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.buffer-tab-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-}
-
-.buffer-tab-close svg {
-  width: var(--icon-xs);
-  height: var(--icon-xs);
 }

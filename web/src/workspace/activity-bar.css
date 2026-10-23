@@ -1,4 +1,5 @@
 .activity-bar {
+  --bar-size: var(--activity-width);
   display: flex;
   width: var(--activity-width);
   min-height: 0;
@@ -8,27 +9,18 @@
   background: var(--color-workspace-chrome);
 }
 
+/* Items are bar icon buttons whose state layers sit on an inset tile. */
 .activity-item {
+  --icon-button-glyph: var(--icon-lg);
   position: relative;
-  display: grid;
-  height: var(--activity-width);
-  flex: none;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  color: var(--color-text-muted);
   background: transparent;
-  cursor: pointer;
 }
 
 .activity-item svg {
   position: relative;
-  width: var(--icon-lg);
-  height: var(--icon-lg);
   stroke-width: 1.75;
 }
 
-.activity-item:hover,
 .activity-item[aria-pressed="true"] {
   color: var(--color-text-primary);
 }
@@ -41,16 +33,15 @@
 }
 
 .activity-item:hover::before {
-  background: var(--color-surface-raised);
+  background: var(--color-hover);
+}
+
+.activity-item:active::before {
+  background: var(--color-active);
 }
 
 .activity-item[aria-pressed="true"]::before {
   background: var(--color-surface);
-}
-
-.activity-item:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
 }
 
 /* Pending-change count at the tile's lower right, as in VS Code. Surface text

@@ -14,6 +14,7 @@ import {
 } from "react"
 
 import { FolderGit2Icon, PanelLeftIcon } from "lucide-react"
+import { IconButton } from "./components/ui/icon-button.tsx"
 import { ProjectPicker, type PickerOpenOptions } from "./features/projects/ProjectPicker.tsx"
 import { DocumentModeToggle, type DocumentMode } from "./features/documents/DocumentModeToggle.tsx"
 import { DocumentPane } from "./features/documents/DocumentPane.tsx"
@@ -338,13 +339,11 @@ export function App({ project }: AppProps) {
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
           <div className="workspace-toolbar">
-            <button type="button" className="files-toggle" aria-label="Open files" onClick={() => openFiles.current()}>
-              <PanelLeftIcon aria-hidden="true" />
-            </button>
-            <button type="button" className="files-toggle project-toggle" aria-haspopup="dialog"
-              aria-label={`Switch project (${page.repository || page.rootName || page.project || "none"})`} onClick={chooseProject}>
-              <FolderGit2Icon aria-hidden="true" />
-            </button>
+            <IconButton className="workspace-toggle" size="bar" label="Open files"
+              icon={<PanelLeftIcon aria-hidden="true" />} onClick={() => openFiles.current()} />
+            <IconButton className="workspace-toggle project-toggle" size="bar" aria-haspopup="dialog"
+              label={`Switch project (${page.repository || page.rootName || page.project || "none"})`}
+              icon={<FolderGit2Icon aria-hidden="true" />} onClick={chooseProject} />
             <TabBar
               active={activeTab}
               tabs={workspace.tabs}

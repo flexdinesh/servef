@@ -4,6 +4,8 @@ import { projectUrl } from "../api/project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useClipboardCopy } from "../lib/clipboard.ts"
+import { Button } from "../components/ui/button.tsx"
+import { IconButton } from "../components/ui/icon-button.tsx"
 import { lineRangeLabel, type LineRange } from "../lib/line-selection.ts"
 import { settingsShortcutLabel } from "../settings/SettingsDialog.tsx"
 import { NavigationStatusPanel, type NavigationStatusPanelProps } from "../features/navigation/NavigationStatusPanel.tsx"
@@ -75,22 +77,22 @@ export function StatusBar({ detail, diff, isLoading, error, lines, navigation, o
           {diff?.path || page.selected || page.rootName || "servef"}
         </span>
         {(diff || (page.hasFile && page.selected)) && (
-          <button
+          <IconButton
             className="status-copy-path"
-            type="button"
-            aria-label="Copy path"
-            title={pathCopy.status === "failed" ? "Copy failed" : "Copy path"}
+            size="bar"
+            label="Copy path"
+            title={pathCopy.status === "failed" ? "Copy failed" : undefined}
+            tone={pathCopy.status === "copied" ? "success" : pathCopy.status === "failed" ? "destructive" : "default"}
             data-status={pathCopy.status}
+            icon={pathCopy.status === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
             onClick={() => { void pathCopy.copy(diff?.path ?? page.selected) }}
-          >
-            {pathCopy.status === "copied" ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-          </button>
+          />
         )}
-        <button className="status-search" type="button" aria-label="Find in files" title="Find in files" aria-keyshortcuts="Control+Shift+F Meta+Shift+F" onClick={onSearch}>
+        <Button className="status-search" variant="ghost" size="sm" aria-label="Find in files" title="Find in files" aria-keyshortcuts="Control+Shift+F Meta+Shift+F" onClick={onSearch}>
           <SearchIcon aria-hidden="true" />
           <span>Find in files</span>
           <kbd>{navigator.platform.includes("Mac") ? "⌘⇧F" : "Ctrl+Shift+F"}</kbd>
-        </button>
+        </Button>
         <span className="status-grow" />
         {diff ? <>
           {diff.lines && <span className="status-lines">
@@ -111,17 +113,16 @@ export function StatusBar({ detail, diff, isLoading, error, lines, navigation, o
             </span>
           )}
         </>}
-        <button
+        <IconButton
           className="status-settings"
-          type="button"
+          size="bar"
           aria-haspopup="dialog"
           aria-keyshortcuts="Control+, Meta+,"
-          aria-label="Settings"
+          label="Settings"
           title={`Settings (${settingsShortcutLabel})`}
+          icon={<SettingsIcon aria-hidden="true" />}
           onClick={onSettings}
-        >
-          <SettingsIcon aria-hidden="true" />
-        </button>
+        />
         <span className="visually-hidden" role="status">
           {pathCopy.status === "copied" ? "Path copied" : pathCopy.status === "failed" ? "Copy failed" : ""}
         </span>
