@@ -175,9 +175,9 @@
 
 .source-control-separator {
   position: relative;
-  height: 5px;
+  height: var(--separator-hit);
   flex: none;
-  margin-bottom: -5px;
+  margin-bottom: calc(-1 * var(--separator-hit));
   z-index: var(--z-raised);
   cursor: row-resize;
   touch-action: none;

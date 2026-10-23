@@ -220,7 +220,7 @@ article :not(pre) > code {
 article blockquote {
   margin-left: 0;
   padding: var(--space-1) 0 var(--space-1) var(--space-4);
-  border-left: 3px solid var(--color-border-strong);
+  border-left: var(--border-quote) solid var(--color-border-strong);
   color: var(--color-text-secondary);
 }
 

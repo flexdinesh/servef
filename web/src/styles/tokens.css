@@ -114,6 +114,7 @@
   --duration-progress: 800ms;
   --duration-loop: 1s;
   --duration-feedback: 1.6s;
+  --duration-instant: 0.01ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Stacking for non-top-layer floating UI. */
@@ -148,6 +149,10 @@
   --source-gutter-end: 14px;
   --source-line-end: 40px;
   --checker-size: 16px;
+  --separator-hit: 5px;
+  --border-quote: 3px;
+  /* Masks read alpha only. */
+  --mask-opaque: black;
 
   /* Workspace layout. */
   --sidebar-width: 18rem;
