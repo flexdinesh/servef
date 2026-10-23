@@ -12,7 +12,16 @@ import "./style.css"
 const initialTheme = initializeTheme()
 const initialSettings = initializeSettings()
 const root = document.querySelector("#root")
-if (root) {
+if (root && import.meta.env.MODE === "mock" && window.location.pathname === "/__ui") {
+  // The primitive gallery is dev-only; production builds drop this branch.
+  void import("./gallery/UiGallery.tsx").then(({ default: UiGallery }) => {
+    createRoot(root).render(
+      <ThemeProvider initialTheme={initialTheme}>
+        <UiGallery />
+      </ThemeProvider>,
+    )
+  })
+} else if (root) {
   createRoot(root).render(
     <ThemeProvider initialTheme={initialTheme}>
       <SettingsProvider initialSettings={initialSettings}>

@@ -2,7 +2,7 @@ import { Maximize2Icon, RotateCcwIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lu
 import { use, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import type { Render } from "ondine/compiler/wasm"
 
-import { Button } from "../../components/ui/button.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
 import {
   diagramZoomStep,
   fitDiagramView,
@@ -86,16 +86,11 @@ export default function OndineMermaidDiagram({ source }: { source: string }) {
         <div className="mermaid-diagram">
           <DiagramSVG className="mermaid-svg" svg={rendered.diagram.svg} />
           <div className="mermaid-diagram-controls">
-            <Button
-              aria-label="Expand diagram"
-              className="size-6 rounded-md p-0"
+            <IconButton
+              label="Expand diagram"
+              icon={<Maximize2Icon aria-hidden="true" />}
               onClick={() => setExpanded(true)}
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <Maximize2Icon aria-hidden="true" className="size-3" />
-            </Button>
+            />
           </div>
         </div>
       )}

@@ -115,6 +115,8 @@
   --duration-loop: 1s;
   --duration-feedback: 1.6s;
   --duration-instant: 0.01ms;
+  /* Short work finishes before a progress indicator appears. */
+  --delay-progress: 150ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Stacking for non-top-layer floating UI. */
@@ -167,5 +169,8 @@
     --preview-font-size: 0.9375rem;
     --status-height: var(--control-touch);
     --activity-width: var(--chrome-height);
+    --row-list: 2rem;
+    --row-pick: var(--control-touch);
+    --row-menu: var(--control-touch);
   }
 }
