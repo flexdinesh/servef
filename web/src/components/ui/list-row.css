@@ -8,8 +8,7 @@
   gap: var(--space-2);
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   background: transparent;
   cursor: pointer;
   font: inherit;
@@ -17,8 +16,10 @@
   user-select: none;
 }
 
+/* List rows run edge to edge; picker rows are inset chips. */
 .ui-row[data-density="pick"] {
   --row-height: var(--row-pick);
+  border-radius: var(--radius-sm);
 }
 
 .ui-row[data-density="menu"] {

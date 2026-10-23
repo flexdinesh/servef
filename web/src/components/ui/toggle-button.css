@@ -1,7 +1,7 @@
 .ui-toggle {
   display: inline-flex;
-  width: var(--control-xs);
-  height: var(--control-xs);
+  width: max(var(--control-xs), var(--toggle-min, 0px));
+  height: max(var(--control-xs), var(--toggle-min, 0px));
   flex: none;
   align-items: center;
   justify-content: center;
@@ -23,7 +23,7 @@
 
 .ui-toggle[data-size="text"] {
   width: auto;
-  height: var(--control-md);
+  height: max(var(--control-md), var(--toggle-min, 0px));
   padding: 0 var(--space-2);
 }
 
@@ -46,4 +46,10 @@
 .ui-toggle:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+@media (max-width: 48rem) {
+  .ui-toggle {
+    --toggle-min: var(--control-lg);
+  }
 }

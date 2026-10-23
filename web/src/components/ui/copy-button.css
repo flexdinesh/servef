@@ -35,6 +35,17 @@
   padding: 0 var(--space-2);
 }
 
+/* Bordered variants share Button's radius. */
+.ui-copy-button:is([data-variant="raised"], [data-variant="chip"], [data-variant="gutter"]) {
+  border-radius: var(--radius-md);
+}
+
+.ui-copy-button[data-variant="gutter"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-control);
+}
+
 .ui-copy-button:hover {
   color: var(--color-text-primary);
   background-image: linear-gradient(var(--color-hover), var(--color-hover));

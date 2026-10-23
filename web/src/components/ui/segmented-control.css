@@ -38,6 +38,12 @@
   border-radius: var(--radius-sm);
 }
 
+/* Icon-only items are square. */
+.ui-segmented-item:has(> svg:only-child) {
+  aspect-ratio: 1;
+  padding: 0;
+}
+
 .ui-segmented-item > svg {
   width: var(--icon-xs);
   height: var(--icon-xs);
@@ -69,4 +75,10 @@
 
 .ui-segmented-item[aria-busy="true"] {
   cursor: progress;
+}
+
+@media (max-width: 48rem) {
+  .ui-segmented[data-size="sm"] {
+    height: var(--control-md);
+  }
 }

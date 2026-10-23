@@ -10,6 +10,8 @@ interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "cl
   inputRef?: Ref<HTMLInputElement>
   variant?: FieldVariant
   icon?: ReactNode
+  // leading holds interactive content before the input, such as a back button.
+  leading?: ReactNode
   // trailing holds counts, toggles, and clear buttons inside the field.
   trailing?: ReactNode
   invalid?: boolean
@@ -18,11 +20,12 @@ interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "cl
 // TextField is a single-line input. field: 28px bordered, for filters and
 // forms. palette: borderless 32px with an accent underline, for dialogs.
 export function TextField({
-  className, inputClassName, inputRef, variant = "field", icon, trailing, invalid, ...props
+  className, inputClassName, inputRef, variant = "field", icon, leading, trailing, invalid, ...props
 }: TextFieldProps) {
   return (
     <div className={cn("ui-field", className)} data-variant={variant} data-invalid={invalid || undefined}>
       {icon && <span className="ui-field-icon" aria-hidden="true">{icon}</span>}
+      {leading}
       <input ref={inputRef} className={cn("ui-field-input", inputClassName)} aria-invalid={invalid || undefined} {...props} />
       {trailing && <span className="ui-field-trailing">{trailing}</span>}
     </div>

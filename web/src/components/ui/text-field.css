@@ -104,4 +104,9 @@
   .ui-select {
     --field-height-touch: var(--control-touch);
   }
+
+  /* Trailing actions fit inside the touch-height field. */
+  .ui-field-trailing {
+    --icon-button-min: var(--control-lg);
+  }
 }

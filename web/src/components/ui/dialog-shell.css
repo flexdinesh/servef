@@ -33,6 +33,14 @@
   margin: auto;
 }
 
+.ui-dialog[data-variant="drawer"] {
+  inset: var(--space-1) auto var(--space-1) var(--space-1);
+  width: min(85vw, 22rem);
+  height: calc(100dvh - var(--space-2));
+  max-height: none;
+  margin: 0;
+}
+
 .ui-dialog[data-backdrop="transparent"]::backdrop {
   background: transparent;
 }
@@ -47,7 +55,9 @@
 }
 
 @media (max-width: 48rem) {
-  .ui-dialog {
+  /* Modal actions grow to touch size. The drawer hosts views whose chrome
+     bands keep their own sizes. */
+  .ui-dialog:not([data-variant="drawer"]) {
     --icon-button-min: var(--control-touch);
   }
 

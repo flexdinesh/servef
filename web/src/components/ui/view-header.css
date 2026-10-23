@@ -30,3 +30,10 @@
   align-items: center;
   gap: calc(var(--space-1) / 2);
 }
+
+@media (max-width: 48rem) {
+  /* Dialog actions grow to touch size (DialogShell); the band grows with them. */
+  .ui-view-header[data-variant="dialog"] {
+    height: var(--control-touch);
+  }
+}
