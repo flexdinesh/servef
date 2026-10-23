@@ -64,16 +64,10 @@
   color: var(--color-success);
 }
 
+/* The back button prefixes the field while worktrees are listed. */
 .project-prefix {
   max-width: 40%;
-  flex: none;
-  /* Sits flush against the input it prefixes. */
-  margin-right: calc(var(--space-3) * -1);
   overflow: hidden;
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .project-status {
@@ -105,24 +99,16 @@
 }
 
 .project-option {
-  display: flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.project-option.active {
-  background: var(--color-accent-subtle);
+  font-size: var(--text-label);
 }
 
 .project-option.disabled {
   color: var(--color-text-muted);
   cursor: default;
+}
+
+.project-option.disabled:hover {
+  background: transparent;
 }
 
 .project-option svg {
@@ -191,68 +177,26 @@
   color: inherit;
 }
 
-.project-forget {
-  position: absolute;
-  top: 50%;
-  right: var(--space-1);
-  display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  opacity: 0;
-  transform: translateY(-50%);
-  cursor: pointer;
-}
-
-.project-option-row:hover .project-forget,
-.project-option-row:has(.active) .project-forget {
-  opacity: 1;
-}
-
-.project-forget:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-}
-
-.project-forget svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-}
-
-.project-option-row.drillable .project-option {
-  padding-right: 2rem;
-}
-
+/* Row actions float over the row's end. */
+.project-forget,
 .project-drill {
   position: absolute;
   top: 50%;
   right: var(--space-1);
-  display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
   transform: translateY(-50%);
-  cursor: pointer;
 }
 
-.project-drill:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
+.project-forget {
+  opacity: 0;
 }
 
-.project-drill svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
+.project-option-row:hover .project-forget,
+.project-option-row:has([data-active]) .project-forget {
+  opacity: 1;
+}
+
+.project-option-row.drillable .project-option {
+  padding-right: 2rem;
 }
 
 .project-option-branch {
@@ -268,28 +212,6 @@
   white-space: nowrap;
 }
 
-.project-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.125rem;
-  margin-right: 0;
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  cursor: pointer;
-}
-
-.project-back:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-}
-
-.project-back svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
-}
-
 .project-unavailable p {
   margin: 0 0 var(--space-3);
 }
@@ -302,19 +224,8 @@
     border-radius: 0;
   }
 
-  .project-option {
-    min-height: 2.75rem;
-  }
-
   .project-forget {
-    width: 2.75rem;
-    height: 2.75rem;
     opacity: 1;
-  }
-
-  .project-drill {
-    width: 2.75rem;
-    height: 2.75rem;
   }
 
   .project-option-row.drillable .project-option {

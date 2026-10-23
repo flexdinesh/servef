@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
+import { DialogShell } from "../../components/ui/dialog-shell.tsx"
+import { Kbd } from "../../components/ui/kbd.tsx"
+import { ListRow } from "../../components/ui/list-row.tsx"
+import { ViewHeader } from "../../components/ui/view-header.tsx"
 import { groupLocations, navigationTitle, resultNotice } from "./code-navigation.ts"
 import type { NavigationLocation } from "../../api/navigation-contract.ts"
 import { highlightedParts } from "../search/search-highlights.ts"
@@ -74,29 +78,29 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
     : panel.status === "loading"
       ? `Finding ${kind === "definition" ? "definition" : "references"}${symbol ? ` for ${symbol}` : ""}…`
       : kind === "definition" ? "Go to Definition" : "Find All References"
-  let offset = 0
-  const groups = groupLocations(locations).map((group) => {
-    const start = offset
-    offset += group.locations.length
-    return { ...group, start }
-  })
+  const grouped = groupLocations(locations)
+  const groups = grouped.map((group, index) => ({
+    ...group,
+    start: grouped.slice(0, index).reduce((count, previous) => count + previous.locations.length, 0),
+  }))
 
   return (
-    <dialog
+    <DialogShell
       ref={dialog}
+      variant="palette"
+      backdrop="transparent"
       className="search-dialog navigation-dialog"
       aria-labelledby="navigation-title"
       onCancel={(event) => { event.preventDefault(); onClose() }}
       onClick={(event) => { if (event.target === dialog.current) onClose() }}
     >
       <div className="search-shell">
-        <div className="search-field navigation-field">
-          <h2 id="navigation-title" className="navigation-title">{heading}</h2>
+        <ViewHeader variant="dialog" className="navigation-field" title={heading} titleId="navigation-title"
+          actions={<Kbd>Esc</Kbd>}>
           {panel.status === "results" && (
             <span className="navigation-provider" title="Answered by">{panel.result.server}</span>
           )}
-          <kbd>Esc</kbd>
-        </div>
+        </ViewHeader>
         {panel.status === "message" && (
           <div className={`search-status search-status-${panel.tone}`} role="status">{panel.message}</div>
         )}
@@ -120,22 +124,24 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
                 {group.locations.map((location, index) => {
                   const current = group.start + index
                   return (
-                    <div
+                    <ListRow
                       key={`${location.path}:${location.line}:${location.column}`}
                       id={`navigation-option-${current}`}
                       data-location={current}
-                      className={`search-result navigation-result${current === active ? " active" : ""}`}
+                      density="pick"
+                      active={current === active}
+                      className="navigation-result"
                       role="option"
                       aria-selected={current === active}
                       onClick={() => choose(location)}
                       onMouseMove={current === active ? undefined : () => setActiveIndex(current)}
                     >
                       <span className="navigation-result-line">{location.line}:{location.column + 1}</span>
-                      <span className="search-result-snippet navigation-result-snippet">
+                      <span className="navigation-result-snippet">
                         <Snippet text={location.snippet} symbol={symbol} />
                       </span>
                       {location.kind !== "reference" && <span className="navigation-result-kind">{location.kind}</span>}
-                    </div>
+                    </ListRow>
                   )
                 })}
               </div>
@@ -143,6 +149,6 @@ export function NavigationDialog({ panel, onClose, onOpen }: NavigationDialogPro
           ))}
         </div>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }

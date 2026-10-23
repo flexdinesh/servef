@@ -1,133 +1,22 @@
-.settings-dialog {
-  width: min(56rem, calc(100vw - var(--space-6)));
-  max-width: calc(100vw - var(--space-4));
-  max-height: calc(100dvh - var(--space-6));
-  margin: auto;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-  box-shadow: var(--shadow-overlay);
-}
-
-.settings-dialog::backdrop {
-  background: transparent;
-}
-
 .settings-shell {
   display: flex;
   height: min(40rem, calc(100dvh - var(--space-6) - 2px));
   flex-direction: column;
 }
 
+/* The title lines up with the search field below it. */
 .settings-header {
-  display: flex;
-  height: var(--chrome-height);
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
   padding-left: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-secondary);
-}
-
-.settings-header h2 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--text-label);
-  font-weight: 600;
-}
-
-.settings-close {
-  display: inline-flex;
-  width: var(--chrome-height);
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.settings-close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.settings-close:focus-visible {
-  outline-offset: -2px;
-}
-
-.settings-close svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
 }
 
 .settings-search {
-  display: flex;
-  height: 2rem;
   flex: none;
-  align-items: center;
-  gap: var(--space-2);
   margin: var(--space-3) var(--space-4) 0;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: var(--color-surface);
 }
 
-.settings-search:focus-within {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
-}
-
-.settings-search svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  flex: none;
-}
-
-.settings-search input {
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  color: var(--color-text-primary);
-  background: transparent;
-  font-size: var(--text-label);
-}
-
-.settings-search input::placeholder {
-  color: var(--color-text-muted);
-  opacity: 1;
-}
-
-.settings-search input::-webkit-search-cancel-button {
+/* Clear is the trailing button; hide the browser's own. */
+.settings-search .ui-field-input::-webkit-search-cancel-button {
   display: none;
-}
-
-.settings-search-clear {
-  display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
-  flex: none;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  cursor: pointer;
-}
-
-.settings-search-clear:hover {
-  background: var(--color-surface-secondary);
 }
 
 .settings-tools {
@@ -143,30 +32,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.settings-modified-filter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 1.75rem;
-  padding: 0 var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.settings-modified-filter:hover {
-  background: var(--color-surface-secondary);
-}
-
-.settings-modified-filter[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  color: var(--color-accent-hover);
-  background: var(--color-accent-subtle);
-}
-
 .settings-body {
   display: flex;
   min-height: 0;
@@ -179,42 +44,16 @@
   overflow-y: auto;
   padding: var(--space-4) 0 var(--space-4) var(--space-4);
   border-right: 1px solid var(--color-border);
-}
-
-.settings-categories button {
-  display: flex;
-  width: 100%;
-  min-height: 2rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  color: var(--color-text-secondary);
-  background: transparent;
-  text-align: left;
   font-size: var(--text-label);
-  cursor: pointer;
 }
 
-.settings-categories button:hover {
-  background: var(--color-surface-secondary);
-}
-
-.settings-categories button[aria-current] {
-  color: var(--color-accent-hover);
-  background: var(--color-accent-subtle);
-  font-weight: 600;
-}
-
-.settings-categories button:focus-visible {
-  outline-offset: -2px;
+.settings-categories .ui-row {
+  justify-content: space-between;
 }
 
 .settings-category-count {
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
-  font-weight: 400;
 }
 
 .settings-list {
@@ -288,28 +127,7 @@
 }
 
 .setting-reset {
-  display: inline-flex;
-  width: 1.5rem;
-  height: 1.5rem;
-  align-items: center;
-  justify-content: center;
   margin-left: auto;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.setting-reset:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.setting-reset svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .setting-description {
@@ -327,68 +145,13 @@
   font-size: var(--text-xs);
 }
 
-.setting-control input {
+.setting-number {
   width: 5rem;
-  height: 1.75rem;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
-.setting-control input:focus-visible {
-  border-color: var(--color-accent);
-  outline: 1px solid var(--color-focus);
-  outline-offset: 0;
-}
-
-.setting-control input[aria-invalid="true"] {
-  border-color: var(--color-destructive);
-  outline-color: var(--color-destructive);
-}
-
 .setting-select {
-  position: relative;
-  display: flex;
   width: min(100%, 18rem);
-  min-width: 0;
-  align-items: center;
-}
-
-.setting-control select {
-  width: 100%;
-  min-width: 0;
-  height: 1.75rem;
-  /* The chevron keeps the text's inset from the right edge. */
-  padding: 0 calc(var(--space-2) * 2 + 0.875rem) 0 var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  font: inherit;
-  font-size: var(--text-label);
-  cursor: pointer;
-  appearance: none;
-}
-
-.setting-select svg {
-  position: absolute;
-  /* Lucide's chevron ink starts 5/24 into its box; inset the ink, not the box,
-     as far as the text sits from the left border. */
-  right: calc(1px + var(--space-2) - 0.875rem * 5 / 24);
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  color: var(--color-text-secondary);
-  pointer-events: none;
-}
-
-.setting-control select:focus-visible {
-  border-color: var(--color-accent);
-  outline: 1px solid var(--color-focus);
-  outline-offset: 0;
 }
 
 /* A setting opened from the command palette flashes, then settles. */
@@ -434,17 +197,6 @@
   overflow-wrap: anywhere;
 }
 
-.settings-empty button {
-  min-height: 2rem;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  font: inherit;
-  cursor: pointer;
-}
-
 .settings-footer {
   display: flex;
   min-height: var(--chrome-height);
@@ -452,54 +204,17 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding-left: var(--space-4);
+  /* Reset all's label ends where the search field does. */
+  padding: 0 var(--space-1) 0 var(--space-4);
   border-top: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  background: var(--color-surface-secondary);
   font-size: var(--text-xs);
-}
-
-/* Reset all is a flat, full-height action, like Close in the header. */
-.settings-reset-all {
-  display: inline-flex;
-  flex: none;
-  align-self: stretch;
-  align-items: center;
-  gap: var(--space-1);
-  /* Its label ends where the search field does. */
-  padding: 0 var(--space-4);
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.settings-reset-all:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.settings-reset-all:focus-visible {
-  outline-offset: -2px;
-}
-
-.settings-reset-all:disabled {
-  opacity: 0.45;
-  cursor: default;
-  background: transparent;
-}
-
-.settings-reset-all svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 @media (max-width: 48rem) {
   .settings-dialog {
     width: calc(100vw - var(--space-4));
     max-height: calc(100dvh - var(--space-4));
-    margin: auto;
   }
 
   .settings-shell {
@@ -507,34 +222,18 @@
     max-height: calc(100dvh - var(--space-4) - 2px);
   }
 
-  .settings-header {
-    height: 2.75rem;
-  }
-
-  .settings-close,
-  .setting-reset,
-  .settings-search-clear {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
+  /* Bands grow with the dialog's touch-size icon buttons. */
+  .settings-header,
   .settings-footer {
-    min-height: 2.75rem;
-  }
-
-  .settings-search,
-  .setting-control input,
-  .setting-control select {
-    height: 2.75rem;
+    height: var(--control-touch);
   }
 
   .settings-tools {
     min-height: 3.25rem;
   }
 
-  .settings-modified-filter,
-  .settings-empty button {
-    min-height: 2.75rem;
+  .settings-modified-filter {
+    height: var(--control-touch);
   }
 
   .settings-body {
@@ -551,9 +250,8 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  .settings-categories button {
+  .settings-categories .ui-row {
     width: auto;
-    min-height: 2.75rem;
     flex: none;
   }
 

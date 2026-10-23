@@ -1,5 +1,14 @@
-import { ChevronDownIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react"
+import { RotateCcwIcon, SearchIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
+
+import { Button } from "../components/ui/button.tsx"
+import { DialogShell } from "../components/ui/dialog-shell.tsx"
+import { IconButton } from "../components/ui/icon-button.tsx"
+import { ListButton } from "../components/ui/list-row.tsx"
+import { Select } from "../components/ui/select.tsx"
+import { TextField } from "../components/ui/text-field.tsx"
+import { ToggleButton } from "../components/ui/toggle-button.tsx"
+import { ViewHeader } from "../components/ui/view-header.tsx"
 
 import { matchSettings, settingDefinitions, type SettingId } from "./settings.ts"
 import { useSettingValues, type SettingValue } from "./use-setting-values.ts"
@@ -40,11 +49,11 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
         {modified && (
           <>
             <span className="setting-modified">Modified</span>
-            <button
-              type="button"
+            <IconButton
               className="setting-reset"
               title={`Reset to default (${setting.defaultLabel})`}
-              aria-label={`Reset ${definition.title}`}
+              label={`Reset ${definition.title}`}
+              icon={<RotateCcwIcon aria-hidden="true" />}
               onClick={() => {
                 setDraft(null)
                 setInvalid(false)
@@ -53,9 +62,7 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
                 control.current?.focus()
                 onReset()
               }}
-            >
-              <RotateCcwIcon aria-hidden="true" />
-            </button>
+            />
           </>
         )}
       </div>
@@ -63,8 +70,9 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
       <div className="setting-control">
         {definition.kind === "number" ? (
           <>
-            <input
-              ref={setControl}
+            <TextField
+              className="setting-number"
+              inputRef={setControl}
               id={id}
               type="number"
               inputMode="numeric"
@@ -72,7 +80,7 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
               max={definition.max}
               step={1}
               value={draft ?? setting.value}
-              aria-invalid={invalid || undefined}
+              invalid={invalid}
               aria-describedby={describedBy}
               onChange={(event) => change(event.target.value)}
               onBlur={() => {
@@ -83,13 +91,10 @@ function SettingItem({ setting, revealed, onReset }: SettingItemProps) {
             <span className="setting-unit">{definition.unit}</span>
           </>
         ) : (
-          <span className="setting-select">
-            <select ref={setControl} id={id} value={setting.value} aria-describedby={describedBy}
-              onChange={(event) => { setting.set(event.target.value) }}>
-              {definition.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <ChevronDownIcon aria-hidden="true" />
-          </span>
+          <Select ref={setControl} className="setting-select" id={id} value={setting.value} aria-describedby={describedBy}
+            onChange={(event) => { setting.set(event.target.value) }}>
+            {definition.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </Select>
         )}
       </div>
       {invalid && definition.kind === "number" && (
@@ -114,10 +119,10 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
+  const modifiedFilter = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<string | null>(null)
   const [onlyModified, setOnlyModified] = useState(false)
-  const modifiedFilter = useRef<HTMLButtonElement>(null)
   const [resetKey, setResetKey] = useState(0)
   // token re-runs the reveal when the same setting is opened again.
   const [revealed, setRevealed] = useState<{ setting: SettingId; token: number } | null>(null)
@@ -170,8 +175,10 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
   }, [registerOpen, show])
 
   return (
-    <dialog
+    <DialogShell
       ref={dialog}
+      variant="panel"
+      backdrop="transparent"
       className="settings-dialog"
       aria-labelledby="settings-title"
       onCancel={(event) => {
@@ -185,50 +192,51 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
       onClose={() => setRevealed(null)}
     >
       <div className="settings-shell">
-        <header className="settings-header">
-          <h2 id="settings-title">Settings</h2>
-          <button type="button" className="settings-close" aria-label="Close settings" onClick={() => dialog.current?.close()}>
-            <XIcon aria-hidden="true" />
-          </button>
-        </header>
-        <div className="settings-search">
-          <SearchIcon aria-hidden="true" />
-          <input
-            ref={search}
-            type="search"
-            placeholder="Search settings"
-            aria-label="Search settings"
-            aria-controls="settings-list"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setCategory(null)
-            }}
-            onKeyDown={(event) => {
-              // Escape clears a query before it closes the dialog.
-              if (event.key === "Escape" && query) {
-                event.preventDefault()
-                setQuery("")
-              }
-            }}
-          />
-          {query && <button type="button" className="settings-search-clear" aria-label="Clear settings search"
-            onClick={() => { setQuery(""); search.current?.focus() }}><XIcon aria-hidden="true" /></button>}
-        </div>
+        <ViewHeader
+          variant="dialog"
+          className="settings-header"
+          title="Settings"
+          titleId="settings-title"
+          actions={<IconButton className="settings-close" label="Close settings" icon={<XIcon aria-hidden="true" />}
+            onClick={() => dialog.current?.close()} />}
+        />
+        <TextField
+          className="settings-search"
+          inputRef={search}
+          icon={<SearchIcon aria-hidden="true" />}
+          trailing={query ? <IconButton className="settings-search-clear" label="Clear settings search"
+            icon={<XIcon aria-hidden="true" />} onClick={() => { setQuery(""); search.current?.focus() }} /> : undefined}
+          type="search"
+          placeholder="Search settings"
+          aria-label="Search settings"
+          aria-controls="settings-list"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setCategory(null)
+          }}
+          onKeyDown={(event) => {
+            // Escape clears a query before it closes the dialog.
+            if (event.key === "Escape" && query) {
+              event.preventDefault()
+              setQuery("")
+            }
+          }}
+        />
         <div className="settings-tools">
           <span role="status">{results.length} {results.length === 1 ? "setting" : "settings"}</span>
-          <button ref={modifiedFilter} type="button" className="settings-modified-filter" aria-pressed={onlyModified}
-            aria-label="Show modified settings"
-            onClick={() => setOnlyModified((current) => !current)}>Show modified <span>{modifiedCount}</span></button>
+          <ToggleButton ref={modifiedFilter} size="text" className="settings-modified-filter" pressed={onlyModified}
+            label="Show modified settings"
+            onPressedChange={setOnlyModified}>Show modified <span>{modifiedCount}</span></ToggleButton>
         </div>
         <div className="settings-body">
           <nav className="settings-categories" aria-label="Settings categories">
             {[null, ...allCategories].map((item) => (
-              <button key={item ?? "all"} type="button" aria-current={category === item ? "true" : undefined}
+              <ListButton key={item ?? "all"} selected={category === item} aria-current={category === item ? "true" : undefined}
                 aria-controls="settings-list" onClick={() => { setCategory(item); list.current?.scrollTo(0, 0) }}>
                 <span>{item ?? "All settings"}</span>
                 <span className="settings-category-count">{item === null ? matches.length : matches.filter((definition) => definition.category === item).length}</span>
-              </button>
+              </ListButton>
             ))}
           </nav>
           <div ref={list} className="settings-list" id="settings-list">
@@ -244,15 +252,15 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
             )) : (
               <div className="settings-empty">
                 <p>{query.trim() ? `No settings match “${query.trim()}”.` : onlyModified ? "No modified settings in this category." : "No settings in this category."}</p>
-                <button type="button" onClick={clearFilters}>Clear filters</button>
+                <Button variant="outline" onClick={clearFilters}>Clear filters</Button>
               </div>
             )}
           </div>
         </div>
         <footer className="settings-footer">
           <span>Saved in this browser. Changes apply immediately.</span>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             className="settings-reset-all"
             disabled={modifiedCount === 0}
             onClick={() => {
@@ -264,9 +272,9 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
           >
             <RotateCcwIcon aria-hidden="true" />
             Reset all
-          </button>
+          </Button>
         </footer>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }

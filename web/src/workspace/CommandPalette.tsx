@@ -1,6 +1,10 @@
 import { ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
 
+import { DialogShell } from "../components/ui/dialog-shell.tsx"
+import { Kbd } from "../components/ui/kbd.tsx"
+import { ListRow } from "../components/ui/list-row.tsx"
+import { TextField } from "../components/ui/text-field.tsx"
 import { commands, matchCommands, type CommandAction } from "./commands.ts"
 import type { HighlightRange } from "../features/search/search-engine.ts"
 import { highlightedParts } from "../features/search/search-highlights.ts"
@@ -92,8 +96,10 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
   const activeID = active ? `command-option-${active.command.id}` : undefined
 
   return (
-    <dialog
+    <DialogShell
       ref={dialog}
+      variant="palette"
+      backdrop="transparent"
       className="search-dialog command-palette"
       aria-labelledby="command-palette-title"
       onCancel={(event) => { event.preventDefault(); close(true) }}
@@ -101,30 +107,29 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
     >
       <div className="search-shell">
         <h2 id="command-palette-title" className="visually-hidden">Command palette</h2>
-        <div className="search-field command-field">
-          <span className="command-prompt" aria-hidden="true">&gt;</span>
-          <input
-            ref={input}
-            className="search-input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Type a command"
-            aria-label="Command"
-            role="combobox"
-            aria-controls="command-results"
-            aria-expanded="true"
-            aria-autocomplete="list"
-            aria-activedescendant={activeID}
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setActiveIndex(0)
-            }}
-            onKeyDown={onKeyDown}
-          />
-          <kbd>Esc</kbd>
-        </div>
+        <TextField
+          variant="palette"
+          className="command-field"
+          icon={<span className="command-prompt">&gt;</span>}
+          trailing={<Kbd>Esc</Kbd>}
+          inputRef={input}
+          type="text"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Type a command"
+          aria-label="Command"
+          role="combobox"
+          aria-controls="command-results"
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-activedescendant={activeID}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setActiveIndex(0)
+          }}
+          onKeyDown={onKeyDown}
+        />
         {matches.length === 0 && (
           <div className="search-status" role="status">No matching commands</div>
         )}
@@ -136,11 +141,13 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
               ? values[command.action.setting].label
               : command.shortcut ?? settingsShortcutLabel
             return (
-              <div
+              <ListRow
                 key={command.id}
                 id={`command-option-${command.id}`}
                 data-command={command.id}
-                className={`command-option${match === active ? " active" : ""}`}
+                density="pick"
+                active={match === active}
+                className="command-option"
                 role="option"
                 aria-selected={match === active}
                 aria-label={`${command.category}: ${command.title}, ${detail}`}
@@ -153,11 +160,11 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
                 {command.action.kind === "open-setting"
                   ? <span className="command-value">{detail}</span>
                   : <kbd className="command-value">{detail}</kbd>}
-              </div>
+              </ListRow>
             )
           })}
         </div>
       </div>
-    </dialog>
+    </DialogShell>
   )
 }
