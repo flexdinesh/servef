@@ -63,34 +63,9 @@
 }
 
 /* Trailing counts and controls sit at the header's end. */
-.source-control-group > .search-count,
+.source-control-count,
 .source-control-range {
   margin-left: auto;
-}
-
-.source-control-section-toggle {
-  display: flex;
-  width: 100%;
-  height: var(--row-list);
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-1) 0 var(--space-2);
-  border: 0;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.source-control-section-toggle:focus-visible {
-  outline: 1px solid var(--color-focus);
-  outline-offset: -1px;
-}
-
-.source-control-section-toggle[aria-expanded="true"] .search-chevron {
-  transform: rotate(90deg);
 }
 
 .source-control-range-note {
@@ -100,77 +75,6 @@
   font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.source-control-range {
-  display: flex;
-  flex: none;
-  gap: 2px;
-  padding: 2px;
-  border-radius: var(--radius-lg);
-  background: var(--color-workspace-chrome);
-}
-
-.source-control-range button {
-  height: 1rem;
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 500;
-  font-size: var(--text-xs);
-  line-height: 1rem;
-}
-
-.source-control-range button:hover {
-  color: var(--color-text-primary);
-}
-
-.source-control-range button:focus-visible {
-  outline-offset: -1px;
-}
-
-.source-control-range button[aria-pressed="true"] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-control);
-}
-
-.source-control-group-action {
-  display: grid;
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  background: transparent;
-  cursor: pointer;
-}
-
-.source-control-group-action:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
-}
-
-.source-control-group-action:focus-visible {
-  outline-offset: -1px;
-}
-
-.source-control-group-action:disabled {
-  opacity: 0.45;
-  cursor: default;
-  background: transparent;
-}
-
-.source-control-group-action svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .source-control-separator {
@@ -212,31 +116,26 @@
   padding: var(--space-1) 0 var(--space-2);
 }
 
+/* Commit rows are ListRows; the tree keeps its own indent and secondary ink. */
 .commit-row {
-  display: flex;
   height: var(--row-list);
-  align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-3) 0 var(--space-2);
   color: var(--color-text-secondary);
   white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
 }
 
-.commit-row:hover,
+.commit-row[aria-selected="true"] {
+  color: var(--color-selected-text);
+}
+
 .commit-details:hover {
-  background: var(--color-surface-raised);
+  background: var(--color-hover);
 }
 
-.commit-row:focus-visible,
 .commit-details:focus-visible {
   outline: 1px solid var(--color-focus);
   outline-offset: -1px;
-}
-
-.commit-row[aria-expanded="true"] .search-chevron {
-  transform: rotate(90deg);
 }
 
 .commit-subject,
@@ -249,6 +148,10 @@
 .commit-subject {
   flex: 1;
   color: var(--color-text-primary);
+}
+
+.commit-row[aria-selected="true"] .commit-subject {
+  color: inherit;
 }
 
 .commit-age {
@@ -280,19 +183,6 @@
   -webkit-line-clamp: none;
 }
 
-.commit-body-toggle {
-  padding: 0;
-  border: 0;
-  color: var(--color-accent);
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-}
-
-.commit-body-toggle:hover {
-  text-decoration: underline;
-}
-
 .commit-meta {
   display: flex;
   min-width: 0;
@@ -311,34 +201,26 @@
   white-space: nowrap;
 }
 
+/* The hash chip is an inline Button (ghost hover layer) drawn as a code chip. */
 .commit-hash {
-  display: inline-flex;
   height: 1.125rem;
-  align-items: center;
-  gap: var(--space-1);
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  background: var(--color-surface);
-  cursor: pointer;
+  background-color: var(--color-surface);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-}
-
-.commit-hash:hover {
-  border-color: var(--color-border-strong);
 }
 
 .commit-hash svg {
   width: var(--icon-xs);
   height: var(--icon-xs);
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 .commit-files-note {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-muted);
+  margin-top: var(--space-1);
 }
 
 .commit-file .file-icon {
@@ -379,18 +261,6 @@
 
 .commit-file-status[data-status="renamed"] { color: var(--color-accent); }
 
-.commit-file[aria-selected="true"],
-.commit-file[aria-selected="true"]:hover {
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
-}
-
-/* Shift-selected commits share one fill; the pinned row spans them. */
-.commit-row[aria-selected="true"]:not(.commit-file),
-.commit-row[aria-selected="true"]:not(.commit-file):hover {
-  background: var(--color-accent-subtle);
-}
-
 /* The pinned compare group ends in a divider above the commits. */
 .commit-tree [data-compare-end] {
   margin-bottom: var(--space-1);
@@ -401,11 +271,7 @@
   width: var(--icon-sm);
   height: var(--icon-sm);
   flex: none;
-  color: var(--color-text-muted);
-}
-
-.commit-compare > .search-count {
-  margin-left: auto;
+  color: var(--color-text-secondary);
 }
 
 .commit-compare-count {
@@ -421,31 +287,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-overflow: ellipsis;
-}
-
-.commit-compare-clear {
-  display: inline-flex;
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.commit-compare-clear:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-}
-
-.commit-compare-clear svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .commit-compare-meta {
@@ -469,27 +310,15 @@
   justify-items: start;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3) var(--space-2);
-  font-size: var(--text-xs);
 }
 
-.commit-more p {
-  margin: 0;
-}
-
+/* Rows grow to 32px on phones (--row-list); header controls keep pace. */
 @media (max-width: 48rem) {
-  .commit-row,
-  .source-control-group,
-  .source-control-section-toggle {
-    height: var(--control-lg);
-  }
-
-  .source-control-range button {
-    height: 1.5rem;
-    padding: 0 var(--space-2);
+  .source-control-range {
+    height: var(--control-md);
   }
 
   .source-control-group-action {
-    width: 1.75rem;
-    height: 1.75rem;
+    --icon-button-min: var(--control-md);
   }
 }

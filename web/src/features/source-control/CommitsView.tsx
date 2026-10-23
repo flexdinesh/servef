@@ -1,8 +1,13 @@
-import { CheckIcon, ChevronRightIcon, CopyIcon, GitCompareArrowsIcon, XIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, GitCompareArrowsIcon, XIcon } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 
 import { useClipboardCopy } from "../../lib/clipboard.ts"
+import { Badge } from "../../components/ui/badge.tsx"
 import { Button } from "../../components/ui/button.tsx"
+import { IconButton } from "../../components/ui/icon-button.tsx"
+import { ListRow } from "../../components/ui/list-row.tsx"
+import { StatusMessage } from "../../components/ui/notice.tsx"
+import { Chevron } from "../../components/ui/section-toggle.tsx"
 import {
   commitAge, commitDate, commitRows, compareRowKey, folderKey, parentRowKey, tabRowKey,
   type CommitFiles, type CommitRow, type Compare, type PinnedCompare,
@@ -233,12 +238,12 @@ export function CommitsView({
   }
 
   // Changes owns the view's status region; history failures alert instead.
-  const failure = error && <p className="search-status-error" role="alert">{error}</p>
+  const failure = error && <StatusMessage tone="error" role="alert">{error}</StatusMessage>
   if (error && !result) {
     return (
       <div className="source-control-message">
         {failure}
-        <Button type="button" size="sm" variant="outline" onClick={refresh}>Retry</Button>
+        <Button variant="outline" onClick={refresh}>Retry</Button>
       </div>
     )
   }
@@ -249,9 +254,9 @@ export function CommitsView({
     return (
       <div className="source-control-message">
         {failure}
-        <p>{reason}</p>
+        <StatusMessage>{reason}</StatusMessage>
         {result.range === "branch" && range === "branch" && (
-          <Button type="button" size="sm" variant="outline" onClick={onShowAll}>Show all history</Button>
+          <Button variant="outline" onClick={onShowAll}>Show all history</Button>
         )}
       </div>
     )
@@ -294,7 +299,7 @@ export function CommitsView({
             const age = commitAge(row.commit.authorTime, now)
             const { hash } = row.commit
             return (
-              <div key={row.key} {...rowProps} className="commit-row" aria-level={1} aria-expanded={row.expanded}
+              <ListRow key={row.key} {...rowProps} className="commit-row" aria-level={1} aria-expanded={row.expanded}
                 aria-selected={selectedSet.has(hash)}
                 aria-label={`${row.commit.subject}, ${row.commit.author.name}, ${age.long}`}
                 title={`${row.commit.subject}\n${row.commit.author.name} · ${commitDate(row.commit.authorTime)} · ${shortHash(hash)}`}
@@ -315,10 +320,10 @@ export function CommitsView({
                     activate(row, false)
                   }
                 }}>
-                <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+                <Chevron />
                 <span className="commit-subject">{row.commit.subject || "(no message)"}</span>
                 <span className="commit-age">{age.short}</span>
-              </div>
+              </ListRow>
             )
           }
           if (row.kind === "details") {
@@ -331,17 +336,17 @@ export function CommitsView({
           }
           if (row.kind === "folder") {
             return (
-              <div key={row.key} {...rowProps} className="commit-row commit-folder" aria-level={row.depth} aria-expanded={row.expanded}
+              <ListRow key={row.key} {...rowProps} className="commit-row commit-folder" aria-level={row.depth} aria-expanded={row.expanded}
                 aria-selected={false} style={{ paddingLeft: indent(row.depth) }} title={row.path}
                 onClick={() => activate(row, false)}>
-                <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+                <Chevron />
                 <span className="commit-file-name">{row.name}</span>
-              </div>
+              </ListRow>
             )
           }
           const { file } = row
           return (
-            <div key={row.key} {...rowProps} className="commit-row commit-file" aria-level={row.depth}
+            <ListRow key={row.key} {...rowProps} className="commit-row commit-file" aria-level={row.depth}
               aria-selected={row.key === activeKey} aria-label={`${row.name}, ${statusNames[file.status]}`}
               style={{ paddingLeft: indent(row.depth) }}
               title={file.oldPath ? `${file.path} • Renamed from ${file.oldPath}` : `${file.path} • ${statusNames[file.status]}`}
@@ -350,14 +355,14 @@ export function CommitsView({
               <span className="commit-file-name" data-status={file.status}>{row.name}</span>
               {file.oldPath && <span className="commit-file-from">from {file.oldPath}</span>}
               <span className="commit-file-status" data-status={file.status} aria-hidden="true">{statusLetters[file.status]}</span>
-            </div>
+            </ListRow>
           )
         })}
       </div>
       {(result.more || moreError) && (
         <div className="commit-more">
-          {moreError && <p className="search-status-error" role="alert">{moreError}</p>}
-          <Button type="button" size="sm" variant="outline" disabled={loadingMore} onClick={loadMore}>
+          {moreError && <StatusMessage tone="error" role="alert">{moreError}</StatusMessage>}
+          <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
             {loadingMore ? "Loading…" : moreError ? "Retry" : "Load more"}
           </Button>
         </div>
@@ -410,24 +415,24 @@ function CommitDetails({ bodyOpen, commit, copied, files, rowProps, onActivate, 
       {commit.body && <>
         <p ref={body} className="commit-body" data-open={bodyOpen || undefined}>{commit.body}</p>
         {(clamped || bodyOpen) && (
-          <button type="button" className="commit-body-toggle" tabIndex={-1} onClick={(event) => {
+          <Button variant="link" size="inline" tabIndex={-1} onClick={(event) => {
             stop(event)
             onToggleBody()
-          }}>{bodyOpen ? "Less" : "More"}</button>
+          }}>{bodyOpen ? "Less" : "More"}</Button>
         )}
       </>}
       <div className="commit-meta">
         <span className="commit-author" title={commit.author.email}>{commit.author.name}</span>
         <span aria-hidden="true">·</span>
         <time dateTime={commit.authorTime}>{date}</time>
-        <button type="button" className="commit-hash" tabIndex={-1} aria-label={`Copy commit hash ${commit.hash}`}
+        <Button variant="ghost" size="inline" className="commit-hash" tabIndex={-1} aria-label={`Copy commit hash ${commit.hash}`}
           title={`Copy commit hash (${copyShortcut})`} onClick={(event) => {
             stop(event)
             onCopy()
           }}>
           <span>{shortHash(commit.hash)}</span>
           {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-        </button>
+        </Button>
       </div>
       <FilesNote files={files} onRetry={(event) => {
         stop(event)
@@ -441,16 +446,16 @@ function CommitDetails({ bodyOpen, commit, copied, files, rowProps, onActivate, 
 function FilesNote({ files, onRetry }: { files: CommitFiles | undefined; onRetry(event: MouseEvent): void }) {
   const count = files?.kind === "ready" ? files.response.files.length : 0
   return <>
-    {files?.kind === "loading" && <p className="commit-files-note">Loading files…</p>}
+    {files?.kind === "loading" && <StatusMessage className="commit-files-note">Loading files…</StatusMessage>}
     {files?.kind === "error" && (
-      <p className="commit-files-note search-status-error">
+      <StatusMessage className="commit-files-note" tone="error">
         {files.message}{" "}
-        <button type="button" className="commit-body-toggle" tabIndex={-1} onClick={onRetry}>Retry</button>
-      </p>
+        <Button variant="link" size="inline" tabIndex={-1} onClick={onRetry}>Retry</Button>
+      </StatusMessage>
     )}
-    {files?.kind === "ready" && count === 0 && <p className="commit-files-note">No file changes.</p>}
+    {files?.kind === "ready" && count === 0 && <StatusMessage className="commit-files-note">No file changes.</StatusMessage>}
     {files?.kind === "ready" && files.response.truncated && (
-      <p className="commit-files-note">Showing the first {count.toLocaleString()} files.</p>
+      <StatusMessage className="commit-files-note">Showing the first {count.toLocaleString()} files.</StatusMessage>
     )}
   </>
 }
@@ -478,31 +483,29 @@ function CompareRow({ compare, expanded, files, rowProps, onActivate, onClear }:
   if (compare.kind === "branch") {
     const count = ready ? `${ready.files.length.toLocaleString()}${ready.truncated ? "+" : ""}` : ""
     return (
-      <div {...rowProps} className="commit-row commit-compare" aria-level={1} aria-expanded={expanded} aria-selected={false}
+      <ListRow {...rowProps} className="commit-row commit-compare" aria-level={1} aria-expanded={expanded} aria-selected={false}
         aria-label={`All changes vs ${compare.base}${ready ? `, ${plural(ready.files.length, "file")}` : ""}`}
         title={`Net changes on this branch since it left ${compare.base}`} onClick={onActivate}>
-        <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+        <Chevron />
         <GitCompareArrowsIcon className="commit-compare-icon" aria-hidden="true" />
         <span className="commit-subject">All changes vs {compare.base}</span>
-        {count && <span className="search-count" aria-hidden="true">{count}</span>}
-      </div>
+        {count && <Badge aria-hidden="true">{count}</Badge>}
+      </ListRow>
     )
   }
   const from = shortHash(compare.from)
   const to = shortHash(compare.to)
   return (
-    <div {...rowProps} className="commit-row commit-compare" aria-level={1} aria-expanded={expanded} aria-selected={false}
+    <ListRow {...rowProps} className="commit-row commit-compare" aria-level={1} aria-expanded={expanded} aria-selected={false}
       aria-label={`${plural(compare.count, "commit")} selected, ${from} through ${to}`}
       title={`Changes in ${plural(compare.count, "commit")}, ${from} through ${to}`} onClick={onActivate}>
-      <ChevronRightIcon className="search-chevron" aria-hidden="true" />
+      <Chevron />
       <GitCompareArrowsIcon className="commit-compare-icon" aria-hidden="true" />
       <span className="commit-compare-count">{plural(compare.count, "commit")}</span>
       <span className="commit-compare-span">{from}..{to}</span>
-      <button type="button" className="commit-compare-clear" tabIndex={-1} aria-label="Clear commit selection"
-        title="Clear selection (Escape)" onClick={onClear}>
-        <XIcon aria-hidden="true" />
-      </button>
-    </div>
+      <IconButton size="xs" className="commit-compare-clear" tabIndex={-1} label="Clear commit selection"
+        title="Clear selection (Escape)" icon={<XIcon aria-hidden="true" />} onClick={onClear} />
+    </ListRow>
   )
 }
 
