@@ -93,8 +93,8 @@
 }
 
 .status-copy-path svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .status-settings {
@@ -122,8 +122,8 @@
 }
 
 .status-settings svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .status-metrics {
@@ -235,8 +235,8 @@
 
 .status-search svg,
 .search-field svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   flex: none;
 }
 
@@ -270,7 +270,7 @@
   position: absolute;
   bottom: calc(100% + var(--space-1));
   left: 0;
-  z-index: 20;
+  z-index: var(--z-popover);
   min-width: 15rem;
   padding: var(--space-3);
   border: 1px solid var(--color-border-strong);
@@ -369,8 +369,8 @@
 }
 
 .navigation-install-copy svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .navigation-status-actions {

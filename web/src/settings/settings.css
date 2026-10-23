@@ -24,7 +24,7 @@
 
 .settings-header {
   display: flex;
-  height: var(--tabs-height);
+  height: var(--chrome-height);
   flex: none;
   align-items: center;
   justify-content: space-between;
@@ -36,13 +36,13 @@
 .settings-header h2 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   font-weight: 600;
 }
 
 .settings-close {
   display: inline-flex;
-  width: var(--tabs-height);
+  width: var(--chrome-height);
   height: 100%;
   align-items: center;
   justify-content: center;
@@ -63,8 +63,8 @@
 }
 
 .settings-close svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .settings-search {
@@ -87,8 +87,8 @@
 }
 
 .settings-search svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   flex: none;
 }
 
@@ -101,7 +101,7 @@
   outline: 0;
   color: var(--color-text-primary);
   background: transparent;
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
 }
 
 .settings-search input::placeholder {
@@ -193,7 +193,7 @@
   color: var(--color-text-secondary);
   background: transparent;
   text-align: left;
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   cursor: pointer;
 }
 
@@ -269,7 +269,7 @@
 
 .setting-title {
   color: var(--color-text-primary);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   line-height: 1.25rem;
 }
 
@@ -308,14 +308,14 @@
 }
 
 .setting-reset svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .setting-description {
   margin: var(--space-1) 0 var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   line-height: 1.25rem;
 }
 
@@ -335,13 +335,13 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   background: var(--color-surface);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
 .setting-control input:focus-visible {
   border-color: var(--color-accent);
-  outline: 1px solid var(--color-accent);
+  outline: 1px solid var(--color-focus);
   outline-offset: 0;
 }
 
@@ -369,7 +369,7 @@
   color: var(--color-text-primary);
   background: var(--color-surface);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   cursor: pointer;
   appearance: none;
 }
@@ -379,21 +379,21 @@
   /* Lucide's chevron ink starts 5/24 into its box; inset the ink, not the box,
      as far as the text sits from the left border. */
   right: calc(1px + var(--space-2) - 0.875rem * 5 / 24);
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   color: var(--color-text-secondary);
   pointer-events: none;
 }
 
 .setting-control select:focus-visible {
   border-color: var(--color-accent);
-  outline: 1px solid var(--color-accent);
+  outline: 1px solid var(--color-focus);
   outline-offset: 0;
 }
 
 /* A setting opened from the command palette flashes, then settles. */
 .setting-item[data-revealed] {
-  animation: setting-reveal 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: setting-reveal var(--duration-feedback) var(--ease-out-expo);
 }
 
 @keyframes setting-reveal {
@@ -426,7 +426,7 @@
 .settings-empty {
   margin: var(--space-4);
   color: var(--color-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
 }
 
 .settings-empty p {
@@ -447,7 +447,7 @@
 
 .settings-footer {
   display: flex;
-  min-height: var(--tabs-height);
+  min-height: var(--chrome-height);
   flex: none;
   align-items: center;
   justify-content: space-between;
@@ -491,8 +491,8 @@
 }
 
 .settings-reset-all svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 @media (max-width: 48rem) {

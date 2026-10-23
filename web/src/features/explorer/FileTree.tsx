@@ -8,6 +8,7 @@ import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
 import { openDirectoryPaths, type PageData, type TreeNode } from "../../api/page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
+import { treeRowHeight } from "../../components/ui/tree-rows.ts"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import { uiScale } from "../../settings/settings.ts"
 import { projectMemory, readMemory, rememberExpanded, restoreExpanded, updateMemory } from "../../workspace/workspace-memory.ts"
@@ -87,7 +88,7 @@ export function FileTree(props: FileTreeProps) {
     return () => query.removeEventListener("change", update)
   }, [saveState])
 
-  const itemHeight = Math.round((mobile ? 32 : 24) * rowScale)
+  const itemHeight = treeRowHeight(mobile, rowScale)
   return <Explorer {...props} key={`${mobile ? "mobile" : "desktop"}-${itemHeight}`} mobile={mobile}
     itemHeight={itemHeight} filter={filter} state={state} />
 }

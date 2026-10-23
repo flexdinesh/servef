@@ -41,7 +41,7 @@
 .search-input {
   width: 100%;
   min-width: 0;
-  height: var(--control-height-sm);
+  height: var(--control-lg);
   flex: 1;
   padding: 0;
   border: 0;
@@ -66,7 +66,7 @@
 }
 
 .search-status {
-  min-height: var(--control-height-sm);
+  min-height: var(--control-lg);
   flex: none;
   padding: var(--space-2) var(--space-4);
   color: var(--color-text-muted);
@@ -107,7 +107,7 @@
 .search-result {
   display: block;
   width: 100%;
-  min-height: var(--control-height-md);
+  min-height: var(--control-xl);
   padding: var(--space-2);
   border: 0;
   border-radius: var(--radius-md);
@@ -220,7 +220,7 @@
 }
 
 .search-result-name {
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   font-weight: 400;
 }
 

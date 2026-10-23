@@ -4,7 +4,7 @@
   margin-right: calc(var(--space-3) * -1 + var(--space-1));
   color: var(--color-text-muted);
   font-size: var(--text-lg);
-  line-height: var(--control-height-sm);
+  line-height: var(--control-lg);
 }
 
 .command-palette .search-shell {
@@ -38,8 +38,8 @@
 }
 
 .command-separator {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
 }
 
 .command-title {

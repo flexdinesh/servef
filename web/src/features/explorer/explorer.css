@@ -1,5 +1,4 @@
 .file-explorer {
-  --explorer-input-height: 1.75rem;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -10,7 +9,7 @@
 
 .explorer-header {
   display: flex;
-  height: var(--tabs-height);
+  height: var(--chrome-height);
   flex: none;
   align-items: center;
   gap: var(--space-1);
@@ -56,8 +55,8 @@
 
 .explorer-header svg,
 .files-toggle svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .files-toggle {
@@ -74,7 +73,7 @@
   --trees-border-color-override: var(--color-border);
   --trees-border-radius-override: 0px;
   --trees-font-family-override: var(--font-sans);
-  --trees-font-size-override: 0.8125rem;
+  --trees-font-size-override: var(--text-label);
   --trees-selected-bg-override: var(--color-accent-subtle);
   --trees-selected-fg-override: var(--color-accent);
   --trees-search-bg-override: var(--color-surface);
@@ -139,7 +138,7 @@ aside .muted {
   .files-toggle {
     display: grid;
     width: var(--space-5);
-    height: var(--tabs-height);
+    height: var(--chrome-height);
   }
 }
 
@@ -162,7 +161,7 @@ aside .muted {
 .file-search {
   min-width: 0;
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
 }
 
 .filename-filter-field,
@@ -170,7 +169,7 @@ aside .muted {
   display: flex;
   width: 100%;
   min-width: 0;
-  height: var(--explorer-input-height);
+  height: var(--field-height);
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-2);
@@ -203,7 +202,7 @@ aside .muted {
 }
 
 .filename-filter-field:has(.filename-filter-input:focus-visible) {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -213,8 +212,8 @@ aside .muted {
 }
 
 .filename-filter-field > svg {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   flex: none;
   color: var(--color-text-muted);
 }
@@ -259,8 +258,8 @@ aside .muted {
 }
 
 .filename-filter-clear svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
 }
 
 .filename-filter-error,
@@ -283,14 +282,14 @@ aside .muted {
 
 .file-explorer .explorer-empty {
   margin: var(--space-2) var(--space-3);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   overflow-wrap: anywhere;
 }
 
 .explorer-empty code {
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
 }
 
 .explorer-empty-action {

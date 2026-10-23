@@ -1,5 +1,5 @@
 .tab-menu-positioner {
-  z-index: 60;
+  z-index: var(--z-menu);
 }
 
 .tab-menu {
@@ -11,7 +11,7 @@
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-overlay);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
   outline: none;
 }
 

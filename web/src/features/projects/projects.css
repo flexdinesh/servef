@@ -19,8 +19,8 @@
 }
 
 .explorer-header .project-trigger svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
   color: var(--color-text-muted);
 }
 
@@ -53,8 +53,8 @@
 }
 
 .explorer-header .project-branch svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
   flex: none;
 }
 
@@ -126,8 +126,8 @@
 }
 
 .project-option svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   flex: none;
   color: var(--color-text-secondary);
 }
@@ -186,8 +186,8 @@
 }
 
 .project-option-current svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
   color: inherit;
 }
 
@@ -220,8 +220,8 @@
 }
 
 .project-forget svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .project-option-row.drillable .project-option {
@@ -251,8 +251,8 @@
 }
 
 .project-drill svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .project-option-branch {
@@ -286,8 +286,8 @@
 }
 
 .project-back svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .project-unavailable p {

@@ -6,7 +6,7 @@
   background: var(--color-surface);
   cursor: text;
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--text-code);
   font-feature-settings: "calt" 1, "zero" 1, "cv02" 1, "cv08" 1, "ss01" 1;
   font-variant-ligatures: normal;
   tab-size: 4;
@@ -17,7 +17,7 @@
   width: max-content;
   min-width: 100%;
   font: inherit;
-  line-height: 1.375rem;
+  line-height: var(--source-line-height);
 }
 
 .source-document:focus-visible {
@@ -26,7 +26,7 @@
 
 .source-document-line {
   display: flex;
-  height: 1.375rem;
+  height: var(--source-line-height);
 }
 
 .source-document-line.active {
@@ -36,10 +36,10 @@
 .source-document-line-number {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: var(--z-raised);
   flex: none;
   box-sizing: border-box;
-  padding: 0 14px 0 22px;
+  padding: 0 var(--source-gutter-end) 0 var(--source-gutter-start);
   color: var(--color-text-muted);
   background: var(--color-surface);
   cursor: pointer;
@@ -97,8 +97,8 @@
 }
 
 .source-line-copy-button svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
 }
 
 .source-line-copy-status {
@@ -126,7 +126,7 @@
 .source-document-line-content {
   min-width: max-content;
   flex: 1;
-  padding-right: 40px;
+  padding-right: var(--source-line-end);
   white-space: pre;
 }
 

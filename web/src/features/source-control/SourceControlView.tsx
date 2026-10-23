@@ -4,6 +4,7 @@ import { ChevronRightIcon, FoldVerticalIcon, RefreshCwIcon, UnfoldVerticalIcon, 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react"
 
 import { Button } from "../../components/ui/button.tsx"
+import { treeRowHeight } from "../../components/ui/tree-rows.ts"
 import { useSettings } from "../../settings/SettingsProvider.tsx"
 import type { ChangedFile } from "../../api/changes-contract.ts"
 import { compareRowKey, rangeSelection, selectedCommits, type CommitSelection, type PinnedCompare } from "./commit-rows.ts"
@@ -57,7 +58,7 @@ export function SourceControlView({ activeHistory, activePath, changes, commits,
   const files = result?.files
   const reading = useDelayedFlag(loading || commits.loading, 150)
   const scale = uiScale(useSettings().settings)
-  const itemHeight = Math.round((mobile ? 32 : 24) * scale)
+  const itemHeight = treeRowHeight(mobile, scale)
   const [anyExpanded, setAnyExpanded] = useState(true)
   const [collapseRequest, setCollapseRequest] = useState<{ expand: boolean; id: number } | null>(null)
   const [expandedCommits, setExpandedCommits] = useState<ReadonlySet<string>>(() => new Set())

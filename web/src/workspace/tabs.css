@@ -32,7 +32,7 @@
 }
 
 .buffer-tab.active {
-  z-index: 1;
+  z-index: var(--z-raised);
   color: var(--color-text-primary);
   background: var(--color-surface);
 }
@@ -63,12 +63,12 @@
 
 .buffer-tab.active::before {
   right: 100%;
-  mask-image: radial-gradient(circle at 0 0, transparent var(--tab-radius), #000 calc(var(--tab-radius) + 0.5px));
+  mask-image: radial-gradient(circle at 0 0, transparent var(--tab-radius), black calc(var(--tab-radius) + 0.5px));
 }
 
 .buffer-tab.active::after {
   left: 100%;
-  mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), #000 calc(var(--tab-radius) + 0.5px));
+  mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), black calc(var(--tab-radius) + 0.5px));
 }
 
 .buffer-tab-target {
@@ -82,12 +82,12 @@
   color: inherit;
   background: transparent;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
 }
 
 .buffer-tab-target > svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
   flex: none;
   color: var(--color-text-muted);
 }
@@ -119,6 +119,6 @@
 }
 
 .buffer-tab-close svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
 }

@@ -23,8 +23,8 @@
 
 .activity-item svg {
   position: relative;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
   stroke-width: 1.75;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .activity-item:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }
 
@@ -66,7 +66,7 @@
   color: var(--color-surface);
   background: var(--color-accent);
   /* VS Code's 9px badge; the type ramp starts at 12px, too large for the tile. */
-  font-size: 0.5625rem;
+  font-size: var(--text-badge);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 0.875rem;

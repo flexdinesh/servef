@@ -1,94 +1,12 @@
+/* Light and Dark resolve the light-dark() values in tokens.css; System
+   follows the browser through the default "light dark" color-scheme.
+   Named themes override every theme value. */
 :root.light {
   color-scheme: light;
-  --color-bg: #f8f8f8;
-  --color-canvas: #d4d4d4;
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f3f3f3;
-  --color-surface-raised: #ffffff;
-  --color-text-primary: #333333;
-  --color-text-secondary: #515866;
-  --color-text-muted: #6d7685;
-  --color-border: #e5e5e5;
-  --color-border-strong: #c5cbd4;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-accent-subtle: #e8efff;
-  --color-on-accent: #ffffff;
-  --color-success: #16794b;
-  --color-warning: #9a5800;
-  --color-warning-subtle: #fff1cf;
-  --color-destructive: #bd3029;
-  --color-destructive-subtle: #fff0ef;
-  --color-overlay: rgb(15 18 23 / 48%);
-  --shadow-control: 0 1px 2px rgb(15 18 23 / 8%);
-  --shadow-overlay: 0 1.5rem 4rem rgb(15 18 23 / 22%);
 }
 
 :root.dark {
   color-scheme: dark;
-  --color-bg: #181818;
-  --color-canvas: #0b0b0b;
-  --color-surface: #1f1f1f;
-  --color-surface-secondary: #181818;
-  --color-surface-raised: #252526;
-  --color-text-primary: #e8eaf0;
-  --color-text-secondary: #b2b8c4;
-  --color-text-muted: #8992a1;
-  --color-border: #2b2b2b;
-  --color-border-strong: #414855;
-  --color-accent: #78a8ff;
-  --color-accent-hover: #9bbfff;
-  --color-accent-subtle: #1d3155;
-  --color-success: #62d09b;
-  --color-warning: #efb15a;
-  --color-warning-subtle: #3c2d18;
-  --color-destructive: #ff827a;
-  --color-destructive-subtle: #422523;
-  --color-overlay: rgb(0 0 0 / 62%);
-  --color-syntax-comment: #8b949e;
-  --color-syntax-keyword: #ff7b72;
-  --color-syntax-type: #f0883e;
-  --color-syntax-function: #d2a8ff;
-  --color-syntax-variable: #79c0ff;
-  --color-syntax-string: #a5d6ff;
-  --color-syntax-number: #79c0ff;
-  --color-syntax-operator: #ff7b72;
-  --shadow-control: 0 1px 2px rgb(0 0 0 / 24%);
-  --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 42%);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light, .dark) {
-    --color-bg: #181818;
-    --color-canvas: #0b0b0b;
-    --color-surface: #1f1f1f;
-    --color-surface-secondary: #181818;
-    --color-surface-raised: #252526;
-    --color-text-primary: #e8eaf0;
-    --color-text-secondary: #b2b8c4;
-    --color-text-muted: #8992a1;
-    --color-border: #2b2b2b;
-    --color-border-strong: #414855;
-    --color-accent: #78a8ff;
-    --color-accent-hover: #9bbfff;
-    --color-accent-subtle: #1d3155;
-    --color-success: #62d09b;
-    --color-warning: #efb15a;
-    --color-warning-subtle: #3c2d18;
-    --color-destructive: #ff827a;
-    --color-destructive-subtle: #422523;
-    --color-overlay: rgb(0 0 0 / 62%);
-    --color-syntax-comment: #8b949e;
-    --color-syntax-keyword: #ff7b72;
-    --color-syntax-type: #f0883e;
-    --color-syntax-function: #d2a8ff;
-    --color-syntax-variable: #79c0ff;
-    --color-syntax-string: #a5d6ff;
-    --color-syntax-number: #79c0ff;
-    --color-syntax-operator: #ff7b72;
-    --shadow-control: 0 1px 2px rgb(0 0 0 / 24%);
-    --shadow-overlay: 0 1.5rem 4rem rgb(0 0 0 / 42%);
-  }
 }
 
 :root[data-theme="dracula"] {

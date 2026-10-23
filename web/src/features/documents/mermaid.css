@@ -64,7 +64,7 @@
 
 .mermaid-dialog-header {
   display: flex;
-  height: var(--tabs-height);
+  height: var(--chrome-height);
   flex: none;
   align-items: center;
   justify-content: space-between;
@@ -86,7 +86,7 @@
 
 .mermaid-dialog-tools button {
   display: inline-flex;
-  width: var(--tabs-height);
+  width: var(--chrome-height);
   height: 100%;
   align-items: center;
   justify-content: center;
@@ -107,8 +107,8 @@
 }
 
 .mermaid-dialog-tools svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .mermaid-viewer {

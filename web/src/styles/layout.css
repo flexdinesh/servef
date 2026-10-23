@@ -2,7 +2,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 30;
+  z-index: var(--z-progress);
   width: 35%;
   height: 2px;
   background: var(--color-accent);
@@ -10,7 +10,7 @@
   pointer-events: none;
   transform: scaleX(0);
   transform-origin: left;
-  transition: opacity 120ms ease, transform 800ms ease;
+  transition: opacity var(--duration-base) ease, transform var(--duration-progress) ease;
 }
 
 .navigation-progress.active {
@@ -51,14 +51,14 @@ main.image-mode {
 
 .sidebar-resizer {
   position: relative;
-  z-index: 5;
+  z-index: var(--z-sticky);
   cursor: col-resize;
   touch-action: none;
 }
 
 .sidebar-resizer::after {
   position: absolute;
-  inset: var(--workspace-radius) calc((var(--workspace-gap) - 2px) / 2);
+  inset: var(--radius-island) calc((var(--workspace-gap) - 2px) / 2);
   border-radius: var(--radius-sm);
   content: "";
 }
@@ -77,9 +77,9 @@ main.image-mode {
   grid-column: 3;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: var(--tabs-height) minmax(0, 1fr);
+  grid-template-rows: var(--chrome-height) minmax(0, 1fr);
   overflow: hidden;
-  border-radius: var(--workspace-radius);
+  border-radius: var(--radius-island);
   background: var(--color-surface);
 }
 
