@@ -17,6 +17,9 @@
 /*.test
 /coverage.out
 
+# Local dev overrides (see .env.example)
+/.env
+
 # Local Go workspace files
 /go.work
 /go.work.sum

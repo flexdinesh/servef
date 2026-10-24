@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build --configLoader native",
-    "dev": "vite --configLoader native --port 5173 --strictPort",
-    "dev:mock": "vite --configLoader native --mode mock --port 5173 --strictPort",
+    "dev": "vite --configLoader native",
+    "dev:mock": "vite --configLoader native --mode mock",
     "lint": "oxlint && stylelint \"src/**/*.css\"",
     "test": "node --test dev-server.test.ts 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"

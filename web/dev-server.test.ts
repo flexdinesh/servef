@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  devServerPort,
   devServerUrls,
   formatDevServerUrl,
   mockFixtureName,
@@ -43,6 +44,23 @@ test("devServerUrls uses the selected port and at most one LAN address", () => {
     { label: "Local", url: "http://localhost:5174/" },
     { label: "Host", url: "http://0.0.0.0:5174/" },
   ])
+})
+
+test("devServerPort reads a port or falls back when unset or empty", () => {
+  assert.equal(devServerPort({}, "SERVEF_DEV_WEB_PORT", 5173), 5173)
+  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "" }, "SERVEF_DEV_WEB_PORT", 5173), 5173)
+  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "5199" }, "SERVEF_DEV_WEB_PORT", 5173), 5199)
+  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "1" }, "SERVEF_DEV_WEB_PORT", 5173), 1)
+  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "65535" }, "SERVEF_DEV_WEB_PORT", 5173), 65535)
+})
+
+test("devServerPort rejects values that are not TCP ports", () => {
+  for (const raw of ["0", "65536", "-1", "80.5", " 80", "0x50", "1e3", "abc"]) {
+    assert.throws(
+      () => devServerPort({ SERVEF_DEV_WEB_PORT: raw }, "SERVEF_DEV_WEB_PORT", 5173),
+      { message: `SERVEF_DEV_WEB_PORT must be a port from 1 to 65535, got "${raw}"` },
+    )
+  }
 })
 
 test("formatDevServerUrl aligns startup labels", () => {

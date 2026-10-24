@@ -146,6 +146,26 @@ export function formatDevServerUrl({ label, url }: DevServerUrl): string {
   return `  ➜  ${label}:${" ".repeat(8 - label.length)}${url}`
 }
 
+// Unset or empty uses the fallback; anything but a TCP port fails startup.
+export function devServerPort(
+  environment: Environment,
+  name: string,
+  fallback: number,
+): number {
+  const raw = environment[name]
+
+  if (raw === undefined || raw === "") {
+    return fallback
+  }
+
+  const port = /^\d+$/.test(raw) ? Number(raw) : Number.NaN
+  if (!(port >= 1 && port <= 65535)) {
+    throw new Error(`${name} must be a port from 1 to 65535, got "${raw}"`)
+  }
+
+  return port
+}
+
 export function isSshSession(environment: Environment): boolean {
   return ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"].some(
     (name) => Boolean(environment[name]),

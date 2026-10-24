@@ -21,20 +21,22 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v7
+      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
+      # `version` with mise.toml min_version.
+      - name: Set up mise
+        uses: jdx/mise-action@v5
         with:
-          go-version-file: go.mod
-          cache: true
+          version: 2026.10.18
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
+      - name: Cache dependencies
+        uses: actions/cache@v4
         with:
-          node-version-file: .node-version
-          cache: pnpm
+          path: |
+            ~/.local/share/pnpm/store
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'go.sum') }}
+          restore-keys: ${{ runner.os }}-dependencies-
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -72,7 +74,7 @@ jobs:
 
       # Browser tests run locally before push (decision 0032).
       - name: Check
-        run: pnpm check
+        run: mise run check
 
       # Release tags point at main plus the built frontend so go install works;
       # main itself never tracks internal/web/dist.

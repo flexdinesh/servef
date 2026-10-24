@@ -37,9 +37,10 @@ rewriting history; update `Status` on the old record.
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
 | [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | UI superseded by 0035 |
 | [0031](0031-hide-git-entries.md) | Hide .git entries | Accepted |
-| [0032](0032-browser-tests-before-push.md) | Browser tests run before push, not in CI | Accepted |
+| [0032](0032-browser-tests-before-push.md) | Browser tests run before push, not in CI | Accepted; check commands superseded by 0038 |
 | [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |
 | [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted; extended to review tabs by 0035 |
 | [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted |
 | [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted |
 | [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted |
+| [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
