@@ -109,11 +109,16 @@
   flex-direction: column;
 }
 
-.compare-rows {
+/* The rows and their Load more row scroll together. */
+.compare-scroll {
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: var(--space-1) 0 var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.compare-rows {
+  padding-top: var(--space-1);
 }
 
 /* Compare rows are ListRows; selected rows take the selection fill. */
@@ -379,12 +384,17 @@
   line-height: 1rem;
 }
 
-.commit-more {
-  display: grid;
-  flex: none;
-  justify-items: start;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3) var(--space-2);
+/* Load more reads as the list's last row: an action, not a commit. */
+.commit-more-row .compare-row-label {
+  color: var(--color-text-secondary);
+}
+
+.commit-more-row:hover:not([aria-disabled="true"]) .compare-row-label {
+  color: var(--color-text-primary);
+}
+
+.commit-more-error {
+  padding: var(--space-1) var(--space-3);
 }
 
 /* Rows grow to 32px on phones (--row-list); header controls keep pace. */

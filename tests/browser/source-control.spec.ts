@@ -659,6 +659,40 @@ test("a branch with nothing ahead offers all history", async ({ page }) => {
   await expect(commitRow(page, "Initial")).toBeVisible()
 })
 
+test("Load more ends the commit list as a row and recovers on Retry", async ({ page }) => {
+  let failMore = true
+  await page.route("**/api/commits?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    if (params.get("range") !== "all") return route.continue()
+    if (params.has("skip")) {
+      if (!failMore) return route.continue()
+      return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Couldn't read git history: object missing" }) })
+    }
+    // The first page holds only the newest commit.
+    const response = await route.fetch()
+    const body: unknown = await response.json()
+    if (typeof body !== "object" || body === null || !("commits" in body) || !Array.isArray(body.commits)) throw new Error("unexpected commits response")
+    await route.fulfill({ response, json: { ...body, commits: body.commits.slice(0, 1), more: true } })
+  })
+  await openSourceControl(page)
+  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
+  const more = sourceControl(page).getByRole("button", { name: "Load more" })
+  await expect(more).toBeVisible()
+  await expect(compareList(page).getByRole("option")).toHaveCount(3)
+
+  // It is a 22px list row directly under the last commit, not a raised button.
+  const [row, last] = await Promise.all([more.boundingBox(), compareList(page).getByRole("option").last().boundingBox()])
+  expect(row?.height).toBe(22)
+  expect(row && last ? Math.abs(row.y - (last.y + last.height)) : Number.NaN).toBeLessThan(1)
+
+  await more.click()
+  await expect(sourceControl(page).getByRole("alert")).toContainText("object missing")
+  failMore = false
+  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  await expect(sourceControl(page).getByRole("button", { name: /^(Load more|Retry)$/ })).toHaveCount(0)
+})
+
 test("history failures alert in the list and recover on Retry", async ({ page }) => {
   let fail = true
   await page.route("**/api/commits?*", async (route) => {
