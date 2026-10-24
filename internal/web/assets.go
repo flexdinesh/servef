@@ -9,12 +9,11 @@ import (
 	"strings"
 )
 
-//go:embed dist vendor/MINISEARCH-LICENSE.txt vendor/PX0-LICENSE.txt
+//go:embed dist vendor/PX0-LICENSE.txt
 var assets embed.FS
 
 var noticeAssets = map[string]string{
-	"/assets/vendor/MINISEARCH-LICENSE.txt": "vendor/MINISEARCH-LICENSE.txt",
-	"/assets/vendor/PX0-LICENSE.txt":        "vendor/PX0-LICENSE.txt",
+	"/assets/vendor/PX0-LICENSE.txt": "vendor/PX0-LICENSE.txt",
 }
 
 func (a *App) serveAsset(w http.ResponseWriter, name string) {
