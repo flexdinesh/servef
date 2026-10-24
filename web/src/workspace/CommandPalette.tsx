@@ -136,10 +136,12 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
         <div ref={list} id="command-results" className="search-results command-results" role="listbox" aria-label="Commands">
           {matches.map((match, index) => {
             const { command } = match
-            // Settings show their current value; other commands their shortcut.
-            const detail = command.action.kind === "open-setting"
+            // Settings and Color Theme show their current value; other
+            // commands their shortcut.
+            const value = command.action.kind === "open-setting"
               ? values[command.action.setting].label
-              : command.shortcut ?? settingsShortcutLabel
+              : command.action.kind === "select-color-theme" ? values.theme.label : null
+            const detail = value ?? command.shortcut ?? settingsShortcutLabel
             return (
               <ListRow
                 key={command.id}
@@ -157,7 +159,7 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
                 <span className="command-category"><Highlighted text={command.category} ranges={match.category} /></span>
                 <ChevronRightIcon className="command-separator" aria-hidden="true" />
                 <span className="command-title"><Highlighted text={command.title} ranges={match.title} /></span>
-                {command.action.kind === "open-setting"
+                {value !== null
                   ? <span className="command-value">{detail}</span>
                   : <kbd className="command-value">{detail}</kbd>}
               </ListRow>

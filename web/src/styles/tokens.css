@@ -16,13 +16,13 @@
   --color-surface-raised: light-dark(#ffffff, #252526);
   --color-text-primary: light-dark(#333333, #e8eaf0);
   --color-text-secondary: light-dark(#515866, #b2b8c4);
-  --color-text-muted: light-dark(#6d7685, #8992a1);
+  --color-text-muted: light-dark(#666f7e, #8992a1);
   --color-border: light-dark(#e5e5e5, #2b2b2b);
   --color-border-strong: light-dark(#c5cbd4, #414855);
   --color-accent: light-dark(#2563eb, #78a8ff);
   --color-accent-hover: light-dark(#1d4ed8, #9bbfff);
   --color-accent-subtle: light-dark(#e8efff, #1d3155);
-  --color-on-accent: #ffffff;
+  --color-on-accent: light-dark(#ffffff, #1f1f1f);
   --color-success: light-dark(#16794b, #62d09b);
   --color-warning: light-dark(#9a5800, #efb15a);
   --color-warning-subtle: light-dark(#fff1cf, #3c2d18);

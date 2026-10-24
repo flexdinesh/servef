@@ -366,8 +366,8 @@ test("diffs follow every theme", async ({ page }) => {
   await openReview(page, "review=working#f=README.md")
   const view = reviewFile(page, "README.md").locator(".diff-view")
   for (const [theme, scheme] of [
-    ["light", "light"], ["dark", "dark"], ["catppuccin-mocha", "dark"], ["dracula", "dark"],
-    ["gruvbox-dark", "dark"], ["nord", "dark"], ["solarized-light", "light"],
+    ["light", "light"], ["dark", "dark"], ["catppuccin", "dark"], ["dracula", "dark"],
+    ["gruvbox", "dark"], ["nord", "dark"], ["solarized-light", "light"],
   ]) {
     await page.evaluate((value) => window.localStorage.setItem("servef-theme", value), theme)
     await page.reload()

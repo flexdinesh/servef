@@ -3,6 +3,7 @@ import { settingDefinitions, type SettingId } from "../settings/settings.ts"
 
 export type CommandAction =
   | { kind: "open-settings" }
+  | { kind: "select-color-theme" }
   | { kind: "open-setting"; setting: SettingId }
   | { kind: "go-to-definition" }
   | { kind: "find-references" }
@@ -22,11 +23,12 @@ export interface CommandMatch {
   title: readonly HighlightRange[]
 }
 
-// Open Settings comes first; then each setting is a command that opens
-// Settings at that setting; then code navigation, which acts on the name
-// last clicked in Source.
+// Open Settings and the Color Theme pick come first; then each setting is a
+// command that opens Settings at that setting; then code navigation, which
+// acts on the name last clicked in Source.
 export const commands: readonly Command[] = [
   { id: "preferences.openSettings", category: "Preferences", title: "Open Settings", action: { kind: "open-settings" } },
+  { id: "preferences.colorTheme", category: "Preferences", title: "Color Theme", action: { kind: "select-color-theme" } },
   ...settingDefinitions.map((definition): Command => ({
     id: `settings.${definition.id}`,
     category: "Settings",

@@ -54,6 +54,7 @@ import {
   documentTab, includesTab, reviewTab, tabName, tabSearch, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
+import { ColorThemePicker } from "./workspace/ColorThemePicker.tsx"
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./features/navigation/code-navigation.ts"
 import type { CommandAction } from "./workspace/commands.ts"
@@ -143,6 +144,7 @@ export function App({ project }: AppProps) {
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
   const openSettings = useRef<OpenSettings>(() => {})
   const openCommands = useRef<() => void>(() => {})
+  const openColorTheme = useRef<() => void>(() => {})
   const stepHunk = useRef<HunkStep>(() => {})
   const [lastPage, setLastPage] = useState<PageData | null>(() => result ? initialPage(result) : null)
   useEffect(() => {
@@ -167,10 +169,14 @@ export function App({ project }: AppProps) {
   const registerCommands = useCallback((open: (() => void) | null) => {
     openCommands.current = open ?? (() => {})
   }, [])
+  const registerColorTheme = useCallback((open: (() => void) | null) => {
+    openColorTheme.current = open ?? (() => {})
+  }, [])
   const runNavigation = useRef<(kind: NavigationKind) => void>(() => {})
   const runCommand = useCallback((action: CommandAction) => {
     if (action.kind === "go-to-definition") runNavigation.current("definition")
     else if (action.kind === "find-references") runNavigation.current("references")
+    else if (action.kind === "select-color-theme") openColorTheme.current()
     else openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
   }, [])
   const sidebar = useSidebar()
@@ -479,6 +485,7 @@ export function App({ project }: AppProps) {
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
       <SettingsDialog registerOpen={registerSettings} />
       <CommandPalette registerOpen={registerCommands} onRun={runCommand} />
+      <ColorThemePicker registerOpen={registerColorTheme} />
       <NavigationDialog panel={codeNavigation.panel} onClose={closeNavigation} onOpen={openNavigationResult} />
     </>
   )
