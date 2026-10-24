@@ -1,6 +1,6 @@
 # 0013: UI settings and base font size
 
-- Status: Accepted
+- Status: Accepted; theme default superseded by 0037
 - Date: 2026-10-15
 
 ## Context

@@ -36,7 +36,7 @@ export interface ThemeSnapshot {
   resolvedTheme: ResolvedTheme
 }
 
-export const DEFAULT_THEME: Theme = "system"
+export const DEFAULT_THEME: Theme = "dark"
 
 // scheme is the polarity a theme resolves to; System follows the browser.
 export interface ThemeOption {

@@ -318,31 +318,34 @@ async function themeSetting(page: Page) {
   return page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
 }
 
-test("selects and persists an explicit theme in settings", async ({ page }) => {
+test("defaults to Dark, then selects and persists an explicit theme in settings", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   await page.goto("/")
 
   const theme = await themeSetting(page)
-  await expect(theme).toHaveValue("system")
-  await theme.selectOption({ label: "Dark" })
-
+  await expect(theme).toHaveValue("dark")
   await expect(page.locator("html")).toHaveClass(/dark/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
-  expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("dark")
+  await theme.selectOption({ label: "Light" })
+
+  await expect(page.locator("html")).toHaveClass(/light/)
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
+  expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("light")
 
   await page.reload()
-  await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(await themeSetting(page)).toHaveValue("dark")
+  await expect(page.locator("html")).toHaveClass(/light/)
+  await expect(await themeSetting(page)).toHaveValue("light")
 
   const dialog = page.getByRole("dialog", { name: "Settings" })
   await dialog.getByRole("button", { name: "Reset all" }).click()
-  await expect(page.locator("html")).toHaveClass(/light/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
-  await expect(dialog.getByRole("combobox", { name: "Appearance: Theme" })).toHaveValue("system")
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
+  await expect(dialog.getByRole("combobox", { name: "Appearance: Theme" })).toHaveValue("dark")
 })
 
 test("system theme follows live OS changes", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
+  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "system"))
   await page.goto("/")
 
   await expect(page.locator("html")).toHaveClass(/light/)
@@ -362,8 +365,8 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const options = palette.getByRole("option")
   await expect(options).toHaveCount(7)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
-  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, System")
-  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, System")
+  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Dark")
+  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Dark")
   await expect(options.nth(3)).toHaveAccessibleName("Settings: Font Size, 13px")
   await expect(options.nth(4)).toHaveAccessibleName("Settings: Language Servers, On")
   await expect(options.nth(5)).toHaveAccessibleName("Navigation: Go to Definition, F12")
@@ -464,7 +467,7 @@ test("font size setting scales the interface, persists, and resets", async ({ pa
 })
 
 test("highlights fenced code with the selected theme", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" })
+  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "light"))
   await page.goto("/view?path=reference%2Fapi.markdown")
   await showPreview(page)
 
@@ -478,7 +481,7 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
 })
 
 test("highlights Source in the browser with the selected theme", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" })
+  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "light"))
   await page.goto("/view?path=code%2Fmain.go")
   const source = page.getByRole("textbox", { name: "Go source" })
   // Highlights keeps trailing whitespace in a token.

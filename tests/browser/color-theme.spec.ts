@@ -27,17 +27,18 @@ test("the Color Theme pick previews on arrows, reverts on Escape, and keeps on E
   await expect(input).toHaveAttribute("placeholder", "Select Color Theme (Up/Down Keys to Preview)")
   await expect(picker.getByRole("group", { name: "light themes" })).toBeVisible()
   await expect(picker.getByRole("group", { name: "dark themes" })).toBeVisible()
-  await expect(picker.getByRole("option", { name: "System", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(picker.getByRole("option", { name: "Dark", exact: true })).toHaveAttribute("aria-selected", "true")
 
-  await page.keyboard.press("ArrowDown")
-  await expect(html).toHaveAttribute("data-theme", "light")
-  await page.keyboard.press("ArrowDown")
-  await expect(html).toHaveAttribute("data-theme", "catppuccin-latte")
+  await page.keyboard.press("ArrowUp")
+  await expect(html).toHaveAttribute("data-theme", "white")
+  await expect(html).toHaveClass(/light/)
+  await page.keyboard.press("ArrowUp")
+  await expect(html).toHaveAttribute("data-theme", "solarized-light")
   expect(await storedTheme(page)).toBeNull()
 
   await page.keyboard.press("Escape")
   await expect(picker).toBeHidden()
-  await expect(html).toHaveAttribute("data-theme", "system")
+  await expect(html).toHaveAttribute("data-theme", "dark")
   expect(await storedTheme(page)).toBeNull()
 
   await openColorTheme(page)
@@ -62,15 +63,15 @@ test("the Color Theme pick previews only the keyboard row and reverts when nothi
   const picker = await openColorTheme(page)
 
   await picker.getByRole("option", { name: "Nord", exact: true }).hover()
-  await expect(html).toHaveAttribute("data-theme", "system")
-  await expect(picker.getByRole("option", { name: "System", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(html).toHaveAttribute("data-theme", "dark")
+  await expect(picker.getByRole("option", { name: "Dark", exact: true })).toHaveAttribute("aria-selected", "true")
 
   const input = picker.getByRole("combobox", { name: "Color theme" })
   await input.fill("rose")
   await expect(html).toHaveAttribute("data-theme", "rose-pine")
   await input.fill("nothing matches")
   await expect(picker.getByText("No matching themes")).toBeVisible()
-  await expect(html).toHaveAttribute("data-theme", "system")
+  await expect(html).toHaveAttribute("data-theme", "dark")
 
   await input.fill("")
   await picker.getByRole("option", { name: "Nord", exact: true }).click()
