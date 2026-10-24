@@ -17,10 +17,11 @@ test("theme validation accepts only configured theme values", () => {
   assert.equal(isTheme(null), false)
 })
 
-test("stored theme parsing defaults invalid values to system", () => {
-  assert.equal(parseTheme("dark"), "dark")
-  assert.equal(parseTheme(""), "system")
-  assert.equal(parseTheme(null), "system")
+test("stored theme parsing defaults invalid values to dark", () => {
+  assert.equal(parseTheme("light"), "light")
+  assert.equal(parseTheme("system"), "system")
+  assert.equal(parseTheme(""), "dark")
+  assert.equal(parseTheme(null), "dark")
 })
 
 test("stored theme parsing migrates renamed themes", () => {

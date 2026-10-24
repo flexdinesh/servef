@@ -18,7 +18,7 @@ rewriting history; update `Status` on the old record.
 | [0010](0010-markdown-opens-in-source.md) | Markdown opens in Source | Accepted |
 | [0011](0011-token-preserving-web-formatters.md) | Token-preserving HTML, CSS, and JavaScript formatters | Accepted |
 | [0012](0012-repository-names-and-worktree-header.md) | Repository names and worktree header | Accepted |
-| [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted |
+| [0013](0013-ui-settings-and-base-font-size.md) | UI settings and base font size | Accepted; theme default superseded by 0037 |
 | [0014](0014-command-palette.md) | Command palette | Accepted |
 | [0015](0015-code-navigation.md) | Code navigation with tree-sitter | Superseded for navigation by 0018; ignore sources by 0023 |
 | [0016](0016-navigation-memory.md) | Navigation memory | Superseded by 0018 |
@@ -42,3 +42,4 @@ rewriting history; update `Status` on the old record.
 | [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted; extended to review tabs by 0035 |
 | [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted |
 | [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted |
+| [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted |
