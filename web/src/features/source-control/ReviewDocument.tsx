@@ -429,7 +429,7 @@ function ReviewBody({
           {list?.kind === "ready" && list.files.length === 0 && (
             <StatusMessage className="review-note">{compare.kind === "working" ? "No changes since last commit." : "No file changes."}</StatusMessage>
           )}
-          {files.map((file) => {
+          {files.length > 0 && <div className="review-files">{files.map((file) => {
             const fileStats = stats?.byPath.get(file.path)
             const blob = fileStats?.blob ?? ""
             return (
@@ -450,7 +450,7 @@ function ReviewBody({
                 }}
                 onStatus={onStatus} onOpenFile={() => onOpenFile(file.path)} />
             )
-          })}
+          })}</div>}
         </div>
       </VirtualizerContext.Provider>
       </ShownContext.Provider>

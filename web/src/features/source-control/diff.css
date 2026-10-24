@@ -76,15 +76,14 @@
 .review {
   display: flex;
   min-width: 0;
+  min-height: 100%;
   flex-direction: column;
-  padding-bottom: var(--space-6);
 }
 
 .review-header {
   display: grid;
   gap: var(--space-1);
   padding: var(--space-4) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .review-title {
@@ -129,8 +128,26 @@
   padding: var(--space-4);
 }
 
+/* Files are islands on a recessed gutter, as the workspace islands sit on
+   the canvas: surface contrast and gaps, no borders or shadows. */
+.review-files {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-6);
+  background: var(--color-workspace-chrome);
+}
+
+/* clip, unlike hidden, rounds the corners without breaking the sticky header. */
 .review-file {
-  border-bottom: 1px solid var(--color-border);
+  overflow: clip;
+  border-radius: var(--radius-island);
+  background: var(--color-surface);
+}
+
+.review-file:has(> .review-file-body[hidden]) .review-file-header {
+  border-bottom-color: transparent;
 }
 
 /* File headers stick while their diff scrolls under them. */
@@ -144,7 +161,7 @@
   gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-1);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-secondary);
+  background: var(--color-surface);
   font-size: var(--text-label);
 }
 
