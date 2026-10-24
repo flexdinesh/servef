@@ -1,0 +1,165 @@
+# Dev tooling and task orchestration (decision 0038). Composite tasks live
+# here; package.json keeps single JS steps.
+
+# Lockfile format and go.mod/packageManager reading need a recent mise. Bump
+# with jdx/mise-action `version` in .github/workflows.
+min_version = "2026.10.18"
+
+[settings]
+lockfile = true
+lockfile_platforms = ["linux-x64", "macos-arm64"]
+# Matches pnpm-workspace.yaml minimumReleaseAge.
+minimum_release_age = "3d"
+# Node from .node-version (nvm reads it too); pnpm from package.json
+# packageManager.
+idiomatic_version_file_enable_tools = ["node", "pnpm"]
+
+[tools]
+# go.mod's `go` line stays the language minimum; mise.lock pins the patch.
+go = "1.26"
+
+[env]
+# Local overrides such as dev ports; see .env.example. Missing is fine.
+_.file = ".env"
+
+[tasks.setup]
+description = "Install dependencies and build embedded frontend assets"
+run = ["go mod download", "pnpm install", { task = "build:web" }]
+
+# Development
+
+[tasks.dev]
+description = "Run Go and Vite together"
+run = [{ tasks = ["dev:server", "dev:web"] }]
+
+[tasks."dev:server"]
+description = "Run only the Go server"
+run = "go run . testdata/markdown --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open"
+
+[tasks."dev:web"]
+description = "Run only Vite against the Go server"
+run = "pnpm dev:web"
+
+[tasks."dev:mock"]
+description = "Run Vite with API fixtures"
+run = "pnpm dev:mock"
+
+[tasks."dev:site"]
+description = "Run the docs dev server"
+run = "pnpm dev:site"
+
+# Builds
+
+[tasks."build:web"]
+description = "Build embedded frontend assets; skipped when inputs are unchanged"
+run = "pnpm build:web"
+sources = [
+  "patches/**/*",
+  "web/src/**/*",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "web/dev-server.ts",
+  "web/index.html",
+  "web/package.json",
+  "web/tsconfig.json",
+  "web/vite.config.ts",
+]
+outputs = ["internal/web/dist/**/*"]
+
+[tasks."build:go"]
+description = "Build all Go packages"
+depends = ["build:web"]
+run = "go build ./..."
+
+[tasks."build:site"]
+description = "Build the docs site"
+run = "pnpm build:site"
+
+[tasks.install]
+description = "Install the local CLI with go install"
+depends = ["build:web"]
+run = "go install ."
+
+# Checks
+
+[tasks."fmt:check"]
+description = "Check Go formatting"
+shell = "bash -e -o pipefail -c"
+run = '''
+unformatted=$(git ls-files -z '*.go' | xargs -0 gofmt -l)
+if [ -n "$unformatted" ]; then
+  printf '%s\n' "$unformatted" >&2
+  echo "Run gofmt -w on these files." >&2
+  exit 1
+fi
+'''
+
+[tasks."tidy:check"]
+description = "Check go.mod and go.sum are tidy"
+run = "go mod tidy -diff"
+
+[tasks."mise:check"]
+description = "Validate and format-check mise.toml"
+run = ["mise tasks validate", "mise fmt --check"]
+
+[tasks.vet]
+description = "Run go vet"
+depends = ["build:web"]
+run = "go vet ./..."
+
+[tasks."test:go"]
+description = "Run Go tests"
+depends = ["build:web"]
+run = "go test ./..."
+
+[tasks."test:race"]
+description = "Run Go tests with the race detector (needs CGO)"
+depends = ["build:web"]
+run = "go test -race ./..."
+
+[tasks."test:web"]
+description = "Run frontend tests"
+run = "pnpm test:web"
+
+[tasks."test:release"]
+description = "Test release tooling"
+run = "pnpm test:release"
+
+[tasks."test:browser"]
+description = "Run browser tests"
+depends = ["build:web"]
+run = "pnpm exec node scripts/test-browser.ts"
+
+[tasks.typecheck]
+description = "Type-check TypeScript"
+run = "pnpm typecheck"
+
+[tasks.lint]
+description = "Lint with oxlint and stylelint"
+run = "pnpm lint"
+
+[tasks."check:shared"]
+description = "Checks shared by check and check:push"
+hide = true
+depends = [
+  "fmt:check",
+  "tidy:check",
+  "mise:check",
+  "vet",
+  "build:go",
+  "test:web",
+  "test:release",
+  "typecheck",
+  "lint",
+  "build:site",
+]
+
+[tasks.check]
+description = "Run every check CI runs"
+depends = ["check:shared", "test:go"]
+
+# Browser tests run after the rest so CPU contention does not time them out.
+[tasks."check:push"]
+description = "Pre-push checks: check with race tests, then browser tests"
+run = [{ tasks = ["check:shared", "test:race"] }, { task = "test:browser" }]

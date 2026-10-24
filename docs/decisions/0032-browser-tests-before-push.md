@@ -1,6 +1,6 @@
 # 0032: Browser tests run before push, not in CI
 
-- Status: Accepted
+- Status: Accepted; check commands superseded by [0038](0038-mise-dev-tooling-and-env-ports.md)
 - Date: 2026-10-22
 
 ## Context

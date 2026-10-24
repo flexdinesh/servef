@@ -8,6 +8,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { defineConfig, type Plugin } from "vite"
 
 import {
+  devServerPort,
   devServerUrls,
   formatDevServerUrl,
   mockFixtureName,
@@ -91,6 +92,10 @@ function mockApi(enabled: boolean): Plugin {
   }
 }
 
+// Ports come from the environment; mise loads them from .env (decision 0038).
+const goServerPort = devServerPort(process.env, "SERVEF_DEV_SERVER_PORT", 8080)
+const webServerPort = devServerPort(process.env, "SERVEF_DEV_WEB_PORT", 5173)
+
 export default defineConfig(({ command, mode }) => ({
   base: command === "build" ? "/assets/" : "/",
   build: {
@@ -109,9 +114,11 @@ export default defineConfig(({ command, mode }) => ({
     allowedHosts: true,
     host: "0.0.0.0",
     open: shouldOpenBrowser(process.env),
+    port: webServerPort,
     proxy: mode === "mock" ? undefined : {
-      "/api": process.env.SERVEF_API_TARGET || "http://127.0.0.1:8080",
+      "/api": process.env.SERVEF_API_TARGET || `http://127.0.0.1:${goServerPort}`,
     },
+    strictPort: true,
   },
   worker: {
     plugins: () => [diffsSubset],

@@ -43,11 +43,11 @@ Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests
 
-- `pnpm dev`: Go over `testdata/markdown` plus Vite with API proxying.
-- `pnpm dev:mock`: Vite plus committed JSON fixtures; no Go process.
+- `mise run dev`: Go over `testdata/markdown` plus Vite with API proxying.
+- `mise run dev:mock`: Vite plus committed JSON fixtures; no Go process.
 - `go test ./...`: Go unit and HTTP integration behavior.
 - `pnpm test:web`: frontend logic and fixture-contract behavior.
-- `pnpm test:browser`: production bootstrap and end-to-end behavior.
+- `mise run test:browser`: production bootstrap and end-to-end behavior.
 
 ## Distribution
 

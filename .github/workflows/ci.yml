@@ -16,27 +16,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up Go
-        uses: actions/setup-go@v7
+      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
+      # `version` with mise.toml min_version.
+      - name: Set up mise
+        uses: jdx/mise-action@v5
         with:
-          go-version-file: go.mod
-          cache: true
+          version: 2026.10.18
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
+      - name: Cache dependencies
+        uses: actions/cache@v4
         with:
-          node-version-file: .node-version
-          cache: pnpm
+          path: |
+            ~/.local/share/pnpm/store
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'go.sum') }}
+          restore-keys: ${{ runner.os }}-dependencies-
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
       # Browser tests run locally before push (decision 0032).
       - name: Check
-        run: pnpm check
+        run: mise run check
 
   edge:
     needs: test
@@ -53,20 +55,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
+      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
+      # `version` with mise.toml min_version.
+      - name: Set up mise
+        uses: jdx/mise-action@v5
         with:
-          node-version-file: .node-version
-          cache: pnpm
+          version: 2026.10.18
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'go.sum') }}
+          restore-keys: ${{ runner.os }}-dependencies-
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build frontend
-        run: pnpm build:web
+        run: mise run build:web
 
       - name: Publish edge branch
         shell: bash
