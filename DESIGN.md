@@ -293,12 +293,12 @@ Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px
 
 Every view composes these from `web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
 
-- **Button**: primary, outline, ghost, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; disabled is 50% opacity. Actions such as Retry, Load more, Open File, and Clear filter are outline md.
+- **Button**: primary, outline, ghost, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; disabled is 50% opacity. Actions such as Retry, Open File, and Clear filter are outline md.
 - **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. Dialogs raise targets to 44px on narrow screens.
 - **ToggleButton**: independent on/off options (match case, Show modified). Pressed uses an accent border with the selection fill and ink.
 - **SegmentedControl**: mutually exclusive modes (Preview/Source, zoom, diff layout, Branch/All). A translucent `--color-hover` track; the pressed item lifts onto `surface` with the control shadow. Icon-only items are square.
 - **TextField** and **Select**: 28px fields with icon, leading, and trailing slots; the palette variant is borderless with an accent underline.
-- **ListRow** / **ListButton**: list density 22px (square), pick 32px (2px radius), menu, and drawer. Hover adds the state layer; active and selected rows use the selection fill and ink.
+- **ListRow** / **ListButton**: list density 22px (square), pick 32px (2px radius), menu, and drawer. Hover adds the state layer; active and selected rows use the selection fill and ink; disabled (`aria-disabled`) rows take no hover.
 - **SectionToggle** and **Chevron**: 22px disclosure rows; the chevron rotates inside any `aria-expanded="true"` row.
 - **ViewHeader**: the 32px band naming a view or dialog: 12px 600 title, actions at the end.
 - **Badge** (neutral counts, accent activity), **Kbd**, **Notice** (info, warning, error; bar or block; errors are alerts), **StatusMessage**, **ProgressBar** (2px sweep, edge or page), **CopyButton** (plain, raised, chip, gutter; check or X feedback for 1.6s, announced), **DialogShell** (palette, panel, viewer, drawer), and the Menu class names for Base UI menus.
@@ -457,10 +457,12 @@ and ink with `aria-selected`.
 Click selects; Shift-click or Shift+Arrow extends a contiguous range of
 commits from the anchor; arrows, Home/End move and select; Space selects;
 Enter or double-click opens the review tab; Escape narrows a range to its
-anchor; Ctrl/Cmd+C on a commit copies its full hash. Pages hold 50 commits; an
-outline Load more button follows (Loading… while reading, Retry after a
-failure). States: “No commits ahead of main.” or “No base branch found to
-compare with.” with an outline “Show all history”, “No commits yet.”, and
+anchor; Ctrl/Cmd+C on a commit copies its full hash. Pages hold 50 commits; a
+Load more row ends the list and scrolls with it, as in VS Code: a 22px
+`ListButton` with a chevrons-down icon and a secondary label (primary on
+hover), reading Loading… while it reads (`aria-disabled`, so focus stays) and
+Retry with a refresh icon under the error after a failure. States: “No
+commits ahead of main.” or “No base branch found to compare with.” with an outline “Show all history”, “No commits yet.”, and
 “Couldn't read git history: <reason>.” as an alert, with Retry when nothing is
 listed. Phones: tapping a row selects it and drills into the Files pane;
 long-pressing a commit marks it with a dashed accent outline and “Tap another

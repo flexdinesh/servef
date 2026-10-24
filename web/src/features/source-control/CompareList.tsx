@@ -1,9 +1,9 @@
-import { CircleDotIcon, GitCompareArrowsIcon } from "lucide-react"
+import { ChevronsDownIcon, CircleDotIcon, GitCompareArrowsIcon, RefreshCwIcon } from "lucide-react"
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 
 import { Badge } from "../../components/ui/badge.tsx"
 import { Button } from "../../components/ui/button.tsx"
-import { ListRow } from "../../components/ui/list-row.tsx"
+import { ListButton, ListRow } from "../../components/ui/list-row.tsx"
 import { StatusMessage } from "../../components/ui/notice.tsx"
 import type { Commit } from "../../api/commits-contract.ts"
 import { shortHash } from "../../lib/commit-hash.ts"
@@ -181,66 +181,80 @@ export function CompareList({
         <StatusMessage tone="error" role="alert">{error}</StatusMessage>
         {!result && <Button variant="outline" onClick={refresh}>Retry</Button>}
       </div>}
-      <div ref={container} className="compare-rows" role="listbox" aria-label="Compare" aria-multiselectable={!mobile || undefined}
-        onKeyDown={onKeyDown}>
-        {rows.map((row) => {
-          const isSelected = rowSelected(row, selection, selected)
-          const common = {
-            "data-row-key": row.key,
-            role: "option",
-            tabIndex: row.key === tabKey ? 0 : -1,
-            "aria-selected": isSelected,
-            selected: isSelected,
-            onFocus: () => setFocusedKey(row.key),
-            onPointerDown: (event: PointerEvent<HTMLDivElement>) => onPointerDown(event, row),
-            onPointerUp: endPress,
-            onPointerCancel: endPress,
-            onPointerLeave: endPress,
-            onClick: (event: { shiftKey: boolean }) => onClick(event, row),
-            onDoubleClick: () => onOpen(selection && isSelected ? selection : row.compare, true),
-          }
-          if (row.key === "working") {
+      {/* Load more ends the list and scrolls with it, as in VS Code. */}
+      <div className="compare-scroll">
+        <div ref={container} className="compare-rows" role="listbox" aria-label="Compare" aria-multiselectable={!mobile || undefined}
+          onKeyDown={onKeyDown}>
+          {rows.map((row) => {
+            const isSelected = rowSelected(row, selection, selected)
+            const common = {
+              "data-row-key": row.key,
+              role: "option",
+              tabIndex: row.key === tabKey ? 0 : -1,
+              "aria-selected": isSelected,
+              selected: isSelected,
+              onFocus: () => setFocusedKey(row.key),
+              onPointerDown: (event: PointerEvent<HTMLDivElement>) => onPointerDown(event, row),
+              onPointerUp: endPress,
+              onPointerCancel: endPress,
+              onPointerLeave: endPress,
+              onClick: (event: { shiftKey: boolean }) => onClick(event, row),
+              onDoubleClick: () => onOpen(selection && isSelected ? selection : row.compare, true),
+            }
+            if (row.key === "working") {
+              return (
+                <ListRow key={row.key} {...common} className="compare-row compare-row-pinned"
+                  aria-label={`Uncommitted changes${changes === null ? "" : `, ${changes.toLocaleString()} ${changes === 1 ? "file" : "files"}`}`}
+                  title="Changes in the working tree since the last commit">
+                  <CircleDotIcon className="compare-row-icon" aria-hidden="true" />
+                  <span className="compare-row-label">Uncommitted</span>
+                  {workingLabel && <Badge aria-hidden="true">{workingLabel}</Badge>}
+                </ListRow>
+              )
+            }
+            if (row.key === "branch") {
+              return (
+                <ListRow key={row.key} {...common} className="compare-row compare-row-pinned compare-row-branch"
+                  aria-label={branch.base ? `Branch vs ${branch.base}${branchCount ? `, ${branchCount} files` : ""}` : "Branch, no base branch"}
+                  title={branch.base ? `Net changes on this branch since it left ${branch.base}` : "No base branch found; choose one"}>
+                  <GitCompareArrowsIcon className="compare-row-icon" aria-hidden="true" />
+                  <span className="compare-row-label">{branch.base ? `vs ${branch.base}` : "No base branch"}</span>
+                  {/* The picker keeps its own events; the space it fills still selects the row. */}
+                  <span className="compare-row-picker" onClick={(event) => { if (event.target !== event.currentTarget) event.stopPropagation() }}
+                    onDoubleClick={(event) => { if (event.target !== event.currentTarget) event.stopPropagation() }}
+                    onKeyDown={(event) => event.stopPropagation()}>
+                    <BasePicker base={base} refs={refs} onChange={onBaseChange} />
+                  </span>
+                  {branchCount && <Badge aria-hidden="true">{branchCount}</Badge>}
+                </ListRow>
+              )
+            }
+            if (!("commit" in row)) return null
+            const { commit } = row
+            const age = commitAge(commit.authorTime, now)
             return (
-              <ListRow key={row.key} {...common} className="compare-row compare-row-pinned"
-                aria-label={`Uncommitted changes${changes === null ? "" : `, ${changes.toLocaleString()} ${changes === 1 ? "file" : "files"}`}`}
-                title="Changes in the working tree since the last commit">
-                <CircleDotIcon className="compare-row-icon" aria-hidden="true" />
-                <span className="compare-row-label">Uncommitted</span>
-                {workingLabel && <Badge aria-hidden="true">{workingLabel}</Badge>}
+              <ListRow key={row.key} {...common} className="compare-row compare-row-commit"
+                data-range={selection?.kind === "range" && isSelected ? "" : undefined}
+                data-pending={pending === commit.hash || undefined}
+                aria-label={`${commit.subject}, ${commit.author.name}, ${age.long}`}
+                title={`${commit.subject}\n${commit.author.name} · ${commitDate(commit.authorTime)} · ${shortHash(commit.hash)}`}>
+                <span className="compare-row-label">{commit.subject || "(no message)"}</span>
+                <span className="compare-row-age">{age.short}</span>
               </ListRow>
             )
-          }
-          if (row.key === "branch") {
-            return (
-              <ListRow key={row.key} {...common} className="compare-row compare-row-pinned compare-row-branch"
-                aria-label={branch.base ? `Branch vs ${branch.base}${branchCount ? `, ${branchCount} files` : ""}` : "Branch, no base branch"}
-                title={branch.base ? `Net changes on this branch since it left ${branch.base}` : "No base branch found; choose one"}>
-                <GitCompareArrowsIcon className="compare-row-icon" aria-hidden="true" />
-                <span className="compare-row-label">{branch.base ? `vs ${branch.base}` : "No base branch"}</span>
-                {/* The picker keeps its own events; the space it fills still selects the row. */}
-                <span className="compare-row-picker" onClick={(event) => { if (event.target !== event.currentTarget) event.stopPropagation() }}
-                  onDoubleClick={(event) => { if (event.target !== event.currentTarget) event.stopPropagation() }}
-                  onKeyDown={(event) => event.stopPropagation()}>
-                  <BasePicker base={base} refs={refs} onChange={onBaseChange} />
-                </span>
-                {branchCount && <Badge aria-hidden="true">{branchCount}</Badge>}
-              </ListRow>
-            )
-          }
-          if (!("commit" in row)) return null
-          const { commit } = row
-          const age = commitAge(commit.authorTime, now)
-          return (
-            <ListRow key={row.key} {...common} className="compare-row compare-row-commit"
-              data-range={selection?.kind === "range" && isSelected ? "" : undefined}
-              data-pending={pending === commit.hash || undefined}
-              aria-label={`${commit.subject}, ${commit.author.name}, ${age.long}`}
-              title={`${commit.subject}\n${commit.author.name} · ${commitDate(commit.authorTime)} · ${shortHash(commit.hash)}`}>
-              <span className="compare-row-label">{commit.subject || "(no message)"}</span>
-              <span className="compare-row-age">{age.short}</span>
-            </ListRow>
-          )
-        })}
+          })}
+        </div>
+        {(result?.more || moreError) && (
+          <div className="commit-more">
+            {moreError && <StatusMessage className="commit-more-error" tone="error" role="alert">{moreError}</StatusMessage>}
+            <ListButton density="list" className="compare-row commit-more-row" aria-disabled={loadingMore || undefined}
+              onClick={() => { if (!loadingMore) loadMore() }}>
+              {moreError ? <RefreshCwIcon className="compare-row-icon" aria-hidden="true" />
+                : <ChevronsDownIcon className="compare-row-icon" aria-hidden="true" />}
+              <span className="compare-row-label">{loadingMore ? "Loading…" : moreError ? "Retry" : "Load more"}</span>
+            </ListButton>
+          </div>
+        )}
       </div>
       {result && list.length === 0 && (
         <div className="source-control-message">
@@ -250,14 +264,6 @@ export function CompareList({
         </div>
       )}
       {mobile && pending && <StatusMessage className="compare-list-hint" role="status">Tap another commit to compare a range.</StatusMessage>}
-      {(result?.more || moreError) && (
-        <div className="commit-more">
-          {moreError && <StatusMessage tone="error" role="alert">{moreError}</StatusMessage>}
-          <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
-            {loadingMore ? "Loading…" : moreError ? "Retry" : "Load more"}
-          </Button>
-        </div>
-      )}
       <div className="visually-hidden" aria-live="polite">
         {hashCopy.status === "copied" ? "Commit hash copied." : hashCopy.status === "failed" ? "Couldn't copy the commit hash." : ""}
       </div>

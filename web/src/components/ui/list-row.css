@@ -30,8 +30,12 @@
   --row-height: var(--row-drawer);
 }
 
-.ui-row:hover {
+.ui-row:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--color-hover);
+}
+
+.ui-row:is(:disabled, [aria-disabled="true"]) {
+  cursor: default;
 }
 
 .ui-row:is([data-active], [data-selected], [aria-selected="true"], [aria-current="page"]) {
