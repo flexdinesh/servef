@@ -8,16 +8,17 @@ const sample: readonly Command[] = [
   { id: "b", category: "Settings", title: "Font Size", action: { kind: "open-setting", setting: "fontSize" } },
 ]
 
-test("Open Settings comes first, then every setting opens Settings at it, then navigation", () => {
+test("Open Settings and Color Theme come first, then every setting opens Settings at it, then navigation", () => {
   assert.deepEqual(commands.map((command) => [command.category, command.title, command.action]), [
     ["Preferences", "Open Settings", { kind: "open-settings" }],
+    ["Preferences", "Color Theme", { kind: "select-color-theme" }],
     ["Settings", "Theme", { kind: "open-setting", setting: "theme" }],
     ["Settings", "Font Size", { kind: "open-setting", setting: "fontSize" }],
     ["Settings", "Language Servers", { kind: "open-setting", setting: "languageServers" }],
     ["Navigation", "Go to Definition", { kind: "go-to-definition" }],
     ["Navigation", "Find All References", { kind: "find-references" }],
   ])
-  assert.deepEqual(commands.slice(4).map((command) => command.shortcut), ["F12", "Shift+F12"])
+  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12"])
 })
 
 test("an empty query lists every command in order", () => {
@@ -40,4 +41,8 @@ test("matches report highlight ranges in title and category", () => {
 test("title word-prefix matches rank first", () => {
   assert.deepEqual(matchCommands(sample, "t").map((match) => match.command.id), ["a", "b"])
   assert.deepEqual(matchCommands(sample, "s").map((match) => match.command.id), ["b", "a"])
+})
+
+test("typing theme finds the Color Theme pick and the Theme setting", () => {
+  assert.deepEqual(matchCommands(commands, "theme").map((match) => match.command.id), ["preferences.colorTheme", "settings.theme"])
 })

@@ -12,7 +12,7 @@ else.
 - VS Code-style Explorer, Search, Source Control, tabs, and command palette
 - Review uncommitted work, commits, a branch against any base, or a range of commits in one stacked diff tab
 - Go to definition and find references through installed language servers
-- Themes, Mermaid diagrams, and line links
+- 28 themes, including Omarchy's built-ins; Mermaid diagrams; line links
 
 ## Install
 

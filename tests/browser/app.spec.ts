@@ -360,13 +360,14 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const input = palette.getByRole("combobox", { name: "Command" })
   await expect(input).toBeFocused()
   const options = palette.getByRole("option")
-  await expect(options).toHaveCount(6)
+  await expect(options).toHaveCount(7)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
-  await expect(options.nth(1)).toHaveAccessibleName("Settings: Theme, System")
-  await expect(options.nth(2)).toHaveAccessibleName("Settings: Font Size, 13px")
-  await expect(options.nth(3)).toHaveAccessibleName("Settings: Language Servers, On")
-  await expect(options.nth(4)).toHaveAccessibleName("Navigation: Go to Definition, F12")
-  await expect(options.nth(5)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
+  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, System")
+  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, System")
+  await expect(options.nth(3)).toHaveAccessibleName("Settings: Font Size, 13px")
+  await expect(options.nth(4)).toHaveAccessibleName("Settings: Language Servers, On")
+  await expect(options.nth(5)).toHaveAccessibleName("Navigation: Go to Definition, F12")
+  await expect(options.nth(6)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
   await expect(options.first()).toHaveAttribute("aria-selected", "true")
 
   await input.fill("nothing here")
@@ -396,6 +397,7 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   await expect(source).toHaveCSS("font-size", "15px")
   await page.keyboard.press("Escape")
   await page.keyboard.press("ControlOrMeta+Shift+P")
+  await page.keyboard.press("ArrowDown")
   await page.keyboard.press("ArrowDown")
   await page.keyboard.press("Enter")
   await expect(settings.getByRole("combobox", { name: "Appearance: Theme" })).toBeFocused()
@@ -472,7 +474,7 @@ test("highlights fenced code with the selected theme", async ({ page }) => {
   await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
 
   await (await themeSetting(page)).selectOption({ label: "Nord" })
-  await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
+  await expect(keyword).toHaveCSS("color", "rgb(182, 144, 175)")
 })
 
 test("highlights Source in the browser with the selected theme", async ({ page }) => {
@@ -487,7 +489,7 @@ test("highlights Source in the browser with the selected theme", async ({ page }
   await expect(source.locator('[data-line="2"] .source-document-line-content')).toHaveText("package main")
 
   await (await themeSetting(page)).selectOption({ label: "Nord" })
-  await expect(keyword).toHaveCSS("color", "rgb(129, 161, 193)")
+  await expect(keyword).toHaveCSS("color", "rgb(182, 144, 175)")
 })
 
 test("labels and copies fenced code", async ({ page }) => {
@@ -731,11 +733,11 @@ test("resizes and persists the file tree", async ({ page }) => {
 test("applies an editor palette while preserving dark rendering", async ({ page }) => {
   await page.goto("/")
 
-  await (await themeSetting(page)).selectOption({ label: "Gruvbox Dark" })
+  await (await themeSetting(page)).selectOption({ label: "Gruvbox" })
 
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox-dark")
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox")
   await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(29, 32, 33)")
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(30, 30, 30)")
 })
 
 test("renders every Mermaid fixture with ondine", async ({ page }) => {
@@ -791,10 +793,17 @@ test("opens Mermaid files as diagrams with Source available", async ({ page }) =
 })
 
 test("Mermaid diagrams follow every theme", async ({ page }) => {
+  // One reload per theme; 28 themes outlast the default timeout under load.
+  test.setTimeout(90_000)
   await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
   await showPreview(page)
   const strokes = new Set<string>()
-  for (const theme of ["light", "dark", "catppuccin-mocha", "dracula", "gruvbox-dark", "nord", "solarized-light"]) {
+  for (const theme of [
+    "light", "dark", "catppuccin", "catppuccin-latte", "dracula", "ethereal", "everforest", "flexoki-light",
+    "gruvbox", "hackerman", "kanagawa", "last-horizon", "lumon", "lupine", "matte-black", "miasma", "nord",
+    "osaka-jade", "retro-82", "ristretto", "rose-pine", "solarized-light", "solitude", "starship",
+    "tokyo-night", "vantablack", "white", "system",
+  ]) {
     await page.evaluate((value) => window.localStorage.setItem("servef-theme", value), theme)
     await page.reload()
     const node = page.locator("main .mermaid-diagram svg.ondine-flowchart .ondine-node rect").first()

@@ -41,3 +41,4 @@ rewriting history; update `Status` on the old record.
 | [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |
 | [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted; extended to review tabs by 0035 |
 | [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted |
+| [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted |
