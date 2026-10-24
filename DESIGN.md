@@ -281,7 +281,7 @@ Motion is functional: state changes use `--duration-fast`, progress fades in aft
 
 ## Shapes
 
-Navigation and document islands use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, the compare list) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
+Navigation and document islands, and review file islands, use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, the compare list) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
 
 Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px in rows, tabs, and segmented items; rest ink `text-secondary`, `text-primary` on hover. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family.
 
@@ -515,9 +515,12 @@ Toggles use `aria-pressed`. Options persist in this browser under
 
 The tab body opens on a header (16px inset): the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
-“12 files”, `+120 −30`, and “3 of 12 viewed”. Each file follows as a section
-named by its path with a sticky header (`--z-sticky`, `control-lg` tall, on
-`surface-secondary` with a bottom border): a disclosure toggle with chevron,
+“12 files”, `+120 −30`, and “3 of 12 viewed”. Files follow on a recessed
+`workspace-chrome` gutter (8px inset, 12px between files, 32px below the last),
+each an island: a `surface` section with `--radius-island` corners, no border or
+shadow, as the workspace islands sit on the canvas. Each section is named by its
+path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`
+with a bottom border that hides while the file is collapsed): a disclosure toggle with chevron,
 file icon, and path; a muted “from <old path>”; stats; the status letter; a
 Viewed toggle button (disabled until the file's blob hash arrives); and Open
 File (disabled, with its reason, when the working tree lacks the file). Viewed files start collapsed; marks persist
