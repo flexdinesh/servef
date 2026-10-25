@@ -68,8 +68,10 @@
   font-size: var(--text-xs);
 }
 
+/* flex: none keeps the full height when a quick pick's results overflow. */
 .ui-field[data-variant="palette"] {
-  height: var(--control-lg);
+  height: var(--field-height-palette);
+  flex: none;
   padding: 0 var(--space-3);
   border-width: 0 0 1px;
   border-color: var(--color-border);
@@ -80,6 +82,15 @@
 
 .ui-field[data-variant="palette"]:focus-within {
   border-color: var(--field-ring);
+}
+
+.ui-field[data-variant="palette"] .ui-field-input {
+  font-size: var(--text-supporting);
+}
+
+.ui-field[data-variant="palette"] .ui-field-icon > svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .ui-select {

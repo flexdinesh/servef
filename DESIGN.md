@@ -212,7 +212,7 @@ Implementation authority (decision 0033): tokens in `web/src/styles/tokens.css` 
 
 1. **Theme values**: `light-dark()` colors in Tailwind's `@theme`, resolved by the root `color-scheme`; named themes override them in `themes.css`.
 2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
-3. **Component tokens**: controls (`--control-xs` 20, `sm` 24, `md` 28, `lg` 32, `touch` 44px), icons (`--icon-xs` 12, `sm` 14, `md` 16, `lg` 18px), rows (`--row-list` 22, `--row-menu` 28, `--row-pick` 32, `--row-drawer` 32px; list 32 and pick/menu 44px on narrow screens), `--chrome-height`, `--field-height`, `--status-height`.
+3. **Component tokens**: controls (`--control-xs` 20, `sm` 24, `md` 28, `lg` 32, `touch` 44px), icons (`--icon-xs` 12, `sm` 14, `md` 16, `lg` 18px), rows (`--row-list` 22, `--row-menu` 28, `--row-pick` 32, `--row-drawer` 32px; list 32 and pick/menu 44px on narrow screens), `--chrome-height`, `--field-height`, `--field-height-palette` (40px; 44px narrow), `--status-height`.
 
 Feature CSS references tokens only; stylelint rejects color literals, raw font sizes, radii, z-indexes, durations, and px above 2. Raw `button`, `input`, `select`, `textarea`, and `dialog` elements live only in `components/ui/`; oxlint rejects them elsewhere.
 
@@ -263,7 +263,7 @@ Tabs and explorer headers are 32px tall at every viewport width and share the wo
 
 At `max-width: 48rem`, the document island fills the workspace within a 0.25rem (4px) canvas inset. The sidebar opens in a native modal drawer (`DialogShell` drawer: overlay surface and radius), `min(85vw, 22rem)` wide, inset 4px, activity bar (32px items) at its left edge, toolbar trigger (a project picker trigger sits beside it), close control, backdrop, and 32px tree/search rows. Tabs and explorer headers stay 32px; footer controls remain 44px, centered in the band above the 4px inset. Fields grow to 44px touch height; their trailing actions to 32px. Prose becomes 16px with 24px vertical / 16px horizontal insets. Footer keeps a compact app section and flexible document section; filename truncates while Find in files and the Settings gear remain visible. Size/count, type label, image details, process details, and shortcut hints hide. Print removes canvas insets and rounded clipping.
 
-Content palette (command palette, project picker, navigation results; `DialogShell` palette): 40rem wide, 12vh from top, transparent backdrop. The palette `TextField` is borderless and 32px tall, matching tabs and headers, with a 13px input and accent underline on focus. Rows are 32px picker rows (44px mobile). Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
+Content palette (command palette, project picker, navigation results; `DialogShell` palette): 40rem wide, 12vh from top, transparent backdrop. The palette `TextField` is borderless and 40px tall (44px mobile), a step above its pick rows so the field leads the dialog, with a 14px input, 16px icon, and accent underline on focus; it never shrinks when results overflow. Rows are 32px picker rows (44px mobile). Mobile uses 8px outer gutters. File/path search stays in the explorer; content search is the Search view.
 
 Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 
@@ -297,7 +297,7 @@ Every view composes these from `web/src/components/ui/`; a missing capability is
 - **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. Dialogs raise targets to 44px on narrow screens.
 - **ToggleButton**: independent on/off options (match case, Show modified). Pressed uses an accent border with the selection fill and ink.
 - **SegmentedControl**: mutually exclusive modes (Preview/Source, zoom, diff layout, Branch/All). A translucent `--color-hover` track; the pressed item lifts onto `surface` with the control shadow. Icon-only items are square.
-- **TextField** and **Select**: 28px fields with icon, leading, and trailing slots; the palette variant is borderless with an accent underline.
+- **TextField** and **Select**: 28px fields with icon, leading, and trailing slots; the palette variant is borderless, 40px (44px mobile), with an accent underline.
 - **ListRow** / **ListButton**: list density 22px (square), pick 32px (2px radius), menu, and drawer. Hover adds the state layer; active and selected rows use the selection fill and ink; disabled (`aria-disabled`) rows take no hover.
 - **SectionToggle** and **Chevron**: 22px disclosure rows; the chevron rotates inside any `aria-expanded="true"` row.
 - **ViewHeader**: the 32px band naming a view or dialog: 12px 600 title, actions at the end.

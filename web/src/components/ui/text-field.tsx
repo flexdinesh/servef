@@ -18,7 +18,8 @@ interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "cl
 }
 
 // TextField is a single-line input. field: 28px bordered, for filters and
-// forms. palette: borderless 32px with an accent underline, for dialogs.
+// forms. palette: borderless 40px (44px narrow) with an accent underline,
+// 14px text, and a 16px icon, for dialogs.
 export function TextField({
   className, inputClassName, inputRef, variant = "field", icon, leading, trailing, invalid, ...props
 }: TextFieldProps) {

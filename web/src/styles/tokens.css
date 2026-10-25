@@ -135,6 +135,8 @@
   --row-drawer: 2rem;
   --chrome-height: var(--control-lg);
   --field-height: var(--control-md);
+  /* Palette fields lead their dialog, a step above its pick rows. */
+  --field-height-palette: 2.5rem;
   --status-height: var(--control-md);
 
   /* Source rows and gutter geometry (Pierre and the copy control align to it). */
@@ -163,6 +165,7 @@
     --activity-width: var(--chrome-height);
     --row-list: 2rem;
     --row-pick: var(--control-touch);
+    --field-height-palette: var(--control-touch);
     --row-menu: var(--control-touch);
   }
 }
