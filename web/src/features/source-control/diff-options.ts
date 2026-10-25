@@ -45,6 +45,10 @@ export function parseDiffOptions(value: unknown): DiffOptions {
   }
 }
 
+// splitMinimumWidth is the diff area's width, in rem, below which Split has
+// no room.
+export const splitMinimumWidth = 48
+
 // effectiveDiffStyle forces Unified where Split has no room.
 export function effectiveDiffStyle(options: DiffOptions, narrow: boolean): DiffStyle {
   return narrow ? "unified" : options.style

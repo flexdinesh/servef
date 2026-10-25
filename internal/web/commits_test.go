@@ -525,11 +525,52 @@ func TestHistoryFixturesMatchServerContract(t *testing.T) {
 	decodeFixture(t, filepath.Join(dir, "branch-files.json"), &branch)
 	var ranged rangeFilesResponse
 	decodeFixture(t, filepath.Join(dir, "range-files.json"), &ranged)
+	var stack branchStackResponse
+	decodeFixture(t, filepath.Join(dir, "branch-stack.json"), &stack)
+	var refs refsResponse
+	decodeFixture(t, filepath.Join(dir, "refs.json"), &refs)
 
-	for _, hash := range []string{branch.MergeBase, branch.Head, ranged.From, ranged.To} {
+	hashes := []string{branch.MergeBase, branch.Head, ranged.From, ranged.To, stack.MergeBase, stack.Head}
+	for _, layer := range stack.Layers {
+		hashes = append(hashes, layer.Head)
+	}
+	for _, hash := range hashes {
 		if _, ok := git.ParseHash(hash); !ok {
 			t.Errorf("fixture hash %q is not a full hash", hash)
 		}
+	}
+
+	// The stack describes branch-files' branch: its current layer is HEAD,
+	// layers are listed local branches, and the aheads down to the base add
+	// up to the branch's.
+	if stack.Branch != branch.Branch || stack.Base != branch.Base || stack.MergeBase != branch.MergeBase || stack.Head != branch.Head {
+		t.Errorf("branch-stack = %+v, branch-files = %+v", stack, branch)
+	}
+	local := map[string]bool{}
+	for _, ref := range refs.Branches {
+		local[ref.Name] = local[ref.Name] || !ref.Remote
+	}
+	byName := map[string]stackLayerResponse{}
+	for _, layer := range stack.Layers {
+		if !local[layer.Name] {
+			t.Errorf("layer %q is not a local branch in refs.json", layer.Name)
+		}
+		byName[layer.Name] = layer
+	}
+	ahead := 0
+	for name, steps := stack.Branch, 0; name != stack.Base && steps <= len(stack.Layers); steps++ {
+		layer, ok := byName[name]
+		if !ok {
+			t.Fatalf("layer %q is missing from branch-stack.json", name)
+		}
+		if (name == stack.Branch) != layer.Current || (layer.Current && layer.Head != stack.Head) {
+			t.Errorf("layer %+v does not match HEAD %s", layer, stack.Head)
+		}
+		ahead += layer.Ahead
+		name = layer.Parent
+	}
+	if ahead != branch.Ahead {
+		t.Errorf("stack aheads to the base = %d, branch-files ahead = %d", ahead, branch.Ahead)
 	}
 	if branch.Base != commits.Base || branch.Head != commits.Head || branch.Ahead != commits.Ahead || branch.Branch != commits.Branch {
 		t.Errorf("branch-files = %+v, commits = base %q head %q ahead %d", branch, commits.Base, commits.Head, commits.Ahead)

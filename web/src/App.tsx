@@ -39,6 +39,12 @@ import {
   compareKey, compareSearch, isLiveCompare, parseReviewFragment, reviewFragment, routeCompare, sameCompare, workingCompare,
   type Compare, type CompareContext,
 } from "./features/source-control/compare.ts"
+import { splitMinimumWidth } from "./features/source-control/diff-options.ts"
+import { ReviewFilesRail, ReviewFilesSheet } from "./features/source-control/ReviewFilesRail.tsx"
+import { defaultRailWidth } from "./features/source-control/source-control-layout.ts"
+import { onBaseBranch } from "./features/source-control/source-control-panes.ts"
+import { useBranchStack } from "./features/source-control/use-branch-stack.ts"
+import { useNarrowElement } from "./lib/use-narrow-element.ts"
 import { useChanges } from "./features/source-control/use-changes.ts"
 import { useCommits } from "./features/source-control/use-commits.ts"
 import { useCompareData } from "./features/source-control/use-compare-data.ts"
@@ -65,6 +71,8 @@ import type { SourceTarget } from "./features/navigation/source-position.ts"
 import { useCodeNavigation } from "./features/navigation/use-code-navigation.ts"
 import { useNavigationStatus } from "./features/navigation/use-navigation-status.ts"
 import { useSettings } from "./settings/SettingsProvider.tsx"
+import { uiScale } from "./settings/settings.ts"
+import { treeRowHeight } from "./components/ui/tree-rows.ts"
 import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
 import { StatusBar, type DiffStatus } from "./workspace/StatusBar.tsx"
 import type { CompareData } from "./features/source-control/use-compare-data.ts"
@@ -126,18 +134,22 @@ export function App({ project }: AppProps) {
   const hash = useRouterState({ select: (state) => state.location.hash })
   const lineRange = parseLineAnchor(hash)
   // A review tab routes without a path as /view?review=working,
-  // ?review=branch (&base=), ?commit=<hash>, or ?from=<hash>&to=<hash>; its
-  // page carries only the tree, and #f=<path> names the file in view.
+  // ?review=branch (&base=, &head=), ?commit=<hash>, or
+  // ?from=<hash>&to=<hash>; its page carries only the tree, and #f=<path>
+  // names the file in view.
   const searchPath = useSearch({ strict: false, select: (search) => typeof search.path === "string" ? search.path : "" })
   const searchReview = useSearch({ strict: false, select: (search) => search.review === "working" || search.review === "branch" ? search.review : "" })
   const searchBase = useSearch({ strict: false, select: (search) => typeof search.base === "string" ? search.base : "" })
+  const searchHead = useSearch({ strict: false, select: (search) => typeof search.head === "string" ? search.head : "" })
   const searchCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) ? search.commit : "" })
   const searchFrom = useSearch({ strict: false, select: (search) => isCommitHash(search.from) ? search.from : "" })
   const searchTo = useSearch({ strict: false, select: (search) => isCommitHash(search.to) ? search.to : "" })
   const reviewRoute = useMemo(() => {
-    const compare = routeCompare({ path: searchPath, review: searchReview, base: searchBase, commit: searchCommit, from: searchFrom, to: searchTo })
+    const compare = routeCompare({
+      path: searchPath, review: searchReview, base: searchBase, head: searchHead, commit: searchCommit, from: searchFrom, to: searchTo,
+    })
     return compare ? reviewTab(compare) : null
-  }, [searchBase, searchCommit, searchFrom, searchPath, searchReview, searchTo])
+  }, [searchBase, searchCommit, searchFrom, searchHead, searchPath, searchReview, searchTo])
   const reviewCompare = reviewRoute?.kind === "review" ? reviewRoute.compare : null
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
@@ -188,7 +200,10 @@ export function App({ project }: AppProps) {
   const reviewLive = reviewCompare !== null && isLiveCompare(reviewCompare)
   const changes = useChanges(project, sourceControlActive || reviewCompare?.kind === "working")
   const sourceControlLayout = useSourceControlLayout(project)
-  const commits = useCommits(project, sourceControlActive || reviewLive, sourceControlLayout.range, sourceControlLayout.base)
+  const stack = useBranchStack(project, sourceControlActive, sourceControlLayout.base)
+  // On the base branch itself, commits list all history (decision 0040).
+  const allOnly = onBaseBranch(stack.result?.branch ?? "", stack.result?.base ?? "")
+  const commits = useCommits(project, sourceControlActive || reviewLive, allOnly ? "all" : sourceControlLayout.range, sourceControlLayout.base)
   const refs = useRefs(project)
   const chooseProject = useCallback(() => openProjects.current(), [])
   const chooseWorktree = useCallback(() => openProjects.current({ worktrees: true }), [])
@@ -233,20 +248,22 @@ export function App({ project }: AppProps) {
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError,
     reviewCompare ? compareKey(reviewCompare) : "")
 
-  // Source Control's selection: the compare its Files pane shows. It follows
-  // the open review; until chosen it is the uncommitted changes when there
-  // are any, else the branch.
-  const [chosen, setChosen] = useState<Compare | null>(null)
+  // The Commits pane's selection follows an open commit or range review.
+  const [commitSelection, setCommitSelection] = useState<Compare | null>(null)
   const [followed, setFollowed] = useState("")
   const reviewKey = reviewCompare ? compareKey(reviewCompare) : ""
   if (reviewKey !== followed) {
     setFollowed(reviewKey)
-    if (reviewCompare) setChosen(reviewCompare)
+    if (reviewCompare?.kind === "commit" || reviewCompare?.kind === "range") setCommitSelection(reviewCompare)
   }
-  const branchCompare = useMemo((): Compare => ({ kind: "branch", base: sourceControlLayout.base }), [sourceControlLayout.base])
-  const selection = chosen ?? (changes.result && changes.result.files.length === 0 ? branchCompare : workingCompare)
-  const selectionData = useCompareData(project, selection, changes, commits)
+  const workingData = useCompareData(project, workingCompare, changes, commits)
   const reviewData = useCompareData(project, reviewCompare, changes, commits)
+  // Commit, range, and branch reviews show their files in a rail beside the
+  // diffs; Uncommitted's files are the sidebar's list.
+  const reviewRail = reviewCompare !== null && reviewCompare.kind !== "working"
+  const [filesSheet, setFilesSheet] = useState(false)
+  // Split needs room in the diff area itself, not just the window.
+  const diffNarrow = useNarrowElement(main, splitMinimumWidth) || sidebar.mobile
   const diffOptions = useDiffOptions()
   const viewed = useReviewViewed(project)
   const fragment = reviewCompare ? parseReviewFragment(hash) : null
@@ -317,7 +334,8 @@ export function App({ project }: AppProps) {
     void navigate({ to: "/view", search: { project, path }, hash: lineAnchor({ start: match.line, end: match.line }) })
   }, [navigate, prepareDocumentNavigation, project])
   const search = useSearchSession({ documentPane: main, openMatch: openSearchMatch, project, registerOpen: registerSearch, reveal: revealSearch })
-  const languageServers = useSettings().settings.languageServers === "on"
+  const { settings } = useSettings()
+  const languageServers = settings.languageServers === "on"
   const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary, languageServers)
   const codeNavigation = useCodeNavigation(project, languageServers, openLocation, navigationStatus.refresh)
   const { request: requestNavigation, explain: explainNavigation, close: closeNavigation } = codeNavigation
@@ -409,12 +427,10 @@ export function App({ project }: AppProps) {
           />}
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
-          sourceControl={<SourceControlView changes={changes} commits={commits} layout={sourceControlLayout} refs={refs}
-            selection={selection} data={selectionData}
-            activePath={reviewCompare && sameCompare(reviewCompare, selection) ? currentFile : ""} mobile={sidebar.mobile}
-            onDismiss={sidebar.dismiss} onSelect={setChosen}
-            onOpenFile={(path, focusDocument) => openReview(selection, focusDocument, path)}
-            onOpenReview={openReview} />}
+          sourceControl={<SourceControlView changes={changes} commits={commits} stack={stack} layout={sourceControlLayout} refs={refs}
+            working={workingData} workingPath={reviewCompare?.kind === "working" ? currentFile : ""}
+            commitSelection={commitSelection} allOnly={allOnly} mobile={sidebar.mobile}
+            onDismiss={sidebar.dismiss} onSelectCommits={setCommitSelection} onOpenReview={openReview} />}
         />
         <SidebarResizer />
         <section className="workspace" aria-label="Document workspace">
@@ -433,19 +449,27 @@ export function App({ project }: AppProps) {
               onSelect={selectTab}
             />
             {reviewCompare ? (
-              <DiffToolbar options={diffOptions.options} narrow={sidebar.mobile} onChange={diffOptions.change}
+              <DiffToolbar options={diffOptions.options} narrow={diffNarrow} onChange={diffOptions.change}
                 hasChanges={reviewData?.list.kind === "ready" && reviewData.list.files.length > 0}
                 anyExpanded={anyFileExpanded} onStepHunk={(direction) => stepHunk.current(direction)}
-                onExpandAll={(expand) => setExpandRequest({ expand, id: (expandRequest?.id ?? 0) + 1 })} />
+                onExpandAll={(expand) => setExpandRequest({ expand, id: (expandRequest?.id ?? 0) + 1 })}
+                files={reviewRail ? {
+                  shown: !sidebar.mobile && !sourceControlLayout.railHidden,
+                  onToggle: () => {
+                    if (sidebar.mobile) setFilesSheet(true)
+                    else sourceControlLayout.setRailHidden(!sourceControlLayout.railHidden)
+                  },
+                } : undefined} />
             ) : <>
               <DocumentModeToggle page={page} mode={documentMode} busyMode={formatPending ? "format" : undefined}
                 onChange={changeDocumentMode} />
               {showImage && <ImageZoomControls viewer={image} />}
             </>}
           </div>
+          <div className="workspace-body">
           <DocumentPane
             diff={reviewCompare ? <ReviewDocument key={compareKey(reviewCompare)} project={project} compare={reviewCompare}
-              name={nameTab(reviewTab(reviewCompare))} data={reviewData} options={diffOptions.options} narrow={sidebar.mobile}
+              name={nameTab(reviewTab(reviewCompare))} data={reviewData} options={diffOptions.options} narrow={diffNarrow}
               scrollRoot={main} selection={fragment} expandRequest={expandRequest} treeFiles={treeFiles}
               viewed={viewed.isViewed} onViewedChange={viewed.mark} onSelectLines={selectReviewLines}
               onCurrentFile={setCurrentFile} onStatus={setReviewStatus} onOpenFile={navigateToDocument}
@@ -463,6 +487,19 @@ export function App({ project }: AppProps) {
             sourceNavigation={sourceNavigation}
             view={view}
           />
+          {reviewRail && reviewCompare && !sidebar.mobile && !sourceControlLayout.railHidden && (
+            <ReviewFilesRail data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
+              width={sourceControlLayout.railWidth} onResize={sourceControlLayout.setRailWidth}
+              onResetWidth={() => sourceControlLayout.setRailWidth(defaultRailWidth)}
+              onHide={() => sourceControlLayout.setRailHidden(true)}
+              onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
+          )}
+          </div>
+          {reviewRail && reviewCompare && sidebar.mobile && (
+            <ReviewFilesSheet open={filesSheet} data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(true, uiScale(settings))}
+              onClose={() => setFilesSheet(false)}
+              onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
+          )}
         </section>
       </div>
       <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page}

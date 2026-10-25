@@ -32,6 +32,12 @@ export interface BranchState {
   loading: boolean
 }
 
+// branchKey names a base and head pair in the branch file lists: the base
+// alone for HEAD. Git branch names never hold ":".
+export function branchKey(base: string, head: string): string {
+  return head ? `${base}:${head}` : base
+}
+
 // rangeKey names a commit range in the range file lists.
 export function rangeKey(from: string, to: string): string {
   return `${from}:${to}`
@@ -57,7 +63,7 @@ function sameBranch(left: BranchFilesResponse | null, right: BranchFilesResponse
 }
 
 // useCommits owns the project's commit list, commits' and ranges' file
-// lists, and the branch's net file list per base. The list and the branch
+// lists, and the branch net file lists per base and head. The list and the branch
 // read on project load, when Source Control or a live review opens, on window
 // focus or visibility (throttled), on refresh, and when the range or base
 // changes. It never polls. Commits never change, so commit and range file
@@ -71,35 +77,38 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
   const lastRead = useRef(0)
   const [branches, setBranches] = useState<ReadonlyMap<string, BranchState>>(() => new Map())
   const branchRequests = useRef(new Map<string, AbortController>())
-  // knownBases are the bases read so far; a refresh rereads them all.
-  const knownBases = useRef(new Set<string>())
+  // knownBranches are the base and head pairs read so far, by key; a refresh
+  // rereads them all.
+  const knownBranches = useRef(new Map<string, { base: string; head: string }>())
   const [rangeFiles, setRangeFiles] = useState<ReadonlyMap<string, FileList>>(() => new Map())
   const rangeRequests = useRef(new Map<string, AbortController>())
 
-  // loadBranch reads a base's files; "" is the default base. Without reread
-  // it joins a read already running.
-  const loadBranch = useCallback((branchBase: string, reread = false) => {
+  // loadBranch reads head's files against a base; "" is the default base and
+  // HEAD. Without reread it joins a read already running.
+  const loadBranch = useCallback((branchBase: string, head = "", reread = false) => {
     if (!project) return
-    if (!reread && branchRequests.current.has(branchBase)) return
-    knownBases.current.add(branchBase)
-    branchRequests.current.get(branchBase)?.abort()
+    const key = branchKey(branchBase, head)
+    if (!reread && branchRequests.current.has(key)) return
+    knownBranches.current.set(key, { base: branchBase, head })
+    branchRequests.current.get(key)?.abort()
     const current = new AbortController()
-    branchRequests.current.set(branchBase, current)
+    branchRequests.current.set(key, current)
     const update = (change: (previous: BranchState) => BranchState) => setBranches((previous) => {
       const next = new Map(previous)
-      next.set(branchBase, change(previous.get(branchBase) ?? { result: null, error: "", loading: false }))
+      next.set(key, change(previous.get(key) ?? { result: null, error: "", loading: false }))
       return next
     })
     update((previous) => ({ ...previous, loading: true }))
     const params = new URLSearchParams({ project })
     if (branchBase) params.set("base", branchBase)
+    if (head) params.set("head", head)
     fetchHistory(`/api/branch-files?${params.toString()}`, current.signal, isBranchFilesResponse).then((result) => {
-      if (branchRequests.current.get(branchBase) !== current) return
-      branchRequests.current.delete(branchBase)
+      if (branchRequests.current.get(key) !== current) return
+      branchRequests.current.delete(key)
       update((previous) => ({ result: sameBranch(previous.result, result) ? previous.result : result, error: "", loading: false }))
     }, (error: unknown) => {
-      if (branchRequests.current.get(branchBase) !== current || current.signal.aborted) return
-      branchRequests.current.delete(branchBase)
+      if (branchRequests.current.get(key) !== current || current.signal.aborted) return
+      branchRequests.current.delete(key)
       update((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
     })
   }, [project])
@@ -119,8 +128,8 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
       if (controller.current !== current || current.signal.aborted) return
       setState((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
     })
-    loadBranch(base, true)
-    for (const known of knownBases.current) if (known !== base) loadBranch(known, true)
+    loadBranch(base, "", true)
+    for (const [key, known] of knownBranches.current) if (key !== branchKey(base, "")) loadBranch(known.base, known.head, true)
   }, [base, loadBranch, project, range])
 
   useEffect(() => {

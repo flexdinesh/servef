@@ -6,6 +6,7 @@ import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-
 import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
 import { isCompareStatsResponse } from "./compare-stats-contract.ts"
 import { isRefsResponse, unknownBaseCode } from "./refs-contract.ts"
+import { isStackResponse, unknownHeadCode } from "./stack-contract.ts"
 import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "../workspace/process-metrics.ts"
@@ -231,6 +232,22 @@ test("compare fixtures satisfy runtime contracts", async () => {
 
   const unknownBase = await fixture("error-unknown-base.json")
   assert.deepEqual(unknownBase, { error: "That base branch doesn't exist.", code: unknownBaseCode })
+  const unknownHead = await fixture("error-unknown-head.json")
+  assert.deepEqual(unknownHead, { error: "That head branch doesn't exist.", code: unknownHeadCode })
+
+  // The stack runs top to bottom, HEAD's layer at commits.json's head, every
+  // layer a listed local branch, and the lowest on the base.
+  const stack = await fixture("branch-stack.json")
+  assert.ok(isStackResponse(stack))
+  assert.equal(stack.branch, commits.branch)
+  assert.equal(stack.base, commits.base)
+  assert.equal(stack.head, commits.head)
+  assert.equal(stack.layers.filter((layer) => layer.current).map((layer) => layer.head).join(), commits.head)
+  for (const layer of stack.layers) assert.ok(local.includes(layer.name))
+  assert.equal(stack.layers.at(-1)?.parent, stack.base)
+  assert.equal(isStackResponse({ ...stack, layers: [{ ...stack.layers[0], head: "HEAD" }] }), false)
+  assert.equal(isStackResponse({ ...stack, layers: [{ ...stack.layers[0], name: "", current: false }] }), false)
+  assert.equal(isStackResponse({ ...stack, repository: false }), false)
 
   const changes = await fixture("changes.json")
   assert.ok(isChangesResponse(changes))

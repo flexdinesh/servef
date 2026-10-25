@@ -18,6 +18,11 @@ function fixtureRoot(): string {
 
 export const gitFixtureRoot = fixtureRoot()
 
+// gitFixtureBaseWorktree is a linked worktree of the fixture with main, the
+// base branch, checked out. It lives beside the served root; servef opens a
+// linked worktree whose repository lies in a root.
+export const gitFixtureBaseWorktree = `${gitFixtureRoot}-main`
+
 export const gitFixtureChanges = 8
 
 // largeText is a ~1.6 MB file; the working copy changes every twentieth line.
@@ -40,6 +45,20 @@ const committed: Record<string, string> = {
   ".gitignore": "*.log\n",
 }
 
+// The feature branch is the middle of a stack on main: lowerBranch below it,
+// HEAD on feature, and upperBranch on top. Each layer adds one commit.
+export const lowerBranch = "docs-base"
+export const lowerSubject = "docs: add the guide index"
+const lowerCommit: Record<string, string> = {
+  "docs/index.md": "# Index\n\nWritten on the lower layer.\n",
+}
+
+export const upperBranch = "docs-followup"
+export const upperSubject = "docs: add a changelog"
+const upperCommit: Record<string, string> = {
+  "docs/changelog.md": "# Changelog\n\nWritten on the upper layer.\n",
+}
+
 // featureCommit is the feature branch's one commit; the working tree keeps it.
 const featureCommit: Record<string, string> = {
   "docs/history.md": "# History\n\nWritten on the feature branch.\n",
@@ -47,7 +66,7 @@ const featureCommit: Record<string, string> = {
 }
 
 export const featureSubject = "docs: add history notes"
-const featureMessage = `${featureSubject}\n\nExplain how the fixture's branch history is built.\n\nThe feature branch adds one commit on top of main.`
+const featureMessage = `${featureSubject}\n\nExplain how the fixture's branch history is built.\n\nThe feature branch adds one commit on top of ${lowerBranch}.`
 
 const working: Record<string, string> = {
   "README.md": "# Fixture\n\nOne\nTwo, changed\nThree\nFour\n",
@@ -81,8 +100,17 @@ function git(...args: string[]): boolean {
   return result.status === 0
 }
 
+// commitOn creates branch at HEAD, switches to it, and commits files.
+function commitOn(branch: string, files: Record<string, string>, message: string) {
+  git("switch", "--quiet", "--create", branch)
+  write(files)
+  git("add", "--all")
+  git("commit", "--quiet", "--message", message)
+}
+
 export function createGitFixture() {
   rmSync(gitFixtureRoot, { recursive: true, force: true })
+  rmSync(gitFixtureBaseWorktree, { recursive: true, force: true })
   mkdirSync(gitFixtureRoot, { recursive: true })
   write(committed)
   if (!git("init", "--quiet", "--initial-branch=main")) {
@@ -93,11 +121,14 @@ export function createGitFixture() {
   git("commit", "--quiet", "--message", "Initial")
   // A second base for the branch compare's base picker.
   git("branch", "release")
-  // One commit on a feature branch, so Commits has a branch range against main.
-  git("switch", "--quiet", "--create", "feature")
-  write(featureCommit)
-  git("add", "--all")
-  git("commit", "--quiet", "--message", featureMessage)
+  // A branch stack, so Commits has a branch range against main and Branches
+  // has layers below and above HEAD.
+  commitOn(lowerBranch, lowerCommit, lowerSubject)
+  commitOn("feature", featureCommit, featureMessage)
+  commitOn(upperBranch, upperCommit, upperSubject)
+  git("switch", "--quiet", "feature")
+  // HEAD is the base branch in this worktree.
+  git("worktree", "add", "--quiet", gitFixtureBaseWorktree, "main")
   rmSync(path.join(gitFixtureRoot, "notes/removed.md"))
   rmSync(path.join(gitFixtureRoot, "guides/intro.md"))
   write(working)

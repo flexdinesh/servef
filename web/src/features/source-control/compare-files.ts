@@ -1,7 +1,16 @@
 import type { ChangedFile } from "../../api/changes-contract.ts"
+import type { Commit } from "../../api/commits-contract.ts"
 import type { Compare } from "./compare.ts"
 
-// Pure file-list states shared by every compare's Files pane and review tab.
+// Pure file-list states shared by every compare's change list, Files rail,
+// and review tab.
+
+// CompareDetails is what a review says about its compare.
+export type CompareDetails =
+  | { kind: "working"; warnings: readonly string[] }
+  | { kind: "branch"; base: string; head: string; ahead: number; mergeBase: string }
+  | { kind: "commit"; commit: Commit | null }
+  | { kind: "range"; count: number }
 
 // CompareFile is a changed file of any compare; only the working tree has
 // untracked files.
@@ -17,8 +26,8 @@ export type FileList =
 export interface FileListSources {
   working: { files: readonly CompareFile[]; truncated: boolean } | null
   workingError: string
-  // branch returns the base's list, if read.
-  branch(base: string): FileList | undefined
+  // branch returns head's list against base, if read.
+  branch(base: string, head: string): FileList | undefined
   commit(hash: string): FileList | undefined
   range(from: string, to: string): FileList | undefined
 }
@@ -30,7 +39,7 @@ export function compareFileList(compare: Compare, sources: FileListSources): Fil
     if (sources.working) return { kind: "ready", files: sources.working.files, truncated: sources.working.truncated }
     return sources.workingError ? { kind: "error", message: sources.workingError } : { kind: "loading" }
   }
-  const list = compare.kind === "branch" ? sources.branch(compare.base)
+  const list = compare.kind === "branch" ? sources.branch(compare.base, compare.head)
     : compare.kind === "commit" ? sources.commit(compare.hash)
     : sources.range(compare.from, compare.to)
   return list ?? { kind: "loading" }

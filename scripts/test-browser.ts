@@ -24,5 +24,7 @@ const gitFixtureRoot = mkdtempSync(path.join(tmpdir(), 'servef-browser-git-'))
 const [command, args] = isolated() ? ['unshare', [...isolate, ...playwright]] : [playwright[0], playwright.slice(1)]
 const result = spawnSync(command, args, { stdio: 'inherit', env: { ...process.env, SERVEF_BROWSER_GIT_ROOT: gitFixtureRoot } })
 rmSync(gitFixtureRoot, { recursive: true, force: true })
+// The fixture's base-branch worktree sits beside it.
+rmSync(`${gitFixtureRoot}-main`, { recursive: true, force: true })
 if (result.error) throw result.error
 process.exitCode = result.status ?? 1

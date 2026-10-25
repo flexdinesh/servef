@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo } from "react"
 
 import { rangeCount, type Compare } from "./compare.ts"
-import { compareFileList, type FileList } from "./compare-files.ts"
-import type { CompareDetails } from "./FilesPane.tsx"
+import { compareFileList, type CompareDetails, type FileList } from "./compare-files.ts"
 import type { Changes } from "./use-changes.ts"
-import { branchList, rangeKey, type Commits } from "./use-commits.ts"
+import { branchKey, branchList, rangeKey, type Commits } from "./use-commits.ts"
 import { useCompareStats, type CompareStats } from "./use-compare-stats.ts"
 
 export interface CompareData {
@@ -18,14 +17,15 @@ export interface CompareData {
 }
 
 // useCompareData gathers a compare's file list, line stats, and details,
-// reading what is missing. The Files pane and the review tab share it.
+// reading what is missing. The change list, the Files rail, and the review
+// tab share it.
 export function useCompareData(project: string, compare: Compare | null, changes: Changes, commits: Commits): CompareData | null {
   const { files, loadBranch, loadFiles, loadRangeFiles, rangeFiles, branches } = commits
   const history = commits.result?.commits
   const list = useMemo((): FileList | null => compare && compareFileList(compare, {
     working: changes.result,
     workingError: changes.error,
-    branch: (base) => branchList(branches.get(base)),
+    branch: (base, head) => branchList(branches.get(branchKey(base, head))),
     commit: (hash) => files.get(hash),
     range: (from, to) => rangeFiles.get(rangeKey(from, to)),
   }), [branches, changes.error, changes.result, compare, files, rangeFiles])
@@ -33,18 +33,20 @@ export function useCompareData(project: string, compare: Compare | null, changes
   // Read a list nobody has asked for yet; commit and range lists read once.
   const missing = compare !== null && list?.kind === "loading"
   const branchBase = compare?.kind === "branch" ? compare.base : null
-  const branchKnown = branchBase !== null && branches.has(branchBase)
+  const branchHead = compare?.kind === "branch" ? compare.head : ""
+  const branchId = branchBase !== null ? branchKey(branchBase, branchHead) : null
+  const branchKnown = branchId !== null && branches.has(branchId)
   const commitHash = compare?.kind === "commit" ? compare.hash : ""
   const rangeFrom = compare?.kind === "range" ? compare.from : ""
   const rangeTo = compare?.kind === "range" ? compare.to : ""
   useEffect(() => {
     if (!missing) return
-    if (branchBase !== null && !branchKnown) loadBranch(branchBase)
+    if (branchBase !== null && !branchKnown) loadBranch(branchBase, branchHead)
     if (commitHash) loadFiles(commitHash)
     if (rangeFrom && rangeTo) loadRangeFiles(rangeFrom, rangeTo)
-  }, [branchBase, branchKnown, commitHash, loadBranch, loadFiles, loadRangeFiles, missing, rangeFrom, rangeTo])
+  }, [branchBase, branchHead, branchKnown, commitHash, loadBranch, loadFiles, loadRangeFiles, missing, rangeFrom, rangeTo])
 
-  const branchState = branchBase !== null ? branches.get(branchBase) : undefined
+  const branchState = branchId !== null ? branches.get(branchId) : undefined
   const version = !compare || list?.kind !== "ready" ? null
     : compare.kind === "working" ? `read:${changes.read}`
     : compare.kind === "branch" ? `${branchState?.result?.head ?? ""}:${branchState?.result?.mergeBase ?? ""}`
@@ -54,7 +56,7 @@ export function useCompareData(project: string, compare: Compare | null, changes
   const retry = useCallback(() => {
     if (!compare) return
     if (compare.kind === "working") changes.refresh()
-    else if (compare.kind === "branch") loadBranch(compare.base, true)
+    else if (compare.kind === "branch") loadBranch(compare.base, compare.head, true)
     else if (compare.kind === "commit") loadFiles(compare.hash, true)
     else loadRangeFiles(compare.from, compare.to, true)
   }, [changes, compare, loadBranch, loadFiles, loadRangeFiles])
@@ -64,7 +66,7 @@ export function useCompareData(project: string, compare: Compare | null, changes
     if (compare.kind === "working") return { kind: "working", warnings: changes.result?.warnings ?? [] }
     if (compare.kind === "branch") {
       const result = branchState?.result
-      return { kind: "branch", base: result?.base ?? "", ahead: result?.ahead ?? 0, mergeBase: result?.mergeBase ?? "" }
+      return { kind: "branch", base: result?.base ?? "", head: compare.head, ahead: result?.ahead ?? 0, mergeBase: result?.mergeBase ?? "" }
     }
     if (compare.kind === "commit") return { kind: "commit", commit: history?.find((commit) => commit.hash === compare.hash) ?? null }
     return { kind: "range", count: rangeCount(history ?? [], compare) }

@@ -90,11 +90,11 @@ func TestBaseOverridesTheDefaultBase(t *testing.T) {
 	if all := logOf(t, repo, LogOptions{Range: RangeAll, Base: "origin/old"}); all.Base != "origin/old" || all.Ahead != 6 || len(all.Commits) != 7 {
 		t.Fatalf("all against origin/old = Base %q, Ahead %d, %d commits", all.Base, all.Ahead, len(all.Commits))
 	}
-	compared, err := repo.BranchCompare(ctx, "origin/old")
+	compared, err := repo.BranchCompare(ctx, "origin/old", "")
 	if want := (BranchRange{Base: "origin/old", MergeBase: Hash(g.m1), Head: Hash(g.f4), Ahead: 6}); err != nil || compared != want {
 		t.Fatalf("BranchCompare(origin/old) = %+v, %v; want %+v", compared, err, want)
 	}
-	if compared, _, err := repo.BranchFiles(ctx, "main", 0); err != nil || compared.Base != "main" || compared.MergeBase != Hash(g.m3) {
+	if compared, _, err := repo.BranchFiles(ctx, "main", "", 0); err != nil || compared.Base != "main" || compared.MergeBase != Hash(g.m3) {
 		t.Fatalf("BranchFiles(main) = %+v, %v", compared, err)
 	}
 
@@ -102,13 +102,13 @@ func TestBaseOverridesTheDefaultBase(t *testing.T) {
 		if _, err := repo.Log(ctx, LogOptions{Range: RangeBranch, Base: base}); !errors.Is(err, ErrUnknownBase) {
 			t.Errorf("Log(Base %q) error = %v, want ErrUnknownBase", base, err)
 		}
-		if _, err := repo.BranchCompare(ctx, base); !errors.Is(err, ErrUnknownBase) {
+		if _, err := repo.BranchCompare(ctx, base, ""); !errors.Is(err, ErrUnknownBase) {
 			t.Errorf("BranchCompare(%q) error = %v, want ErrUnknownBase", base, err)
 		}
-		if _, _, err := repo.BranchFiles(ctx, base, 0); !errors.Is(err, ErrUnknownBase) {
+		if _, _, err := repo.BranchFiles(ctx, base, "", 0); !errors.Is(err, ErrUnknownBase) {
 			t.Errorf("BranchFiles(%q) error = %v, want ErrUnknownBase", base, err)
 		}
-		if _, _, err := repo.BranchLookup(ctx, base, "a.txt", ""); !errors.Is(err, ErrUnknownBase) {
+		if _, _, err := repo.BranchLookup(ctx, base, "", "a.txt", ""); !errors.Is(err, ErrUnknownBase) {
 			t.Errorf("BranchLookup(%q) error = %v, want ErrUnknownBase", base, err)
 		}
 	}

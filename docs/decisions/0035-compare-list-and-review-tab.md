@@ -1,6 +1,6 @@
 # 0035: Compare list and review tab
 
-- Status: Accepted
+- Status: Accepted; compare list and Files pane superseded by [0040](0040-source-control-panes-and-review-files-rail.md)
 - Date: 2026-10-23
 - Extends: [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) to review tabs
 - Supersedes: the Source Control UI of [0024](0024-source-control-view-and-working-tree-diffs.md),

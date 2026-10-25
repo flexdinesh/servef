@@ -48,6 +48,9 @@ var (
 	// ErrUnknownBase is returned for a base branch name Branches does not
 	// list.
 	ErrUnknownBase = errors.New("unknown base branch")
+	// ErrUnknownHead is returned for a head branch name that is not a local
+	// branch Branches lists.
+	ErrUnknownHead = errors.New("unknown head branch")
 )
 
 // rangeTooLarge names the base a range was too large to compare with.
@@ -198,6 +201,37 @@ func (r *Repository) base(name string) (string, plumbing.Hash, error) {
 		}
 	}
 	return "", plumbing.ZeroHash, ErrUnknownBase
+}
+
+// head resolves a compare's head: HEAD's commit when name is empty, zero
+// when HEAD is unborn, else the tip of the local branch name. A name that is
+// not a listed local branch is ErrUnknownHead.
+func (r *Repository) head(name string) (plumbing.Hash, error) {
+	if name == "" {
+		ref, err := storer.ResolveReference(r.storage, plumbing.HEAD)
+		if errors.Is(err, plumbing.ErrReferenceNotFound) {
+			return plumbing.ZeroHash, nil
+		}
+		if err != nil {
+			return plumbing.ZeroHash, fmt.Errorf("read HEAD: %w", err)
+		}
+		return ref.Hash(), nil
+	}
+	full := plumbing.NewBranchReferenceName(name)
+	if full.Validate() != nil {
+		return plumbing.ZeroHash, ErrUnknownHead
+	}
+	ref, err := r.storage.Reference(full)
+	if errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return plumbing.ZeroHash, ErrUnknownHead
+	}
+	if err != nil {
+		return plumbing.ZeroHash, fmt.Errorf("read %s: %w", name, err)
+	}
+	if !listedBranch(ref) {
+		return plumbing.ZeroHash, ErrUnknownHead
+	}
+	return ref.Hash(), nil
 }
 
 const (
@@ -798,7 +832,7 @@ func (r *Repository) rangeChanges(ctx context.Context, from, to plumbing.Hash) (
 	return r.treeChanges(ctx, parentHash, newest.TreeHash)
 }
 
-// BranchRange is HEAD's branch range against the base branch.
+// BranchRange is a head's branch range against the base branch.
 type BranchRange struct {
 	// Base is the base branch's short name, or empty when none was given and
 	// none exists.
@@ -806,39 +840,38 @@ type BranchRange struct {
 	// MergeBase is the best common ancestor of the base and Head; zero when
 	// nothing is ahead or the histories are unrelated.
 	MergeBase Hash
-	// Head is HEAD's commit; zero when HEAD is unborn.
+	// Head is the head's commit: HEAD's, or the named head branch's tip;
+	// zero when HEAD is unborn.
 	Head Hash
 	// Ahead counts the commits in base..Head, as Log does.
 	Ahead int
 }
 
-// BranchCompare finds HEAD's branch range and merge base within the bounds
-// of Log's branch walk. With several best common ancestors, as after
+// BranchCompare finds a head's branch range and merge base within the
+// bounds of Log's branch walk. With several best common ancestors, as after
 // criss-cross merges, the newest committer date wins. base names the base
-// branch as Branches lists it, or is empty for DefaultBase's. It returns
-// ErrUnknownBase for an unlisted base and ErrRangeTooLarge past the bounds.
-func (r *Repository) BranchCompare(ctx context.Context, base string) (BranchRange, error) {
+// branch as Branches lists it, or is empty for DefaultBase's. head names a
+// local branch to compare, or is empty for HEAD. It returns ErrUnknownBase
+// for an unlisted base, ErrUnknownHead for a head that is not a local
+// branch, and ErrRangeTooLarge past the bounds.
+func (r *Repository) BranchCompare(ctx context.Context, base, head string) (BranchRange, error) {
 	baseName, baseHash, err := r.base(base)
 	if err != nil {
 		return BranchRange{}, err
 	}
-	result := BranchRange{Base: baseName}
-	ref, err := storer.ResolveReference(r.storage, plumbing.HEAD)
-	if errors.Is(err, plumbing.ErrReferenceNotFound) {
-		return result, nil
-	}
+	headHash, err := r.head(head)
 	if err != nil {
-		return BranchRange{}, fmt.Errorf("read HEAD: %w", err)
+		return BranchRange{}, err
 	}
-	result.Head = Hash(ref.Hash())
-	if baseName == "" {
+	result := BranchRange{Base: baseName, Head: Hash(headHash)}
+	if baseName == "" || headHash.IsZero() {
 		return result, nil
 	}
 	w, err := r.newWalker(ctx)
 	if err != nil {
 		return BranchRange{}, err
 	}
-	branch, boundary, err := w.branch(ref.Hash(), baseHash)
+	branch, boundary, err := w.branch(headHash, baseHash)
 	if err == nil && len(branch) > 0 {
 		var mergeBase plumbing.Hash
 		mergeBase, err = w.mergeBase(boundary)
@@ -855,11 +888,11 @@ func (r *Repository) BranchCompare(ctx context.Context, base string) (BranchRang
 }
 
 // BranchFiles compares the merge base's tree with Head's, as git diff
-// base...HEAD does; unrelated histories compare with an empty tree.
+// base...head does; unrelated histories compare with an empty tree.
 // Nothing ahead lists no changes. Statuses, renames, and the limit follow
-// CommitFiles; base follows BranchCompare.
-func (r *Repository) BranchFiles(ctx context.Context, base string, limit int) (BranchRange, CommitChanges, error) {
-	compared, changes, err := r.branchChanges(ctx, base)
+// CommitFiles; base and head follow BranchCompare.
+func (r *Repository) BranchFiles(ctx context.Context, base, head string, limit int) (BranchRange, CommitChanges, error) {
+	compared, changes, err := r.branchChanges(ctx, base, head)
 	if err != nil {
 		return BranchRange{}, CommitChanges{}, err
 	}
@@ -868,10 +901,10 @@ func (r *Repository) BranchFiles(ctx context.Context, base string, limit int) (B
 
 // BranchLookup validates one change of the branch under BranchFiles's
 // rules, as CommitLookup does for a commit. Sides read through CommitBlob
-// at MergeBase and Head. base follows BranchCompare; an unknown base is
-// ErrUnknownBase whatever the path.
-func (r *Repository) BranchLookup(ctx context.Context, base, name, oldPath string) (BranchRange, Change, error) {
-	compared, changes, err := r.branchChanges(ctx, base)
+// at MergeBase and Head. base and head follow BranchCompare; an unknown
+// base or head is ErrUnknownBase or ErrUnknownHead whatever the path.
+func (r *Repository) BranchLookup(ctx context.Context, base, head, name, oldPath string) (BranchRange, Change, error) {
+	compared, changes, err := r.branchChanges(ctx, base, head)
 	if err != nil {
 		return BranchRange{}, Change{}, err
 	}
@@ -885,24 +918,24 @@ func (r *Repository) BranchLookup(ctx context.Context, base, name, oldPath strin
 	return compared, change, nil
 }
 
-func (r *Repository) branchChanges(ctx context.Context, base string) (BranchRange, []Change, error) {
-	compared, err := r.BranchCompare(ctx, base)
+func (r *Repository) branchChanges(ctx context.Context, base, head string) (BranchRange, []Change, error) {
+	compared, err := r.BranchCompare(ctx, base, head)
 	if err != nil || compared.Ahead == 0 {
 		return compared, []Change{}, err
 	}
-	head, err := r.commit(plumbing.Hash(compared.Head))
+	tip, err := r.commit(plumbing.Hash(compared.Head))
 	if err != nil {
 		return BranchRange{}, nil, err
 	}
 	var baseTree plumbing.Hash
 	if !compared.MergeBase.IsZero() {
-		base, err := r.commit(plumbing.Hash(compared.MergeBase))
+		mergeBase, err := r.commit(plumbing.Hash(compared.MergeBase))
 		if err != nil {
 			return BranchRange{}, nil, err
 		}
-		baseTree = base.TreeHash
+		baseTree = mergeBase.TreeHash
 	}
-	changes, err := r.treeChanges(ctx, baseTree, head.TreeHash)
+	changes, err := r.treeChanges(ctx, baseTree, tip.TreeHash)
 	if err != nil {
 		return BranchRange{}, nil, err
 	}

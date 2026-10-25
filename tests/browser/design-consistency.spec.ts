@@ -31,17 +31,21 @@ async function styles(locator: Locator, properties: readonly string[]): Promise<
   }, properties)
 }
 
-test("list rows are 22px in Explorer, the compare list, Files, and Search", async ({ page }) => {
+test("list rows are 22px in Explorer, the Source Control panes, the review rail, and Search", async ({ page }) => {
   await page.goto(`${gitApiOrigin}/?project=${project}`)
-  const explorer = page.getByRole("complementary", { name: "Files" })
+  const explorer = page.getByRole("complementary", { name: "Files", exact: true })
   expect(await height(explorer.getByRole("treeitem", { name: "README.md" }))).toBe(22)
 
   await page.keyboard.press("ControlOrMeta+Shift+g")
-  const options = sourceControl(page).getByRole("listbox", { name: "Compare" }).getByRole("option")
-  await expect(options).toHaveCount(3)
-  for (const option of await options.all()) expect(await height(option)).toBe(22)
-  const files = sourceControl(page).getByRole("region", { name: /^Files: / })
-  expect(await height(files.getByRole("treeitem", { name: "README.md" }))).toBe(22)
+  for (const [pane, list, count] of [["Uncommitted", "Uncommitted changes", 8], ["Commits", "Commits", 2], ["Branches", "Branches", 3]] as const) {
+    const options = sourceControl(page).getByRole("region", { name: pane, exact: true }).getByRole("listbox", { name: list }).getByRole("option")
+    await expect(options).toHaveCount(count)
+    for (const option of await options.all()) expect(await height(option), pane).toBe(22)
+  }
+  const commits = sourceControl(page).getByRole("listbox", { name: "Commits" })
+  await commits.getByRole("option").first().dblclick()
+  const rail = page.getByRole("complementary", { name: "Review files" })
+  expect(await height(rail.getByRole("treeitem", { name: "clean.md" }))).toBe(22)
 
   await page.getByRole("button", { name: /^Find in files/ }).click()
   await page.getByRole("textbox", { name: "Search", exact: true }).fill("Fixture")

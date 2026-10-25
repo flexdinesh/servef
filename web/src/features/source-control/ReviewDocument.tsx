@@ -482,7 +482,7 @@ function ReviewMeta({ compare, data }: { compare: Compare; data: CompareData | n
   if (details?.kind === "branch" && details.base) {
     return (
       <p className="review-meta">
-        <span>{details.ahead.toLocaleString()} {details.ahead === 1 ? "commit" : "commits"} ahead of {details.base}</span>
+        <span>{details.ahead.toLocaleString()} {details.ahead === 1 ? "commit" : "commits"}{details.head ? ` on ${details.head}` : ""} ahead of {details.base}</span>
         {details.mergeBase && <>
           <span aria-hidden="true">·</span>
           <span>merge-base</span>

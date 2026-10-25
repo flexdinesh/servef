@@ -174,6 +174,13 @@ test("mockFixtureName maps supported API scenarios", () => {
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=working"), { name: "compare-stats.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=branch&base=main"), { name: "compare-stats-history.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=branch&base=missing"), unknownBase)
+  const unknownHead = { name: "error-unknown-head.json", status: 400 }
+  assert.deepEqual(mockFixtureName("GET", "/branch-stack?project=%2Fwork"), { name: "branch-stack.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", "/branch-stack?base=missing"), unknownBase)
+  assert.deepEqual(mockFixtureName("GET", "/branch-files?base=feature%2Fisland-layout&head=feature%2Freview-rail"),
+    { name: "branch-files.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", "/branch-files?head=origin%2Fmain"), unknownHead)
+  assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=branch&head=missing"), unknownHead)
   assert.deepEqual(mockFixtureName("GET", `/compare-stats?compare=commit&commit=${commit}`), { name: "compare-stats-history.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", `/compare-stats?compare=commit&commit=${from}`), { name: "error-not-found.json", status: 404 })
   assert.deepEqual(mockFixtureName("GET", `/compare-stats?compare=range&from=${from}&to=${commit}`), { name: "compare-stats-history.json", status: 200 })

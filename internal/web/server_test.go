@@ -793,6 +793,7 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"commits*.json", func() any { return &commitsResponse{} }},
 		{"commit-files.json", func() any { return &commitFilesResponse{} }},
 		{"branch-files.json", func() any { return &branchFilesResponse{} }},
+		{"branch-stack.json", func() any { return &branchStackResponse{} }},
 		{"range-files.json", func() any { return &rangeFilesResponse{} }},
 		{"refs.json", func() any { return &refsResponse{} }},
 		{"compare-stats*.json", func() any { return &compareStatsResponse{} }},
