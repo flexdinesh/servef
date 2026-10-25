@@ -318,7 +318,7 @@ async function themeSetting(page: Page) {
   return page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
 }
 
-test("defaults to Dark, then selects and persists an explicit theme in settings", async ({ page }) => {
+test("defaults to Servef Dark, then selects and persists an explicit theme in settings", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
   await page.goto("/")
 
@@ -326,7 +326,7 @@ test("defaults to Dark, then selects and persists an explicit theme in settings"
   await expect(theme).toHaveValue("dark")
   await expect(page.locator("html")).toHaveClass(/dark/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
-  await theme.selectOption({ label: "Light" })
+  await theme.selectOption({ label: "Servef Light" })
 
   await expect(page.locator("html")).toHaveClass(/light/)
   await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
@@ -365,8 +365,8 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const options = palette.getByRole("option")
   await expect(options).toHaveCount(7)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
-  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Dark")
-  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Dark")
+  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Servef Dark")
+  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Servef Dark")
   await expect(options.nth(3)).toHaveAccessibleName("Settings: Font Size, 13px")
   await expect(options.nth(4)).toHaveAccessibleName("Settings: Language Servers, On")
   await expect(options.nth(5)).toHaveAccessibleName("Navigation: Go to Definition, F12")

@@ -38,7 +38,7 @@ export interface ThemeSnapshot {
 
 export const DEFAULT_THEME: Theme = "dark"
 
-// scheme is the polarity a theme resolves to; System follows the browser.
+// scheme is the polarity a theme resolves to; Auto follows the browser.
 export interface ThemeOption {
   label: string
   value: Theme
@@ -48,9 +48,9 @@ export interface ThemeOption {
 // Named themes other than Dracula and Solarized Light come from Omarchy's
 // built-in themes (decision 0036); their values live in themes.css.
 const themeDefinitions: Record<Theme, Omit<ThemeOption, "value">> = {
-  "system": { label: "System", scheme: "system" },
-  "light": { label: "Light", scheme: "light" },
-  "dark": { label: "Dark", scheme: "dark" },
+  "system": { label: "Auto", scheme: "system" },
+  "light": { label: "Servef Light", scheme: "light" },
+  "dark": { label: "Servef Dark", scheme: "dark" },
   "catppuccin": { label: "Catppuccin", scheme: "dark" },
   "catppuccin-latte": { label: "Catppuccin Latte", scheme: "light" },
   "dracula": { label: "Dracula", scheme: "dark" },
@@ -95,7 +95,7 @@ function optionRank(value: Theme): number {
   return 3
 }
 
-// themeOptions lists System, Light, and Dark, then named themes by label.
+// themeOptions lists Auto, Servef Light, and Servef Dark, then named themes by label.
 export const themeOptions: readonly ThemeOption[] = Object.keys(themeDefinitions)
   .filter(isTheme)
   .map((value): ThemeOption => ({ value, ...themeDefinitions[value] }))

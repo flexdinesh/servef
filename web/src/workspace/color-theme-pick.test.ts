@@ -8,14 +8,14 @@ function labels(query: string) {
   return matchThemes(themeOptions, query).map((group) => [group.title, group.matches.map((match) => match.option.label)])
 }
 
-test("an empty query lists System, then light themes, then dark themes", () => {
+test("an empty query lists Auto, then light themes, then dark themes", () => {
   const groups = matchThemes(themeOptions, "")
   assert.deepEqual(groups.map((group) => group.title), [null, "light themes", "dark themes"])
   assert.deepEqual(groups[0]?.matches.map((match) => match.option.value), ["system"])
   assert.deepEqual(groups[1]?.matches.map((match) => match.option.label), [
-    "Light", "Catppuccin Latte", "Flexoki Light", "Lupine", "Rose Pine", "Solarized Light", "White",
+    "Servef Light", "Catppuccin Latte", "Flexoki Light", "Lupine", "Rose Pine", "Solarized Light", "White",
   ])
-  assert.equal(groups[2]?.matches[0]?.option.label, "Dark")
+  assert.equal(groups[2]?.matches[0]?.option.label, "Servef Dark")
   assert.equal(pickOrder(groups).length, themeOptions.length)
 })
 

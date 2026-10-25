@@ -62,7 +62,7 @@ export const settingDefinitions: readonly SettingDefinition[] = [
     kind: "select",
     category: "Appearance",
     title: "Theme",
-    description: "Color theme for the interface, code, and diagrams. System follows the operating system's light or dark mode.",
+    description: "Color theme for the interface, code, and diagrams. Auto follows the operating system's light or dark mode.",
     options: themeOptions,
   },
   {

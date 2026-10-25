@@ -7,7 +7,7 @@ export interface ThemeMatch {
 }
 
 export interface ThemeGroup {
-  // title is VS Code's lowercase separator; System has none.
+  // title is VS Code's lowercase separator; Auto has none.
   title: string | null
   matches: readonly ThemeMatch[]
 }
@@ -29,7 +29,7 @@ function labelRanges(label: string, terms: readonly string[]): HighlightRange[] 
 }
 
 // matchThemes keeps options whose label contains every whitespace-separated
-// term, case-insensitively, grouped like VS Code's Color Theme pick: System,
+// term, case-insensitively, grouped like VS Code's Color Theme pick: Auto,
 // then light themes, then dark themes, in option order. Empty groups drop.
 export function matchThemes(options: readonly ThemeOption[], query: string): ThemeGroup[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)

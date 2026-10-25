@@ -41,6 +41,7 @@ rewriting history; update `Status` on the old record.
 | [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |
 | [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted; extended to review tabs by 0035 |
 | [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted |
-| [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted |
-| [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted |
+| [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted; built-in labels superseded by 0039 |
+| [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted; labels superseded by 0039 |
 | [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
+| [0039](0039-servef-theme-labels.md) | Servef Light, Servef Dark, and Auto theme labels | Accepted |

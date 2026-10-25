@@ -27,7 +27,7 @@ test("the Color Theme pick previews on arrows, reverts on Escape, and keeps on E
   await expect(input).toHaveAttribute("placeholder", "Select Color Theme (Up/Down Keys to Preview)")
   await expect(picker.getByRole("group", { name: "light themes" })).toBeVisible()
   await expect(picker.getByRole("group", { name: "dark themes" })).toBeVisible()
-  await expect(picker.getByRole("option", { name: "Dark", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(picker.getByRole("option", { name: "Servef Dark", exact: true })).toHaveAttribute("aria-selected", "true")
 
   await page.keyboard.press("ArrowUp")
   await expect(html).toHaveAttribute("data-theme", "white")
@@ -64,7 +64,7 @@ test("the Color Theme pick previews only the keyboard row and reverts when nothi
 
   await picker.getByRole("option", { name: "Nord", exact: true }).hover()
   await expect(html).toHaveAttribute("data-theme", "dark")
-  await expect(picker.getByRole("option", { name: "Dark", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(picker.getByRole("option", { name: "Servef Dark", exact: true })).toHaveAttribute("aria-selected", "true")
 
   const input = picker.getByRole("combobox", { name: "Color theme" })
   await input.fill("rose")
