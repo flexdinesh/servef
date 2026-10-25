@@ -115,7 +115,7 @@ type compareSides struct {
 }
 
 // serveCompareStats counts the lines each file of a compare adds and
-// removes: compare=working (as /api/changes), branch (base; as
+// removes: compare=working (as /api/changes), branch (base and head; as
 // /api/branch-files), commit (commit; as /api/commit-files), or range (from
 // and to; as /api/range-files). Files keep the list's order and caps.
 func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectID string, query url.Values) {
@@ -129,7 +129,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 	switch compare {
 	case "working":
 	case "branch":
-		allowed["base"] = true
+		allowed["base"], allowed["head"] = true, true
 	case "commit":
 		allowed["commit"] = true
 	case "range":
@@ -138,7 +138,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Compare must be working, branch, commit, or range."})
 		return
 	}
-	for _, name := range []string{"base", "commit", "from", "to"} {
+	for _, name := range []string{"base", "head", "commit", "from", "to"} {
 		if query.Has(name) && !allowed[name] {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("%s%s doesn't apply to a %s compare.", strings.ToUpper(name[:1]), name[1:], compare)})
 			return
@@ -178,9 +178,9 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	sides, err := a.compareSides(ctx, repo, project.root, compare, query.Get("base"), hashes)
+	sides, err := a.compareSides(ctx, repo, project.root, compare, query.Get("base"), query.Get("head"), hashes)
 	switch {
-	case writeUnknownBase(w, err):
+	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: commitUnavailableMessage})
@@ -199,7 +199,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 
 // compareSides lists a compare's changes as its list endpoint does and
 // says where each change's sides are read from.
-func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, compare, base string, hashes []git.Hash) (compareSides, error) {
+func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, compare, base, head string, hashes []git.Hash) (compareSides, error) {
 	switch compare {
 	case "working":
 		changes, err := repo.Status(ctx, git.StatusOptions{Limit: changesLimit})
@@ -220,7 +220,7 @@ func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, comp
 			modified: func(change git.Change) (statsSide, error) { return a.worktreeStatsSide(root, byPath[change.Path]) },
 		}, nil
 	case "branch":
-		compared, changes, err := repo.BranchFiles(ctx, base, commitFilesLimit)
+		compared, changes, err := repo.BranchFiles(ctx, base, head, commitFilesLimit)
 		if err != nil {
 			return compareSides{}, err
 		}

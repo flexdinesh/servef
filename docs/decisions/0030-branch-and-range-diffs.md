@@ -1,6 +1,6 @@
 # 0030: Branch and commit-range diffs
 
-- Status: Accepted; pinned row, selection, and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md)
+- Status: Accepted; pinned row, selection, and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md); head branches added by [0040](0040-source-control-panes-and-review-files-rail.md)
 - Date: 2026-10-22
 - Extends: [0027](0027-commit-history-in-source-control.md)
 

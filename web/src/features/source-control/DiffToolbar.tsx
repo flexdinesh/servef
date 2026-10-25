@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownUpIcon, ChevronsUpDownIcon, Columns2Icon, HighlighterIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsDownUpIcon, ChevronsUpDownIcon, Columns2Icon, HighlighterIcon, PanelRightIcon, Rows2Icon, SpaceIcon, UnfoldVerticalIcon, WrapTextIcon } from "lucide-react"
 
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { menuItemClass, menuPopupClass, menuPositionerClass } from "../../components/ui/menu.ts"
@@ -16,13 +16,16 @@ interface DiffToolbarProps {
   onChange(change: Partial<DiffOptions>): void
   onExpandAll(expand: boolean): void
   onStepHunk(direction: 1 | -1): void
+  // files toggles the review's Files rail, or opens its sheet on phones;
+  // absent for reviews without one.
+  files?: { shown: boolean; onToggle(): void }
 }
 
 const splitUnavailable = "Split view needs a wider window"
 const noChanges = "No changes to step through"
 
 // DiffToolbar sits in the document mode-toggle slot for a review tab.
-export function DiffToolbar({ anyExpanded, hasChanges, narrow, onChange, onExpandAll, onStepHunk, options }: DiffToolbarProps) {
+export function DiffToolbar({ anyExpanded, files, hasChanges, narrow, onChange, onExpandAll, onStepHunk, options }: DiffToolbarProps) {
   const style = effectiveDiffStyle(options, narrow)
   const inline = inlineChoices.find((choice) => choice.value === options.inline) ?? inlineChoices[0]
   return (
@@ -88,6 +91,10 @@ export function DiffToolbar({ anyExpanded, hasChanges, narrow, onChange, onExpan
       <IconButton className="diff-open-file" label={anyExpanded ? "Collapse All Files" : "Expand All Files"}
         icon={anyExpanded ? <ChevronsDownUpIcon aria-hidden="true" /> : <ChevronsUpDownIcon aria-hidden="true" />}
         onClick={() => onExpandAll(!anyExpanded)} />
+      {files && (
+        <IconButton className="diff-files-toggle" label="Files" title={files.shown ? "Hide Files" : "Show Files"} aria-pressed={files.shown}
+          icon={<PanelRightIcon aria-hidden="true" />} onClick={files.onToggle} />
+      )}
     </div>
   )
 }

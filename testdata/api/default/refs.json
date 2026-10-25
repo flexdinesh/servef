@@ -8,6 +8,14 @@
       "remote": false
     },
     {
+      "name": "feature/island-layout",
+      "remote": false
+    },
+    {
+      "name": "feature/review-rail",
+      "remote": false
+    },
+    {
       "name": "main",
       "remote": false
     },

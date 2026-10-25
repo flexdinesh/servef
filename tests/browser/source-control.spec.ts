@@ -4,45 +4,83 @@ import path from "node:path"
 import { expect, test, type Page } from "@playwright/test"
 
 import { rootParam } from "./fixture-root.ts"
-import { featureSubject, gitFixtureChanges, gitFixtureRoot } from "./git-fixture.ts"
+import {
+  featureSubject, gitFixtureBaseWorktree, gitFixtureChanges, gitFixtureRoot, lowerBranch, lowerSubject, upperBranch,
+} from "./git-fixture.ts"
 import { gitApiOrigin } from "./ports.ts"
 
 // The fixture repository is built by the git server's webServer command.
 test.skip(() => !existsSync(path.join(gitFixtureRoot, ".git")), "git is not installed")
 
 const project = encodeURIComponent(gitFixtureRoot)
+// baseProject is a worktree with the base branch, main, checked out.
+const baseProject = encodeURIComponent(gitFixtureBaseWorktree)
 
 // Uncommitted changes in review order: folders first, then root files.
 const uncommittedFiles = [
   "assets/logo.bin", "guides/start.md", "notes/removed.md", "src/app.ts", "added.md", "large.txt", "README.md", "untracked.txt",
 ]
 
+type PaneTitle = "Uncommitted" | "Commits" | "Branches"
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 function sourceControl(page: Page) {
   return page.getByRole("region", { name: "Source Control" })
 }
 
-function compareList(page: Page) {
-  return sourceControl(page).getByRole("listbox", { name: "Compare" })
+function pane(page: Page, title: PaneTitle) {
+  return sourceControl(page).getByRole("region", { name: title, exact: true })
 }
 
-function uncommittedRow(page: Page) {
-  return compareList(page).getByRole("option", { name: /^Uncommitted changes/ })
+// paneToggle is the pane header's open/close button.
+function paneToggle(page: Page, title: PaneTitle) {
+  return pane(page, title).getByRole("heading", { level: 3 }).getByRole("button", { name: title, exact: true })
 }
 
-function branchRow(page: Page) {
-  return compareList(page).getByRole("option", { name: /^Branch vs / })
+function changesList(page: Page) {
+  return pane(page, "Uncommitted").getByRole("listbox", { name: "Uncommitted changes" })
+}
+
+function changeRow(page: Page, file: string) {
+  return changesList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(file)}, `) })
+}
+
+// changesTree is the Uncommitted pane's tree view.
+function changesTree(page: Page, name: string) {
+  return pane(page, "Uncommitted").getByRole("treeitem", { name, exact: true })
+}
+
+function commitsList(page: Page) {
+  return pane(page, "Commits").getByRole("listbox", { name: "Commits" })
 }
 
 function commitRow(page: Page, subject: string) {
-  return compareList(page).getByRole("option", { name: new RegExp(`^${subject}, servef, `) })
+  return commitsList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(subject)}, servef, `) })
 }
 
-function filesPane(page: Page) {
-  return sourceControl(page).getByRole("region", { name: /^Files: / })
+function branchesList(page: Page) {
+  return pane(page, "Branches").getByRole("listbox", { name: "Branches" })
 }
 
-function fileRow(page: Page, name: string) {
-  return filesPane(page).getByRole("treeitem", { name, exact: true })
+function branchRow(page: Page, name: string) {
+  return branchesList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(name)}, `) })
+}
+
+// rail is a commit, range, or branch review's Files rail.
+function rail(page: Page) {
+  return page.getByRole("complementary", { name: "Review files" })
+}
+
+function railFile(page: Page, name: string) {
+  return rail(page).getByRole("treeitem", { name, exact: true })
+}
+
+// filesToggle is the diff toolbar's Files rail toggle.
+function filesToggle(page: Page) {
+  return page.getByRole("button", { name: "Files", exact: true })
 }
 
 function reviewFile(page: Page, file: string) {
@@ -59,19 +97,30 @@ function diffLines(page: Page, type: "change-addition" | "change-deletion", file
   return scope.locator(`.diff-view [data-line-type="${type}"]`)
 }
 
+function commitTab(page: Page, subject: string) {
+  return page.getByRole("tab", { name: new RegExp(`^[0-9a-f]{7} ${escapeRegExp(subject)}$`) })
+}
+
 async function openReview(page: Page, search: string) {
   await page.goto(`${gitApiOrigin}/view?project=${project}&${search}`)
 }
 
-async function openSourceControl(page: Page) {
-  await page.goto(`${gitApiOrigin}/?project=${project}`)
+async function openSourceControl(page: Page, which = project) {
+  await page.goto(`${gitApiOrigin}/?project=${which}`)
   await page.keyboard.press("ControlOrMeta+Shift+g")
+}
+
+// reviewSearch reads the page URL's query but the project, ignoring order.
+function reviewSearch(page: Page): Record<string, string> {
+  const params = new URL(page.url()).searchParams
+  params.delete("project")
+  return Object.fromEntries(params)
 }
 
 // topOffset is how far a review section sits below the pane's top edge.
 async function topOffset(page: Page, file: string): Promise<number> {
-  const [section, pane] = await Promise.all([reviewFile(page, file).boundingBox(), page.getByRole("main").boundingBox()])
-  return section && pane ? section.y - pane.y : Number.NaN
+  const [section, main] = await Promise.all([reviewFile(page, file).boundingBox(), page.getByRole("main").boundingBox()])
+  return section && main ? section.y - main.y : Number.NaN
 }
 
 test("Source Control lists every pending change and reviews them in one tab", async ({ page }) => {
@@ -81,27 +130,24 @@ test("Source Control lists every pending change and reviews them in one tab", as
   await expect(page.locator(".activity-badge")).toHaveText(String(gitFixtureChanges))
 
   // Explorer rows carry git status; gitignored files are not changes.
-  const explorer = page.getByRole("complementary", { name: "Files" })
+  const explorer = page.getByRole("complementary", { name: "Files", exact: true })
   await expect(explorer.locator('[data-item-path="README.md"]')).toHaveAttribute("data-item-git-status", "modified")
   await expect(explorer.locator('[data-item-path="debug.log"]')).not.toHaveAttribute("data-item-git-status", /./)
 
   await page.keyboard.press("ControlOrMeta+Shift+g")
   await expect(activity).toHaveAttribute("aria-pressed", "true")
-  // A dirty working tree selects its uncommitted changes first.
-  await expect(uncommittedRow(page)).toHaveAccessibleName(`Uncommitted changes, ${gitFixtureChanges} files`)
-  await expect(uncommittedRow(page)).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: Uncommitted")
-  await expect(page.getByLabel("Files in Uncommitted")).toBeVisible()
-  for (const name of ["README.md", "added.md", "logo.bin", "start.md", "removed.md", "app.ts", "untracked.txt", "large.txt"]) {
-    await expect(fileRow(page, name)).toBeVisible()
-  }
-  await expect(fileRow(page, "debug.log")).toHaveCount(0)
-  await expect(fileRow(page, "clean.md")).toHaveCount(0)
-  await expect(filesPane(page).locator('[data-item-path="guides/start.md"]')).toHaveAttribute("data-item-git-status", "renamed")
-  // Rows carry line stats.
-  await expect(fileRow(page, "README.md")).toContainText("+2 −1")
+  // The Uncommitted pane counts and lists every change by path.
+  await expect(pane(page, "Uncommitted").getByLabel(`${gitFixtureChanges} files`, { exact: true })).toHaveText(String(gitFixtureChanges))
+  await expect(changesList(page).getByRole("option")).toHaveCount(gitFixtureChanges)
+  for (const file of uncommittedFiles) await expect(changeRow(page, file)).toBeVisible()
+  await expect(changeRow(page, "debug.log")).toHaveCount(0)
+  await expect(changeRow(page, "clean.md")).toHaveCount(0)
+  // Rows name their status and carry line stats.
+  await expect(changeRow(page, "guides/start.md")).toHaveAccessibleName(/^guides\/start\.md, Renamed(, |$)/)
+  await expect(changeRow(page, "untracked.txt")).toHaveAccessibleName(/^untracked\.txt, Untracked(, |$)/)
+  await expect(changeRow(page, "README.md")).toHaveAccessibleName("README.md, Modified, +2 −1")
 
-  await fileRow(page, "README.md").click()
+  await changeRow(page, "README.md").click()
   const tab = page.getByRole("tab", { name: "Uncommitted", exact: true })
   await expect(tab).toHaveAttribute("aria-selected", "true")
   await expect(page).toHaveURL(/[?&]review=working#f=README\.md$/)
@@ -112,6 +158,10 @@ test("Source Control lists every pending change and reviews them in one tab", as
   await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Uncommitted changes" })).toBeVisible()
   await expect(page.getByRole("main").getByRole("region")).toHaveCount(gitFixtureChanges)
   await expect(page.getByRole("main").getByText(`0 of ${gitFixtureChanges} viewed`)).toBeVisible()
+  await expect(changeRow(page, "README.md")).toHaveAttribute("aria-selected", "true")
+  // The sidebar lists Uncommitted's files, so its review has no Files rail.
+  await expect(rail(page)).toHaveCount(0)
+  await expect(filesToggle(page)).toHaveCount(0)
 
   // Open File opens the document beside the review.
   await reviewFile(page, "README.md").getByRole("button", { name: "Open File" }).click()
@@ -124,6 +174,142 @@ test("Source Control lists every pending change and reviews them in one tab", as
   await expect(page.getByRole("tab", { name: "Uncommitted", exact: true })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tab", { name: "README.md", exact: true })).toBeVisible()
   await expect(diffLines(page, "change-addition", "README.md").filter({ hasText: "Four" })).toBeVisible()
+})
+
+test("Source Control stacks Uncommitted, Commits, and Branches, open when they have content", async ({ page }) => {
+  await openSourceControl(page)
+  await expect(commitRow(page, featureSubject)).toBeVisible()
+  const titles = await sourceControl(page).getByRole("region").evaluateAll((regions) => regions.map((region) => region.getAttribute("aria-label")))
+  expect(titles).toEqual(["Uncommitted", "Commits", "Branches"])
+  for (const title of ["Uncommitted", "Commits", "Branches"] as const) {
+    await expect(paneToggle(page, title)).toHaveAttribute("aria-expanded", "true")
+  }
+  await expect(changeRow(page, "README.md")).toBeVisible()
+  await expect(branchRow(page, "feature")).toBeVisible()
+
+  // A pane closes from its header, and its separator goes with it.
+  await expect(sourceControl(page).getByRole("separator", { name: "Resize Commits and Branches" })).toBeVisible()
+  await paneToggle(page, "Commits").click()
+  await expect(paneToggle(page, "Commits")).toHaveAttribute("aria-expanded", "false")
+  await expect(commitsList(page)).toHaveCount(0)
+  await expect(sourceControl(page).getByRole("separator")).toHaveCount(1)
+  await expect(sourceControl(page).getByRole("separator", { name: "Resize Uncommitted and Branches" })).toBeVisible()
+})
+
+test("empty panes start collapsed, and a pane's toggle is remembered", async ({ page }) => {
+  await openSourceControl(page, baseProject)
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  // On main nothing is uncommitted and no branch is stacked.
+  await expect(paneToggle(page, "Uncommitted")).toHaveAttribute("aria-expanded", "false")
+  await expect(paneToggle(page, "Commits")).toHaveAttribute("aria-expanded", "true")
+  await expect(paneToggle(page, "Branches")).toHaveAttribute("aria-expanded", "false")
+  await expect(pane(page, "Uncommitted").getByLabel(/^\d+ files?$/)).toHaveCount(0)
+  await expect(sourceControl(page).getByRole("separator")).toHaveCount(0)
+
+  await paneToggle(page, "Branches").click()
+  await expect(paneToggle(page, "Branches")).toHaveAttribute("aria-expanded", "true")
+  await expect(pane(page, "Branches").getByText("On main.")).toBeVisible()
+  await paneToggle(page, "Commits").click()
+  await expect(commitsList(page)).toHaveCount(0)
+
+  await page.reload()
+  await expect(paneToggle(page, "Branches")).toHaveAttribute("aria-expanded", "true")
+  await expect(pane(page, "Branches").getByText("On main.")).toBeVisible()
+  await expect(paneToggle(page, "Commits")).toHaveAttribute("aria-expanded", "false")
+  await expect(paneToggle(page, "Uncommitted")).toHaveAttribute("aria-expanded", "false")
+})
+
+test("Branch and All are disabled when HEAD is the base branch, which lists all history", async ({ page }) => {
+  await openSourceControl(page, baseProject)
+  const branch = pane(page, "Commits").getByRole("button", { name: "Branch", exact: true })
+  const all = pane(page, "Commits").getByRole("button", { name: "All", exact: true })
+  await expect(branch).toBeDisabled()
+  await expect(all).toBeDisabled()
+  await expect(all).toHaveAttribute("aria-pressed", "true")
+  await expect(commitRow(page, "Initial")).toBeVisible()
+  await expect(commitsList(page).getByRole("option")).toHaveCount(1)
+  await expect(pane(page, "Commits").getByText(/ahead of/)).toHaveCount(0)
+  await expect(pane(page, "Branches").getByText("base main")).toBeVisible()
+})
+
+test("Uncommitted switches between a list and a tree, and remembers it", async ({ page }) => {
+  await openSourceControl(page)
+  const uncommitted = pane(page, "Uncommitted")
+  await expect(changeRow(page, "src/app.ts")).toBeVisible()
+  // Folders collapse only in the tree.
+  await expect(uncommitted.getByRole("button", { name: "Collapse All Folders" })).toHaveCount(0)
+
+  await uncommitted.getByRole("button", { name: "View as Tree" }).click()
+  await expect(changesList(page)).toHaveCount(0)
+  await expect(uncommitted.getByLabel("Uncommitted changes")).toBeVisible()
+  await expect(changesTree(page, "app.ts")).toBeVisible()
+  await expect(uncommitted.locator('[data-item-path="guides/start.md"]')).toHaveAttribute("data-item-git-status", "renamed")
+  await expect(changesTree(page, "README.md")).toContainText("+2 −1")
+
+  await page.reload()
+  await expect(changesTree(page, "app.ts")).toBeVisible()
+  await expect(uncommitted.getByRole("button", { name: "View as List" })).toBeVisible()
+
+  // Collapse All Folders and Expand All Folders toggle every folder.
+  const folders = ["assets", "guides", "notes", "src"]
+  for (const name of folders) await expect(changesTree(page, name)).toHaveAttribute("aria-expanded", "true")
+  await uncommitted.getByRole("button", { name: "Collapse All Folders" }).click()
+  for (const name of folders) await expect(changesTree(page, name)).toHaveAttribute("aria-expanded", "false")
+  await expect(changesTree(page, "app.ts")).toHaveCount(0)
+  await expect(changesTree(page, "README.md")).toBeVisible()
+  await uncommitted.getByRole("button", { name: "Expand All Folders" }).click()
+  for (const name of folders) await expect(changesTree(page, name)).toHaveAttribute("aria-expanded", "true")
+
+  // A tree file opens the Uncommitted review there too.
+  await changesTree(page, "app.ts").click()
+  await expect(page).toHaveURL(/[?&]review=working#f=src\/app\.ts$/)
+
+  await uncommitted.getByRole("button", { name: "View as List" }).click()
+  await expect(changeRow(page, "src/app.ts")).toBeVisible()
+  await expect(uncommitted.getByRole("button", { name: "Collapse All Folders" })).toHaveCount(0)
+  await page.reload()
+  await expect(changeRow(page, "src/app.ts")).toBeVisible()
+})
+
+test("an uncommitted file opens the Uncommitted review scrolled to it", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Uncommitted").getByRole("button", { name: "Open Changes" }).click()
+  await expect(page.getByRole("tab", { name: "Uncommitted", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/[?&]review=working$/)
+  await expect(page.getByRole("main")).toBeFocused()
+  await expect(reviewFile(page, uncommittedFiles[0] ?? "")).toBeVisible()
+  expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(2)
+
+  // A click opens the file and keeps focus in the list.
+  await changeRow(page, "src/app.ts").click()
+  await expect(page).toHaveURL(/#f=src\/app\.ts$/)
+  await expect.poll(() => topOffset(page, "src/app.ts")).toBeLessThan(2)
+  await expect(page.locator(".status-path")).toHaveText("src/app.ts")
+  await expect(changeRow(page, "src/app.ts")).toHaveAttribute("aria-selected", "true")
+  await expect(changeRow(page, "src/app.ts")).toBeFocused()
+  // The same tab stays open; no per-file tabs and no rail.
+  await expect(page.getByRole("tab")).toHaveCount(1)
+  await expect(rail(page)).toHaveCount(0)
+
+  // Rows run in path order; Enter opens and moves focus to the review.
+  await page.keyboard.press("ArrowDown")
+  await expect(changeRow(page, "untracked.txt")).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL(/#f=untracked\.txt$/)
+  await expect(page.getByRole("main")).toBeFocused()
+})
+
+test("a file too near the end to reach the top stays the file in view", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Uncommitted").getByRole("button", { name: "Open Changes" }).click()
+  await expect(reviewFile(page, "README.md")).toBeVisible()
+  // README.md is next to last, so the pane scrolls to its end to show it.
+  await changeRow(page, "README.md").click()
+  await expect(page).toHaveURL(/#f=README\.md$/)
+  await expect(diffLines(page, "change-addition", "README.md").filter({ hasText: "Four" })).toBeInViewport()
+  await expect(page.locator(".status-path")).toHaveText("README.md")
+  await expect(page.locator(".status-diff-stats")).toHaveText("+2 −1")
+  await expect(changeRow(page, "README.md")).toHaveAttribute("aria-selected", "true")
 })
 
 test("diff options apply at once and persist", async ({ page }) => {
@@ -265,10 +451,10 @@ test("a deep link scrolls its review to the file and selects its lines", async (
   await expect(page.locator(".status-lines")).toHaveText("Ln 2–4")
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
   await expect(page.getByRole("button", { name: "Copy src/app.ts:2-4" })).toBeVisible()
-  // Its lines are revealed; the file in view is selected in Files.
+  // Its lines are revealed; the file in view is selected in Uncommitted.
   await expect(reviewFile(page, "src/app.ts").locator(".diff-view [data-additions] [data-column-number=\"2\"]")).toBeInViewport()
-  await expect(uncommittedRow(page)).toHaveAttribute("aria-selected", "true")
-  await expect(fileRow(page, "app.ts")).toHaveAttribute("aria-selected", "true")
+  await expect(changeRow(page, "src/app.ts")).toHaveAttribute("aria-selected", "true")
+  await expect(changeRow(page, "README.md")).toHaveAttribute("aria-selected", "false")
 })
 
 test("review anchors scroll their lines into view and open the unchanged lines they name", async ({ page }) => {
@@ -381,26 +567,43 @@ test("diffs follow every theme", async ({ page }) => {
   }
 })
 
-test("phones drill from the list into files and force Unified", async ({ page }) => {
+test("phones stack the panes, open diffs from a tapped commit, and force Unified", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`${gitApiOrigin}/?project=${project}`)
   await page.getByRole("button", { name: "Open files" }).click()
   await page.getByRole("button", { name: /^Source Control, / }).click()
   const drawer = page.getByRole("dialog", { name: "Source Control" })
-  // Phones show the list or the files, never both, and select no ranges.
-  await expect(drawer.getByRole("separator", { name: "Resize commits and files" })).toHaveCount(0)
-  await expect(drawer.getByRole("listbox", { name: "Compare" })).not.toHaveAttribute("aria-multiselectable", "true")
-  await expect(drawer.getByRole("region", { name: /^Files: / })).toHaveCount(0)
+  // Phones stack the panes and scroll; nothing splits their height.
+  for (const title of ["Uncommitted", "Commits", "Branches"]) {
+    await expect(drawer.getByRole("region", { name: title, exact: true })).toBeVisible()
+  }
+  await expect(drawer.getByRole("separator")).toHaveCount(0)
+  const commits = drawer.getByRole("listbox", { name: "Commits" })
+  await expect(commits).not.toHaveAttribute("aria-multiselectable", "true")
 
-  await drawer.getByRole("option", { name: new RegExp(`^${featureSubject}, `) }).click()
-  const files = drawer.getByRole("region", { name: `Files: ${featureSubject}` })
-  await expect(files.getByRole("treeitem", { name: "clean.md", exact: true })).toBeVisible()
-  await expect(drawer.getByRole("listbox", { name: "Compare" })).toHaveCount(0)
-  await files.getByRole("button", { name: "Back to list" }).click()
-  await expect(drawer.getByRole("listbox", { name: "Compare" })).toBeVisible()
+  // A tap selects a commit and shows its diff button; the diff closes the drawer.
+  const commit = commits.getByRole("option", { name: new RegExp(`^${featureSubject}, `) })
+  await commit.click()
+  await expect(commit).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab")).toHaveCount(0)
+  await commit.getByRole("button", { name: "Open changes" }).click()
+  await expect(drawer).toBeHidden()
+  await expect(commitTab(page, featureSubject)).toHaveAttribute("aria-selected", "true")
+  // Phones keep the rail in a sheet the toolbar opens.
+  await expect(rail(page)).toHaveCount(0)
+  await filesToggle(page).click()
+  const sheet = page.getByRole("dialog", { name: "Review files" })
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByRole("treeitem", { name: "history.md", exact: true })).toBeVisible()
+  await sheet.getByRole("treeitem", { name: "clean.md", exact: true }).click()
+  await expect(sheet).toBeHidden()
+  await expect(page).toHaveURL(/#f=clean\.md$/)
+  await expect(diffLines(page, "change-addition", "clean.md").filter({ hasText: "Edited on the feature branch." })).toBeInViewport()
 
-  await drawer.getByRole("option", { name: /^Uncommitted changes/ }).click()
-  await drawer.getByRole("region", { name: "Files: Uncommitted" }).getByRole("treeitem", { name: "app.ts", exact: true }).click()
+  await page.getByRole("button", { name: "Open files" }).click()
+  await page.getByRole("button", { name: /^Source Control, / }).click()
+  await expect(drawer).toBeVisible()
+  await drawer.getByRole("listbox", { name: "Uncommitted changes" }).getByRole("option", { name: /^src\/app\.ts, / }).click()
   await expect(drawer).toBeHidden()
   await expect(page.getByRole("tab", { name: "Uncommitted", exact: true })).toHaveAttribute("aria-selected", "true")
   await expect(page).toHaveURL(/#f=src\/app\.ts$/)
@@ -412,6 +615,30 @@ test("phones drill from the list into files and force Unified", async ({ page })
   await expect(page.getByRole("button", { name: "Split" })).toHaveAttribute("aria-disabled", "true")
 })
 
+test("Split follows the diff area's width, not just the window's", async ({ page }) => {
+  await openReview(page, "review=branch#f=clean.md")
+  await expect(rail(page)).toBeVisible()
+  await rail(page).getByRole("button", { name: "Hide Files" }).click()
+  await expect(rail(page)).toHaveCount(0)
+  // Size the window so the diff area is just over 48rem without the rail.
+  const main = page.getByRole("main")
+  const viewport = page.viewportSize()
+  const width = (await main.boundingBox())?.width ?? 0
+  await page.setViewportSize({ width: Math.round((viewport?.width ?? 0) - width + 16 * 52), height: viewport?.height ?? 720 })
+  const split = page.getByRole("button", { name: "Split" })
+  const pre = reviewFile(page, "clean.md").locator(".diff-view pre[data-diff-type]")
+  await expect(split).not.toHaveAttribute("aria-disabled", "true")
+  await expect(split).toHaveAttribute("aria-pressed", "true")
+  await expect(pre).toHaveAttribute("data-diff-type", "split")
+
+  // The rail narrows the diff area below 48rem, which forces Unified.
+  await filesToggle(page).click()
+  await expect(rail(page)).toBeVisible()
+  await expect(split).toHaveAttribute("aria-disabled", "true")
+  await expect(page.getByRole("button", { name: "Unified" })).toHaveAttribute("aria-pressed", "true")
+  await expect(pre).toHaveAttribute("data-diff-type", "single")
+})
+
 test("status failures keep the view usable and recover on Retry", async ({ page }) => {
   let fail = true
   await page.route("**/api/changes?*", async (route) => {
@@ -419,13 +646,14 @@ test("status failures keep the view usable and recover on Retry", async ({ page 
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Couldn't read git status: index is corrupt" }) })
   })
   await openSourceControl(page)
-  await expect(filesPane(page).getByRole("status")).toContainText("Couldn't read git status: index is corrupt.")
+  await expect(pane(page, "Uncommitted").getByRole("alert")).toContainText("Couldn't read git status: index is corrupt.")
   await expect(page.locator(".activity-badge")).toHaveCount(0)
-  // History still lists.
+  // History and the stack still list.
   await expect(commitRow(page, featureSubject)).toBeVisible()
+  await expect(branchRow(page, "feature")).toBeVisible()
   fail = false
-  await filesPane(page).getByRole("button", { name: "Retry" }).click()
-  await expect(fileRow(page, "README.md")).toBeVisible()
+  await pane(page, "Uncommitted").getByRole("button", { name: "Retry" }).click()
+  await expect(changeRow(page, "README.md")).toBeVisible()
   await expect(page.locator(".activity-badge")).toHaveText(String(gitFixtureChanges))
 })
 
@@ -436,116 +664,282 @@ test("folders outside git say so", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Source Control", exact: true })).toBeVisible()
 })
 
-test("selecting a commit shows its files, and a file opens the commit's review there", async ({ page }) => {
+test("clicking a commit selects it; its diff opens the commit's review with a Files rail", async ({ page }) => {
   await openSourceControl(page)
-  await expect(sourceControl(page).getByText("1 ahead of main")).toBeVisible()
-  await expect(sourceControl(page).getByRole("button", { name: "Branch", exact: true })).toHaveAttribute("aria-pressed", "true")
-  // Uncommitted and the branch lead the one commit.
-  await expect(compareList(page).getByRole("option")).toHaveCount(3)
+  await expect(pane(page, "Commits").getByText("2 ahead of main")).toBeVisible()
+  await expect(pane(page, "Commits").getByRole("button", { name: "Branch", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(commitsList(page).getByRole("option")).toHaveCount(2)
 
   const commit = commitRow(page, featureSubject)
+  const lower = commitRow(page, lowerSubject)
+  await page.mouse.move(0, 0)
+  await expect(commit.getByRole("button", { name: "Open changes" })).toHaveCount(0)
+  // A click selects without opening anything.
   await commit.click()
   await expect(commit).toHaveAttribute("aria-selected", "true")
-  await expect(uncommittedRow(page)).toHaveAttribute("aria-selected", "false")
-  await expect(filesPane(page)).toHaveAccessibleName(`Files: ${featureSubject}`)
-  await expect(filesPane(page)).toContainText("Explain how the fixture's branch history is built.")
-  await expect(filesPane(page)).toContainText("servef")
-  await expect(filesPane(page).getByRole("button", { name: /^Copy commit hash [0-9a-f]{40}$/ })).toHaveText(/^[0-9a-f]{7}$/)
-  await expect(fileRow(page, "clean.md")).toContainText("+2 −0")
-  await expect(fileRow(page, "history.md")).toContainText("+3 −0")
-  // Folders collapse one at a time too.
-  await fileRow(page, "docs").click()
-  await expect(fileRow(page, "history.md")).toHaveCount(0)
-  await fileRow(page, "docs").click()
+  await expect(lower).toHaveAttribute("aria-selected", "false")
+  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(page).not.toHaveURL(/[?&]commit=/)
+  // The selection keeps its diff button; other rows show theirs on hover.
+  await lower.hover()
+  await expect(lower.getByRole("button", { name: "Open changes" })).toBeVisible()
+  await expect(commit.getByRole("button", { name: "Open changes" })).toBeVisible()
+  await commit.getByRole("button", { name: "Open changes" }).click()
 
-  await fileRow(page, "history.md").click()
-  const tab = page.getByRole("tab", { name: new RegExp(`^[0-9a-f]{7} ${featureSubject}$`) })
+  const tab = commitTab(page, featureSubject)
   await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/[?&]commit=[0-9a-f]{40}$/)
+  const main = page.getByRole("main")
+  await expect(main.getByRole("heading", { level: 1, name: featureSubject })).toBeVisible()
+  await expect(main).toContainText("Explain how the fixture's branch history is built.")
+  await expect(main.locator(".review-meta")).toContainText("servef")
+
+  // The rail lists the commit's files with line stats.
+  await expect(rail(page).getByRole("heading", { name: "Files" })).toBeVisible()
+  await expect(rail(page).getByLabel("2 files", { exact: true })).toHaveText("2")
+  await expect(filesToggle(page)).toHaveAttribute("aria-pressed", "true")
+  await expect(railFile(page, "clean.md")).toContainText("+2 −0")
+  await expect(railFile(page, "history.md")).toContainText("+3 −0")
+  // The first file is in view, so it is selected.
+  await expect(railFile(page, "history.md")).toHaveAttribute("aria-selected", "true")
+  // Folders collapse one at a time too.
+  await railFile(page, "docs").click()
+  await expect(railFile(page, "history.md")).toHaveCount(0)
+  await railFile(page, "docs").click()
+
+  await railFile(page, "clean.md").click()
+  await expect(page).toHaveURL(/[?&]commit=[0-9a-f]{40}#f=clean\.md$/)
+  await expect(railFile(page, "clean.md")).toHaveAttribute("aria-selected", "true")
+  await railFile(page, "history.md").click()
   await expect(page).toHaveURL(/[?&]commit=[0-9a-f]{40}#f=docs\/history\.md$/)
-  await expect(page.getByRole("main").getByRole("heading", { level: 1, name: featureSubject })).toBeVisible()
   await expect(diffLines(page, "change-addition", "docs/history.md").filter({ hasText: "Written on the feature branch." })).toBeVisible()
   await expect(page.locator(".status-diff-stats")).toHaveText("+3 −0")
-  await expect(fileRow(page, "history.md")).toHaveAttribute("aria-selected", "true")
+  await expect(railFile(page, "history.md")).toHaveAttribute("aria-selected", "true")
 
   // A commit compares with its parent, not the working tree.
   await expect(diffLines(page, "change-addition", "clean.md").filter({ hasText: "Edited on the feature branch." })).toBeVisible()
 
   // Commit tabs survive reloads; Open File opens the working copy.
   await page.reload()
-  await expect(page.getByRole("tab", { name: new RegExp(`^[0-9a-f]{7} ${featureSubject}$`) })).toHaveAttribute("aria-selected", "true")
+  await expect(commitTab(page, featureSubject)).toHaveAttribute("aria-selected", "true")
   await expect(diffLines(page, "change-addition", "docs/history.md").filter({ hasText: "Written on the feature branch." })).toBeVisible()
   await reviewFile(page, "docs/history.md").getByRole("button", { name: "Open File" }).click()
   await expect(page.getByRole("tab", { name: "history.md", exact: true })).toHaveAttribute("aria-selected", "true")
 })
 
-test("clicking a file in Files scrolls the open review to it", async ({ page }) => {
+test("commits that tip a stack layer name its branches", async ({ page }) => {
   await openSourceControl(page)
-  await uncommittedRow(page).dblclick()
-  await expect(page.getByRole("tab", { name: "Uncommitted", exact: true })).toHaveAttribute("aria-selected", "true")
-  await expect(page).toHaveURL(/[?&]review=working$/)
-  await expect(reviewFile(page, uncommittedFiles[0] ?? "")).toBeVisible()
+  await expect(commitRow(page, featureSubject)).toHaveAccessibleName(new RegExp(`^${featureSubject}, servef, .+, feature$`))
+  await expect(commitRow(page, lowerSubject)).toHaveAccessibleName(new RegExp(`^${lowerSubject}, servef, .+, ${lowerBranch}$`))
+  const current = commitRow(page, featureSubject).locator(".ref-chip")
+  await expect(current).toHaveText("feature")
+  await expect(current).toHaveAttribute("data-current")
+  await expect(commitRow(page, lowerSubject).locator(".ref-chip")).toHaveText(lowerBranch)
+  await expect(commitRow(page, lowerSubject).locator(".ref-chip")).not.toHaveAttribute("data-current")
+
+  // The base's commit tips no layer.
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await expect(commitRow(page, "Initial")).toHaveAccessibleName(/^Initial, servef, [^,]+$/)
+  await expect(commitRow(page, "Initial").locator(".ref-chip")).toHaveCount(0)
+})
+
+test("a commit's rail scrolls its review to a file and selects the file in view", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  // Double-click opens a commit's review and focuses it.
+  await commitRow(page, "Initial").dblclick()
+  await expect(commitTab(page, "Initial")).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("main")).toBeFocused()
+  await expect(railFile(page, "app.ts")).toBeVisible()
+  // The root commit adds every file.
+  await expect(rail(page).locator('[data-item-path="README.md"]')).toHaveAttribute("data-item-git-status", "added")
+  await expect(reviewFile(page, "assets/logo.bin")).toBeVisible()
   expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(2)
 
-  await fileRow(page, "app.ts").click()
+  await railFile(page, "app.ts").click()
   await expect(page).toHaveURL(/#f=src\/app\.ts$/)
   await expect.poll(() => topOffset(page, "src/app.ts")).toBeLessThan(2)
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
-  await expect(fileRow(page, "app.ts")).toHaveAttribute("aria-selected", "true")
-  // The same tab stays open; no per-file tabs.
+  await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tab")).toHaveCount(1)
+
+  // Scrolling the review selects the file in view.
+  await page.locator("main").evaluate((pane) => {
+    pane.dispatchEvent(new WheelEvent("wheel"))
+    pane.scrollTop = 0
+  })
+  await expect(railFile(page, "logo.bin")).toHaveAttribute("aria-selected", "true")
+  await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "false")
 })
 
-test("a file too near the end to reach the top stays the file in view", async ({ page }) => {
+test("Collapse All Folders and Expand All Folders toggle every rail folder", async ({ page }) => {
   await openSourceControl(page)
-  await uncommittedRow(page).dblclick()
-  await expect(reviewFile(page, "README.md")).toBeVisible()
-  // README.md is next to last, so the pane scrolls to its end to show it.
-  await fileRow(page, "README.md").click()
-  await expect(page).toHaveURL(/#f=README\.md$/)
-  await expect(diffLines(page, "change-addition", "README.md").filter({ hasText: "Four" })).toBeInViewport()
-  await expect(page.locator(".status-path")).toHaveText("README.md")
-  await expect(page.locator(".status-diff-stats")).toHaveText("+2 −1")
-  await expect(fileRow(page, "README.md")).toHaveAttribute("aria-selected", "true")
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await commitRow(page, "Initial").dblclick()
+  const folders = ["assets", "guides", "notes", "src"]
+  for (const name of folders) await expect(railFile(page, name)).toHaveAttribute("aria-expanded", "true")
+  await rail(page).getByRole("button", { name: "Collapse All Folders" }).click()
+  for (const name of folders) await expect(railFile(page, name)).toHaveAttribute("aria-expanded", "false")
+  await expect(railFile(page, "app.ts")).toHaveCount(0)
+  // Root files stay listed.
+  await expect(railFile(page, "README.md")).toBeVisible()
+
+  await rail(page).getByRole("button", { name: "Expand All Folders" }).click()
+  for (const name of folders) await expect(railFile(page, name)).toHaveAttribute("aria-expanded", "true")
+  await expect(railFile(page, "app.ts")).toBeVisible()
+  await expect(rail(page).getByRole("button", { name: "Collapse All Folders" })).toBeVisible()
+})
+
+test("the review rail hides and resizes, and remembers both", async ({ page }) => {
+  await openReview(page, "review=branch")
+  await expect(railFile(page, "clean.md")).toBeVisible()
+  const separator = rail(page).getByRole("separator", { name: "Resize review files" })
+  await expect(separator).toHaveAttribute("aria-valuenow", "16")
+  const width = async () => (await rail(page).boundingBox())?.width ?? 0
+  const before = await width()
+  await separator.focus()
+  await page.keyboard.press("ArrowLeft")
+  await page.keyboard.press("ArrowLeft")
+  await expect(separator).toHaveAttribute("aria-valuenow", "18")
+  await expect.poll(width).toBeGreaterThan(before)
+  await page.keyboard.press("ArrowRight")
+  await expect(separator).toHaveAttribute("aria-valuenow", "17")
+
+  await page.reload()
+  await expect(separator).toHaveAttribute("aria-valuenow", "17")
+  await separator.dblclick()
+  await expect(separator).toHaveAttribute("aria-valuenow", "16")
+
+  await rail(page).getByRole("button", { name: "Hide Files" }).click()
+  await expect(rail(page)).toHaveCount(0)
+  await expect(filesToggle(page)).toHaveAttribute("aria-pressed", "false")
+  await page.reload()
+  await expect(reviewFile(page, "clean.md")).toBeVisible()
+  await expect(rail(page)).toHaveCount(0)
+  await filesToggle(page).click()
+  await expect(railFile(page, "clean.md")).toBeVisible()
+  await expect(filesToggle(page)).toHaveAttribute("aria-pressed", "true")
+  await page.reload()
+  await expect(railFile(page, "clean.md")).toBeVisible()
 })
 
 test("the commit range switches to all history and is remembered", async ({ page }) => {
   await openSourceControl(page)
   await expect(commitRow(page, featureSubject)).toBeVisible()
-  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
   await expect(commitRow(page, "Initial")).toBeVisible()
-  await expect(compareList(page).getByRole("option")).toHaveCount(4)
-  await expect(sourceControl(page).getByText("1 ahead of main")).toHaveCount(0)
-
-  // The root commit adds every file.
-  await commitRow(page, "Initial").click()
-  await expect(filesPane(page)).toHaveAccessibleName("Files: Initial")
-  await expect(fileRow(page, "README.md")).toBeVisible()
-  await expect(filesPane(page).locator('[data-item-path="README.md"]')).toHaveAttribute("data-item-git-status", "added")
+  await expect(commitsList(page).getByRole("option")).toHaveCount(3)
+  await expect(pane(page, "Commits").getByText("2 ahead of main")).toHaveCount(0)
 
   await page.reload()
-  await expect(sourceControl(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await expect(pane(page, "Commits").getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(commitRow(page, "Initial")).toBeVisible()
-  await sourceControl(page).getByRole("button", { name: "Branch", exact: true }).click()
-  await expect(compareList(page).getByRole("option")).toHaveCount(3)
+  await pane(page, "Commits").getByRole("button", { name: "Branch", exact: true }).click()
+  await expect(commitsList(page).getByRole("option")).toHaveCount(2)
+  await expect(pane(page, "Commits").getByText("2 ahead of main")).toBeVisible()
 })
 
-test("the branch row compares with its base and opens a live review", async ({ page }) => {
+test("Branches lists the stack top to bottom, HEAD's layer between, then the base", async ({ page }) => {
   await openSourceControl(page)
-  const row = branchRow(page)
-  await expect(row).toHaveAccessibleName("Branch vs main, 2 files")
-  await row.click()
-  await expect(row).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: vs main")
-  await expect(filesPane(page).getByText(/^1 commit ahead$/)).toBeVisible()
-  await expect(filesPane(page).getByText("merge-base")).toBeVisible()
-  await expect(fileRow(page, "clean.md")).toBeVisible()
-  await fileRow(page, "history.md").click()
+  const branches = pane(page, "Branches")
+  await expect(branches.getByText("base main", { exact: true })).toBeVisible()
+  const options = branchesList(page).getByRole("option")
+  await expect(options).toHaveCount(3)
+  const names = await options.evaluateAll((rows) => rows.map((row) => row.getAttribute("aria-label")))
+  expect(names).toEqual([
+    `${upperBranch}, 1 commit on feature`,
+    `feature, checked out, 1 commit on ${lowerBranch}`,
+    `${lowerBranch}, 1 commit on main`,
+  ])
+  // The base closes the stack at the merge-base; it opens nothing.
+  const base = branches.locator(".branch-row-base")
+  await expect(base).toContainText("main")
+  await expect(base).toContainText(/[0-9a-f]{7}/)
+  await expect(base).toContainText("merge-base")
+  await expect(base.getByRole("button")).toHaveCount(0)
+})
 
+test("a layer opens its own commits or everything since the base", async ({ page }) => {
+  await openSourceControl(page)
+  const upper = branchRow(page, upperBranch)
+  const lower = branchRow(page, lowerBranch)
+  // The lowest layer's own commits are its base diff, so it offers only that.
+  await lower.hover()
+  await expect(lower.getByRole("button", { name: `Open changes on ${lowerBranch} since main` })).toBeVisible()
+  await expect(lower.getByRole("button", { name: /since (?!main)/ })).toHaveCount(0)
+
+  // A layer above HEAD against the layer below.
+  await upper.hover()
+  await upper.getByRole("button", { name: `Open changes on ${upperBranch} since feature` }).click()
+  await expect(page.getByRole("tab", { name: `${upperBranch} vs feature`, exact: true })).toHaveAttribute("aria-selected", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch", base: "feature", head: upperBranch })
+  await expect(page.getByRole("main").getByText(`1 commit on ${upperBranch} ahead of feature`)).toBeVisible()
+  await expect(rail(page).getByLabel("1 file", { exact: true })).toBeVisible()
+  await expect(railFile(page, "changelog.md")).toBeVisible()
+  await expect(railFile(page, "history.md")).toHaveCount(0)
+  await expect(diffLines(page, "change-addition", "docs/changelog.md").filter({ hasText: "Written on the upper layer." })).toBeVisible()
+
+  // The same layer against the base.
+  await upper.hover()
+  await upper.getByRole("button", { name: `Open changes on ${upperBranch} since main` }).click()
+  await expect(page.getByRole("tab", { name: `${upperBranch} vs main`, exact: true })).toHaveAttribute("aria-selected", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch", head: upperBranch })
+  await expect(page.getByRole("main").getByText(`3 commits on ${upperBranch} ahead of main`)).toBeVisible()
+  await expect(rail(page).getByLabel("4 files", { exact: true })).toBeVisible()
+  await expect(railFile(page, "changelog.md")).toBeVisible()
+  await expect(railFile(page, "index.md")).toBeVisible()
+  await expect(railFile(page, "history.md")).toBeVisible()
+  await expect(railFile(page, "clean.md")).toBeVisible()
+
+  // HEAD's layer against the layer below compares HEAD.
+  const current = branchRow(page, "feature")
+  await current.hover()
+  await current.getByRole("button", { name: `Open changes on feature since ${lowerBranch}` }).click()
+  await expect(page.getByRole("tab", { name: `vs ${lowerBranch}`, exact: true })).toHaveAttribute("aria-selected", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch", base: lowerBranch })
+  await expect(rail(page).getByLabel("2 files", { exact: true })).toBeVisible()
+  await expect(railFile(page, "history.md")).toBeVisible()
+  await expect(railFile(page, "clean.md")).toBeVisible()
+  await expect(railFile(page, "index.md")).toHaveCount(0)
+
+  // HEAD's layer against the base is the branch review as before.
+  await current.hover()
+  await current.getByRole("button", { name: "Open changes on feature since main" }).click()
+  await expect(page.getByRole("tab", { name: "vs main", exact: true })).toHaveAttribute("aria-selected", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch" })
+  await expect(page.getByRole("main").getByText("2 commits ahead of main")).toBeVisible()
+  await expect(rail(page).getByLabel("3 files", { exact: true })).toBeVisible()
+  await expect(railFile(page, "index.md")).toBeVisible()
+  await expect(railFile(page, "changelog.md")).toHaveCount(0)
+
+  // Double-click opens a layer's base diff.
+  await lower.dblclick()
+  await expect(page.getByRole("tab", { name: `${lowerBranch} vs main`, exact: true })).toHaveAttribute("aria-selected", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch", head: lowerBranch })
+  await expect(rail(page).getByLabel("1 file", { exact: true })).toBeVisible()
+  await expect(railFile(page, "index.md")).toBeVisible()
+  await expect(page.getByRole("main")).toBeFocused()
+
+  // Layer reviews survive reloads.
+  await page.reload()
+  await expect(page.getByRole("tab", { name: `${lowerBranch} vs main`, exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(diffLines(page, "change-addition", "docs/index.md").filter({ hasText: "Written on the lower layer." })).toBeVisible()
+})
+
+test("HEAD's branch review follows HEAD and survives reloads", async ({ page }) => {
+  await openSourceControl(page)
+  const current = branchRow(page, "feature")
+  await current.hover()
+  await current.getByRole("button", { name: "Open changes on feature since main" }).click()
   const tab = page.getByRole("tab", { name: "vs main", exact: true })
   await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("main").getByText("merge-base")).toBeVisible()
+  await railFile(page, "clean.md").click()
+  await expect(page).toHaveURL(/[?&]review=branch#f=clean\.md$/)
+  await railFile(page, "history.md").click()
   await expect(page).toHaveURL(/[?&]review=branch#f=docs\/history\.md$/)
   await expect(diffLines(page, "change-addition", "docs/history.md").filter({ hasText: "Written on the feature branch." })).toBeVisible()
-  await expect(fileRow(page, "history.md")).toHaveAttribute("aria-selected", "true")
+  await expect(railFile(page, "history.md")).toHaveAttribute("aria-selected", "true")
 
   // The branch follows HEAD: returning to the window rereads it.
   let reads = 0
@@ -562,83 +956,102 @@ test("the branch row compares with its base and opens a live review", async ({ p
   await expect(diffLines(page, "change-addition", "docs/history.md").filter({ hasText: "Written on the feature branch." })).toBeVisible()
 })
 
-test("the base picker changes the branch compare and is remembered", async ({ page }) => {
+test("the base picker changes the stack's base and is remembered", async ({ page }) => {
   await openSourceControl(page)
-  await expect(branchRow(page)).toHaveAccessibleName("Branch vs main, 2 files")
-  await branchRow(page).getByRole("button", { name: "Change base branch" }).click()
+  const branches = pane(page, "Branches")
+  await expect(branches.getByText("base main", { exact: true })).toBeVisible()
+  await branches.getByRole("button", { name: "Change base branch" }).click()
   const filter = page.getByRole("combobox", { name: "Filter branches" })
   await expect(filter).toBeFocused()
-  const branches = page.getByRole("listbox", { name: "Branches" })
-  await expect(branches.getByRole("option", { name: /^Default/ })).toHaveAttribute("aria-selected", "true")
+  const choices = page.getByRole("dialog", { name: "Base branch" }).getByRole("listbox", { name: "Branches" })
+  await expect(choices.getByRole("option", { name: /^Default/ })).toHaveAttribute("aria-selected", "true")
   await filter.fill("rel")
-  await expect(branches.getByRole("option")).toHaveCount(1)
-  await branches.getByRole("option", { name: "release" }).click()
-  await expect(branches).toBeHidden()
+  await expect(choices.getByRole("option")).toHaveCount(1)
+  await choices.getByRole("option", { name: "release" }).click()
+  await expect(choices).toBeHidden()
 
-  await expect(branchRow(page)).toHaveAccessibleName("Branch vs release, 2 files")
-  await expect(branchRow(page)).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: vs release")
-  await expect(fileRow(page, "history.md")).toBeVisible()
-  await filesPane(page).getByRole("button", { name: "Open Changes" }).click()
-  await expect(page).toHaveURL(/[?&]review=branch&base=release$/)
+  await expect(branches.getByText("base release", { exact: true })).toBeVisible()
+  await expect(branchRow(page, lowerBranch)).toHaveAccessibleName(`${lowerBranch}, 1 commit on release`)
+  await expect(pane(page, "Commits").getByText("2 ahead of release")).toBeVisible()
+  const current = branchRow(page, "feature")
+  await current.hover()
+  await current.getByRole("button", { name: "Open changes on feature since release" }).click()
+  expect(reviewSearch(page)).toEqual({ review: "branch", base: "release" })
   await expect(page.getByRole("tab", { name: "vs release", exact: true })).toHaveAttribute("aria-selected", "true")
-  await expect(page.getByRole("main").getByText("1 commit ahead of release")).toBeVisible()
+  await expect(page.getByRole("main").getByText("2 commits ahead of release")).toBeVisible()
+  await expect(railFile(page, "history.md")).toBeVisible()
+  // A layer's diff keeps the chosen base.
+  const lower = branchRow(page, lowerBranch)
+  await lower.hover()
+  await lower.getByRole("button", { name: `Open changes on ${lowerBranch} since release` }).click()
+  expect(reviewSearch(page)).toEqual({ review: "branch", base: "release", head: lowerBranch })
+  await expect(page.getByRole("tab", { name: `${lowerBranch} vs release`, exact: true })).toHaveAttribute("aria-selected", "true")
 
   // The choice is remembered for the project.
   await page.reload()
-  await expect(branchRow(page)).toHaveAccessibleName("Branch vs release, 2 files")
-  await branchRow(page).getByRole("button", { name: "Change base branch" }).click()
-  await expect(page.getByRole("listbox", { name: "Branches" }).getByRole("option", { name: "release" })).toHaveAttribute("aria-selected", "true")
+  await expect(branches.getByText("base release", { exact: true })).toBeVisible()
+  await branches.getByRole("button", { name: "Change base branch" }).click()
+  await expect(choices.getByRole("option", { name: "release" })).toHaveAttribute("aria-selected", "true")
 })
 
-test("Shift-selecting commits compares their range until cleared", async ({ page }) => {
+test("Shift-selecting commits opens their range from the newest commit's diff", async ({ page }) => {
   await openSourceControl(page)
-  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
   const feature = commitRow(page, featureSubject)
+  const lower = commitRow(page, lowerSubject)
   const initial = commitRow(page, "Initial")
   await expect(initial).toBeVisible()
-  await expect(compareList(page)).toHaveAttribute("aria-multiselectable", "true")
+  await expect(commitsList(page)).toHaveAttribute("aria-multiselectable", "true")
 
   await feature.click()
   await initial.click({ modifiers: ["Shift"] })
-  await expect(feature).toHaveAttribute("aria-selected", "true")
-  await expect(initial).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: 2 commits")
-  await expect(filesPane(page)).toContainText(/[0-9a-f]{7}\.\.[0-9a-f]{7}/)
+  for (const row of [feature, lower, initial]) await expect(row).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab")).toHaveCount(0)
+  // Only the newest selected commit offers the range's diff.
+  await lower.hover()
+  await expect(lower.getByRole("button")).toHaveCount(0)
+  await initial.hover()
+  await expect(initial.getByRole("button")).toHaveCount(0)
+  await expect(feature.getByRole("button", { name: "Open changes in the selected commits" })).toBeVisible()
+  await feature.getByRole("button", { name: "Open changes in the selected commits" }).click()
 
-  // The oldest selected commit is the root, so every file is added.
-  await expect(fileRow(page, "history.md")).toBeVisible()
-  await expect(filesPane(page).locator('[data-item-path="clean.md"]')).toHaveAttribute("data-item-git-status", "added")
-  await fileRow(page, "clean.md").click()
   const tab = page.getByRole("tab", { name: /^[0-9a-f]{7}\.\.[0-9a-f]{7}$/ })
   await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/[?&]from=[0-9a-f]{40}&to=[0-9a-f]{40}$/)
+  await expect(page.getByRole("main").getByText(/^3 commits$/)).toBeVisible()
+  // The oldest selected commit is the root, so every file is added.
+  await expect(railFile(page, "history.md")).toBeVisible()
+  await expect(railFile(page, "index.md")).toBeVisible()
+  await expect(rail(page).locator('[data-item-path="clean.md"]')).toHaveAttribute("data-item-git-status", "added")
+  await railFile(page, "clean.md").click()
   await expect(page).toHaveURL(/[?&]from=[0-9a-f]{40}&to=[0-9a-f]{40}#f=clean\.md$/)
   await expect(diffLines(page, "change-addition", "clean.md").filter({ hasText: "Edited on the feature branch." })).toBeVisible()
 
-  // Clear range narrows to the newest commit; the tab stays open.
-  await filesPane(page).getByRole("button", { name: "Clear range" }).click()
+  // Escape narrows to the commit the range started from; the tab stays open.
+  await feature.focus()
+  await page.keyboard.press("Escape")
   await expect(feature).toHaveAttribute("aria-selected", "true")
+  await expect(lower).toHaveAttribute("aria-selected", "false")
   await expect(initial).toHaveAttribute("aria-selected", "false")
-  await expect(filesPane(page)).toHaveAccessibleName(`Files: ${featureSubject}`)
-  await expect(filesPane(page).getByRole("button", { name: "Clear range" })).toHaveCount(0)
+  await expect(feature.getByRole("button", { name: "Open changes" })).toBeVisible()
   await expect(tab).toBeVisible()
 
   // Shift+Arrow extends from the focused commit; Escape narrows it again.
-  await feature.focus()
   await page.keyboard.press("Shift+ArrowDown")
-  await expect(initial).toBeFocused()
-  await expect(initial).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: 2 commits")
+  await expect(lower).toBeFocused()
+  await expect(lower).toHaveAttribute("aria-selected", "true")
+  await expect(feature).toHaveAttribute("aria-selected", "true")
   await page.keyboard.press("Escape")
-  await expect(initial).toHaveAttribute("aria-selected", "false")
+  await expect(lower).toHaveAttribute("aria-selected", "false")
   await expect(feature).toHaveAttribute("aria-selected", "true")
 
-  // Switching the list to the branch drops a range for the branch compare.
+  // Switching the list to the branch narrows a range to its newest commit.
   await initial.click({ modifiers: ["Shift"] })
-  await expect(filesPane(page)).toHaveAccessibleName("Files: 2 commits")
-  await sourceControl(page).getByRole("button", { name: "Branch", exact: true }).click()
-  await expect(branchRow(page)).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: vs main")
+  await expect(initial).toHaveAttribute("aria-selected", "true")
+  await pane(page, "Commits").getByRole("button", { name: "Branch", exact: true }).click()
+  await expect(initial).toHaveCount(0)
+  await expect(feature).toHaveAttribute("aria-selected", "true")
+  await expect(lower).toHaveAttribute("aria-selected", "false")
 
   await page.reload()
   await expect(page.getByRole("tab", { name: /^[0-9a-f]{7}\.\.[0-9a-f]{7}$/ })).toHaveAttribute("aria-selected", "true")
@@ -649,13 +1062,16 @@ test("a branch with nothing ahead offers all history", async ({ page }) => {
   await page.route("**/api/commits?*", async (route) => {
     if (new URL(route.request().url()).searchParams.get("range") !== "branch") return route.continue()
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-      repository: true, branch: "main", base: "main", range: "branch", head: "a".repeat(40), ahead: 0, commits: [], more: false,
+      repository: true, branch: "feature", base: "main", range: "branch", head: "a".repeat(40), ahead: 0, commits: [], more: false,
     }) })
   })
   await openSourceControl(page)
-  await expect(sourceControl(page).getByText("No commits ahead of main.")).toBeVisible()
-  await sourceControl(page).getByRole("button", { name: "Show all history" }).click()
-  await expect(sourceControl(page).getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
+  // An empty pane starts collapsed.
+  await expect(paneToggle(page, "Commits")).toHaveAttribute("aria-expanded", "false")
+  await paneToggle(page, "Commits").click()
+  await expect(pane(page, "Commits").getByText("No commits ahead of main.")).toBeVisible()
+  await pane(page, "Commits").getByRole("button", { name: "Show all history" }).click()
+  await expect(pane(page, "Commits").getByRole("button", { name: "All", exact: true })).toHaveAttribute("aria-pressed", "true")
   await expect(commitRow(page, "Initial")).toBeVisible()
 })
 
@@ -675,35 +1091,35 @@ test("Load more ends the commit list as a row and recovers on Retry", async ({ p
     await route.fulfill({ response, json: { ...body, commits: body.commits.slice(0, 1), more: true } })
   })
   await openSourceControl(page)
-  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
-  const more = sourceControl(page).getByRole("button", { name: "Load more" })
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  const more = pane(page, "Commits").getByRole("button", { name: "Load more" })
   await expect(more).toBeVisible()
-  await expect(compareList(page).getByRole("option")).toHaveCount(3)
+  await expect(commitsList(page).getByRole("option")).toHaveCount(1)
 
   // It is a 22px list row directly under the last commit, not a raised button.
-  const [row, last] = await Promise.all([more.boundingBox(), compareList(page).getByRole("option").last().boundingBox()])
+  const [row, last] = await Promise.all([more.boundingBox(), commitsList(page).getByRole("option").last().boundingBox()])
   expect(row?.height).toBe(22)
   expect(row && last ? Math.abs(row.y - (last.y + last.height)) : Number.NaN).toBeLessThan(1)
 
   await more.click()
-  await expect(sourceControl(page).getByRole("alert")).toContainText("object missing")
+  await expect(pane(page, "Commits").getByRole("alert")).toContainText("object missing")
   failMore = false
-  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await pane(page, "Commits").getByRole("button", { name: "Retry" }).click()
   await expect(commitRow(page, "Initial")).toBeVisible()
-  await expect(sourceControl(page).getByRole("button", { name: /^(Load more|Retry)$/ })).toHaveCount(0)
+  await expect(pane(page, "Commits").getByRole("button", { name: /^(Load more|Retry)$/ })).toHaveCount(0)
 })
 
-test("history failures alert in the list and recover on Retry", async ({ page }) => {
+test("history failures alert in the Commits pane and recover on Retry", async ({ page }) => {
   let fail = true
   await page.route("**/api/commits?*", async (route) => {
     if (!fail) return route.continue()
     await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Couldn't read git history: object missing" }) })
   })
   await openSourceControl(page)
-  await expect(sourceControl(page).getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
-  await expect(fileRow(page, "README.md")).toBeVisible()
+  await expect(pane(page, "Commits").getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
+  await expect(changeRow(page, "README.md")).toBeVisible()
   fail = false
-  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await pane(page, "Commits").getByRole("button", { name: "Retry" }).click()
   await expect(commitRow(page, featureSubject)).toBeVisible()
 })
 
@@ -715,58 +1131,53 @@ test("a failed switch to all history never lists the branch as all history", asy
   })
   await openSourceControl(page)
   await expect(commitRow(page, featureSubject)).toBeVisible()
-  await sourceControl(page).getByRole("button", { name: "All", exact: true }).click()
-  await expect(sourceControl(page).getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
-  // Only the pinned rows remain.
-  await expect(compareList(page).getByRole("option")).toHaveCount(2)
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await expect(pane(page, "Commits").getByRole("alert")).toHaveText("Couldn't read git history: object missing.")
+  await expect(commitsList(page).getByRole("option")).toHaveCount(0)
   fail = false
-  await sourceControl(page).getByRole("button", { name: "Retry" }).click()
+  await pane(page, "Commits").getByRole("button", { name: "Retry" }).click()
   await expect(commitRow(page, "Initial")).toBeVisible()
-  await expect(compareList(page).getByRole("option")).toHaveCount(4)
+  await expect(commitsList(page).getByRole("option")).toHaveCount(3)
 })
 
-test("the compare list works from the keyboard", async ({ page }) => {
+test("the panes work from the keyboard", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
   await openSourceControl(page)
-  const commit = commitRow(page, featureSubject)
-  await expect(commit).toBeVisible()
-  await uncommittedRow(page).focus()
+  const feature = commitRow(page, featureSubject)
+  const lower = commitRow(page, lowerSubject)
+  await expect(feature).toBeVisible()
+  await feature.focus()
   await page.keyboard.press("ArrowDown")
-  await expect(branchRow(page)).toBeFocused()
-  await expect(branchRow(page)).toHaveAttribute("aria-selected", "true")
-  await expect(filesPane(page)).toHaveAccessibleName("Files: vs main")
-  await page.keyboard.press("ArrowDown")
-  await expect(commit).toBeFocused()
-  await expect(commit).toHaveAttribute("aria-selected", "true")
+  await expect(lower).toBeFocused()
+  await expect(lower).toHaveAttribute("aria-selected", "true")
+  await page.keyboard.press("Home")
+  await expect(feature).toBeFocused()
+  await expect(feature).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab")).toHaveCount(0)
 
   // Ctrl/Cmd+C copies the focused commit's hash.
   await page.keyboard.press("ControlOrMeta+c")
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(/^[0-9a-f]{40}$/)
 
   await page.keyboard.press("Enter")
-  await expect(page.getByRole("tab", { name: new RegExp(`^[0-9a-f]{7} ${featureSubject}$`) })).toHaveAttribute("aria-selected", "true")
+  await expect(commitTab(page, featureSubject)).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("main")).toBeFocused()
 
-  await commit.focus()
-  await page.keyboard.press("Home")
-  await expect(uncommittedRow(page)).toBeFocused()
-  await expect(uncommittedRow(page)).toHaveAttribute("aria-selected", "true")
-})
+  // Space opens an uncommitted file and keeps focus in the list.
+  await changeRow(page, "assets/logo.bin").focus()
+  await page.keyboard.press("End")
+  await expect(changeRow(page, "untracked.txt")).toBeFocused()
+  await page.keyboard.press("Space")
+  await expect(page).toHaveURL(/[?&]review=working#f=untracked\.txt$/)
+  await expect(changeRow(page, "untracked.txt")).toBeFocused()
 
-test("Collapse All Folders and Expand All Folders toggle every Files folder", async ({ page }) => {
-  await openSourceControl(page)
-  const folders = ["assets", "guides", "notes", "src"]
-  for (const name of folders) await expect(fileRow(page, name)).toHaveAttribute("aria-expanded", "true")
-  await filesPane(page).getByRole("button", { name: "Collapse All Folders" }).click()
-  for (const name of folders) await expect(fileRow(page, name)).toHaveAttribute("aria-expanded", "false")
-  await expect(fileRow(page, "app.ts")).toHaveCount(0)
-  // Root files stay listed.
-  await expect(fileRow(page, "README.md")).toBeVisible()
-
-  await filesPane(page).getByRole("button", { name: "Expand All Folders" }).click()
-  for (const name of folders) await expect(fileRow(page, name)).toHaveAttribute("aria-expanded", "true")
-  await expect(fileRow(page, "app.ts")).toBeVisible()
-  await expect(filesPane(page).getByRole("button", { name: "Collapse All Folders" })).toBeVisible()
+  // Branches start from HEAD's layer; Enter opens a layer's base diff.
+  await branchesList(page).getByRole("option", { name: /, checked out, / }).focus()
+  await page.keyboard.press("ArrowDown")
+  await expect(branchRow(page, lowerBranch)).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(page.getByRole("tab", { name: `${lowerBranch} vs main`, exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("main")).toBeFocused()
 })
 
 test("Collapse All Files and Expand All Files toggle every review diff", async ({ page }) => {
@@ -819,10 +1230,10 @@ test("Viewed marks collapse files, survive reloads, and clear when the file chan
   }
 })
 
-test("sidebar and section headers center their contents", async ({ page }) => {
+test("sidebar and pane headers center their contents", async ({ page }) => {
   await openSourceControl(page)
   await expect(commitRow(page, featureSubject)).toBeVisible()
-  await expect(fileRow(page, "README.md")).toBeVisible()
+  await expect(changeRow(page, "README.md")).toBeVisible()
   const middle = (selector: string) => sourceControl(page).locator(selector).first().evaluate((element) => {
     const bounds = element.getBoundingClientRect()
     return bounds.top + bounds.height / 2
@@ -830,12 +1241,11 @@ test("sidebar and section headers center their contents", async ({ page }) => {
   const header = await middle(".sidebar-header")
   expect(await middle(".sidebar-title")).toBeCloseTo(header, 0)
   expect(await middle(".sidebar-header button")).toBeCloseTo(header, 0)
-  // Each section's header row sits at its top, its title centered in it.
-  for (const title of ["Commits", "Uncommitted"]) {
-    const heading = sourceControl(page).getByRole("heading", { level: 3, name: title, exact: true })
-    const offsets = await heading.evaluate((element) => {
-      const row = element.closest(".source-control-group")
-      const section = element.closest(".source-control-section")
+  // Each pane's header row sits at its top, its title centered in it.
+  for (const title of ["Uncommitted", "Commits", "Branches"] as const) {
+    const offsets = await paneToggle(page, title).evaluate((element) => {
+      const section = element.closest("section")
+      const row = element.closest("h3")?.parentElement
       if (!row || !section) return { top: Number.NaN, center: Number.NaN }
       const rowBounds = row.getBoundingClientRect()
       const bounds = element.getBoundingClientRect()
@@ -847,22 +1257,22 @@ test("sidebar and section headers center their contents", async ({ page }) => {
   }
 })
 
-test("the list and Files resize, and the split is remembered", async ({ page }) => {
+test("open panes resize, and the split is remembered", async ({ page }) => {
   await openSourceControl(page)
-  const separator = sourceControl(page).getByRole("separator", { name: "Resize commits and files" })
-  await expect(separator).toHaveAttribute("aria-valuenow", "50")
-  const listBox = () => compareList(page).locator("xpath=ancestor::div[contains(@class, 'source-control-section')][1]").boundingBox()
-  const before = (await listBox())?.height ?? 0
+  const separator = sourceControl(page).getByRole("separator", { name: "Resize Uncommitted and Commits" })
+  await expect(separator).toHaveAttribute("aria-valuenow", "44")
+  const height = async () => (await pane(page, "Uncommitted").boundingBox())?.height ?? 0
+  const before = await height()
   await separator.focus()
   await page.keyboard.press("ArrowDown")
   await page.keyboard.press("ArrowDown")
-  await expect(separator).toHaveAttribute("aria-valuenow", "60")
-  await expect.poll(async () => (await listBox())?.height ?? 0).toBeGreaterThan(before)
+  await expect(separator).toHaveAttribute("aria-valuenow", "56")
+  await expect.poll(height).toBeGreaterThan(before)
 
   await page.reload()
-  await expect(separator).toHaveAttribute("aria-valuenow", "60")
+  await expect(separator).toHaveAttribute("aria-valuenow", "56")
   await separator.dblclick()
-  await expect(separator).toHaveAttribute("aria-valuenow", "50")
+  await expect(separator).toHaveAttribute("aria-valuenow", "44")
 })
 
 test("closing the last review tab ends every diff worker", async ({ page }) => {

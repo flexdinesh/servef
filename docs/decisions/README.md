@@ -35,13 +35,14 @@ rewriting history; update `Status` on the old record.
 | [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030; UI superseded by 0035 |
 | [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | No-scroll consequence superseded by 0034; routes by 0035 |
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
-| [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | UI superseded by 0035 |
+| [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | UI superseded by 0035; head branches by 0040 |
 | [0031](0031-hide-git-entries.md) | Hide .git entries | Accepted |
 | [0032](0032-browser-tests-before-push.md) | Browser tests run before push, not in CI | Accepted; check commands superseded by 0038 |
 | [0033](0033-design-tokens-and-ui-primitives.md) | Design tokens and UI primitives | Accepted |
 | [0034](0034-diff-anchor-reveal-and-hunk-navigation.md) | Diff anchor reveal and hunk navigation | Accepted; extended to review tabs by 0035 |
-| [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted |
+| [0035](0035-compare-list-and-review-tab.md) | Compare list and review tab | Accepted; list and Files pane superseded by 0040 |
 | [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted; built-in labels superseded by 0039 |
 | [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted; labels superseded by 0039 |
 | [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
 | [0039](0039-servef-theme-labels.md) | Servef Light, Servef Dark, and Auto theme labels | Accepted |
+| [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted |

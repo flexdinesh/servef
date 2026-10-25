@@ -3,7 +3,7 @@ import test from "node:test"
 
 import type { Commit } from "../../api/commits-contract.ts"
 import {
-  commitAge, compareKey, compareSearch, isLiveCompare, legacyCompare, parseReviewFragment, parseStoredCompare, rangeCount,
+  commitAge, compareKey, compareName, compareSearch, isLiveCompare, legacyCompare, parseReviewFragment, parseStoredCompare, rangeCount,
   reviewFragment, routeCompare, sameCompare, selectedHashes, selectionCompare, storedCompare, type Compare,
 } from "./compare.ts"
 
@@ -19,15 +19,25 @@ function commit(hash: string): Commit {
 const list = [commit(first), commit(second), commit(third)]
 
 const compares: Compare[] = [
-  { kind: "working" }, { kind: "branch", base: "" }, { kind: "branch", base: "origin/main" },
+  { kind: "working" }, { kind: "branch", base: "", head: "" }, { kind: "branch", base: "origin/main", head: "" },
+  { kind: "branch", base: "feat-a", head: "feat-b" }, { kind: "branch", base: "", head: "feat-b" },
   { kind: "commit", hash: first }, { kind: "range", from: third, to: first },
 ]
 
-test("compares have distinct keys; only the working tree and branch are live", () => {
+test("compares have distinct keys; only the working tree and branches are live", () => {
   assert.equal(new Set(compares.map(compareKey)).size, compares.length)
   assert.equal(sameCompare({ kind: "commit", hash: first }, { kind: "commit", hash: first }), true)
   assert.equal(sameCompare({ kind: "working" }, null), false)
-  assert.deepEqual(compares.map(isLiveCompare), [true, true, true, false, false])
+  assert.deepEqual(compares.map(isLiveCompare), [true, true, true, true, true, false, false])
+})
+
+test("stack layer compares name their head and base", () => {
+  const context = { base: "main", subject: () => "" }
+  assert.equal(compareName({ kind: "branch", base: "feat-a", head: "feat-b" }, context).label, "feat-b vs feat-a")
+  assert.equal(compareName({ kind: "branch", base: "", head: "feat-b" }, context).label, "feat-b vs main")
+  assert.equal(compareName({ kind: "branch", base: "", head: "" }, context).label, "vs main")
+  assert.deepEqual(compareSearch({ kind: "branch", base: "feat-a", head: "feat-b" }), { review: "branch", base: "feat-a", head: "feat-b" })
+  assert.deepEqual(parseStoredCompare({ review: "branch", base: "main" }), { kind: "branch", base: "main", head: "" })
 })
 
 test("compares round-trip through routes and memory", () => {
@@ -45,7 +55,7 @@ test("per-file diff routes from before reviews open their review at the file", (
   assert.deepEqual(legacyCompare({ path: "a.md", diff: 1 }), { compare: { kind: "working" }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", diff: "1" }), { compare: { kind: "working" }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", commit: first }), { compare: { kind: "commit", hash: first }, path: "a.md" })
-  assert.deepEqual(legacyCompare({ path: "a.md", branch: 1 }), { compare: { kind: "branch", base: "" }, path: "a.md" })
+  assert.deepEqual(legacyCompare({ path: "a.md", branch: 1 }), { compare: { kind: "branch", base: "", head: "" }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", from: third, to: first }), { compare: { kind: "range", from: third, to: first }, path: "a.md" })
   assert.equal(legacyCompare({ path: "a.md" }), null)
   assert.equal(legacyCompare({ commit: first }), null)

@@ -281,7 +281,7 @@ Motion is functional: state changes use `--duration-fast`, progress fades in aft
 
 ## Shapes
 
-Navigation and document islands, and review file islands, use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, the compare list) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
+Navigation and document islands, and review file islands, use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, Source Control panes) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
 
 Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px in rows, tabs, and segmented items; rest ink `text-secondary`, `text-primary` on hover. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family.
 
@@ -431,28 +431,53 @@ Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px 
 
 ### Source Control
 
-Ctrl/Cmd+Shift+G or the activity item reveals the view (decision 0035). The
+Ctrl/Cmd+Shift+G or the activity item reveals the view (decision 0040). The
 32px header reads “Source Control” (12px, 600) with Refresh (rereads changes,
-commits, and branch files; Close on mobile). Two sections stack below: the
-compare list, then the Files pane. On desktop a 5px horizontal separator
-between them resizes the split (15–85%); hover and keyboard focus reveal a
-2px accent line, arrow keys step 5%, and double-click restores an even split.
-The split, commit range, and each project's base branch persist under
-`servef-source-control`. Outside a repository the view reads “This folder
-isn't a git repository.”
+commits, the stack, and branch files; Close on mobile). Three panes stack
+below, always in this order: Uncommitted, Commits, Branches. Each opens on a
+22px header (32px narrow) whose heading holds a section toggle (12px chevron,
+the name in 12px 600), then a note and right-aligned 20px icon actions; panes
+divide with a 1px `border` line. Empty panes start closed (no changes, no
+commits in the range, no stack layers) and open when content arrives; once
+the user toggles a pane, that choice persists. On desktop open panes split
+the height by weight; a 5px sash above each open pane that follows another
+resizes the pair (each keeps at least 15% of it), revealing a 2px accent line
+on hover and keyboard focus; arrow keys step 5% and double-click restores the
+default split. Phones stack panes at their natural height and the view
+scrolls. Pane state, weights, the list view, the commit range, the review
+rail, and each project's base branch persist under `servef-source-control`.
+Outside a repository the view reads “This folder isn't a git repository.”
 
-The list's 22px group row (32px narrow) reads “Commits”, a muted “2 ahead of
-main” in the branch range, and a right-aligned [Branch][All] small
-`SegmentedControl` (12px, 20px tall, 28px narrow). Below it a `role="listbox"`
-named “Compare” (`aria-multiselectable` on desktop) holds 22px rows (32px
-narrow) with the Search view's state treatment: Uncommitted (14px muted
-circle-dot icon, the Search count badge; named “Uncommitted changes, 4
-files”), Branch (14px git-compare icon, “vs main” or “No base branch”, the
-base picker, a count badge; named “Branch vs main, 4 files”), then commits
-(the subject in `text-primary` and a muted right-aligned compact age: `3h`,
-`2d`, `4mo`; the title adds author, absolute date, and short hash; the name
-reads “subject, author, 3 hours ago”). Selected rows take the selection fill
-and ink with `aria-selected`.
+Uncommitted carries the Search count badge (named “4 files”) and actions View
+as Tree / View as List (persisted; list by default), Collapse/Expand All
+Folders in tree mode, and Open Changes. The list is a `role="listbox"` named
+“Uncommitted changes” of 22px rows (32px narrow) indented to the pane title:
+the Pierre file icon, the name in `text-primary` (struck through when
+deleted), the folder in muted 12px, `+N −M` (or “binary”, “large”) in muted
+tabular figures, and the status letter. Rows are named “path, Modified, +2
+−1”; the title adds “Renamed from <old path>”. Tree mode renders the Files
+tree described below. Click or Space opens the file in the Uncommitted review
+and keeps focus; Enter and double-click move focus to it; arrows and Home/End
+move. The file in view is selected. States: “Reading changes…”, “No changes
+since last commit.”, “Showing the first 5,000 changes.”, the read error with
+Retry, and unreadable paths under a “Some paths could not be read”
+disclosure.
+
+Commits' header adds a muted “2 ahead of main” in the branch range and a
+[Branch][All] small `SegmentedControl` (12px, 20px tall, 28px narrow); when
+HEAD is the base branch both items are disabled, All shows pressed, and the
+title says “HEAD is the base branch, so all history shows”. A `role="listbox"`
+named “Commits” (`aria-multiselectable` on desktop) holds 22px rows (32px
+narrow) with the Search view's state treatment: the subject in
+`text-primary`, branch-name chips for stack layer tips (12px monospace,
+1px `border`, 2px radius, at most 45% of the row; HEAD's branch in `accent`),
+and a muted right-aligned compact age (`3h`, `2d`, `4mo`). The title adds
+author, absolute date, and short hash; the name reads “subject, author, 3
+hours ago, branch”. Selected rows take the selection fill and ink with
+`aria-selected`. A 20px Diff action (file-diff icon, “Open changes”) replaces
+the age on hover and keyboard focus and stays on the selection; on a range it
+sits on the newest selected commit only (“Open changes in the selected
+commits”) and opens the combined diff.
 
 Click selects; Shift-click or Shift+Arrow extends a contiguous range of
 commits from the anchor; arrows, Home/End move and select; Space selects;
@@ -464,27 +489,33 @@ hover), reading Loading… while it reads (`aria-disabled`, so focus stays) and
 Retry with a refresh icon under the error after a failure. States: “No
 commits ahead of main.” or “No base branch found to compare with.” with an outline “Show all history”, “No commits yet.”, and
 “Couldn't read git history: <reason>.” as an alert, with Retry when nothing is
-listed. Phones: tapping a row selects it and drills into the Files pane;
+listed. Phones: tapping a row selects it and shows its Diff action (28px);
 long-pressing a commit marks it with a dashed accent outline and “Tap another
-commit to compare a range.”
+commit to compare a range.” Opening a diff closes the drawer.
+
+Branches' header adds a muted “base main” and the base picker. A
+`role="listbox"` named “Branches” lists the stack top to bottom: layers above
+HEAD, HEAD's layer (accent git-branch icon, the name in 600, a muted “HEAD”),
+the layers below, each with a 14px git-branch icon, the name, and a muted
+`+N` of its own commits; then a non-interactive base row with the base name,
+the merge-base short-hash chip, and a muted “merge-base”. Rows are named
+“feat-b, checked out, 2 commits on feat-a (also feat-b2)”. Hover and focus
+replace `+N` with 20px actions: Diff layer (layers icon, “Open changes on
+feat-b since feat-a”; absent on the lowest layer) and Diff vs base (file-diff
+icon, “Open changes on feat-b since main”). Enter and double-click open the
+base diff; arrows and Home/End move. States: “On main.”, “Nothing ahead of
+main.”, “No base branch found to compare with.”, the read error with Retry,
+and “Some local branches weren't checked.” when the stack is truncated.
 
 The base picker is a 20px icon action (“Change base branch”) opening an 18rem
 overlay: a “Filter branches” combobox, then a “Branches” listbox of picker
 rows (Default first, local branches, then remote-tracking ones); arrows move,
 Enter picks, Escape closes. States: “Loading branches…”, “No branches
 match.”, “Showing the first 1,000 branches.”, and the read error. Picking a
-base selects the Branch row.
+base rereads the stack, the branch range, and live branch reviews.
 
-The Files pane's 22px header names the compare (“Uncommitted”, “vs main”, the
-commit's subject, or “3 commits” with a muted 12px monospace
-`a1b2c3d..e4f5g6h` span), then a count badge and 20px icon actions: Clear
-range (title “Clear range (Escape)”), Open Changes, and Collapse/Expand All
-Folders (Back to list leads on phones). Details follow in 12px: a commit's body
-with preserved line breaks, clamped to four lines with an accent More/Less,
-then author (email in title), absolute date, and a 2px-radius bordered
-monospace short-hash chip with a copy icon that checks once copied; a branch's
-“2 commits ahead · merge-base a1b2c3d”; a range's “a1b2c3d through e4f5g6h”.
-Files render as a Pierre tree under compact folders (open by default) with the
+The Files tree (Uncommitted's tree mode, the review rail, and its phone
+sheet) renders a compare's files as a Pierre tree under compact folders (open by default) with the
 Explorer's rows, icons, and keyboard. Each file shows a right-aligned status
 letter: M (modified) `warning`, A (added) and U (untracked) `success`, D
 (deleted) `destructive`, R (renamed) `accent`; letters pair with names and
@@ -493,25 +524,37 @@ titles, never color alone. Deleted names strike through. Line stats (`+12
 muted “from <old path>”, and the title says “Renamed from <old path>”. Click
 or Space opens the file in the review and keeps focus; Enter and double-click
 move focus to it. The file in view is selected. States: “Loading files…”,
-“No changes since last commit.”, “No file changes.”, “Showing the first 1,000
-files.”, “Line counts stop past the first files; open them to see their
-changes.”, a muted “Shift-click commits to compare a range.” for a single
-commit on desktop, and unreadable paths under a “Some paths could not be read”
-disclosure.
+“No file changes.”, and the read error with Retry.
 
 ### Review tabs
 
 Each compare opens one review tab in the shared strip, labelled “Uncommitted”,
-“vs main”, `3577ec6 subject…` (40 characters), or `a1b2c3d..e4f5g6h`, with a
-git-compare icon. Tabs follow close, context-menu, and memory behavior. The
-mode-toggle slot holds the diff toolbar in the document mode-toggle
-treatment: [Split][Unified], Wrap, Ignore whitespace, Inline (compact menu:
-Word, Character, Off), Expand unchanged, Previous change and Next change
-(Shift+F7, F7; they step across files), and Collapse/Expand All Files.
-Toggles use `aria-pressed`. Options persist in this browser under
-`servef-diff-options`, not Settings. Below 48rem Split is `aria-disabled` with
-“Split view needs a wider window” as its tooltip, and Unified is forced; below
-30rem the layout group hides so tabs keep room.
+“vs main”, “feat-b vs feat-a”, `3577ec6 subject…` (40 characters), or
+`a1b2c3d..e4f5g6h`, with a git-compare icon. Tabs follow close, context-menu,
+and memory behavior. The mode-toggle slot holds the diff toolbar in the
+document mode-toggle treatment: [Split][Unified], Wrap, Ignore whitespace,
+Inline (compact menu: Word, Character, Off), Expand unchanged, Previous change
+and Next change (Shift+F7, F7; they step across files), Collapse/Expand All
+Files, and, for commit, range, and branch reviews, Files (panel-right icon,
+`aria-pressed` while the rail shows). Toggles use `aria-pressed`. Options
+persist in this browser under `servef-diff-options`, not Settings. When the
+diff area is narrower than 48rem (a narrow window, or a wide sidebar or rail)
+Split is `aria-disabled` with “Split view needs a wider window” as its
+tooltip, and Unified is forced; below 30rem the layout group hides so tabs
+keep room.
+
+Commit, range, and branch reviews show a Files rail at the tab body's end:
+full height, 16rem by default (12–32rem, persisted), on `surface` with a 1px
+`border` on its leading edge. A 5px vertical separator on that edge resizes
+it, revealing a 2px accent line on hover and focus; Left and Right arrows step
+1rem and double-click restores 16rem. Its 22px header reads “Files” (12px,
+600) with a count badge, Collapse/Expand All Folders, and Hide Files; the
+Files tree fills the rest, and opening a file scrolls the review to it. The
+toolbar's Files toggle hides and shows the rail (persisted). Uncommitted
+reviews have no rail: the sidebar pane is their list. On phones the Files
+button opens a bottom sheet (`DialogShell` sheet: inset 4px, up to 70% of the
+viewport or 32rem tall) with a 32px header, the same tree, and Close files;
+choosing a file jumps there and closes the sheet.
 
 The tab body opens on a header (16px inset): the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
@@ -531,7 +574,7 @@ Slim notices sit inside a file in the large-file bar treatment: renamed,
 “Binary file changed · 12 KB → 14 KB”, “Large file (6.2 MB): diff is off.”,
 and “Couldn't compute this diff.”. “Loading diff…”, an unchanged file's
 message, and fetch failures with Retry use the 12px status text. Opening a
-file from the Files pane scrolls its header to the top and holds it there
+file from Uncommitted or the Files rail scrolls its header to the top and holds it there
 while files above load, until the user scrolls, presses the scrollbar,
 or types. The URL fragment `#f=<path>` names the file; line selection adds
 `&R12-R20`, and such a link lands its first line near the top third. The footer shows the file in view's path, `+N −M`, and the

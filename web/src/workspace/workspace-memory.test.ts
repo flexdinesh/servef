@@ -112,7 +112,7 @@ test("review tabs are remembered beside legacy document paths", () => {
   const tabs = [documentTab("README.md"), working]
   const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, working)
   assert.deepEqual(projectMemory(memory, "/a/api"), { tabs: ["README.md", { review: "working" }], active: { review: "working" } })
-  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, reviewTab({ kind: "branch", base: "" })), "/a/api")?.active, "")
+  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, reviewTab({ kind: "branch", base: "", head: "" })), "/a/api")?.active, "")
 })
 
 test("restored review tabs need no tree entry; documents still do", () => {

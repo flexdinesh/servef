@@ -79,20 +79,31 @@ function mockRange(params: URLSearchParams): boolean {
 
 const notFound: MockFixture = { name: "error-not-found.json", status: 404 }
 
+// Local branches refs.json lists; branch-stack.json stacks the feature ones.
+const mockLocalBranches: ReadonlySet<string> = new Set([
+  "feature/commit-history",
+  "feature/island-layout",
+  "feature/review-rail",
+  "main",
+  "release/0.9",
+])
+
 // Bases refs.json lists; another base is unknown. The branch fixtures stay
 // the same whichever base is chosen.
 const mockBases: ReadonlySet<string> = new Set([
-  "feature/commit-history",
-  "main",
-  "release/0.9",
+  ...mockLocalBranches,
   "origin/feature/commit-history",
   "origin/main",
   "origin/release/0.9",
 ])
 
+// mockUnknownBase rejects a base, then a head, refs.json does not list; a
+// head must be local. The branch fixtures stay the same whichever is chosen.
 function mockUnknownBase(params: URLSearchParams): MockFixture | undefined {
   const base = params.get("base")
-  return base === null || base === "" || mockBases.has(base) ? undefined : { name: "error-unknown-base.json", status: 400 }
+  if (base !== null && base !== "" && !mockBases.has(base)) return { name: "error-unknown-base.json", status: 400 }
+  const head = params.get("head")
+  return head === null || head === "" || mockLocalBranches.has(head) ? undefined : { name: "error-unknown-head.json", status: 400 }
 }
 
 // compare-stats.json counts changes.json's files; compare-stats-history.json
@@ -225,6 +236,8 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return mockRange(url.searchParams) ? { name: "range-files.json", status: 200 } : notFound
     case "/refs":
       return { name: "refs.json", status: 200 }
+    case "/branch-stack":
+      return mockUnknownBase(url.searchParams) ?? { name: "branch-stack.json", status: 200 }
     case "/compare-stats":
       return mockCompareStats(url.searchParams)
     default:

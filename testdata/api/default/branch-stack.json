@@ -1,0 +1,34 @@
+{
+  "repository": true,
+  "branch": "feature/commit-history",
+  "base": "main",
+  "mergeBase": "50b13ed0a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "head": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+  "layers": [
+    {
+      "name": "feature/review-rail",
+      "aliases": [],
+      "head": "6a1c2e3d4b5f60718293a4b5c6d7e8f9a0b1c2d3",
+      "parent": "feature/commit-history",
+      "ahead": 1,
+      "current": false
+    },
+    {
+      "name": "feature/commit-history",
+      "aliases": [],
+      "head": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+      "parent": "feature/island-layout",
+      "ahead": 1,
+      "current": true
+    },
+    {
+      "name": "feature/island-layout",
+      "aliases": [],
+      "head": "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2",
+      "parent": "main",
+      "ahead": 1,
+      "current": false
+    }
+  ],
+  "truncated": false
+}

@@ -73,28 +73,40 @@ global excludes and linked-worktree excludes.
 
 ## Source Control
 
-Source Control lists what you can review: Uncommitted (every modified, added,
-untracked, deleted, or renamed file since the last commit), Branch (every file
-your branch changed since it left its base, as a pull request shows), then
-your branch's commits. The base defaults to `origin/HEAD`, `main`, or
-`master`; pick another branch from the Branch row, and servef remembers it
-per project. Switch to All for the whole history, 50 commits at a time.
-servef reads git data directly; `git` need not be installed.
+Source Control stacks three panes, always in this order:
 
-Click a row to see its files below the list, with line counts, status
-letters, and Expand/Collapse All Folders; a commit also shows its message,
-author, date, and hash (Cmd/Ctrl+C copies it). Shift-click or Shift+Arrow
-across commits to see only their combined changes; Escape or Clear range
-narrows back to one commit. Drag between the list and the files to resize.
+- **Uncommitted** counts and lists every modified, added, untracked, deleted,
+  or renamed file since the last commit, as a flat list or a tree. Click a
+  file to review it.
+- **Commits** lists your branch's commits since it left its base, or the whole
+  history with All, 50 at a time. On the base branch itself it always shows
+  the whole history. Commits at the tip of a stacked branch show its name.
+- **Branches** shows your branch stack: the branches between the base and
+  your checkout, any built on top of it, and the base at the merge-base.
 
-Open a file, or press Enter on a row, to review the whole selection in one
-tab: every file's diff stacked under a sticky header, loaded as you scroll,
-with split or unified view, wrap, ignore whitespace, word or character inline
-changes, expand unchanged, and Expand/Collapse All Files. Mark files Viewed to
-fold them away; a mark clears when the file changes again. Uncommitted and
-Branch reviews follow new edits and commits; commit and range reviews stay
-fixed. On phones, tap a row to see its files and Back to return; long-press a
-commit, then tap another, to select a range.
+Empty panes start closed; open or close any pane and servef remembers it.
+Drag between open panes to resize them. The base defaults to `origin/HEAD`,
+`main`, or `master`; pick another from the Branches header, and servef
+remembers it per project. servef reads git data directly; `git` need not be
+installed.
+
+Diffs open only when you ask. Hover a commit and click its diff button, or
+press Enter. Shift-click or Shift+Arrow across commits, then use the diff
+button on the newest one to review their combined changes; Escape narrows
+back to one commit, and Cmd/Ctrl+C copies a commit's hash. On a branch, one
+button reviews just that branch's own commits against the branch below it,
+the other everything since the base.
+
+A review opens in one tab: every file's diff stacked under a sticky header,
+loaded as you scroll, with split or unified view, wrap, ignore whitespace,
+word or character inline changes, expand unchanged, and Expand/Collapse All
+Files. Commit, range, and branch reviews list their files in a rail beside
+the diffs; drag its edge to resize it, or hide it with the Files button. Mark
+files Viewed to fold them away; a mark clears when the file changes again.
+Uncommitted and branch reviews follow new edits and commits; commit and range
+reviews stay fixed. On phones, tap a commit to show its diff button,
+long-press a commit and tap another to select a range, and use the Files
+button to jump between a review's files.
 
 ## Settings and commands
 

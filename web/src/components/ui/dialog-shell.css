@@ -41,6 +41,14 @@
   margin: 0;
 }
 
+.ui-dialog[data-variant="sheet"] {
+  inset: auto var(--space-1) var(--space-1);
+  width: auto;
+  height: min(70dvh, 32rem);
+  max-width: none;
+  margin: 0;
+}
+
 .ui-dialog[data-backdrop="transparent"]::backdrop {
   background: transparent;
 }

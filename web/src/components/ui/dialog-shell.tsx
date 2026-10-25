@@ -4,8 +4,9 @@ import type { DialogHTMLAttributes, Ref } from "react"
 interface DialogShellProps extends DialogHTMLAttributes<HTMLDialogElement> {
   // palette: top-anchored quick pick; panel: centered settings or details;
   // viewer: full-bleed content such as a diagram; drawer: full-height sheet
-  // at the inline start, such as the mobile sidebar.
-  variant?: "palette" | "panel" | "viewer" | "drawer"
+  // at the inline start, such as the mobile sidebar; sheet: a bottom sheet
+  // for a phone's secondary list, such as a review's files.
+  variant?: "palette" | "panel" | "viewer" | "drawer" | "sheet"
   backdrop?: "transparent" | "overlay"
   ref?: Ref<HTMLDialogElement>
 }

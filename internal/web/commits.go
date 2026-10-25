@@ -26,7 +26,11 @@ const (
 	invalidCommitMessage     = "That commit hash is invalid."
 	unknownBaseMessage       = "That base branch doesn't exist."
 	// unknownBaseCode marks a 400 for a base branch /api/refs does not list.
-	unknownBaseCode = "unknownBase"
+	unknownBaseCode    = "unknownBase"
+	unknownHeadMessage = "That head branch doesn't exist."
+	// unknownHeadCode marks a 400 for a head that is not a local branch
+	// /api/refs lists.
+	unknownHeadCode = "unknownHead"
 )
 
 // writeUnknownBase writes the failure for a base branch the repository does
@@ -36,6 +40,16 @@ func writeUnknownBase(w http.ResponseWriter, err error) bool {
 		return false
 	}
 	writeJSON(w, http.StatusBadRequest, errorResponse{Error: unknownBaseMessage, Code: unknownBaseCode})
+	return true
+}
+
+// writeUnknownHead writes the failure for a head branch the repository does
+// not have locally and reports whether err was one.
+func writeUnknownHead(w http.ResponseWriter, err error) bool {
+	if !errors.Is(err, git.ErrUnknownHead) {
+		return false
+	}
+	writeJSON(w, http.StatusBadRequest, errorResponse{Error: unknownHeadMessage, Code: unknownHeadCode})
 	return true
 }
 
@@ -214,12 +228,14 @@ func (a *App) serveDiffs(w http.ResponseWriter, r *http.Request, projectID strin
 		writeDiffQueryError(w, "Choose one of commit, branch, or from and to.")
 	case query.Has("base") && !branch:
 		writeDiffQueryError(w, "Base applies to branch diffs only.")
+	case query.Has("head") && !branch:
+		writeDiffQueryError(w, "Head applies to branch diffs only.")
 	case commit:
 		a.serveCommitDiff(w, r, projectID, query.Get("commit"), name, oldPath)
 	case branch && query.Get("branch") != "1":
 		writeDiffQueryError(w, "Branch must be 1.")
 	case branch:
-		a.serveBranchDiff(w, r, projectID, query.Get("base"), name, oldPath)
+		a.serveBranchDiff(w, r, projectID, query.Get("base"), query.Get("head"), name, oldPath)
 	case ranged && (!query.Has("from") || !query.Has("to")):
 		writeDiffQueryError(w, "A commit range needs both from and to.")
 	case ranged:
@@ -252,9 +268,9 @@ type rangeFilesResponse struct {
 }
 
 // serveBranchFiles lists the branch's net changes: the merge base with the
-// base branch, base or else the default, against HEAD. It is read live,
-// never pinned.
-func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID, base string) {
+// base branch, base or else the default, against the head branch, or else
+// HEAD. It is read live, never pinned.
+func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID, base, head string) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
@@ -274,16 +290,19 @@ func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	compared, changes, err := repo.BranchFiles(ctx, base, commitFilesLimit)
-	if writeUnknownBase(w, err) {
+	compared, changes, err := repo.BranchFiles(ctx, base, head, commitFilesLimit)
+	switch {
+	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
-	}
-	if err != nil {
+	case err != nil:
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
 		return
 	}
 	response.Repository = true
-	response.Branch = repo.Branch()
+	response.Branch = head
+	if head == "" {
+		response.Branch = repo.Branch()
+	}
 	response.Base = compared.Base
 	response.MergeBase = hashString(compared.MergeBase)
 	response.Head = hashString(compared.Head)
@@ -299,6 +318,78 @@ func hashString(hash git.Hash) string {
 		return ""
 	}
 	return hash.String()
+}
+
+type branchStackResponse struct {
+	Repository bool                 `json:"repository"`
+	Branch     string               `json:"branch"`
+	Base       string               `json:"base"`
+	MergeBase  string               `json:"mergeBase"`
+	Head       string               `json:"head"`
+	Layers     []stackLayerResponse `json:"layers"`
+	Truncated  bool                 `json:"truncated"`
+}
+
+type stackLayerResponse struct {
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases"`
+	Head    string   `json:"head"`
+	Parent  string   `json:"parent"`
+	Ahead   int      `json:"ahead"`
+	Current bool     `json:"current"`
+}
+
+// serveBranchStack lists the local branches stacked with HEAD on the base
+// branch, base or else the default. It is read live, never pinned.
+func (a *App) serveBranchStack(w http.ResponseWriter, r *http.Request, projectID, base string) {
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	response := branchStackResponse{Layers: []stackLayerResponse{}}
+	repo, err := git.Open(project.root)
+	if errors.Is(err, git.ErrNotRepository) {
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return
+	}
+	defer func() { _ = repo.Close() }()
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	stack, err := repo.Stack(ctx, base)
+	switch {
+	case writeUnknownBase(w, err):
+		return
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git history: " + err.Error()})
+		return
+	}
+	response.Repository = true
+	response.Branch = stack.Branch
+	response.Base = stack.Base
+	response.MergeBase = hashString(stack.MergeBase)
+	response.Head = hashString(stack.Head)
+	response.Truncated = stack.Truncated
+	for _, layer := range stack.Layers {
+		aliases := layer.Aliases
+		if aliases == nil {
+			aliases = []string{}
+		}
+		response.Layers = append(response.Layers, stackLayerResponse{
+			Name:    layer.Name,
+			Aliases: aliases,
+			Head:    layer.Head.String(),
+			Parent:  layer.Parent,
+			Ahead:   layer.Ahead,
+			Current: layer.Current,
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 // serveRangeFiles lists a commit range's net changes: from's first parent,
@@ -418,12 +509,12 @@ func (a *App) serveRangeDiff(w http.ResponseWriter, r *http.Request, projectID, 
 		historySide{newest.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(newest, name) }})
 }
 
-// serveBranchDiff pairs the merge base (Original) with HEAD (Modified) for
-// one change of the branch against base, or else the default base branch,
-// resolved again on every request. A path outside the branch's changes,
-// including when nothing is ahead, is unchanged, as in the working tree
-// diff.
-func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID, base, name, oldPath string) {
+// serveBranchDiff pairs the merge base (Original) with the head branch, or
+// else HEAD, (Modified) for one change of the branch against base, or else
+// the default base branch, resolved again on every request. A path outside
+// the branch's changes, including when nothing is ahead, is unchanged, as in
+// the working tree diff.
+func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID, base, head, name, oldPath string) {
 	repo, _, ok := a.openHistoryDiff(w, projectID, name)
 	if !ok {
 		return
@@ -432,9 +523,9 @@ func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID,
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	compared, change, err := repo.BranchLookup(ctx, base, name, oldPath)
+	compared, change, err := repo.BranchLookup(ctx, base, head, name, oldPath)
 	switch {
-	case writeUnknownBase(w, err):
+	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
 	case errors.Is(err, git.ErrUnavailable):
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
