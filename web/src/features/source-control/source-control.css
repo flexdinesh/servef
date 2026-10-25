@@ -262,7 +262,12 @@
   gap: var(--space-1);
 }
 
-.compare-row:is(:hover, :focus-within, [data-diff-pinned]) :is(.row-action, .row-actions) {
+/* Restore IconButton's grid so the glyph stays centered. */
+.compare-row:is(:hover, :focus-within, [data-diff-pinned]) .row-action {
+  display: inline-grid;
+}
+
+.compare-row:is(:hover, :focus-within, [data-diff-pinned]) .row-actions {
   display: inline-flex;
 }
 
