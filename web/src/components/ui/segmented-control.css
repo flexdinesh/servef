@@ -15,6 +15,16 @@
   border-radius: var(--radius-md);
 }
 
+/* md fills the document toolbar like tabs: square segments on the chrome, and
+   the pressed one takes the document surface, as the active tab does. */
+.ui-segmented[data-size="md"] {
+  height: var(--chrome-height);
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .ui-segmented-item {
   display: inline-flex;
   min-width: 0;
@@ -60,6 +70,27 @@
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: var(--shadow-control);
+}
+
+.ui-segmented[data-size="md"] .ui-segmented-item {
+  border-radius: 0;
+}
+
+/* Icon-only segments keep a control's width rather than the strip's square,
+   so view and zoom controls fit at 320px. */
+.ui-segmented[data-size="md"] .ui-segmented-item:has(> svg:only-child) {
+  width: var(--control-md);
+  aspect-ratio: auto;
+}
+
+.ui-segmented[data-size="md"] .ui-segmented-item:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--color-chrome-hover);
+}
+
+.ui-segmented[data-size="md"] .ui-segmented-item:is([aria-pressed="true"], [data-popup-open]),
+.ui-segmented[data-size="md"] .ui-segmented-item:is([aria-pressed="true"], [data-popup-open]):hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--color-surface);
+  box-shadow: none;
 }
 
 .ui-segmented-item:focus-visible {

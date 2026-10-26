@@ -2,7 +2,7 @@ import { cn } from "cn"
 import type { ButtonHTMLAttributes, HTMLAttributes, Ref } from "react"
 
 interface SegmentedControlProps extends HTMLAttributes<HTMLDivElement> {
-  // sm sits in view headers; md sits in the document toolbar.
+  // sm sits in view headers on a track; md fills the document toolbar as tabs.
   size?: "sm" | "md"
 }
 

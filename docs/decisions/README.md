@@ -48,6 +48,7 @@ rewriting history; update `Status` on the old record.
 | [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted; commit-row branch chips superseded by 0042 |
 | [0041](0041-white-canvas-servef-light.md) | White canvas for Servef Light | Accepted; white document surface amended by 0043 |
 | [0042](0042-expandable-commit-rows.md) | Expandable commit rows | Accepted |
-| [0043](0043-grey-document-surface-servef-light.md) | Grey document surface for Servef Light | Accepted; Servef Light values amended by 0044 |
-| [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045 |
-| [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted |
+| [0043](0043-grey-document-surface-servef-light.md) | Grey document surface for Servef Light | Accepted; Servef Light values amended by 0044; grey document surface superseded by 0046 |
+| [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Servef Light values amended by 0046 |
+| [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
+| [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
