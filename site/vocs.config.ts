@@ -12,6 +12,7 @@ export default defineConfig({
     { text: 'Usage', link: '/usage' },
     { text: 'Browsing', link: '/browsing' },
     { text: 'Code navigation', link: '/code-navigation' },
+    { text: 'Walkthroughs', link: '/walkthroughs' },
   ],
   socials: [{ icon: 'github', link: 'https://github.com/flexdinesh/servef' }],
 })

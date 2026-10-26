@@ -12,6 +12,7 @@ else.
 - VS Code-style Explorer, Search, Source Control, tabs, and command palette
 - Review uncommitted work, commits, a range of commits, or a branch stack layer by layer in one stacked diff tab
 - Go to definition and find references through installed language servers
+- Walkthroughs: agents publish guided tours of files and diffs with narration inline in the code ([agent skill](skills/servef-walkthrough/SKILL.md))
 - 28 themes, including Omarchy's built-ins; Mermaid diagrams; line links
 
 ## Install
@@ -64,7 +65,7 @@ servef --help
 
 ## Documentation
 
-Usage, browsing, and code navigation guides live in
+Usage, browsing, code navigation, and walkthrough guides live in
 [`site/src/pages`](https://github.com/flexdinesh/servef/tree/main/site/src/pages).
 Contributors: see [development](docs/development.md) and
 [architecture](docs/architecture.md).
