@@ -20,6 +20,9 @@
 # Local dev overrides (see .env.example)
 /.env
 
+# Source Control repository mise run dev rebuilds
+/.dev/
+
 # Local Go workspace files
 /go.work
 /go.work.sum

@@ -7,7 +7,7 @@ import path from "node:path"
 // rebuilt before each run. Without git, it is a plain folder and the Source
 // Control specs skip. Each run gets its own folder, through the environment so
 // the runner, its workers, and the server command agree, so concurrent runs from
-// other worktrees cannot rebuild it mid-run.
+// other worktrees cannot rebuild it mid-run. mise run dev rebuilds it in .dev.
 function fixtureRoot(): string {
   const existing = process.env.SERVEF_BROWSER_GIT_ROOT
   if (existing) return existing
