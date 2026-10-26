@@ -101,3 +101,27 @@ test("every theme keeps additions and deletions distinct hues", () => {
     assert.ok(Math.min(distance, 360 - distance) >= 60, `${name}: success and destructive hues are ${distance.toFixed(0)}° apart`)
   }
 })
+
+// mix is CSS color-mix(in srgb, a p, b) for 6-digit hex colors.
+function mix(a: string, b: string, p: number): string {
+  const [ca, cb] = [channels(a), channels(b)]
+  return `#${ca.map((value, index) => Math.round((value * p + (cb[index] ?? 0) * (1 - p)) * 255).toString(16).padStart(2, "0")).join("")}`
+}
+
+test("every theme's selection mark and field edges hold 3:1 against their grounds", () => {
+  const servef = /:root:is\(\[data-theme="system"\][^{]*\{([^}]*)\}/.exec(themesCSS)?.[1] ?? ""
+  const servefLight = (key: string) => new RegExp(`--color-${key}:\\s*light-dark\\((#[0-9a-f]{6})`).exec(servef)?.[1]
+  for (const [name, values] of allThemes()) {
+    const value = (key: string) => (name === "light" ? servefLight(key) : undefined) ?? values.get(`--color-${key}`) ?? ""
+    const chrome = value("workspace-chrome") || mix(value("surface"), value("canvas"), 0.5)
+    const field = value("field-border") || mix(value("text-muted"), value("surface"), 0.9)
+    for (const [ground, color] of [["surface", value("surface")], ["surface-secondary", value("surface-secondary")], ["surface-raised", value("surface-raised")], ["workspace-chrome", chrome]]) {
+      const edge = contrast(field, color)
+      assert.ok(edge >= 3, `${name}: field-border on ${ground} is ${edge.toFixed(2)}:1`)
+    }
+    for (const [ground, color] of [["surface", value("surface")], ["surface-secondary", value("surface-secondary")], ["workspace-chrome", chrome], ["accent-subtle", value("accent-subtle")]]) {
+      const mark = contrast(value("accent"), color)
+      assert.ok(mark >= 3, `${name}: selection mark (accent) on ${ground} is ${mark.toFixed(2)}:1`)
+    }
+  }
+})
