@@ -4,23 +4,23 @@ description: Compact VS Code-style workspace for browsing local files.
 colors:
   bg: "#fafafa"
   canvas: "#ffffff"
-  workspace-chrome: "#f4f4f4"
+  workspace-chrome: "#f0f0f0"
   surface: "#f9f9f9"
   surface-secondary: "#f8f8f8"
-  surface-recessed: "#f4f4f4"
+  surface-recessed: "#f0f0f0"
   surface-raised: "#ffffff"
   text-primary: "#333333"
   text-secondary: "#515866"
-  text-muted: "#6d7685"
-  border: "#ebebeb"
+  text-muted: "#5d6676"
+  border: "#e3e3e3"
   border-strong: "#d0d5dc"
   accent: "#2563eb"
   accent-hover: "#1d4ed8"
-  accent-subtle: "#e8efff"
+  accent-subtle: "#e0e9fd"
   on-accent: "#ffffff"
-  success: "#16794b"
+  success: "#13703f"
   warning: "#9a5800"
-  warning-subtle: "#fff1cf"
+  warning-subtle: "#ffeab3"
   destructive: "#bd3029"
   destructive-subtle: "#fff0ef"
   overlay: "rgb(15 18 23 / 48%)"
@@ -184,7 +184,7 @@ components:
     height: "2rem"
     typography: "{typography.label}"
   code-block:
-    backgroundColor: "{colors.surface-secondary}"
+    backgroundColor: "{colors.surface-recessed}"
     textColor: "{colors.text-primary}"
     rounded: "{rounded.md}"
     padding: "0.5rem 0.75rem"
@@ -222,7 +222,7 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document (`#f9f9f9` in Servef Light, decision 0043); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#f4f4f4` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f4f4f4` in Light); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document (`#f9f9f9` in Servef Light, decision 0043); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#f0f0f0` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f0f0f0` in Light, a clear step under the `#f9f9f9` surface; decision 0044); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Servef Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Servef Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `servef-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
@@ -231,10 +231,11 @@ Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy'
 
 **State roles** (VS Code conventions, shared by every interactive element):
 
-- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on chrome, islands, and overlays.
-- `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles, highlighted menu items.
+- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Servef Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
+- `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles (including a pressed IconButton), highlighted menu items. Accent text on the selection tint (selected line numbers, palette matches) switches to `selected-text`, which holds 4.5:1 there.
 - `--color-focus` (= `accent`): keyboard focus.
-- `--color-field-bg` (= `surface`) and `--color-field-border` (= `border-strong`): text fields and selects.
+- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#858b94` in Servef Light), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
+- `--color-selected-border` (= `accent`): the selection mark. The selection tint is under 3:1, so every selected, active, or pressed state also draws a 3:1 mark: a 1px inset ring on selected rows (lists, trees, menus' highlighted item, a pressed IconButton; a commit range takes one ring around the run), a 2px line on the active tab's top edge, and a 2px bar on the activity rail's left edge beside the active view (decision 0045).
 
 ## Typography
 
@@ -295,7 +296,7 @@ Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px
 Every view composes these from `web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
 
 - **Button**: primary, outline, ghost, plain, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; plain is ghost without hover or press layers, its pointer cursor the only hover cue (review file headers); disabled is 50% opacity. Actions such as Retry, Open File, and Clear filter are outline md.
-- **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. Dialogs raise targets to 44px on narrow screens.
+- **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. With `aria-pressed`, the pressed state takes the selection tint. Dialogs raise targets to 44px on narrow screens.
 - **ToggleButton**: independent on/off options (match case, Show modified). Pressed uses an accent border with the selection fill and ink.
 - **SegmentedControl**: mutually exclusive modes (Preview/Source, zoom, diff layout, Branch/All). A translucent `--color-hover` track; the pressed item lifts onto `surface` with the control shadow. Icon-only items are square.
 - **TextField** and **Select**: 28px fields with icon, leading, and trailing slots; the palette variant is borderless, 40px (44px mobile), with an accent underline.
@@ -308,7 +309,7 @@ Activity bar, tab strip, Pierre trees and diffs, prose, and the Mermaid canvas a
 
 ### Activity bar
 
-A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners, `--shadow-control`) and `aria-pressed`; hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners, `--shadow-control`), a 2px `selected-border` bar on the rail's left edge (4px inset top and bottom, as in VS Code), and `aria-pressed`; hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -376,7 +377,7 @@ project's remembered tabs return. A project that no longer resolves shows
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is a `SegmentedControl` inset 4px vertically in the 32px toolbar. Image zoom controls share the same `SegmentedControl`; icon-only items are square, so SVG view and zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners, a 2px `selected-border` line on its top edge (as in VS Code), and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is a `SegmentedControl` inset 4px vertically in the 32px toolbar. Image zoom controls share the same `SegmentedControl`; icon-only items are square, so SVG view and zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 
@@ -412,7 +413,7 @@ label. No line selection.
 
 ### Settings
 
-The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a surface-secondary fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
+The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a `surface-recessed` fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
 
 Opened at a setting (from the command palette), Settings clears its search, scrolls the item into view, focuses its control (selecting a number's text), and flashes the item: `accent-subtle` fill and a 1px inset accent ring hold for the first third of 1.6s, then ease out (`cubic-bezier(0.16, 1, 0.3, 1)`). Reduced motion shows the highlight statically for 1.6s.
 
@@ -434,11 +435,13 @@ Results are a `role="tree"` with 22px rows (32px narrow): file rows show a 12px 
 
 Ctrl/Cmd+Shift+G or the activity item reveals the view (decision 0040). The
 32px header reads “Source Control” (12px, 600) with Refresh (rereads changes,
-commits, the stack, and branch files; Close on mobile). Three panes stack
+commits, the stack, and branch files; Close on mobile), ending on a 1px
+`border` line as the Explorer and Search shelves do. Three panes stack
 below, always in this order: Uncommitted, Commits, Branches. Each opens on a
 22px header (32px narrow) whose heading holds a section toggle (12px chevron,
 the name in 12px 600), then a note and right-aligned 20px icon actions; panes
-divide with a 1px `border-strong` line. Empty panes start closed (no changes, no
+divide with a 1px `border-strong` line, drawn whether or not a sash sits
+between them. Empty panes start closed (no changes, no
 commits in the range, no stack layers) and open when content arrives; once
 the user toggles a pane, that choice persists. On desktop open panes split
 the height by weight; a 5px sash above each open pane that follows another
@@ -572,8 +575,9 @@ The tab body opens on a header (16px inset): the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
 “12 files”, `+120 −30` (in the status hues), and “3 of 12 viewed”. Files follow on a recessed
 `workspace-chrome` gutter (8px inset, 12px between files, 32px below the last),
-each an island: a `surface` section with `--radius-island` corners, no border or
-shadow, as the workspace islands sit on the canvas. Each section is named by its
+each an island: a `surface` section with `--radius-island` corners and the
+`island-border` hairline (Servef Light only), as the workspace islands sit on
+the canvas. Each section is named by its
 path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`,
 sticking one 8px gutter below the tab strip over a gutter-colored band,
 with a bottom border that hides while the file is collapsed): a plain disclosure toggle (no hover fill) with chevron,
@@ -596,7 +600,9 @@ selected lines.
 Diff source uses the Source font, size, and line height in rem. Syntax colors
 come from `--color-syntax-*` through a CSS-variable Shiki theme, so every theme
 applies and polarity follows the resolved theme. Added and deleted line fills
-are `color-mix` of `success` and `destructive` with `surface`; line numbers,
+are Pierre's 12% mix of `success` and `destructive` into `surface`; Servef
+Light mixes a vivid green (`--color-diff-addition-tint`, `#00c853`) for
+additions, since its dark `success` reads grey at that strength; line numbers,
 separators, and selection use servef tokens. Highlighting runs in a pool of two
 local workers shared by the tab's files; a separate worker computes diffs, at
 most 30 stay parsed, and rows are virtualized within the document pane.

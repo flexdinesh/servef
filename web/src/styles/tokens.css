@@ -16,16 +16,16 @@
   --color-surface-raised: light-dark(#ffffff, #252526);
   --color-text-primary: light-dark(#333333, #e8eaf0);
   --color-text-secondary: light-dark(#515866, #b2b8c4);
-  --color-text-muted: light-dark(#666f7e, #8992a1);
-  --color-border: light-dark(#ebebeb, #2b2b2b);
+  --color-text-muted: light-dark(#5d6676, #8992a1);
+  --color-border: light-dark(#e3e3e3, #2b2b2b);
   --color-border-strong: light-dark(#d0d5dc, #414855);
   --color-accent: light-dark(#2563eb, #78a8ff);
   --color-accent-hover: light-dark(#1d4ed8, #9bbfff);
-  --color-accent-subtle: light-dark(#e8efff, #1d3155);
+  --color-accent-subtle: light-dark(#e0e9fd, #1d3155);
   --color-on-accent: light-dark(#ffffff, #1f1f1f);
-  --color-success: light-dark(#16794b, #62d09b);
+  --color-success: light-dark(#13703f, #62d09b);
   --color-warning: light-dark(#9a5800, #efb15a);
-  --color-warning-subtle: light-dark(#fff1cf, #3c2d18);
+  --color-warning-subtle: light-dark(#ffeab3, #3c2d18);
   --color-destructive: light-dark(#bd3029, #ff827a);
   --color-destructive-subtle: light-dark(#fff0ef, #422523);
   --color-overlay: light-dark(rgb(15 18 23 / 48%), rgb(0 0 0 / 62%));
@@ -66,6 +66,8 @@
   /* Fills set into the document surface: the active source line, code
      blocks, table headers, diff separators, the image checkerboard. */
   --color-surface-recessed: var(--color-surface-secondary);
+  /* Hover on the chrome bands (tab strip, activity rail). */
+  --color-chrome-hover: var(--color-hover);
 
   /* State roles. Hover and pressed layers are translucent ink, so they read on
      any surface. Selected rows and pressed toggles share the accent tint. */
@@ -73,9 +75,13 @@
   --color-active: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   --color-selected: var(--color-accent-subtle);
   --color-selected-text: var(--color-accent-hover);
+  /* The selection tint is subtle, so selected, active, and pressed states also
+     draw this mark, which holds 3:1 (WCAG 1.4.11) on every surface. */
+  --color-selected-border: var(--color-accent);
   --color-focus: var(--color-accent);
   --color-field-bg: var(--color-surface);
-  --color-field-border: var(--color-border-strong);
+  /* Field edges hold 3:1 against the field and its surroundings (WCAG 1.4.11). */
+  --color-field-border: color-mix(in srgb, var(--color-text-muted) 90%, var(--color-surface));
 
   /* Spacing scale. */
   --space-1: 0.25rem;

@@ -41,6 +41,11 @@
   font-weight: 600;
 }
 
+/* Accent drops below 4.5:1 on the selection tint; selection ink holds. */
+.command-option[aria-selected="true"] mark {
+  color: var(--color-selected-text);
+}
+
 .command-value {
   flex: none;
   margin-left: auto;
