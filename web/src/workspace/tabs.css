@@ -28,7 +28,7 @@
 
 .buffer-tab:hover {
   color: var(--color-text-primary);
-  background-image: linear-gradient(var(--color-hover), var(--color-hover));
+  background-image: linear-gradient(var(--color-chrome-hover), var(--color-chrome-hover));
 }
 
 .buffer-tab.active {

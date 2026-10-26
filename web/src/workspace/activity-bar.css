@@ -33,7 +33,7 @@
 }
 
 .activity-item:hover::before {
-  background: var(--color-hover);
+  background: var(--color-chrome-hover);
 }
 
 .activity-item:active::before {

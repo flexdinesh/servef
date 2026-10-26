@@ -65,7 +65,7 @@
 }
 
 .source-document-line.selected .source-document-line-number {
-  color: var(--color-accent);
+  color: var(--color-selected-text);
   font-weight: 600;
 }
 
