@@ -2,17 +2,17 @@
 name: servef
 description: Compact VS Code-style workspace for browsing local files.
 colors:
-  bg: "#f8f8f8"
-  canvas: "#d4d4d4"
-  workspace-chrome: "#eaeaea"
+  bg: "#fafafa"
+  canvas: "#ffffff"
+  workspace-chrome: "#f4f4f4"
   surface: "#ffffff"
-  surface-secondary: "#f3f3f3"
+  surface-secondary: "#f8f8f8"
   surface-raised: "#ffffff"
   text-primary: "#333333"
   text-secondary: "#515866"
   text-muted: "#6d7685"
-  border: "#e5e5e5"
-  border-strong: "#c5cbd4"
+  border: "#ebebeb"
+  border-strong: "#d0d5dc"
   accent: "#2563eb"
   accent-hover: "#1d4ed8"
   accent-subtle: "#e8efff"
@@ -221,7 +221,7 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone that recedes below every island surface (darker than all of them in light and dark themes) for the outer workspace and footer; `surface` is document; `surface-secondary` is explorer/code; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document; `surface-secondary` is explorer/code; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f4f4f4` in Light); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Servef Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Servef Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `servef-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
@@ -269,7 +269,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose canvas matches the document surface, a 1px `island-border` hairline keeps their edges. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
@@ -293,7 +293,7 @@ Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px
 
 Every view composes these from `web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
 
-- **Button**: primary, outline, ghost, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; disabled is 50% opacity. Actions such as Retry, Open File, and Clear filter are outline md.
+- **Button**: primary, outline, ghost, plain, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; plain is ghost without hover or press layers, its pointer cursor the only hover cue (review file headers); disabled is 50% opacity. Actions such as Retry, Open File, and Clear filter are outline md.
 - **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. Dialogs raise targets to 44px on narrow screens.
 - **ToggleButton**: independent on/off options (match case, Show modified). Pressed uses an accent border with the selection fill and ink.
 - **SegmentedControl**: mutually exclusive modes (Preview/Source, zoom, diff layout, Branch/All). A translucent `--color-hover` track; the pressed item lifts onto `surface` with the control shadow. Icon-only items are square.
@@ -307,7 +307,7 @@ Activity bar, tab strip, Pierre trees and diffs, prose, and the Mermaid canvas a
 
 ### Activity bar
 
-A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners) and `aria-pressed`; hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners, `--shadow-control`) and `aria-pressed`; hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -468,13 +468,23 @@ Commits' header adds a muted “2 ahead of main” in the branch range and a
 HEAD is the base branch both items are disabled, All shows pressed, and the
 title says “HEAD is the base branch, so all history shows”. A `role="listbox"`
 named “Commits” (`aria-multiselectable` on desktop) holds 22px rows (32px
-narrow) with the Search view's state treatment: the subject in
-`text-primary`, branch-name chips for stack layer tips (12px monospace,
-1px `border`, 2px radius, at most 45% of the row; HEAD's branch in `accent`),
-and a muted right-aligned compact age (`3h`, `2d`, `4mo`). The title adds
-author, absolute date, and short hash; the name reads “subject, author, 3
-hours ago, branch”. Selected rows take the selection fill and ink with
-`aria-selected`. A 20px Diff action (file-diff icon, “Open changes”) replaces
+narrow) with the Search view's state treatment: a leading 20px chevron
+(“Show commit details”, in the pane title's chevron column), the subject in
+`text-primary` on the other rows' indent, and a muted right-aligned compact
+age (`3h`, `2d`, `4mo`). The title adds author, absolute date, and short
+hash; the name reads “subject, author, 3 hours ago, branch”. Selected rows
+take the selection fill and ink with `aria-selected`.
+
+The chevron, or Right and Left on the focused row, shows and hides a
+commit's details under it, on the subject's indent (decision 0042): the
+message body (secondary, line breaks kept), `author <email>`, the absolute
+date, the short hash chip with a 20px Copy action for the full hash, and,
+for stack layer tips, a 12px git-branch icon and branch-name chips (12px
+monospace, 1px `border`, 2px radius; HEAD's branch in `accent`). Details are
+12px muted lines; items wrap whole and truncate when wider than the pane.
+Several commits can show details; the choice is not persisted. The details
+stay out of the accessibility tree; the row names them through
+`aria-describedby`. A 20px Diff action (file-diff icon, “Open changes”) replaces
 the age on hover and keyboard focus and stays on the selection; on a range it
 sits on the newest selected commit only (“Open changes in the selected
 commits”) and opens the combined diff.
@@ -563,7 +573,7 @@ the commit's meta, the branch's merge-base, or the range's span, then totals:
 each an island: a `surface` section with `--radius-island` corners, no border or
 shadow, as the workspace islands sit on the canvas. Each section is named by its
 path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`
-with a bottom border that hides while the file is collapsed): a disclosure toggle with chevron,
+with a bottom border that hides while the file is collapsed): a plain disclosure toggle (no hover fill) with chevron,
 file icon, and path; a muted “from <old path>”; stats; the status letter; a
 Viewed toggle button (disabled until the file's blob hash arrives); and Open
 File (disabled, with its reason, when the working tree lacks the file). Viewed files start collapsed; marks persist

@@ -1,10 +1,12 @@
-import { ChevronsDownIcon, FileDiffIcon, RefreshCwIcon } from "lucide-react"
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
+import { ChevronsDownIcon, FileDiffIcon, GitBranchIcon, RefreshCwIcon } from "lucide-react"
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 
 import { Button } from "../../components/ui/button.tsx"
+import { CopyButton } from "../../components/ui/copy-button.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { ListButton, ListRow } from "../../components/ui/list-row.tsx"
 import { StatusMessage } from "../../components/ui/notice.tsx"
+import { Chevron } from "../../components/ui/section-toggle.tsx"
 import type { Commit } from "../../api/commits-contract.ts"
 import { shortHash } from "../../lib/commit-hash.ts"
 import { useClipboardCopy } from "../../lib/clipboard.ts"
@@ -45,6 +47,8 @@ export function CommitsPane({ allOnly, chips, commits, mobile, selection, onOpen
   const [anchor, setAnchor] = useState("")
   // pending is a phone's long-pressed commit, waiting for a second tap.
   const [pending, setPending] = useState("")
+  // expanded holds the commits whose details show; transient, not persisted.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   const press = useRef<{ timer: number; hash: string; fired: boolean } | null>(null)
   const hashCopy = useClipboardCopy()
   const tabKey = list.some((commit) => commit.hash === focusedKey) ? focusedKey : selected[0] ?? list[0]?.hash ?? ""
@@ -56,6 +60,16 @@ export function CommitsPane({ allOnly, chips, commits, mobile, selection, onOpen
     requestAnimationFrame(() => {
       const row = container.current?.querySelector(`[data-row-key="${CSS.escape(hash)}"]`)
       if (row instanceof HTMLElement) row.focus()
+    })
+  }
+
+  // setDetails opens or closes a commit's details, dropping commits no longer
+  // listed.
+  function setDetails(hash: string, open: boolean) {
+    setExpanded((current) => {
+      const next = new Set([...current].filter((key) => key !== hash && list.some((commit) => commit.hash === key)))
+      if (open) next.add(hash)
+      return next
     })
   }
 
@@ -89,6 +103,8 @@ export function CommitsPane({ allOnly, chips, commits, mobile, selection, onOpen
       } else {
         select(next.hash, false)
       }
+    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      setDetails(row.hash, event.key === "ArrowRight")
     } else if (event.key === "Home" || event.key === "End") {
       const next = event.key === "Home" ? list[0] : list.at(-1)
       if (!next) return
@@ -155,6 +171,7 @@ export function CommitsPane({ allOnly, chips, commits, mobile, selection, onOpen
           {list.map((commit) => <CommitRow key={commit.hash} commit={commit} now={now}
             selected={selected.includes(commit.hash)} inRange={selection?.kind === "range" && selected.includes(commit.hash)}
             pending={pending === commit.hash} focusable={commit.hash === tabKey} chips={chips.get(commit.hash) ?? []}
+            expanded={expanded.has(commit.hash)} onExpandedChange={(open) => setDetails(commit.hash, open)}
             diff={rowDiff(commit.hash, selection, selected)}
             onFocus={() => setFocusedKey(commit.hash)}
             onPointerDown={(event) => onPointerDown(event, commit.hash)} onPointerEnd={endPress}
@@ -198,6 +215,8 @@ interface CommitRowProps {
   focusable: boolean
   chips: readonly RefChip[]
   diff: ReturnType<typeof rowDiff>
+  expanded: boolean
+  onExpandedChange(expanded: boolean): void
   onFocus(): void
   onPointerDown(event: PointerEvent<HTMLDivElement>): void
   onPointerEnd(): void
@@ -206,21 +225,34 @@ interface CommitRowProps {
   onOpen(compare: Compare): void
 }
 
+// CommitRow is one commit; its chevron (or Right and Left) shows details
+// under it: message body, author, date, hash, and the branches it tips.
 function CommitRow({
-  chips, commit, diff, focusable, inRange, now, pending, selected, onClick, onDoubleClick, onFocus, onOpen, onPointerDown, onPointerEnd,
+  chips, commit, diff, expanded, focusable, inRange, now, pending, selected, onClick, onDoubleClick, onExpandedChange, onFocus, onOpen,
+  onPointerDown, onPointerEnd,
 }: CommitRowProps) {
   const age = commitAge(commit.authorTime, now)
   const diffLabel = diff?.compare.kind === "range" ? "Open changes in the selected commits" : "Open changes"
-  return (
+  const detailsId = useId()
+  return (<>
     <ListRow data-row-key={commit.hash} role="option" tabIndex={focusable ? 0 : -1} aria-selected={selected} selected={selected}
       className="compare-row compare-row-commit" data-range={inRange || undefined} data-pending={pending || undefined}
-      data-diff-pinned={diff?.pinned || undefined}
+      data-diff-pinned={diff?.pinned || undefined} data-expanded={expanded || undefined}
+      aria-describedby={expanded ? detailsId : undefined}
       aria-label={`${commit.subject}, ${commit.author.name}, ${age.long}${chips.length ? `, ${chips.map((chip) => chip.name).join(", ")}` : ""}`}
       title={`${commit.subject}\n${commit.author.name} · ${commitDate(commit.authorTime)} · ${shortHash(commit.hash)}`}
       onFocus={onFocus} onPointerDown={onPointerDown} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerEnd}
       onClick={onClick} onDoubleClick={onDoubleClick}>
+      {/* The row keeps its own keyboard; Right and Left toggle the same details. */}
+      <IconButton size="xs" className="commit-details-toggle" tabIndex={-1} aria-expanded={expanded}
+        label={expanded ? "Hide commit details" : "Show commit details"} icon={<Chevron />}
+        onClick={(event) => {
+          event.stopPropagation()
+          onExpandedChange(!expanded)
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => event.stopPropagation()} />
       <span className="compare-row-label">{commit.subject || "(no message)"}</span>
-      {chips.map((chip) => <span key={chip.name} className="ref-chip" data-current={chip.current || undefined}>{chip.name}</span>)}
       <span className="compare-row-age">{age.short}</span>
       {diff && (
         // The row keeps its own keyboard; Enter opens the same diff.
@@ -233,5 +265,24 @@ function CommitRow({
           onDoubleClick={(event) => event.stopPropagation()} />
       )}
     </ListRow>
-  )
+    {/* A listbox holds options only, so the row names these details through
+        aria-describedby and they stay out of the accessibility tree. */}
+    {expanded && (
+      <div id={detailsId} className="commit-details" aria-hidden="true">
+        {commit.body && <p className="commit-details-body">{commit.body}</p>}
+        <p className="commit-details-line"><span>{commit.author.name} &lt;{commit.author.email}&gt;</span></p>
+        <p className="commit-details-line"><time dateTime={commit.authorTime}>{commitDate(commit.authorTime)}</time></p>
+        <p className="commit-details-line">
+          <code className="commit-compare-hash">{shortHash(commit.hash)}</code>
+          <CopyButton text={commit.hash} label="Copy commit hash" tabIndex={-1} />
+        </p>
+        {chips.length > 0 && (
+          <p className="commit-details-line">
+            <GitBranchIcon className="commit-details-icon" />
+            {chips.map((chip) => <span key={chip.name} className="ref-chip" data-current={chip.current || undefined}>{chip.name}</span>)}
+          </p>
+        )}
+      </div>
+    )}
+  </>)
 }

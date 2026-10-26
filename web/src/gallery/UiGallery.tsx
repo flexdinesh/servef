@@ -21,7 +21,7 @@ import { useTheme } from "../settings/ThemeProvider.tsx"
 import { isTheme, themeOptions } from "../settings/theme.ts"
 import "./gallery.css"
 
-const buttonVariants: readonly ButtonVariant[] = ["primary", "outline", "ghost", "destructive", "link"]
+const buttonVariants: readonly ButtonVariant[] = ["primary", "outline", "ghost", "plain", "destructive", "link"]
 const buttonSizes: readonly ButtonSize[] = ["sm", "md", "lg"]
 const iconSizes: readonly IconButtonSize[] = ["xs", "sm", "md", "bar"]
 const segmentSizes: readonly ("sm" | "md")[] = ["md", "sm"]

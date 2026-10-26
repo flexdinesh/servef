@@ -26,6 +26,14 @@
   color-scheme: dark;
 }
 
+/* Servef Light (and Auto resolving light) sets islands on a white canvas
+   (decision 0041): chrome is its own light grey rather than the mix toward
+   the canvas, and islands take a hairline edge. Dark keeps the mix. */
+:root:is([data-theme="system"], [data-theme="light"], [data-theme="dark"]) {
+  --color-workspace-chrome: light-dark(#f4f4f4, color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));
+  --color-island-border: light-dark(#e8e8e8, transparent);
+}
+
 :root[data-theme="catppuccin"] {
   --color-bg: #161622;
   --color-canvas: #101019;

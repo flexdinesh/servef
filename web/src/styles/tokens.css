@@ -9,16 +9,16 @@
   --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
-  --color-bg: light-dark(#f8f8f8, #181818);
-  --color-canvas: light-dark(#d4d4d4, #0b0b0b);
+  --color-bg: light-dark(#fafafa, #181818);
+  --color-canvas: light-dark(#ffffff, #0b0b0b);
   --color-surface: light-dark(#ffffff, #1f1f1f);
-  --color-surface-secondary: light-dark(#f3f3f3, #181818);
+  --color-surface-secondary: light-dark(#f8f8f8, #181818);
   --color-surface-raised: light-dark(#ffffff, #252526);
   --color-text-primary: light-dark(#333333, #e8eaf0);
   --color-text-secondary: light-dark(#515866, #b2b8c4);
   --color-text-muted: light-dark(#666f7e, #8992a1);
-  --color-border: light-dark(#e5e5e5, #2b2b2b);
-  --color-border-strong: light-dark(#c5cbd4, #414855);
+  --color-border: light-dark(#ebebeb, #2b2b2b);
+  --color-border-strong: light-dark(#d0d5dc, #414855);
   --color-accent: light-dark(#2563eb, #78a8ff);
   --color-accent-hover: light-dark(#1d4ed8, #9bbfff);
   --color-accent-subtle: light-dark(#e8efff, #1d3155);
@@ -60,6 +60,9 @@
   /* Surfaces derived from theme values. Chrome sits halfway between the
      document surface and the canvas so island edges stay visible. */
   --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
+  /* Islands draw this 1px edge; only a canvas that matches the document
+     surface (Servef Light) needs one. */
+  --color-island-border: transparent;
 
   /* State roles. Hover and pressed layers are translucent ink, so they read on
      any surface. Selected rows and pressed toggles share the accent tint. */

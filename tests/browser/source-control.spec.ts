@@ -61,6 +61,14 @@ function commitRow(page: Page, subject: string) {
   return commitsList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(subject)}, servef, `) })
 }
 
+// commitDetails is a commit's expanded details: hidden from the accessibility
+// tree, so found through the row's aria-describedby.
+async function commitDetails(page: Page, subject: string) {
+  const id = await commitRow(page, subject).getAttribute("aria-describedby")
+  if (!id) throw new Error(`${subject} shows no details`)
+  return page.locator(`[id="${id}"]`)
+}
+
 function branchesList(page: Page) {
   return pane(page, "Branches").getByRole("listbox", { name: "Branches" })
 }
@@ -727,20 +735,47 @@ test("clicking a commit selects it; its diff opens the commit's review with a Fi
   await expect(page.getByRole("tab", { name: "history.md", exact: true })).toHaveAttribute("aria-selected", "true")
 })
 
-test("commits that tip a stack layer name its branches", async ({ page }) => {
+test("commits that tip a stack layer name its branches in their details", async ({ page }) => {
   await openSourceControl(page)
   await expect(commitRow(page, featureSubject)).toHaveAccessibleName(new RegExp(`^${featureSubject}, servef, .+, feature$`))
   await expect(commitRow(page, lowerSubject)).toHaveAccessibleName(new RegExp(`^${lowerSubject}, servef, .+, ${lowerBranch}$`))
-  const current = commitRow(page, featureSubject).locator(".ref-chip")
-  await expect(current).toHaveText("feature")
-  await expect(current).toHaveAttribute("data-current")
-  await expect(commitRow(page, lowerSubject).locator(".ref-chip")).toHaveText(lowerBranch)
-  await expect(commitRow(page, lowerSubject).locator(".ref-chip")).not.toHaveAttribute("data-current")
+  // Branch names stay off the commit line.
+  await expect(commitsList(page).locator(".ref-chip")).toHaveCount(0)
+
+  // The chevron shows details.
+  const toggle = commitRow(page, featureSubject).getByRole("button", { name: "Show commit details" })
+  await toggle.click()
+  await expect(commitRow(page, featureSubject).getByRole("button", { name: "Hide commit details" })).toHaveAttribute("aria-expanded", "true")
+  const details = await commitDetails(page, featureSubject)
+  await expect(details).toContainText("servef <servef@example.invalid>")
+  await expect(details.locator(".commit-compare-hash")).toHaveText(/^[0-9a-f]{7}$/)
+  await expect(details.locator(".ref-chip")).toHaveText("feature")
+  await expect(details.locator(".ref-chip")).toHaveAttribute("data-current")
+
+  // Right shows a commit's details and Left hides them.
+  await commitRow(page, lowerSubject).focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(commitRow(page, lowerSubject)).toHaveAttribute("aria-describedby", /.+/)
+  const lower = await commitDetails(page, lowerSubject)
+  await expect(lower.locator(".ref-chip")).toHaveText(lowerBranch)
+  await expect(lower.locator(".ref-chip")).not.toHaveAttribute("data-current")
+  await page.keyboard.press("ArrowLeft")
+  await expect(commitRow(page, lowerSubject)).not.toHaveAttribute("aria-describedby")
+  await expect(lower).toHaveCount(0)
+  // Other commits keep their details open.
+  await expect(details).toBeVisible()
+
+  // The details copy the full hash.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await details.getByRole("button", { name: "Copy commit hash", includeHidden: true }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toMatch(/^[0-9a-f]{40}$/)
 
   // The base's commit tips no layer.
   await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
   await expect(commitRow(page, "Initial")).toHaveAccessibleName(/^Initial, servef, [^,]+$/)
-  await expect(commitRow(page, "Initial").locator(".ref-chip")).toHaveCount(0)
+  await commitRow(page, "Initial").getByRole("button", { name: "Show commit details" }).click()
+  await expect(commitRow(page, "Initial")).toHaveAttribute("aria-describedby", /.+/)
+  await expect((await commitDetails(page, "Initial")).locator(".ref-chip")).toHaveCount(0)
 })
 
 test("a commit's rail scrolls its review to a file and selects the file in view", async ({ page }) => {
@@ -1009,9 +1044,9 @@ test("Shift-selecting commits opens their range from the newest commit's diff", 
   await expect(page.getByRole("tab")).toHaveCount(0)
   // Only the newest selected commit offers the range's diff.
   await lower.hover()
-  await expect(lower.getByRole("button")).toHaveCount(0)
+  await expect(lower.getByRole("button", { name: /^Open changes/ })).toHaveCount(0)
   await initial.hover()
-  await expect(initial.getByRole("button")).toHaveCount(0)
+  await expect(initial.getByRole("button", { name: /^Open changes/ })).toHaveCount(0)
   await expect(feature.getByRole("button", { name: "Open changes in the selected commits" })).toBeVisible()
   await feature.getByRole("button", { name: "Open changes in the selected commits" }).click()
 
@@ -1197,6 +1232,13 @@ test("Collapse All Files and Expand All Files toggle every review diff", async (
   await fileToggle(page, "README.md").click()
   await expect(fileToggle(page, "README.md")).toHaveAttribute("aria-expanded", "false")
   await expect(fileToggle(page, "src/app.ts")).toHaveAttribute("aria-expanded", "true")
+
+  // A file header's hover cue is the pointer alone; no fill.
+  const header = fileToggle(page, "src/app.ts")
+  await header.hover()
+  await expect(header).toHaveCSS("cursor", "pointer")
+  await expect(header).toHaveCSS("background-image", "none")
+  await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
 })
 
 test("Viewed marks collapse files, survive reloads, and clear when the file changes", async ({ page }) => {

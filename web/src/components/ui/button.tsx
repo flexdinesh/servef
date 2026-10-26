@@ -1,7 +1,9 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cn } from "cn"
 
-export type ButtonVariant = "primary" | "outline" | "ghost" | "destructive" | "link"
+// plain is ghost without the hover and press layers, for headers whose whole
+// band is the target.
+export type ButtonVariant = "primary" | "outline" | "ghost" | "plain" | "destructive" | "link"
 export type ButtonSize = "sm" | "md" | "lg" | "inline"
 
 type ButtonProps = ButtonPrimitive.Props & {

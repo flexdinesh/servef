@@ -72,7 +72,8 @@
   text-underline-offset: 0.16em;
 }
 
-/* Hover and press layer translucent ink over the variant's own fill. */
+/* Hover and press layer translucent ink over the variant's own fill. Plain
+   takes neither: the pointer cursor is its only hover cue. */
 .ui-button:is([data-variant="outline"], [data-variant="ghost"]):hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--color-text-primary);
   background-image: linear-gradient(var(--color-hover), var(--color-hover));

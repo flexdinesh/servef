@@ -40,8 +40,10 @@
   background: var(--color-active);
 }
 
+/* The active tile lifts like a pressed segment, so it reads on light chrome. */
 .activity-item[aria-pressed="true"]::before {
   background: var(--color-surface);
+  box-shadow: var(--shadow-control);
 }
 
 /* Pending-change count at the tile's lower right, as in VS Code. Surface text
