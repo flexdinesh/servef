@@ -38,7 +38,7 @@
   --color-surface-recessed: light-dark(#f0f0f0, var(--color-surface-secondary));
   --color-workspace-chrome: light-dark(#f0f0f0, color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));
   --color-chrome-hover: light-dark(color-mix(in srgb, var(--color-surface), var(--color-workspace-chrome)), var(--color-hover));
-  --color-field-border: light-dark(#c5cbd4, var(--color-border-strong));
+  --color-field-border: light-dark(#858b94, color-mix(in srgb, var(--color-text-muted) 90%, var(--color-surface)));
   --color-island-border: light-dark(#e8e8e8, transparent);
 }
 
