@@ -137,11 +137,11 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
           {matches.map((match, index) => {
             const { command } = match
             // Settings and Color Theme show their current value; other
-            // commands their shortcut.
+            // commands their shortcut, if any.
             const value = command.action.kind === "open-setting"
               ? values[command.action.setting].label
               : command.action.kind === "select-color-theme" ? values.theme.label : null
-            const detail = value ?? command.shortcut ?? settingsShortcutLabel
+            const detail = value ?? command.shortcut ?? (command.action.kind === "open-settings" ? settingsShortcutLabel : "")
             return (
               <ListRow
                 key={command.id}
@@ -152,7 +152,7 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
                 className="command-option"
                 role="option"
                 aria-selected={match === active}
-                aria-label={`${command.category}: ${command.title}, ${detail}`}
+                aria-label={`${command.category}: ${command.title}${detail ? `, ${detail}` : ""}`}
                 onClick={() => run(command.action)}
                 onMouseMove={match === active ? undefined : () => setActiveIndex(index)}
               >
@@ -161,7 +161,7 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
                 <span className="command-title"><Highlighted text={command.title} ranges={match.title} /></span>
                 {value !== null
                   ? <span className="command-value">{detail}</span>
-                  : <kbd className="command-value">{detail}</kbd>}
+                  : detail && <kbd className="command-value">{detail}</kbd>}
               </ListRow>
             )
           })}

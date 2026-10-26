@@ -1,4 +1,4 @@
-import { FilesIcon, GitBranchIcon, SearchIcon } from "lucide-react"
+import { FilesIcon, GitBranchIcon, RouteIcon, SearchIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { DialogShell } from "../components/ui/dialog-shell.tsx"
@@ -7,13 +7,14 @@ import type { SidebarState, SidebarView } from "./use-sidebar.ts"
 
 const mac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
 
-const activities: ReadonlyArray<{ view: SidebarView; label: string; shortcut: string; keys: string; icon: ReactNode }> = [
+const activities: ReadonlyArray<{ view: SidebarView; label: string; shortcut?: string; keys?: string; icon: ReactNode }> = [
   { view: "explorer", label: "Explorer", shortcut: mac ? "⇧⌘E" : "Ctrl+Shift+E", keys: "Control+Shift+E Meta+Shift+E", icon: <FilesIcon aria-hidden="true" /> },
   { view: "search", label: "Search", shortcut: mac ? "⇧⌘F" : "Ctrl+Shift+F", keys: "Control+Shift+F Meta+Shift+F", icon: <SearchIcon aria-hidden="true" /> },
   { view: "source-control", label: "Source Control", shortcut: mac ? "⌃⇧G" : "Ctrl+Shift+G", keys: "Control+Shift+G Meta+Shift+G", icon: <GitBranchIcon aria-hidden="true" /> },
+  { view: "walkthroughs", label: "Walkthroughs", icon: <RouteIcon aria-hidden="true" /> },
 ]
 
-const viewNames: Record<SidebarView, string> = { explorer: "Files", search: "Search", "source-control": "Source Control" }
+const viewNames: Record<SidebarView, string> = { explorer: "Files", search: "Search", "source-control": "Source Control", walkthroughs: "Walkthroughs" }
 
 // badgeLabel caps the activity badge as VS Code does.
 function badgeLabel(count: number): string {
@@ -24,15 +25,19 @@ interface SidebarProps {
   explorer: ReactNode
   search: ReactNode
   sourceControl: ReactNode
+  walkthroughs: ReactNode
   // pendingChanges counts Source Control's changes; 0 shows no badge.
   pendingChanges: number
+  // unseenWalkthroughs counts walkthroughs published since the view last
+  // showed; 0 shows no badge.
+  unseenWalkthroughs: number
   sidebar: SidebarState
 }
 
 // Sidebar groups the VS Code activity bar and its views into one desktop
 // island; mobile opens it as a modal drawer. All views
 // stay mounted so switching keeps tree, search, and change-list state.
-export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceControl }: SidebarProps) {
+export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceControl, unseenWalkthroughs, walkthroughs }: SidebarProps) {
   const { drawer, hidden, mobile, view } = sidebar
   // Only the mobile drawer is a dialog; inline, the element is presentational.
   return (
@@ -41,12 +46,14 @@ export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceContr
       onClick={(event) => { if (event.target === drawer.current) sidebar.dismiss() }}>
       <nav className="activity-bar" aria-label="Views">
         {activities.map((activity) => {
-          const badge = activity.view === "source-control" && pendingChanges > 0 ? badgeLabel(pendingChanges) : ""
-          const label = badge ? `${activity.label}, ${pendingChanges.toLocaleString()} pending ${pendingChanges === 1 ? "change" : "changes"}` : activity.label
+          const count = activity.view === "source-control" ? pendingChanges : activity.view === "walkthroughs" ? unseenWalkthroughs : 0
+          const badge = count > 0 ? badgeLabel(count) : ""
+          const noun = activity.view === "source-control" ? "pending change" : "new walkthrough"
+          const label = badge ? `${activity.label}, ${count.toLocaleString()} ${noun}${count === 1 ? "" : "s"}` : activity.label
           return (
             <IconButton key={activity.view} size="bar" className="activity-item" data-view={activity.view}
               label={label} aria-pressed={!hidden && view === activity.view}
-              aria-keyshortcuts={activity.keys} title={`${label} (${activity.shortcut})`}
+              aria-keyshortcuts={activity.keys} title={activity.shortcut ? `${label} (${activity.shortcut})` : label}
               icon={<>
                 {activity.icon}
                 {badge && <span className="activity-badge" aria-hidden="true">{badge}</span>}
@@ -59,6 +66,7 @@ export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceContr
         <div className="sidebar-view" hidden={view !== "explorer"}>{explorer}</div>
         <div className="sidebar-view" hidden={view !== "search"}>{search}</div>
         <div className="sidebar-view" hidden={view !== "source-control"}>{sourceControl}</div>
+        <div className="sidebar-view" hidden={view !== "walkthroughs"}>{walkthroughs}</div>
       </div>
     </DialogShell>
   )

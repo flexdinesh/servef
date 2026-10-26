@@ -246,6 +246,13 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
       return mockUnknownBase(url.searchParams) ?? { name: "branch-stack.json", status: 200 }
     case "/compare-stats":
       return mockCompareStats(url.searchParams)
+    // One walkthrough reads in full; the other is gone.
+    case "/walkthroughs":
+      return { name: "walkthroughs.json", status: 200 }
+    case "/walkthrough":
+      return url.searchParams.get("id") === "greeting-tour"
+        ? { name: "walkthrough-tour.json", status: 200 }
+        : { name: "error-walkthrough-unavailable.json", status: 404 }
     default:
       return undefined
   }

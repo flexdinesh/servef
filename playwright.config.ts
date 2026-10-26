@@ -1,9 +1,20 @@
+import { execFileSync } from "node:child_process"
+
 import { defineConfig, devices } from "@playwright/test"
 
 import { gitFixtureRoot } from "./tests/browser/git-fixture.ts"
 import { apiPort, filteredApiOrigin, filteredApiPort, gitApiOrigin, gitApiPort } from "./tests/browser/ports.ts"
 
 const webPort = 15173
+
+// Walkthroughs the specs publish land beside the git fixture, not in the
+// user's cache (Linux; elsewhere the specs delete their own). Go keeps its
+// build cache.
+const gitServerEnv = {
+  ...process.env,
+  XDG_CACHE_HOME: `${gitFixtureRoot}-cache`,
+  GOCACHE: process.env.GOCACHE || execFileSync("go", ["env", "GOCACHE"], { encoding: "utf8" }).trim(),
+}
 
 export default defineConfig({
   testDir: "./tests/browser",
@@ -32,6 +43,7 @@ export default defineConfig({
     {
       // A throwaway git repository with one change of every kind.
       command: `node tests/browser/git-fixture.ts && go run . '${gitFixtureRoot}' --port ${gitApiPort} --no-open`,
+      env: gitServerEnv,
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${gitApiOrigin}/api/page`,

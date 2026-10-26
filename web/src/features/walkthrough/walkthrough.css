@@ -1,0 +1,322 @@
+/* Walkthroughs (decision 0047): the activity's list and steps, the
+   walkthrough's own tab, and narration zones inserted into code. */
+
+.walkthroughs-view {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+.walkthroughs-view > .explorer-header {
+  box-shadow: inset 0 -1px var(--color-border);
+}
+
+.walkthroughs-message {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.walkthroughs-message p {
+  margin: 0;
+}
+
+.walkthroughs-message code {
+  font-family: var(--font-mono);
+}
+
+.walkthroughs-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding-bottom: var(--space-2);
+}
+
+.walkthroughs-stale {
+  padding: var(--space-1) var(--space-3);
+}
+
+.walkthrough-rows {
+  display: grid;
+  padding-top: var(--space-1);
+}
+
+/* Rows carry a title and a muted second line. */
+.walkthrough-row,
+.walkthrough-step {
+  align-items: flex-start;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+
+.walkthrough-row:focus-visible,
+.walkthrough-step:focus-visible {
+  outline: 1px solid var(--color-focus);
+  outline-offset: -1px;
+}
+
+.walkthrough-row-icon,
+.walkthrough-step-icon {
+  display: flex;
+  height: var(--text-sm--line-height);
+  flex: none;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.walkthrough-row-icon {
+  width: var(--icon-sm);
+}
+
+.walkthrough-step-icon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.walkthrough-row-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  line-height: var(--text-sm--line-height);
+}
+
+.walkthrough-row-title,
+.walkthrough-row-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walkthrough-row-title {
+  color: var(--color-text-primary);
+}
+
+.walkthrough-row-meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.walkthrough-step-number {
+  min-width: 1.25rem;
+  flex: none;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--text-sm--line-height);
+  text-align: right;
+}
+
+/* Steps already read this session step back from the rest. */
+.walkthrough-step[data-visited] .walkthrough-row-title {
+  color: var(--color-text-secondary);
+}
+
+.walkthrough-step[aria-selected="true"] :is(.walkthrough-row-title, .walkthrough-row-meta, .walkthrough-step-number, .walkthrough-step-icon) {
+  color: inherit;
+}
+
+.walkthrough-heading {
+  display: grid;
+  align-items: start;
+  padding: var(--space-3) var(--space-2) var(--space-2) var(--space-3);
+  column-gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.walkthrough-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--text-sm--line-height);
+  text-wrap: balance;
+}
+
+.walkthrough-meta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--text-xs--line-height);
+}
+
+.walkthrough-delete {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.walkthrough-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.walkthrough-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* A narration is an editor zone: a full-width band between lines of code,
+   set in the UI face, as VS Code's peek and comment zones are. */
+.narration {
+  display: block;
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-block: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-secondary);
+  cursor: auto;
+  font-family: var(--font-sans);
+  font-feature-settings: normal;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  user-select: text;
+  white-space: normal;
+}
+
+.narration-header {
+  display: flex;
+  max-width: var(--reading-width);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.narration-count {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.narration-title {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--text-sm--line-height);
+  text-wrap: balance;
+}
+
+.narration-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.narration-notice {
+  max-width: var(--reading-width);
+  margin-top: var(--space-2);
+}
+
+.narration-body {
+  max-width: var(--reading-width);
+  margin-top: var(--space-2);
+}
+
+.narration-body article {
+  font-size: var(--text-sm);
+}
+
+/* In Source the zone stays in view across horizontal scroll and spans the
+   visible width, not the longest line. */
+.source-document:has(.source-annotation) {
+  container-type: inline-size;
+}
+
+.source-annotation {
+  position: sticky;
+  z-index: var(--z-raised);
+  left: 0;
+  display: block;
+  width: 100cqi;
+}
+
+.review-annotation {
+  display: block;
+}
+
+/* Views without lines (Preview, Format, images) show the zone at the top. */
+.annotated-document {
+  display: grid;
+  min-height: 100%;
+  align-content: start;
+}
+
+main:not(.source-mode, .image-mode) > .annotated-document > .document-annotation {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-6);
+}
+
+/* The walkthrough's own tab reads as a cover page. A note's zone bleeds to
+   the pane's edges above it. */
+.walkthrough-tab {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-5);
+}
+
+.walkthrough-tab > .narration {
+  justify-self: stretch;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
+  border-top: 0;
+}
+
+.walkthrough-cover {
+  display: grid;
+  max-width: var(--reading-width);
+  gap: var(--space-2);
+}
+
+.walkthrough-cover-meta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.walkthrough-cover-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--preview-h1);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.walkthrough-outline {
+  max-width: var(--reading-width);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.walkthrough-outline ol {
+  list-style: decimal;
+  display: grid;
+  margin: 0;
+  padding-left: var(--space-5);
+  gap: var(--space-2);
+}
+
+.walkthrough-outline li::marker {
+  font-variant-numeric: tabular-nums;
+}
+
+.walkthrough-outline li[data-current] .ui-button {
+  font-weight: 600;
+}
+
+.walkthrough-outline-label {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}

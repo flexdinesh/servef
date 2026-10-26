@@ -58,8 +58,10 @@ the agent's explanation beside it.
 - The browser shows walkthroughs in a Walkthroughs activity-bar view and a
   walkthrough tab (cover, notes, outline). Steps open the ordinary file or
   review tabs, highlighted through the existing anchors, with the narration
-  as a card under the range. Ctrl/Cmd+Right and Ctrl/Cmd+Left step; present
-  mode hides the chrome; there is no timed autoplay.
+  inline under the range as an editor zone (a full-width band, as VS Code's
+  peek and comment zones are), not a floating card. Steps with an `expect`
+  whose line no longer matches say so. Ctrl/Cmd+Right and Ctrl/Cmd+Left
+  step; present mode hides the chrome; there is no timed autoplay.
 
 ## Consequences
 

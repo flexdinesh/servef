@@ -12,7 +12,7 @@
   tab-size: 4;
 }
 
-.source-document code {
+.source-document > code {
   display: block;
   width: max-content;
   min-width: 100%;

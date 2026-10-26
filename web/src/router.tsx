@@ -15,6 +15,7 @@ import { readMemory } from "./workspace/workspace-memory.ts"
 import { compareSearch, legacyCompare, reviewFragment, routeCompare } from "./features/source-control/compare.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
 import { routeAt } from "./workspace/workspace-tabs.ts"
+import { routeStep, routeWalkthrough } from "./features/walkthrough/walkthrough-steps.ts"
 
 interface PageSearch {
   [key: string]: unknown
@@ -31,6 +32,11 @@ interface PageSearch {
   to?: string
   // With a path, at=<hash> opens that commit's version of the file.
   at?: string
+  // wt=<id> follows a walkthrough (decision 0047); step=<n> (1-based) names
+  // the step whose target the route opens. Without a path or review, the
+  // route opens the walkthrough's own tab.
+  wt?: string
+  step?: number
   // With a path, diff=1, commit=, branch=1, and from=&to= are per-file diff
   // routes from before review tabs; they redirect to the review.
   diff?: 1
@@ -51,6 +57,8 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     branch: search.branch === 1 || search.branch === "1" ? 1 : undefined,
     from: isCommitHash(search.from) ? search.from : undefined,
     to: isCommitHash(search.to) ? search.to : undefined,
+    wt: routeWalkthrough(search.wt),
+    step: routeStep(search.step),
   }
 }
 
@@ -128,9 +136,10 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  // A review tab loads only the tree; its pane reads /api/diff per file.
+  // A review or walkthrough tab loads only the tree; a review's pane reads
+  // /api/diff per file.
   loaderDeps: ({ search }) => {
-    const diff = routeCompare(search) !== null
+    const diff = routeCompare(search) !== null || (!search.path && search.wt !== undefined)
     return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", at: diff ? "" : search.at ?? "", diff }
   },
   loader: ({ abortController, deps }) => loadPage({

@@ -8,7 +8,7 @@ const sample: readonly Command[] = [
   { id: "b", category: "Settings", title: "Font Size", action: { kind: "open-setting", setting: "fontSize" } },
 ]
 
-test("Open Settings and Color Theme come first, then every setting opens Settings at it, then navigation", () => {
+test("Open Settings and Color Theme come first, then every setting opens Settings at it, then navigation and walkthroughs", () => {
   assert.deepEqual(commands.map((command) => [command.category, command.title, command.action]), [
     ["Preferences", "Open Settings", { kind: "open-settings" }],
     ["Preferences", "Color Theme", { kind: "select-color-theme" }],
@@ -17,8 +17,11 @@ test("Open Settings and Color Theme come first, then every setting opens Setting
     ["Settings", "Language Servers", { kind: "open-setting", setting: "languageServers" }],
     ["Navigation", "Go to Definition", { kind: "go-to-definition" }],
     ["Navigation", "Find All References", { kind: "find-references" }],
+    ["Walkthrough", "Next Step", { kind: "walkthrough-step", direction: 1 }],
+    ["Walkthrough", "Previous Step", { kind: "walkthrough-step", direction: -1 }],
+    ["Walkthrough", "Close Walkthrough", { kind: "walkthrough-exit" }],
   ])
-  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12"])
+  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12", "Ctrl+Right", "Ctrl+Left", undefined])
 })
 
 test("an empty query lists every command in order", () => {

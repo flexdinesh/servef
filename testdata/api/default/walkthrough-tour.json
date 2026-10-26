@@ -1,0 +1,71 @@
+{
+  "id": "greeting-tour",
+  "project": "/home/user/markdown",
+  "title": "How a greeting gets formatted",
+  "summary": "Follow `Greet` from its declaration to the change that reworded the hello message.",
+  "summaryHTML": "<p>Follow <code>Greet</code> from its declaration to the change that reworded the hello message.</p>\n",
+  "steps": [
+    {
+      "title": "What this tour covers",
+      "body": "Greetings start in `navigation/greet.go` and print from `code/main.go`. Six steps; about two minutes.",
+      "bodyHTML": "<p>Greetings start in <code>navigation/greet.go</code> and print from <code>code/main.go</code>. Six steps; about two minutes.</p>\n"
+    },
+    {
+      "title": "Greet delegates to Format",
+      "body": "`Greet` adds no text of its own: it passes a fixed salutation and the name to `Format`, so every greeting shares one shape.",
+      "bodyHTML": "<p><code>Greet</code> adds no text of its own: it passes a fixed salutation and the name to <code>Format</code>, so every greeting shares one shape.</p>\n",
+      "file": {
+        "path": "navigation/greet.go",
+        "lines": [4, 7],
+        "expect": "// Greet welcomes someone by name."
+      }
+    },
+    {
+      "title": "The same function, one commit ago",
+      "body": "Pinned to a commit, this step reads the same no matter what changes later.",
+      "bodyHTML": "<p>Pinned to a commit, this step reads the same no matter what changes later.</p>\n",
+      "file": {
+        "path": "navigation/greet.go",
+        "lines": [5, 5],
+        "at": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"
+      }
+    },
+    {
+      "title": "The package line moved on",
+      "body": "This step was written against an older package name, so servef flags it as changed.",
+      "bodyHTML": "<p>This step was written against an older package name, so servef flags it as changed.</p>\n",
+      "file": {
+        "path": "navigation/greet.go",
+        "lines": [2, 2],
+        "expect": "package greeting"
+      }
+    },
+    {
+      "title": "The hello message now names servef",
+      "body": "The uncommitted change rewords the message; the search token comment stays so content search still finds it.",
+      "bodyHTML": "<p>The uncommitted change rewords the message; the search token comment stays so content search still finds it.</p>\n",
+      "diff": {
+        "compare": {
+          "kind": "working"
+        },
+        "path": "code/main.go",
+        "side": "new",
+        "lines": [7, 7],
+        "expect": "fmt.Println(\"hello from servef\") // go-search-token"
+      }
+    },
+    {
+      "title": "Everything the commit touched",
+      "body": "The whole commit, for context: the guide moved and the config went away in the same change.",
+      "bodyHTML": "<p>The whole commit, for context: the guide moved and the config went away in the same change.</p>\n",
+      "diff": {
+        "compare": {
+          "kind": "commit",
+          "commit": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"
+        }
+      }
+    }
+  ],
+  "createdAt": "2026-10-26T09:00:00Z",
+  "updatedAt": "2026-10-26T09:30:00Z"
+}

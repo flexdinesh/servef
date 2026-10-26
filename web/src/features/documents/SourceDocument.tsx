@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from "react"
 
 import { CopyButton } from "../../components/ui/copy-button.tsx"
 import type { ColumnRange, NavigationKind } from "../navigation/code-navigation.ts"
@@ -22,6 +22,15 @@ export interface SourceNavigation {
   onNavigate(kind: NavigationKind, target: SourceTarget | null): void
 }
 
+// SourceAnnotation is a full-width zone inserted after a line, or before the
+// first when line is 0, e.g. a walkthrough step's narration. render reads the
+// source's lines by number; views without them pass null and show the zone
+// at their top.
+export interface SourceAnnotation {
+  line: number
+  render(lineAt: ((line: number) => string | undefined) | null): ReactNode
+}
+
 // LineDrag previews a gutter selection until pointer release commits it.
 interface LineDrag {
   anchor: number
@@ -40,6 +49,7 @@ interface SourceDocumentProps {
   label: string
   selection?: LineSelection
   navigation?: SourceNavigation
+  annotation?: SourceAnnotation
 }
 
 // LineCopyButton copies a line reference from the gutter. Its presses stay
@@ -65,7 +75,7 @@ const SourceLineContent = memo(function SourceLineContent({ line, highlighted }:
     : <span className="source-document-line-content">{line}</span>
 })
 
-export function SourceDocument({ source, language, label, selection, navigation }: SourceDocumentProps) {
+export function SourceDocument({ source, language, label, selection, navigation, annotation }: SourceDocumentProps) {
   const lines = splitSourceLines(source)
   // Rows show plain text until highlighting arrives.
   const highlightedLines = useHighlightedLines(source, language)
@@ -172,6 +182,12 @@ export function SourceDocument({ source, language, label, selection, navigation 
     }
   }
 
+  // The annotation sits after its line, or at the top past the last line.
+  const annotationLine = annotation ? (annotation.line <= lines.length ? annotation.line : 0) : -1
+  const zone = (line: number) => annotationLine === line && annotation
+    ? <span className="source-annotation">{annotation.render((number) => lines[number - 1])}</span>
+    : null
+
   return (
     <div
       ref={container}
@@ -205,14 +221,15 @@ export function SourceDocument({ source, language, label, selection, navigation 
           link(false)
         } : undefined}
       >
+        {zone(0)}
         {lines.map((line, index) => {
           const lineNumber = index + 1
           const selected = shown !== null && lineNumber >= shown.start && lineNumber <= shown.end
           return (
+            <Fragment key={lineNumber}>
             <span
               className={`source-document-line${activeLine === lineNumber ? " active" : ""}${selected ? " selected" : ""}`}
               data-line={lineNumber}
-              key={lineNumber}
               onClick={() => setActiveLine(lineNumber)}
             >
               <span
@@ -231,6 +248,8 @@ export function SourceDocument({ source, language, label, selection, navigation 
               </span>
               <SourceLineContent line={line} highlighted={highlightedLines[index]} />
             </span>
+            {zone(lineNumber)}
+            </Fragment>
           )
         })}
       </code>
