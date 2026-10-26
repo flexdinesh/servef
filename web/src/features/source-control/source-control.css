@@ -276,12 +276,58 @@
   display: none;
 }
 
-/* Branch names at a commit: bordered code chips; HEAD's branch in accent. */
-/* Subjects win the room; a long branch name truncates first. */
-.compare-row-commit .compare-row-label {
-  flex-basis: 0;
+/* A commit's chevron sits where pane titles keep theirs; the subject stays
+   on the other rows' indent. */
+.compare-row-commit {
+  padding-left: var(--space-1);
 }
 
+.compare-row-commit .commit-details-toggle {
+  margin-right: calc(-1 * var(--space-1));
+}
+
+/* Details sit under the subject, on its indent. */
+.commit-details {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.commit-details-body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.commit-details-line {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+/* Items wrap whole; one wider than the pane truncates. */
+.commit-details .commit-details-line > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-details-icon {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+  flex: none;
+}
+
+/* Branch names at a commit: bordered code chips; HEAD's branch in accent. */
 .ref-chip {
   min-width: 0;
   max-width: 45%;

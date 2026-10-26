@@ -45,4 +45,6 @@ rewriting history; update `Status` on the old record.
 | [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted; labels superseded by 0039 |
 | [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
 | [0039](0039-servef-theme-labels.md) | Servef Light, Servef Dark, and Auto theme labels | Accepted |
-| [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted |
+| [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted; commit-row branch chips superseded by 0042 |
+| [0041](0041-white-canvas-servef-light.md) | White canvas for Servef Light | Accepted |
+| [0042](0042-expandable-commit-rows.md) | Expandable commit rows | Accepted |

@@ -12,6 +12,8 @@
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-island);
+  outline: 1px solid var(--color-island-border);
+  outline-offset: -1px;
   box-shadow: none;
 }
 

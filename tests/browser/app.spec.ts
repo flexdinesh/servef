@@ -329,7 +329,7 @@ test("defaults to Servef Dark, then selects and persists an explicit theme in se
   await theme.selectOption({ label: "Servef Light" })
 
   await expect(page.locator("html")).toHaveClass(/light/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(248, 248, 248)")
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(250, 250, 250)")
   expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("light")
 
   await page.reload()

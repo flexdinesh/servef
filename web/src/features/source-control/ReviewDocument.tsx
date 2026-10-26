@@ -575,7 +575,7 @@ function ReviewFile({
   return (
     <section ref={section} className="review-file" data-review-path={file.path} aria-label={file.path}>
       <div className="review-file-header">
-        <Button variant="ghost" size="inline" className="review-file-toggle" aria-expanded={open} aria-controls={bodyId}
+        <Button variant="plain" size="inline" className="review-file-toggle" aria-expanded={open} aria-controls={bodyId}
           onClick={() => onOpenChange(!open)}>
           <Chevron />
           <FileIcon path={file.path} />
