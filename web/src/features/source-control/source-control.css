@@ -32,8 +32,10 @@
   flex-basis: 0;
 }
 
-/* Panes resize against each other, so their divider is a strong boundary. */
-.scm-pane + .scm-pane {
+/* Panes resize against each other, so their divider is a strong boundary. A
+   sash sits between open panes, so the pane after one carries it too. */
+.scm-pane + .scm-pane,
+.scm-sash + .scm-pane {
   border-top: 1px solid var(--color-border-strong);
 }
 
