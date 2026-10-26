@@ -49,6 +49,7 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Run Go and Vite together | `mise run dev` |
 | Run only the Go server | `mise run dev:server` |
 | Run only Vite against the Go server | `mise run dev:web` |
+| Publish sample walkthroughs to the dev server | `mise run dev:walkthroughs` |
 | Run Vite with API fixtures | `mise run dev:mock` |
 | Build embedded frontend assets (skipped when unchanged) | `mise run build:web` |
 | Build a local binary | `mise run build:web && go build -o ./bin/servef .` |
@@ -106,6 +107,11 @@ uses the default API scenario under `testdata/api`.
 Source Control, the browser tests' git fixture (`tests/browser/git-fixture.ts`).
 Each start rebuilds it in the gitignored `.dev/git-fixture`, discarding edits
 there; pick it in the project picker. Without git, it is a plain folder.
+
+`mise run dev` also publishes sample walkthroughs to both projects
+(`scripts/dev-walkthroughs.ts`) once the server is up; rerun it with
+`mise run dev:walkthroughs`. The dev server keeps walkthroughs in the gitignored
+`.dev/cache`, not your user cache.
 
 To use other ports, copy `.env.example` to `.env` (gitignored) and set
 `SERVEF_DEV_SERVER_PORT` (Go) and `SERVEF_DEV_WEB_PORT` (Vite). Vite proxies
