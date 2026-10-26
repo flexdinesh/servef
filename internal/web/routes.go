@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
 // contentSecurityPolicy lets pages load only servef's own scripts, styles,
@@ -38,8 +40,8 @@ func localHost(host string) bool {
 // apiHandler serves one JSON endpoint from its query.
 type apiHandler func(w http.ResponseWriter, r *http.Request, query url.Values)
 
-// newRoutes lists every endpoint. All are GET; JSON endpoints are never
-// cached.
+// newRoutes lists every endpoint. All are GET but publishing and deleting
+// walkthroughs; JSON endpoints are never cached.
 func (a *App) newRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 	api := func(path string, handler apiHandler) {
@@ -128,6 +130,30 @@ func (a *App) newRoutes() *http.ServeMux {
 		a.serveCompareStats(w, r, query.Get("project"), query)
 	})
 
+	// Walkthroughs (decision 0047).
+	api("/api/walkthroughs", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveWalkthroughs(w, query.Get("project"))
+	})
+	api("/api/walkthrough", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
+		a.serveWalkthrough(w, query.Get("project"), query.Get("id"))
+	})
+	mux.HandleFunc("GET /api/walkthrough-schema", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/schema+json")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(walkthrough.Schema)
+	})
+	mux.HandleFunc("POST /api/walkthroughs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		a.servePublishWalkthrough(w, r)
+	})
+	mux.HandleFunc("DELETE /api/walkthroughs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		query := r.URL.Query()
+		a.serveDeleteWalkthrough(w, r, query.Get("project"), query.Get("id"))
+	})
+
 	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveMetrics(w) })
 	return mux
 }
@@ -143,7 +169,7 @@ func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	selected := ""
-	required := r.URL.Path == "/view" && !reviewQuery(query)
+	required := r.URL.Path == "/view" && !reviewQuery(query) && !walkthroughQuery(query)
 	if required {
 		selected = query.Get("path")
 	}
@@ -155,6 +181,12 @@ func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 // 0035): review=working|branch, commit=<hash>, or from=<hash>&to=<hash>.
 func reviewQuery(query url.Values) bool {
 	return !query.Has("path") && (query.Has("review") || query.Has("commit") || query.Has("from") && query.Has("to"))
+}
+
+// walkthroughQuery reports a pathless /view that opens a walkthrough's cover
+// tab (decision 0047): wt=<id>.
+func walkthroughQuery(query url.Values) bool {
+	return !query.Has("path") && query.Get("wt") != ""
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
