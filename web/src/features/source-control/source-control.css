@@ -7,6 +7,12 @@
   font-size: var(--text-label);
 }
 
+/* The header ends on a divider, as Explorer's and Search's shelves do; an
+   inset shadow keeps the 32px band's contents centered. */
+.source-control-view > .explorer-header {
+  box-shadow: inset 0 -1px var(--color-border);
+}
+
 /* Three panes in a fixed order (decision 0040). Open panes split the height
    by weight; closed ones keep only their header. */
 .scm-panes {
@@ -206,6 +212,10 @@
   padding: 0 var(--space-2) 0 var(--space-5);
   color: var(--color-text-secondary);
   white-space: nowrap;
+}
+
+.compare-row[data-selected] {
+  color: var(--color-selected-text);
 }
 
 .compare-row:focus-visible {
@@ -575,6 +585,7 @@
 }
 
 .review-rail-body .file-tree-host {
+  --trees-bg-override: var(--color-surface);
   min-height: 0;
   flex: 1;
 }

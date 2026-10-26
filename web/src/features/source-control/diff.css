@@ -52,6 +52,10 @@
   /* Changed lines mix the status hue into the surface; changed words mix more. */
   --diffs-bg-addition-emphasis-override: color-mix(in srgb, var(--color-success) 30%, var(--color-surface));
   --diffs-bg-deletion-emphasis-override: color-mix(in srgb, var(--color-destructive) 30%, var(--color-surface));
+  /* Pierre mixes these into the surface for added lines. The tint is
+     undefined outside Servef Light, so Pierre's own mix applies there. */
+  --diffs-bg-addition-override: var(--color-diff-addition-tint);
+  --diffs-bg-addition-number-override: var(--color-diff-addition-tint);
   --diffs-fg-number-override: var(--color-text-muted);
   --diffs-bg-separator-override: var(--color-surface-recessed);
   display: block;
@@ -129,7 +133,7 @@
 }
 
 /* Files are islands on a recessed gutter, as the workspace islands sit on
-   the canvas: surface contrast and gaps, no borders or shadows. */
+   the canvas: surface contrast and gaps, plus a hairline in Servef Light. */
 .review-files {
   display: flex;
   flex: 1;
@@ -146,6 +150,9 @@
   scroll-margin-top: var(--space-2);
   border-radius: var(--radius-island);
   background: var(--color-surface);
+  /* The workspace islands' hairline (Servef Light only); an outer shadow is
+     never covered by the file's own content. */
+  box-shadow: 0 0 0 1px var(--color-island-border);
 }
 
 .review-file:has(> .review-file-body[hidden]) .review-file-header {
