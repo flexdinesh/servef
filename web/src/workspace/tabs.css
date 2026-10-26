@@ -19,7 +19,6 @@
   max-width: 12.5rem;
   flex: none;
   align-items: center;
-  margin-top: var(--space-1);
   color: var(--color-text-secondary);
   background: var(--color-workspace-chrome);
 }

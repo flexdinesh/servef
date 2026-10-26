@@ -21,7 +21,7 @@
   stroke-width: 1.75;
 }
 
-/* The tile and rail bar mark the active view, not IconButton's pressed ring. */
+/* The tile alone marks the active view, not IconButton's pressed ring. */
 .activity-item[aria-pressed="true"] {
   color: var(--color-text-primary);
   box-shadow: none;
@@ -46,15 +46,6 @@
 .activity-item[aria-pressed="true"]::before {
   background: var(--color-surface);
   box-shadow: var(--shadow-control);
-}
-
-/* An accent bar on the rail's left edge marks the active view, as in VS Code. */
-.activity-item[aria-pressed="true"]::after {
-  position: absolute;
-  inset: var(--space-1) auto var(--space-1) 0;
-  width: 2px;
-  background: var(--color-selected-border);
-  content: "";
 }
 
 /* Pending-change count at the tile's lower right, as in VS Code. Surface text

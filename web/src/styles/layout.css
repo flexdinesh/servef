@@ -101,6 +101,27 @@ main.image-mode {
   outline-offset: -2px;
 }
 
+/* Document focus rings the visible pane above its content: an outline on the
+   scrolling source sits under the sticky gutter and scrolls away with it. The
+   review rail keeps main's own outline. */
+.workspace-body {
+  position: relative;
+}
+
+.workspace-body:not(:has(> .review-rail)):has(> main:focus-visible, .source-document:focus-visible) :is(main, .source-document):focus-visible {
+  outline: 0;
+}
+
+.workspace-body:not(:has(> .review-rail)):has(> main:focus-visible, .source-document:focus-visible)::after {
+  position: absolute;
+  z-index: var(--z-sticky);
+  inset: 0;
+  border-radius: 0 0 var(--radius-island) var(--radius-island);
+  box-shadow: inset 0 0 0 2px var(--color-focus);
+  content: "";
+  pointer-events: none;
+}
+
 .workspace-toolbar {
   display: flex;
   min-width: 0;

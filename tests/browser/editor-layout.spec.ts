@@ -50,6 +50,26 @@ test("navigation and document islands share top and bottom edges across one gutt
   expect(edges?.gutter).toBe(edges?.separator)
 })
 
+test("tabs and the mode toggle fill the toolbar, and source focus rings the visible pane", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  const source = page.getByRole("textbox", { name: "Markdown source" })
+  await expect(source).toBeVisible()
+  const toolbar = await page.locator(".workspace-toolbar").boundingBox()
+  for (const element of [page.locator(".buffer-tab.active"), page.getByRole("group", { name: "Document view" }), page.getByRole("button", { name: "Source", exact: true })]) {
+    const bounds = await element.boundingBox()
+    expect([bounds?.y, bounds?.height]).toEqual([toolbar?.y, toolbar?.height])
+  }
+  await source.focus()
+  await page.keyboard.press("ArrowDown")
+  await expect(source).toHaveCSS("outline-style", "none")
+  const ring = await page.locator(".workspace-body").evaluate((element) => {
+    const style = getComputedStyle(element, "::after")
+    return { shadow: style.boxShadow, zIndex: style.zIndex }
+  })
+  expect(ring.shadow).toContain("inset")
+  expect(Number(ring.zIndex)).toBeGreaterThan(1)
+})
+
 test("file search filters paths and opens results without loading content index", async ({ page }) => {
   let indexRequests = 0
   page.on("request", (request) => {
