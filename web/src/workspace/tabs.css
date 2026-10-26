@@ -31,10 +31,12 @@
   background-image: linear-gradient(var(--color-chrome-hover), var(--color-chrome-hover));
 }
 
+/* The active tab carries an accent line on its top edge, as in VS Code. */
 .buffer-tab.active {
   z-index: var(--z-raised);
   color: var(--color-text-primary);
   background: var(--color-surface);
+  box-shadow: inset 0 2px var(--color-selected-border);
 }
 
 .buffer-tab:not(.active)::after {

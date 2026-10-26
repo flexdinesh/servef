@@ -3,12 +3,13 @@ import { FileTree as PierreFileTree, useFileTree } from "@pierre/trees/react"
 import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react"
 
 import type { FileStats } from "../../api/compare-stats-contract.ts"
+import { treeCSS } from "../../lib/tree-css.ts"
 import { ancestorDirectories, type CompareFile } from "./compare-files.ts"
 import { statsLabel } from "./use-compare-stats.ts"
 
 // Every Source Control folder holds changes, so folder dots add no signal;
 // deleted files read as removed.
-const treeCSS = `[data-icon-name="file-tree-icon-chevron"] { width: 12px; height: 12px; }
+const changesTreeCSS = `${treeCSS}
 [data-item-contains-git-change="true"] > [data-item-section="git"] { visibility: hidden; }
 [data-item-git-status="deleted"] > [data-item-section="content"] { text-decoration: line-through; }`
 
@@ -54,7 +55,7 @@ export function FilesTree({ activePath, collapseRequest, files, itemHeight, labe
     initialSelectedPaths: paths.includes(activePath) ? [activePath] : [],
     density: "compact",
     search: false,
-    unsafeCSS: treeCSS,
+    unsafeCSS: changesTreeCSS,
     icons: { set: "complete", colored: true },
     gitStatus,
     renderRowDecoration({ item }) {

@@ -9,6 +9,7 @@ import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 import { openDirectoryPaths, type PageData, type TreeNode } from "../../api/page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
 import { Button } from "../../components/ui/button.tsx"
+import { treeCSS } from "../../lib/tree-css.ts"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { TextField } from "../../components/ui/text-field.tsx"
 import { treeRowHeight } from "../../components/ui/tree-rows.ts"
@@ -125,7 +126,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
     initialSelectedPaths: paths.includes(page.selected) ? [page.selected] : [],
     density: "compact",
     search: false,
-    unsafeCSS: '[data-icon-name="file-tree-icon-chevron"] { width: 12px; height: 12px; }',
+    unsafeCSS: treeCSS,
     fileTreeSearchMode: "hide-non-matches",
     icons: { set: "complete", colored: true },
     onSelectionChange(selected) {

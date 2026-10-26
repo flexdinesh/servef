@@ -41,6 +41,7 @@
 .ui-row:is([data-active], [data-selected], [aria-selected="true"], [aria-current="page"]) {
   color: var(--color-selected-text);
   background: var(--color-selected);
+  box-shadow: inset 0 0 0 1px var(--color-selected-border);
 }
 
 .ui-row:focus-visible {
