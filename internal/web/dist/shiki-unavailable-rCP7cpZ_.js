@@ -1,0 +1,1 @@
+function e(){throw Error(`servef does not bundle Shiki`)}var t=e,n=e,r=e,i=e,a=e,o={getForeground:e,getTokenType:e},s=null,c={};export{o as EncodedTokenMetadata,s as INITIAL,c as bundledLanguages,t as createCssVariablesTheme,n as createHighlighterCore,r as createJavaScriptRegexEngine,i as createOnigurumaEngine,e as default,a as normalizeTheme};
