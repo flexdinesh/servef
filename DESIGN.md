@@ -2,18 +2,18 @@
 name: servef
 description: Compact VS Code-style workspace for browsing local files.
 colors:
-  bg: "#fafafa"
+  bg: "#ffffff"
   canvas: "#ffffff"
-  workspace-chrome: "#f0f0f0"
-  surface: "#f9f9f9"
-  surface-secondary: "#f8f8f8"
-  surface-recessed: "#f0f0f0"
+  workspace-chrome: "#e5e7eb"
+  surface: "#ffffff"
+  surface-secondary: "#f1f2f4"
+  surface-recessed: "#eff1f4"
   surface-raised: "#ffffff"
   text-primary: "#333333"
   text-secondary: "#515866"
   text-muted: "#5d6676"
-  border: "#e3e3e3"
-  border-strong: "#d0d5dc"
+  border: "#d8dbe0"
+  border-strong: "#c4c9d1"
   accent: "#2563eb"
   accent-hover: "#1d4ed8"
   accent-subtle: "#e0e9fd"
@@ -222,7 +222,7 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document (`#f9f9f9` in Servef Light, decision 0043); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#f0f0f0` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f0f0f0` in Light, a clear step under the `#f9f9f9` surface; decision 0044); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the islands float on it (decision 0041); `surface` is document (white in Servef Light, decision 0046); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#eff1f4` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#e5e7eb` in Light, a clear step under the white surface; decisions 0044 and 0046); `island-border` is the islands' 1px edge, `#d3d7dd` in Servef Light and transparent elsewhere; Servef Light's greys are cool slate, matching its slate text (decision 0046); `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Servef Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Servef Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `servef-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
@@ -234,7 +234,7 @@ Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy'
 - `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Servef Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
 - `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles (including a pressed IconButton), highlighted menu items. Accent text on the selection tint (selected line numbers, palette matches) switches to `selected-text`, which holds 4.5:1 there.
 - `--color-focus` (= `accent`): keyboard focus.
-- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#858b94` in Servef Light), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
+- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#7a808a` in Servef Light, decision 0046), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
 - `--color-selected-border` (= `accent`): the selection mark. The selection tint is under 3:1, so every selected, active, or pressed state also draws a 3:1 mark: a 1px inset ring on selected rows (lists, trees, menus' highlighted item, a pressed IconButton; a commit range takes one ring around the run), a 2px line on the active tab's top edge, and a 2px bar on the activity rail's left edge beside the active view (decision 0045).
 
 ## Typography
@@ -271,7 +271,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose white canvas is barely lighter than the islands, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
@@ -283,7 +283,7 @@ Motion is functional: state changes use `--duration-fast`, progress fades in aft
 
 ## Shapes
 
-Navigation and document islands, and review file islands, use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, Source Control panes) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs use 6px top corners and concave lower shoulders.
+Navigation and document islands, and review file islands, use 10px corners (`--radius-island`). Overlays use 6px (`--radius-overlay`). List rows (trees, Search, Source Control panes) are square and run edge to edge; picker rows, menu items, icon buttons, toggles, fields, and inline code use 2px; bordered buttons, copy chips, and code blocks use 4px; segmented tracks use 6px. Activity selections use a 4px-radius tile inset 4px on every side of its row; tabs are square (decision 0046).
 
 Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px in rows, tabs, and segmented items; rest ink `text-secondary`, `text-primary` on hover. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family.
 
@@ -377,7 +377,7 @@ project's remembered tabs return. A project that no longer resolves shows
 
 ### Tabs and view mode
 
-Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab shares the document surface, with 6px top corners, a 2px `selected-border` line on its top edge (as in VS Code), and concave lower shoulders joining it to the document. Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is a `SegmentedControl` inset 4px vertically in the 32px toolbar. Image zoom controls share the same `SegmentedControl`; icon-only items are square, so SVG view and zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
+Filenames truncate at 12.5rem maximum tab width; titles expose paths. Tabs sit 4px below the top of the strip, with a 2px gutter between them to separate active and hovered surfaces. The active tab is a flat, square block of the document surface with a 2px `selected-border` line on its top edge, as in VS Code (decision 0046). Inactive tabs use short vertical separators; no separator borders the active tab. Keyboard focus retains an inset accent outline. Closing active selects nearest neighbour. Right-click or Shift+F10 on a tab opens a themed context menu: Close, Close Others, Close to the Right, and Close All. Unavailable actions are disabled. Right-click preserves the active document; dismissal returns focus to the tab, and closing returns focus to a surviving tab or the document pane. The Document view group follows declared capabilities: Markdown and SVG show [Preview][Source]; formattable types (JSON, YAML) show [Source][Format]; everything else shows no toggle. The mode group is a `SegmentedControl` inset 4px vertically in the 32px toolbar. Image zoom controls share the same `SegmentedControl`; icon-only items are square, so SVG view and zoom controls fit at 320px. View labels/defaults come from file-type metadata. Open tabs and the active document are remembered per project in browser storage and restored against the fresh tree; mode is remembered per open tab and resets on reload; URL/history remain authoritative for the document. Preview failures explain the problem and preserve access to Source.
 
 Format runs on demand: Source stays visible until the result arrives (no blank flash), Format is `aria-busy`, and the footer shows Loading after 150ms. Results are cached per file for the session. Formatted output shares Source's full-width, line-numbered viewer. A failure keeps Source, un-presses Format, and shows a slim destructive notice, “Couldn't format: <reason>.”, above the source; pressing Format retries.
 

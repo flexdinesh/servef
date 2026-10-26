@@ -14,14 +14,12 @@
 }
 
 .buffer-tab {
-  --tab-radius: var(--radius-lg);
   position: relative;
   display: flex;
   max-width: 12.5rem;
   flex: none;
   align-items: center;
   margin-top: var(--space-1);
-  border-radius: var(--tab-radius) var(--tab-radius) 0 0;
   color: var(--color-text-secondary);
   background: var(--color-workspace-chrome);
 }
@@ -31,7 +29,8 @@
   background-image: linear-gradient(var(--color-chrome-hover), var(--color-chrome-hover));
 }
 
-/* The active tab carries an accent line on its top edge, as in VS Code. */
+/* The active tab is a flat block of the document surface with an accent line
+   on its top edge, as in VS Code. */
 .buffer-tab.active {
   z-index: var(--z-raised);
   color: var(--color-text-primary);
@@ -49,28 +48,6 @@
 
 .buffer-tab:has(+ .buffer-tab.active)::after {
   display: none;
-}
-
-/* Concave shoulders join the selected tab to the document surface. */
-.buffer-tab.active::before,
-.buffer-tab.active::after {
-  position: absolute;
-  bottom: 0;
-  width: var(--tab-radius);
-  height: var(--tab-radius);
-  background: var(--color-surface);
-  content: "";
-  pointer-events: none;
-}
-
-.buffer-tab.active::before {
-  right: 100%;
-  mask-image: radial-gradient(circle at 0 0, transparent var(--tab-radius), var(--mask-opaque) calc(var(--tab-radius) + 0.5px));
-}
-
-.buffer-tab.active::after {
-  left: 100%;
-  mask-image: radial-gradient(circle at 100% 0, transparent var(--tab-radius), var(--mask-opaque) calc(var(--tab-radius) + 0.5px));
 }
 
 /* The tab owns hover; the target and close action only lay out inside it. */

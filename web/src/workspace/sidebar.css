@@ -1,7 +1,9 @@
 /* Activity bar and sidebar share one island; mobile opens it as a modal
-   drawer. */
+   drawer. The desktop island clears the drawer's inset, which would offset
+   it from the document island as a relative position. */
 .sidebar-drawer:not([open]) {
   position: relative;
+  inset: auto;
   display: flex;
   width: auto;
   max-width: none;

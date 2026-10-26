@@ -33,6 +33,23 @@ test("workspace identity and actions live in explorer and full-width status bar"
   await expect(page.locator("article h1")).toHaveCSS("font-size", "26px")
 })
 
+test("navigation and document islands share top and bottom edges across one gutter", async ({ page }) => {
+  await page.goto("/view?path=guides%2Fgetting-started.md")
+  await expect(page.getByRole("complementary", { name: "Files" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
+  const edges = await page.evaluate(() => {
+    const navigation = document.querySelector(".sidebar-drawer")?.getBoundingClientRect()
+    const workspace = document.querySelector(".workspace")?.getBoundingClientRect()
+    const separator = document.querySelector(".sidebar-resizer")?.getBoundingClientRect()
+    return navigation && workspace && separator
+      ? { navigation: [navigation.top, navigation.bottom], workspace: [workspace.top, workspace.bottom], gutter: workspace.left - navigation.right, separator: separator.width }
+      : null
+  })
+  expect(edges?.navigation).toEqual(edges?.workspace)
+  expect(edges?.gutter).toBeGreaterThan(0)
+  expect(edges?.gutter).toBe(edges?.separator)
+})
+
 test("file search filters paths and opens results without loading content index", async ({ page }) => {
   let indexRequests = 0
   page.on("request", (request) => {

@@ -9,16 +9,16 @@
   --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
-  --color-bg: light-dark(#fafafa, #181818);
+  --color-bg: light-dark(#ffffff, #181818);
   --color-canvas: light-dark(#ffffff, #0b0b0b);
   --color-surface: light-dark(#ffffff, #1f1f1f);
-  --color-surface-secondary: light-dark(#f8f8f8, #181818);
+  --color-surface-secondary: light-dark(#f1f2f4, #181818);
   --color-surface-raised: light-dark(#ffffff, #252526);
   --color-text-primary: light-dark(#333333, #e8eaf0);
   --color-text-secondary: light-dark(#515866, #b2b8c4);
   --color-text-muted: light-dark(#5d6676, #8992a1);
-  --color-border: light-dark(#e3e3e3, #2b2b2b);
-  --color-border-strong: light-dark(#d0d5dc, #414855);
+  --color-border: light-dark(#d8dbe0, #2b2b2b);
+  --color-border-strong: light-dark(#c4c9d1, #414855);
   --color-accent: light-dark(#2563eb, #78a8ff);
   --color-accent-hover: light-dark(#1d4ed8, #9bbfff);
   --color-accent-subtle: light-dark(#e0e9fd, #1d3155);
@@ -162,8 +162,6 @@
   --checker-size: 16px;
   --separator-hit: 5px;
   --border-quote: 3px;
-  /* Masks read alpha only. */
-  --mask-opaque: black;
 
   /* Workspace layout. */
   --sidebar-width: 18rem;
