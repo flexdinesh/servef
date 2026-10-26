@@ -5,8 +5,9 @@ colors:
   bg: "#fafafa"
   canvas: "#ffffff"
   workspace-chrome: "#f4f4f4"
-  surface: "#ffffff"
+  surface: "#f9f9f9"
   surface-secondary: "#f8f8f8"
+  surface-recessed: "#f4f4f4"
   surface-raised: "#ffffff"
   text-primary: "#333333"
   text-secondary: "#515866"
@@ -211,7 +212,7 @@ Implementation authority (decision 0033): tokens in `web/src/styles/tokens.css` 
 ### Token tiers
 
 1. **Theme values**: `light-dark()` colors in Tailwind's `@theme`, resolved by the root `color-scheme`; named themes override them in `themes.css`.
-2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
+2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-status` (11px git status letters), `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
 3. **Component tokens**: controls (`--control-xs` 20, `sm` 24, `md` 28, `lg` 32, `touch` 44px), icons (`--icon-xs` 12, `sm` 14, `md` 16, `lg` 18px), rows (`--row-list` 22, `--row-menu` 28, `--row-pick` 32, `--row-drawer` 32px; list 32 and pick/menu 44px on narrow screens), `--chrome-height`, `--field-height`, `--field-height-palette` (40px; 44px narrow), `--status-height`.
 
 Feature CSS references tokens only; stylelint rejects color literals, raw font sizes, radii, z-indexes, durations, and px above 2. Raw `button`, `input`, `select`, `textarea`, and `dialog` elements live only in `components/ui/`; oxlint rejects them elsewhere.
@@ -221,7 +222,7 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document; `surface-secondary` is explorer/code; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f4f4f4` in Light); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the grey islands float on it (decision 0041); `surface` is document (`#f9f9f9` in Servef Light, decision 0043); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#f4f4f4` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#f4f4f4` in Light); `island-border` is the islands' 1px edge, `#e8e8e8` in Servef Light and transparent elsewhere; `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
 Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Servef Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Servef Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `servef-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
@@ -269,7 +270,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose canvas matches the document surface, a 1px `island-border` hairline keeps their edges. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose white canvas is barely lighter than the islands, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's rounded connection to the document establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
@@ -437,7 +438,7 @@ commits, the stack, and branch files; Close on mobile). Three panes stack
 below, always in this order: Uncommitted, Commits, Branches. Each opens on a
 22px header (32px narrow) whose heading holds a section toggle (12px chevron,
 the name in 12px 600), then a note and right-aligned 20px icon actions; panes
-divide with a 1px `border` line. Empty panes start closed (no changes, no
+divide with a 1px `border-strong` line. Empty panes start closed (no changes, no
 commits in the range, no stack layers) and open when content arrives; once
 the user toggles a pane, that choice persists. On desktop open panes split
 the height by weight; a 5px sash above each open pane that follows another
@@ -453,8 +454,9 @@ as Tree / View as List (persisted; list by default), Collapse/Expand All
 Folders in tree mode, and Open Changes. The list is a `role="listbox"` named
 “Uncommitted changes” of 22px rows (32px narrow) indented to the pane title:
 the Pierre file icon, the name in `text-primary` (struck through when
-deleted), the folder in muted 12px, `+N −M` (or “binary”, “large”) in muted
-tabular figures, and the status letter. Rows are named “path, Modified, +2
+deleted), the folder in muted 12px, `+N −M` (or “binary”, “large”) in 12px
+tabular figures, additions `success` and deletions `destructive` (zero stays
+muted), and the 11px status letter. Rows are named “path, Modified, +2
 −1”; the title adds “Renamed from <old path>”. Tree mode renders the Files
 tree described below. Click or Space opens the file in the Uncommitted review
 and keeps focus; Enter and double-click move focus to it; arrows and Home/End
@@ -568,11 +570,12 @@ choosing a file jumps there and closes the sheet.
 
 The tab body opens on a header (16px inset): the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
-“12 files”, `+120 −30`, and “3 of 12 viewed”. Files follow on a recessed
+“12 files”, `+120 −30` (in the status hues), and “3 of 12 viewed”. Files follow on a recessed
 `workspace-chrome` gutter (8px inset, 12px between files, 32px below the last),
 each an island: a `surface` section with `--radius-island` corners, no border or
 shadow, as the workspace islands sit on the canvas. Each section is named by its
-path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`
+path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`,
+sticking one 8px gutter below the tab strip over a gutter-colored band,
 with a bottom border that hides while the file is collapsed): a plain disclosure toggle (no hover fill) with chevron,
 file icon, and path; a muted “from <old path>”; stats; the status letter; a
 Viewed toggle button (disabled until the file's blob hash arrives); and Open

@@ -35,7 +35,7 @@ import { fileOrder, gapForLine, hunkCursor, hunkInFile, hunkSelection, type Hunk
 import { diffLineAnchor, diffLineTarget, type DiffLineTarget } from "./diff-line-selection.ts"
 import { diffMetrics } from "./diff-metrics.ts"
 import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff-options.ts"
-import { diffStatsLabel } from "./diff-stats.ts"
+import { DiffStatsText, FileStatsText } from "./DiffStatsText.tsx"
 import { DIFF_THEME } from "./diff-theme.ts"
 import type { CollapseRequest } from "./FilesTree.tsx"
 import { loadReviewDiff, useReviewDiff } from "./review-diffs.ts"
@@ -264,6 +264,7 @@ function ReviewBody({
       const box = lineBox()
       const top = box ? box.top - root.clientHeight * revealTop
         : section.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
+          - (parseFloat(getComputedStyle(section).scrollMarginTop) || 0)
       if (Math.abs(root.scrollTop - top) > 1) root.scrollTo({ top })
     }
     pinned.current = target
@@ -414,7 +415,7 @@ function ReviewBody({
             <div className="review-totals">
               {list?.kind === "ready" && <span>{list.files.length.toLocaleString()}{list.truncated ? "+" : ""} {list.files.length === 1 ? "file" : "files"}</span>}
               {sum && <span className="review-totals-lines" title={`${sum.additions.toLocaleString()} added, ${sum.deletions.toLocaleString()} deleted lines`}>
-                {diffStatsLabel(sum)}
+                <DiffStatsText {...sum} />
               </span>}
               {files.length > 0 && <span>{viewedCount.toLocaleString()} of {files.length.toLocaleString()} viewed</span>}
             </div>
@@ -582,7 +583,7 @@ function ReviewFile({
           <span className="review-file-path" data-status={file.status}>{file.path}</span>
           {file.oldPath && <span className="review-file-from">from {file.oldPath}</span>}
         </Button>
-        {label && <span className="review-file-stats">{label}</span>}
+        {label && <span className="review-file-stats"><FileStatsText stats={stats} /></span>}
         <span className="commit-file-status" data-status={file.status} title={statusNames[file.status]}>{statusLetters[file.status]}</span>
         <ToggleButton size="text" className="review-viewed" pressed={viewed} disabled={!stats?.blob}
           title={stats?.blob ? "Mark as viewed; changes to the file unmark it" : "Waiting for the file's content hash"}

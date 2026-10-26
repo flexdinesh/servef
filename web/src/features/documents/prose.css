@@ -122,7 +122,7 @@ article pre {
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
   line-height: 1.6;
 }
 
@@ -186,7 +186,7 @@ article :not(pre) > code {
   padding: 0.15em 0.35em;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
   white-space: nowrap;
 }
 
@@ -222,7 +222,7 @@ article td {
 }
 
 article th {
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
   font-weight: 600;
 }
 

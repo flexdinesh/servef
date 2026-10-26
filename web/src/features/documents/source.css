@@ -30,7 +30,7 @@
 }
 
 .source-document-line.active {
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
 }
 
 .source-document-line-number {
@@ -50,7 +50,7 @@
 
 .source-document-line.active .source-document-line-number {
   color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
 }
 
 .source-document.selecting-lines,

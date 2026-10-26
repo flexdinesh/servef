@@ -60,9 +60,12 @@
   /* Surfaces derived from theme values. Chrome sits halfway between the
      document surface and the canvas so island edges stay visible. */
   --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
-  /* Islands draw this 1px edge; only a canvas that matches the document
-     surface (Servef Light) needs one. */
+  /* Islands draw this 1px edge; only a canvas as light as the islands
+     (Servef Light) needs one. */
   --color-island-border: transparent;
+  /* Fills set into the document surface: the active source line, code
+     blocks, table headers, diff separators, the image checkerboard. */
+  --color-surface-recessed: var(--color-surface-secondary);
 
   /* State roles. Hover and pressed layers are translucent ink, so they read on
      any surface. Selected rows and pressed toggles share the accent tint. */
@@ -89,6 +92,9 @@
 
   /* Type roles on top of the Tailwind scale. */
   --text-badge: 0.5625rem;
+  /* Git status letters (M, A, D) sit a step under the 12px stats beside them:
+     600-weight capitals read larger than digits at the same size. */
+  --text-status: 0.6875rem;
   --text-metadata: var(--text-xs);
   --text-label: 0.8125rem;
   --text-supporting: var(--text-sm);

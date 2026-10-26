@@ -125,6 +125,10 @@ function reviewSearch(page: Page): Record<string, string> {
   return Object.fromEntries(params)
 }
 
+// pinnedOffset is the review gutter a file opened by path stops below the
+// pane's top edge, where its header sticks.
+const pinnedOffset = 8
+
 // topOffset is how far a review section sits below the pane's top edge.
 async function topOffset(page: Page, file: string): Promise<number> {
   const [section, main] = await Promise.all([reviewFile(page, file).boundingBox(), page.getByRole("main").boundingBox()])
@@ -286,12 +290,12 @@ test("an uncommitted file opens the Uncommitted review scrolled to it", async ({
   await expect(page).toHaveURL(/[?&]review=working$/)
   await expect(page.getByRole("main")).toBeFocused()
   await expect(reviewFile(page, uncommittedFiles[0] ?? "")).toBeVisible()
-  expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(2)
+  expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(pinnedOffset + 2)
 
   // A click opens the file and keeps focus in the list.
   await changeRow(page, "src/app.ts").click()
   await expect(page).toHaveURL(/#f=src\/app\.ts$/)
-  await expect.poll(() => topOffset(page, "src/app.ts")).toBeLessThan(2)
+  await expect.poll(() => topOffset(page, "src/app.ts")).toBeCloseTo(pinnedOffset, 0)
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
   await expect(changeRow(page, "src/app.ts")).toHaveAttribute("aria-selected", "true")
   await expect(changeRow(page, "src/app.ts")).toBeFocused()
@@ -789,11 +793,11 @@ test("a commit's rail scrolls its review to a file and selects the file in view"
   // The root commit adds every file.
   await expect(rail(page).locator('[data-item-path="README.md"]')).toHaveAttribute("data-item-git-status", "added")
   await expect(reviewFile(page, "assets/logo.bin")).toBeVisible()
-  expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(2)
+  expect(await topOffset(page, "src/app.ts")).toBeGreaterThan(pinnedOffset + 2)
 
   await railFile(page, "app.ts").click()
   await expect(page).toHaveURL(/#f=src\/app\.ts$/)
-  await expect.poll(() => topOffset(page, "src/app.ts")).toBeLessThan(2)
+  await expect.poll(() => topOffset(page, "src/app.ts")).toBeCloseTo(pinnedOffset, 0)
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
   await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "true")
   await expect(page.getByRole("tab")).toHaveCount(1)
