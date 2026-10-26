@@ -134,7 +134,7 @@ test("source-only capabilities drive the UI without extension-specific component
       content: "", source: "package main\n", highlightDisabled: false,
       empty: false, error: "", fileCount: 1, fileSize: 13, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "main.go",
       warnings: [], previewError: "", filenamePatterns: ["*"], documentType: fileType,
-      navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+      navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false, at: "",
       tree: [{ name: "main.go", path: "main.go", fileType: "go", isDir: false, open: false, selected: true, children: [] }],
     } })
   })
