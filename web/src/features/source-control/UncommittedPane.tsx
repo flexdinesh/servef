@@ -8,6 +8,7 @@ import type { CompareFile, FileList } from "./compare-files.ts"
 import type { ChangesView } from "./source-control-layout.ts"
 import { fileParts } from "./source-control-panes.ts"
 import { FilesTree, type CollapseRequest } from "./FilesTree.tsx"
+import { FileStatsText } from "./DiffStatsText.tsx"
 import { statsLabel, type CompareStats } from "./use-compare-stats.ts"
 
 const statusLetters: Record<CompareFile["status"], string> = { modified: "M", added: "A", untracked: "U", deleted: "D", renamed: "R" }
@@ -107,7 +108,8 @@ function FlatFiles({ activePath, files, stats, onOpen }: FlatFilesProps) {
     <div ref={container} className="changes-list" role="listbox" aria-label="Uncommitted changes" onKeyDown={onKeyDown}>
       {files.map((file) => {
         const { name, folder } = fileParts(file.path)
-        const lines = statsLabel(stats?.byPath.get(file.path))
+        const fileStats = stats?.byPath.get(file.path)
+        const lines = statsLabel(fileStats)
         const selected = file.path === activePath
         return (
           <ListRow key={file.path} data-path={file.path} role="option" aria-selected={selected} selected={selected}
@@ -120,7 +122,7 @@ function FlatFiles({ activePath, files, stats, onOpen }: FlatFilesProps) {
             <FileIcon path={file.path} />
             <span className="changes-row-name">{name}</span>
             <span className="changes-row-folder">{folder}</span>
-            {lines && <span className="changes-row-stats">{lines}</span>}
+            {lines && <span className="changes-row-stats"><FileStatsText stats={fileStats} /></span>}
             <span className="commit-file-status" data-status={file.status} aria-hidden="true">{statusLetters[file.status]}</span>
           </ListRow>
         )

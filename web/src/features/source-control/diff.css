@@ -53,7 +53,7 @@
   --diffs-bg-addition-emphasis-override: color-mix(in srgb, var(--color-success) 30%, var(--color-surface));
   --diffs-bg-deletion-emphasis-override: color-mix(in srgb, var(--color-destructive) 30%, var(--color-surface));
   --diffs-fg-number-override: var(--color-text-muted);
-  --diffs-bg-separator-override: var(--color-surface-secondary);
+  --diffs-bg-separator-override: var(--color-surface-recessed);
   display: block;
   flex: 1 0 auto;
 }
@@ -139,9 +139,11 @@
   background: var(--color-workspace-chrome);
 }
 
-/* clip, unlike hidden, rounds the corners without breaking the sticky header. */
+/* clip, unlike hidden, rounds the corners without breaking the sticky header.
+   Jumps to a file stop one gutter short, where its header sticks. */
 .review-file {
   overflow: clip;
+  scroll-margin-top: var(--space-2);
   border-radius: var(--radius-island);
   background: var(--color-surface);
 }
@@ -150,10 +152,12 @@
   border-bottom-color: transparent;
 }
 
-/* File headers stick while their diff scrolls under them. */
+/* File headers stick one gutter below the tab strip while their diff scrolls
+   under them; a gutter-colored band above masks the scrolled lines. Before
+   the header sticks the band sits outside its file and is clipped. */
 .review-file-header {
   position: sticky;
-  top: 0;
+  top: var(--space-2);
   z-index: var(--z-sticky);
   display: flex;
   min-height: var(--control-lg);
@@ -163,6 +167,16 @@
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
   font-size: var(--text-label);
+}
+
+.review-file-header::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: var(--space-2);
+  background: var(--color-workspace-chrome);
+  content: "";
 }
 
 .review-file-toggle {

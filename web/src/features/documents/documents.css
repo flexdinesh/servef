@@ -41,9 +41,9 @@ article,
   margin: auto;
   background-color: var(--color-surface);
   background-image: conic-gradient(
-    var(--color-surface-secondary) 0 25%,
+    var(--color-surface-recessed) 0 25%,
     transparent 0 50%,
-    var(--color-surface-secondary) 0 75%,
+    var(--color-surface-recessed) 0 75%,
     transparent 0
   );
   background-size: var(--checker-size) var(--checker-size);
@@ -58,7 +58,7 @@ article,
 .image-document-frame.loading {
   width: 16rem;
   height: 10rem;
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
   outline: 0;
 }
 

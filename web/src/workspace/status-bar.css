@@ -57,6 +57,15 @@
   white-space: nowrap;
 }
 
+/* On the canvas, status hues mix toward text as the process state does. */
+.status-diff-stats .diff-stat[data-kind="added"]:not([data-zero]) {
+  color: color-mix(in srgb, var(--color-success), var(--color-text-primary) 30%);
+}
+
+.status-diff-stats .diff-stat[data-kind="deleted"]:not([data-zero]) {
+  color: color-mix(in srgb, var(--color-destructive), var(--color-text-primary) 30%);
+}
+
 .status-lines {
   font-variant-numeric: tabular-nums;
 }

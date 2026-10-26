@@ -79,10 +79,22 @@ main.image-mode {
   min-height: 0;
   grid-template-rows: var(--chrome-height) minmax(0, 1fr);
   overflow: hidden;
+  position: relative;
   border-radius: var(--radius-island);
-  outline: 1px solid var(--color-island-border);
-  outline-offset: -1px;
   background: var(--color-surface);
+}
+
+/* The island edge paints above content: an inset outline sits under any
+   child with its own background or stacking (active tab, sticky rows). */
+.workspace::after,
+.sidebar-drawer:not([open])::after {
+  position: absolute;
+  z-index: var(--z-sticky);
+  inset: 0;
+  border: 1px solid var(--color-island-border);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
 }
 
 .workspace main:focus-visible {
