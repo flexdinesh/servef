@@ -32,9 +32,15 @@ run = ["go mod download", "pnpm install", { task = "build:web" }]
 description = "Run Go and Vite together"
 run = [{ tasks = ["dev:server", "dev:web"] }]
 
+# The browser tests' git fixture, rebuilt in the gitignored .dev on each start,
+# gives Source Control a repository beside testdata/markdown.
 [tasks."dev:server"]
 description = "Run only the Go server"
-run = "go run . testdata/markdown --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open"
+env = { SERVEF_BROWSER_GIT_ROOT = "{{config_root}}/.dev/git-fixture" }
+run = [
+  "node tests/browser/git-fixture.ts",
+  "go run . testdata/markdown --path \"$SERVEF_BROWSER_GIT_ROOT\" --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open",
+]
 
 [tasks."dev:web"]
 description = "Run only Vite against the Go server"

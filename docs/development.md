@@ -102,6 +102,11 @@ build it first. Before running `go` directly in a fresh clone or worktree, run
 `mise run dev` starts Go on port `8080` and Vite on port `5173`. `mise run dev:mock` runs Vite without Go and
 uses the default API scenario under `testdata/api`.
 
+`mise run dev` and `mise run dev:server` serve `testdata/markdown` and, for
+Source Control, the browser tests' git fixture (`tests/browser/git-fixture.ts`).
+Each start rebuilds it in the gitignored `.dev/git-fixture`, discarding edits
+there; pick it in the project picker. Without git, it is a plain folder.
+
 To use other ports, copy `.env.example` to `.env` (gitignored) and set
 `SERVEF_DEV_SERVER_PORT` (Go) and `SERVEF_DEV_WEB_PORT` (Vite). Vite proxies
 `/api` to the Go port. mise loads `.env` for tasks and activated shells.
