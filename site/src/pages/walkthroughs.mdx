@@ -66,9 +66,15 @@ Schema, and any mistake comes back as a 400 naming each problem field, such as
 `steps[2].file.lines: end 90 is past the file's last line, 61`.
 
 servef ships an agent skill with the full guidance: discovery, targets, and
-how to tell a good story. Copy
-[`skills/servef-walkthrough`](https://github.com/flexdinesh/servef/tree/main/skills/servef-walkthrough)
-into your agent's skills folder.
+how to tell a good story. Install it with the
+[`skills`](https://github.com/vercel-labs/skills) CLI:
+
+```sh
+npx skills add flexdinesh/servef --skill servef-walkthrough
+```
+
+The skill is documentation only; servef does not install it. Its source is
+[`skills/servef-walkthrough`](https://github.com/flexdinesh/servef/tree/main/skills/servef-walkthrough).
 
 The endpoint accepts JSON only, from any local process; requests from another
 site's pages are refused.
