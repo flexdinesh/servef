@@ -106,6 +106,7 @@
     }
   ],
   "selected": "config/broken.json",
+  "at": "",
   "content": "",
   "source": "{\"name\": \"malformed-search-marker\",\n",
   "fileSize": 36,

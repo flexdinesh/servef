@@ -59,6 +59,9 @@ export interface PageData {
   // worktrees counts the repository's checkouts; above 1 it has worktrees.
   worktrees: number
   selected: string
+  // at is the full commit hash a snapshot document was read from, "" for
+  // the working tree. Snapshots have Source and Format only.
+  at: string
   source: string
   tree: TreeNode[]
   warnings: string[]
@@ -135,6 +138,7 @@ export function isPageData(value: unknown): value is PageData {
     && typeof value.branch === "string"
     && typeof value.worktrees === "number"
     && typeof value.selected === "string"
+    && typeof value.at === "string"
     && typeof value.source === "string"
     && Array.isArray(value.tree)
     && value.tree.every(isTreeNode)

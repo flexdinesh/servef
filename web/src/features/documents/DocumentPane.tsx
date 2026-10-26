@@ -3,7 +3,7 @@ import type { ReactNode, RefObject } from "react"
 import { Button } from "@/components/ui/button"
 
 import { BinaryDocument, TooLargeDocument } from "./BinaryDocument.tsx"
-import { FormatErrorNotice, LargeFileNotice } from "./DocumentNotice.tsx"
+import { FormatErrorNotice, LargeFileNotice, SnapshotNotice } from "./DocumentNotice.tsx"
 import { DocumentPreview } from "./DocumentPreview.tsx"
 import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
@@ -83,9 +83,15 @@ export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, l
           </div>
         ) : <DocumentPreview key={page.selected} html={page.content} navigate={navigate} />
       ) : view.kind === "format" ? (
-        <FormattedDocument key={page.selected} text={view.text} language={language} label={`${label} formatted`} />
+        page.at ? (
+          <div className="source-stack">
+            <SnapshotNotice at={page.at} />
+            <FormattedDocument key={page.selected} text={view.text} language={language} label={`${label} formatted`} />
+          </div>
+        ) : <FormattedDocument key={page.selected} text={view.text} language={language} label={`${label} formatted`} />
       ) : view.kind === "source" ? (
         <div className="source-stack">
+          {page.at && <SnapshotNotice at={page.at} />}
           {page.previewDisabled && <LargeFileNotice size={page.fileSize} searchExcluded={page.searchExcluded} />}
           {view.formatError && <FormatErrorNotice reason={view.formatError} />}
           <SourceDocument key={page.selected} source={page.source} language={language} label={`${label} source`}

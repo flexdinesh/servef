@@ -106,6 +106,7 @@
     }
   ],
   "selected": "logs/huge.log",
+  "at": "",
   "content": "",
   "source": "2026-10-12T09:00:00Z info server started\n2026-10-12T09:00:01Z info indexed 42 files\n",
   "fileSize": 9437184,

@@ -139,7 +139,8 @@ export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySe
   const tabs: WorkspaceTab[] = []
   for (const entry of memory?.tabs ?? []) {
     const tab = parseStoredTab(entry)
-    if (tab && (tab.kind !== "document" || files.has(tab.path)) && !includesTab(tabs, tab)) tabs.push(tab)
+    // Snapshots read git, not the tree; they restore whatever the tree holds.
+    if (tab && (tab.kind !== "document" || tab.at || files.has(tab.path)) && !includesTab(tabs, tab)) tabs.push(tab)
   }
   const remembered = parseStoredTab(memory?.active)
   const active = tabs.find((tab) => sameTab(tab, remembered)) ?? null

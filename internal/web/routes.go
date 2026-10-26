@@ -74,10 +74,10 @@ func (a *App) newRoutes() *http.ServeMux {
 		if len(selected) > 0 {
 			name = selected[0]
 		}
-		a.servePageData(w, query.Get("project"), name, required)
+		a.servePageData(w, query.Get("project"), name, query.Get("at"), required)
 	})
 	api("/api/format", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
-		a.serveFormat(w, query.Get("project"), query.Get("path"))
+		a.serveFormat(w, query.Get("project"), query.Get("path"), query.Get("at"))
 	})
 	api("/api/search-documents", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
 		a.serveSearchDocuments(w, query.Get("project"))
@@ -168,12 +168,12 @@ func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 		a.serveShell(w, http.StatusOK, nil)
 		return
 	}
-	selected := ""
+	selected, at := "", ""
 	required := r.URL.Path == "/view" && !reviewQuery(query) && !walkthroughQuery(query)
 	if required {
-		selected = query.Get("path")
+		selected, at = query.Get("path"), query.Get("at")
 	}
-	data, status := a.page(projectID, selected, required)
+	data, status := a.page(projectID, selected, at, required)
 	a.serveShell(w, status, &data)
 }
 

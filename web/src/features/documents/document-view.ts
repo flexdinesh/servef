@@ -18,7 +18,8 @@ export function documentModes(page: PageData): DocumentMode[] {
   const modes: DocumentMode[] = []
   if (!page.binary) modes.push("source")
   // Only images preview binary bytes; other binary files show the Binary file note.
-  if (type.previewKind && (!page.binary || type.previewKind === "image")) {
+  // A snapshot (page.at) has Source and Format only.
+  if (type.previewKind && !page.at && (!page.binary || type.previewKind === "image")) {
     // The default view leads the toolbar.
     if (type.defaultMode === "preview") modes.unshift("preview")
     else modes.push("preview")

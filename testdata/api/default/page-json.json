@@ -106,6 +106,7 @@
     }
   ],
   "selected": "config/settings.json",
+  "at": "",
   "content": "",
   "source": "{\"name\":\"servef-json-fixture\",\"large\":900719925474099312345,\"enabled\":true,\"nested\":{\"message\":\"config-search-marker\"}}\n",
   "fileSize": 120,

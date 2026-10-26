@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import type { CompareContext } from "../features/source-control/compare.ts"
-import { documentTab, includesTab, parseStoredTab, reviewTab, sameTab, storedTab, tabKey, tabName, tabSearch } from "./workspace-tabs.ts"
+import { documentKey, documentTab, includesTab, parseStoredTab, reviewTab, routeAt, sameTab, storedTab, tabKey, tabName, tabSearch } from "./workspace-tabs.ts"
 
 const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
 const other = "4f76e9a1b2c3d4e5f60718293a4b5c6d7e8f9012"
@@ -53,4 +53,34 @@ test("tab searches route documents by path and reviews without one", () => {
   assert.deepEqual(tabSearch("p", reviewTab({ kind: "branch", base: "develop", head: "" })), { project: "p", review: "branch", base: "develop" })
   assert.deepEqual(tabSearch("p", reviewTab({ kind: "commit", hash })), { project: "p", commit: hash })
   assert.deepEqual(tabSearch("p", reviewTab({ kind: "range", from: other, to: hash })), { project: "p", from: other, to: hash })
+})
+
+test("snapshots are document tabs of a commit, distinct from the working file", () => {
+  const snapshot = documentTab("web/src/App.tsx", hash)
+  assert.equal(sameTab(snapshot, documentTab("web/src/App.tsx")), false)
+  assert.equal(sameTab(snapshot, documentTab("web/src/App.tsx", other)), false)
+  assert.equal(tabKey(snapshot), `document:${hash}:web/src/App.tsx`)
+  assert.equal(tabKey(documentTab("web/src/App.tsx")), "document:web/src/App.tsx")
+  assert.deepEqual(tabName(snapshot, context), { label: "App.tsx @ 3577ec6", title: `web/src/App.tsx at ${hash}` })
+  assert.deepEqual(tabSearch("p", snapshot), { project: "p", path: "web/src/App.tsx", at: hash })
+  assert.equal(documentKey("a.md"), "a.md")
+  assert.equal(documentKey("a.md", hash), `${hash}:a.md`)
+})
+
+test("stored snapshots round-trip; plain paths stay working-tree documents", () => {
+  const snapshot = documentTab("a.md", hash)
+  assert.deepEqual(storedTab(snapshot), { path: "a.md", at: hash })
+  assert.deepEqual(parseStoredTab(storedTab(snapshot)), snapshot)
+  assert.deepEqual(parseStoredTab("a.md"), documentTab("a.md"))
+  for (const malformed of [{ path: "a.md", at: "3577ec6" }, { path: "", at: hash }, { path: 1, at: hash }, { at: hash }, { path: "a.md", at: hash.toUpperCase() }]) {
+    assert.equal(parseStoredTab(malformed), null, JSON.stringify(malformed))
+  }
+})
+
+test("routes read a snapshot commit only as a full hash with a path", () => {
+  assert.equal(routeAt("a.md", hash), hash)
+  assert.equal(routeAt(undefined, hash), undefined)
+  assert.equal(routeAt("a.md", "3577ec6"), undefined)
+  assert.equal(routeAt("a.md", hash.toUpperCase()), undefined)
+  assert.equal(routeAt("a.md", 1), undefined)
 })

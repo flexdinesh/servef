@@ -36,6 +36,7 @@ export const emptyPage: PageData = {
   branch: "",
   worktrees: 0,
   selected: "",
+  at: "",
   source: "",
   tree: [],
   warnings: [],
@@ -58,17 +59,20 @@ interface LoadPageOptions {
   pathname: string
   project: string
   selected: string
+  // at reads selected from that commit instead of the working tree.
+  at?: string
   signal: AbortSignal
 }
 
-export async function loadPage({ pathname, project, selected, signal }: LoadPageOptions): Promise<PageLoadResult> {
+export async function loadPage({ pathname, project, selected, at = "", signal }: LoadPageOptions): Promise<PageLoadResult> {
   const embedded = initialPageData
   initialPageData = null
-  if (embedded && embedded.project === project && embedded.selected === selected && (pathname === "/" || pathname === "/view")) {
+  if (embedded && embedded.project === project && embedded.selected === selected && embedded.at === at && (pathname === "/" || pathname === "/view")) {
     return { kind: "page", page: embedded }
   }
 
-  const endpoint = projectUrl("/api/page", project, pathname === "/view" ? selected : undefined)
+  let endpoint = projectUrl("/api/page", project, pathname === "/view" ? selected : undefined)
+  if (pathname === "/view" && at) endpoint += `&at=${at}`
 
   try {
     // Pages carry their own error, so any status with a page is a page.

@@ -17,7 +17,7 @@ import { documentTab, reviewTab } from "./workspace-tabs.ts"
 
 const working = reviewTab({ kind: "working" })
 
-const docs = (...paths: string[]) => paths.map(documentTab)
+const docs = (...paths: string[]) => paths.map((path) => documentTab(path))
 
 test("memory shares a project's tabs across sessions and keeps the last project per set of roots", () => {
   let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md", "go.mod"), documentTab("go.mod"))
@@ -120,6 +120,13 @@ test("restored review tabs need no tree entry; documents still do", () => {
   const commit = reviewTab({ kind: "commit", hash })
   assert.deepEqual(restoreTabs({ tabs: ["README.md", { review: "commit", commit: hash }, "removed.md"], active: { review: "commit", commit: hash } },
     new Set(["README.md"])), { tabs: [documentTab("README.md"), commit], active: commit })
+})
+
+test("restored snapshots need no tree entry", () => {
+  const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
+  const snapshot = documentTab("removed.md", hash)
+  assert.deepEqual(restoreTabs({ tabs: [{ path: "removed.md", at: hash }, "removed.md"], active: { path: "removed.md", at: hash } },
+    new Set(["README.md"])), { tabs: [snapshot], active: snapshot })
 })
 
 test("per-file diff tabs stored before reviews restore as one review per compare", () => {

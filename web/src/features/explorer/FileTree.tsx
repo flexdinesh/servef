@@ -113,7 +113,9 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
   const rememberedExpanded = useRef<readonly string[] | null>(null)
   const [hasExpanded, setHasExpanded] = useState(expandedPaths.current.size > 0)
   const previousPaths = useRef(paths)
-  const previousSelected = useRef(page.selected)
+  // A snapshot (page.at) selects no working-tree file.
+  const selectedFile = page.at ? "" : page.selected
+  const previousSelected = useRef(selectedFile)
   const searchInput = useRef<HTMLInputElement>(null)
   const searchButton = useRef<HTMLButtonElement>(null)
   const syncing = useRef(false)
@@ -123,7 +125,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
     initialExpandedPaths: state.current.expanded ?? openDirectoryPaths(page.tree),
     initialSearchQuery: state.current.search,
     itemHeight,
-    initialSelectedPaths: paths.includes(page.selected) ? [page.selected] : [],
+    initialSelectedPaths: paths.includes(selectedFile) ? [selectedFile] : [],
     density: "compact",
     search: false,
     unsafeCSS: treeCSS,
@@ -135,7 +137,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
       const path = focused && selected.includes(focused) ? focused : selected.at(-1)
       if (!path || model.getItem(path)?.isDirectory()) return
       current.current.onDismiss()
-      if (path !== current.current.page.selected) current.current.onNavigate(path)
+      if (path !== current.current.page.selected || current.current.page.at) current.current.onNavigate(path)
     },
   })
   const search = useFileTreeSearch(model)
@@ -199,23 +201,23 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
       previousPaths.current = paths
     }
     for (const path of model.getSelectedPaths()) {
-      if (path !== page.selected) model.getItem(path)?.deselect()
+      if (path !== selectedFile) model.getItem(path)?.deselect()
     }
-    if (page.selected && model.getItem(page.selected)) {
-      if (page.selected !== previousSelected.current) {
-        const segments = page.selected.split("/")
+    if (selectedFile && model.getItem(selectedFile)) {
+      if (selectedFile !== previousSelected.current) {
+        const segments = selectedFile.split("/")
         for (let index = 1; index < segments.length; index++) {
           const item = model.getItem(segments.slice(0, index).join("/"))
           if (item && "expand" in item) item.expand()
         }
-        model.scrollToPath(page.selected, { focus: false })
+        model.scrollToPath(selectedFile, { focus: false })
       }
-      model.getItem(page.selected)?.select()
+      model.getItem(selectedFile)?.select()
     }
-    previousSelected.current = page.selected
+    previousSelected.current = selectedFile
     syncing.current = false
     syncExpandedPaths()
-  }, [model, page.selected, paths, state, syncExpandedPaths])
+  }, [model, selectedFile, paths, state, syncExpandedPaths])
 
   useLayoutEffect(() => model.subscribe(() => {
     if (syncing.current) return
