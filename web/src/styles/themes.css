@@ -30,12 +30,23 @@
    (decision 0041): chrome is its own light grey rather than the mix toward
    the canvas, and islands take a hairline edge. Dark keeps the mix. The
    document surface is a faint grey so files float on the canvas as the
-   explorer does (decision 0043). */
+   explorer does (decision 0043). Chrome and recessed fills sit a clear step
+   under the surface, and chrome hover moves toward the active tone rather
+   than past it (decision 0044). */
 :root:is([data-theme="system"], [data-theme="light"], [data-theme="dark"]) {
   --color-surface: light-dark(#f9f9f9, #1f1f1f);
-  --color-surface-recessed: light-dark(#f4f4f4, var(--color-surface-secondary));
-  --color-workspace-chrome: light-dark(#f4f4f4, color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));
+  --color-surface-recessed: light-dark(#f0f0f0, var(--color-surface-secondary));
+  --color-workspace-chrome: light-dark(#f0f0f0, color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));
+  --color-chrome-hover: light-dark(color-mix(in srgb, var(--color-surface), var(--color-workspace-chrome)), var(--color-hover));
+  --color-field-border: light-dark(#858b94, color-mix(in srgb, var(--color-text-muted) 90%, var(--color-surface)));
   --color-island-border: light-dark(#e8e8e8, transparent);
+}
+
+/* Servef Light added lines: Pierre mixes 12% of a hue into the surface, and
+   the dark success green reads grey at that strength, so additions mix a
+   vivid green instead. Other themes keep Pierre's mix of their success. */
+:root.light:is([data-theme="system"], [data-theme="light"]) {
+  --color-diff-addition-tint: #00c853;
 }
 
 :root[data-theme="catppuccin"] {

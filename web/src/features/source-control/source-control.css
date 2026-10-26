@@ -7,6 +7,12 @@
   font-size: var(--text-label);
 }
 
+/* The header ends on a divider, as Explorer's and Search's shelves do; an
+   inset shadow keeps the 32px band's contents centered. */
+.source-control-view > .explorer-header {
+  box-shadow: inset 0 -1px var(--color-border);
+}
+
 /* Three panes in a fixed order (decision 0040). Open panes split the height
    by weight; closed ones keep only their header. */
 .scm-panes {
@@ -208,14 +214,31 @@
   white-space: nowrap;
 }
 
+.compare-row[data-selected] {
+  color: var(--color-selected-text);
+}
+
 .compare-row:focus-visible {
   outline: 1px solid var(--color-focus);
   outline-offset: -1px;
 }
 
-/* A range's middle commits share the fill without each reading as the cursor. */
+/* A range's commits share one fill and one mark around the whole run, so no
+   middle commit reads as the cursor. */
+.compare-row[data-range] {
+  box-shadow:
+    inset 1px 0 var(--color-selected-border),
+    inset -1px 0 var(--color-selected-border),
+    inset 0 var(--range-top, 1px) var(--color-selected-border),
+    inset 0 calc(-1 * var(--range-bottom, 1px)) var(--color-selected-border);
+}
+
 .compare-row[data-range] + .compare-row[data-range] {
-  box-shadow: inset 0 1px var(--color-selected);
+  --range-top: 0px;
+}
+
+.compare-row[data-range]:has(+ .compare-row[data-range]) {
+  --range-bottom: 0px;
 }
 
 .compare-row[data-pending] {
@@ -575,6 +598,7 @@
 }
 
 .review-rail-body .file-tree-host {
+  --trees-bg-override: var(--color-surface);
   min-height: 0;
   flex: 1;
 }

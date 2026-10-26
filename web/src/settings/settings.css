@@ -83,7 +83,7 @@
 
 .setting-item:hover,
 .setting-item:focus-within {
-  background: var(--color-surface-secondary);
+  background: var(--color-surface-recessed);
 }
 
 /* VS Code marks a changed setting with a bar in its left gutter. */
