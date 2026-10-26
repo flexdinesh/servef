@@ -320,3 +320,84 @@ main:not(.source-mode, .image-mode) > .annotated-document > .document-annotation
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
+
+/* Present mode (decision 0047): the document fills the canvas; the activity
+   bar, sidebar, tabs, and status bar step aside. */
+.layout[data-presenting] {
+  height: calc(100dvh - 2 * var(--workspace-inset));
+  padding-bottom: var(--workspace-inset);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.layout[data-presenting] > :is(.sidebar-drawer:not([open]), .sidebar-resizer) {
+  display: none;
+}
+
+.layout[data-presenting] > .workspace {
+  grid-column: 1;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.layout[data-presenting] .workspace-toolbar {
+  display: none;
+}
+
+:root:has(.layout[data-presenting]) .status-bar {
+  display: none;
+}
+
+/* The step bar floats at the foot of the workspace while presenting, and on
+   phones while following a walkthrough; the document scrolls clear of it. */
+.walkthrough-step-bar {
+  position: absolute;
+  z-index: var(--z-popover);
+  bottom: var(--space-4);
+  left: 50%;
+  display: flex;
+  max-width: calc(100% - 2 * var(--space-4));
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-overlay);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-label);
+  transform: translateX(-50%);
+}
+
+.walkthrough-step-bar-position {
+  flex: none;
+  padding: 0 var(--space-1);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.walkthrough-step-bar-title {
+  min-width: 0;
+  max-width: 24rem;
+  overflow: hidden;
+  padding-right: var(--space-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace:has(> .walkthrough-step-bar) main {
+  padding-bottom: calc(var(--control-touch) + var(--space-7));
+}
+
+@media (max-width: 48rem) {
+  .walkthrough-step-bar {
+    right: var(--space-3);
+    bottom: var(--space-3);
+    left: var(--space-3);
+    justify-content: space-between;
+    transform: none;
+  }
+
+  .walkthrough-step-bar-title {
+    flex: 1;
+    max-width: none;
+  }
+}

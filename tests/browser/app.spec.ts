@@ -363,7 +363,7 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const input = palette.getByRole("combobox", { name: "Command" })
   await expect(input).toBeFocused()
   const options = palette.getByRole("option")
-  await expect(options).toHaveCount(10)
+  await expect(options).toHaveCount(11)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
   await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Servef Dark")
   await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Servef Dark")
@@ -373,7 +373,8 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   await expect(options.nth(6)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
   await expect(options.nth(7)).toHaveAccessibleName(/^Walkthrough: Next Step, (Ctrl\+Right|⌘→)$/)
   await expect(options.nth(8)).toHaveAccessibleName(/^Walkthrough: Previous Step, (Ctrl\+Left|⌘←)$/)
-  await expect(options.nth(9)).toHaveAccessibleName("Walkthrough: Close Walkthrough")
+  await expect(options.nth(9)).toHaveAccessibleName("Walkthrough: Present")
+  await expect(options.nth(10)).toHaveAccessibleName("Walkthrough: Close Walkthrough")
   await expect(options.first()).toHaveAttribute("aria-selected", "true")
 
   await input.fill("nothing here")

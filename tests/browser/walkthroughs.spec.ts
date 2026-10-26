@@ -11,12 +11,14 @@ import { gitApiOrigin } from "./ports.ts"
 test.skip(() => !existsSync(path.join(gitFixtureRoot, ".git")), "git is not installed")
 
 const title = "How run finds its answer"
+// Tests run in parallel against one server, so each publishes its own title.
+const presentTitle = "Present how run finds its answer"
 
-function walkthrough(id: string, head: string) {
+function walkthrough(id: string, head: string, name = title) {
   return {
     project: gitFixtureRoot,
     id,
-    title,
+    title: name,
     summary: "A short tour of `src/app.ts`.",
     steps: [
       { title: "What this covers", body: "The constant, the function, and the **uncommitted** change." },
@@ -74,6 +76,46 @@ test("a published walkthrough steps through a note, a file, a snapshot, a diff, 
     await expect(page).not.toHaveURL(/wt=/)
     await expect(page.getByRole("region", { name: /^Step \d of 5/ })).toHaveCount(0)
     await expect(page.getByRole("listbox", { name: "Walkthroughs" }).getByRole("option", { name: new RegExp(`^${title}`) })).toBeVisible()
+  } finally {
+    await request.delete(`${gitApiOrigin}/api/walkthroughs?project=${encodeURIComponent(gitFixtureRoot)}&id=${id}`)
+  }
+})
+
+test("present mode hides the chrome until Escape, and phones step from a bar", async ({ page, request }) => {
+  const head = execFileSync("git", ["-C", gitFixtureRoot, "rev-parse", "HEAD"], { encoding: "utf8" }).trim()
+  const id = "browser-present"
+  const published = await request.post(`${gitApiOrigin}/api/walkthroughs`, { data: walkthrough(id, head, presentTitle) })
+  expect(published.status()).toBe(201)
+  const { url }: { url: string } = await published.json()
+
+  try {
+    await page.goto(`${url}&step=2#L3-L5`)
+    await page.getByRole("button", { name: "Present", exact: true }).click()
+    const bar = page.getByRole("toolbar", { name: `Walkthrough: ${presentTitle}` })
+    await expect(bar).toContainText("2 / 5")
+    await expect(page.getByRole("navigation", { name: "Views" })).toBeHidden()
+    await expect(page.getByRole("tablist", { name: "Open documents" })).toBeHidden()
+    await expect(page.locator(".status-bar")).toBeHidden()
+
+    await bar.getByRole("button", { name: "Next Step" }).click()
+    await expect(bar).toContainText("3 / 5")
+    await page.keyboard.press("Escape")
+    await expect(bar).toHaveCount(0)
+    await expect(page.getByRole("navigation", { name: "Views" })).toBeVisible()
+    await expect(page).toHaveURL(/step=3/)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const phoneBar = page.getByRole("toolbar", { name: `Walkthrough: ${presentTitle}` })
+    await expect(phoneBar).toContainText("3 / 5")
+    await expect(page.getByRole("region", { name: /^Step 3 of 5/ })).toBeVisible()
+    await phoneBar.getByRole("button", { name: "Previous Step" }).click()
+    await expect(phoneBar).toContainText("2 / 5")
+    await phoneBar.getByRole("button", { name: "Steps" }).click()
+    const steps = page.getByRole("listbox", { name: "Steps" })
+    await expect(steps).toBeVisible()
+    await steps.getByRole("option", { name: /^Step 4 of 5/ }).click()
+    await expect(steps).toBeHidden()
+    await expect(phoneBar).toContainText("4 / 5")
   } finally {
     await request.delete(`${gitApiOrigin}/api/walkthroughs?project=${encodeURIComponent(gitFixtureRoot)}&id=${id}`)
   }

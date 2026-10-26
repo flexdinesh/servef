@@ -11,6 +11,7 @@ export type CommandAction =
   | { kind: "find-references" }
   | { kind: "walkthrough-step"; direction: 1 | -1 }
   | { kind: "walkthrough-exit" }
+  | { kind: "walkthrough-present" }
 
 export interface Command {
   id: string
@@ -44,6 +45,7 @@ export const commands: readonly Command[] = [
   { id: "navigation.findReferences", category: "Navigation", title: "Find All References", action: { kind: "find-references" }, shortcut: "Shift+F12" },
   { id: "walkthrough.next", category: "Walkthrough", title: "Next Step", action: { kind: "walkthrough-step", direction: 1 }, shortcut: mac ? "⌘→" : "Ctrl+Right" },
   { id: "walkthrough.previous", category: "Walkthrough", title: "Previous Step", action: { kind: "walkthrough-step", direction: -1 }, shortcut: mac ? "⌘←" : "Ctrl+Left" },
+  { id: "walkthrough.present", category: "Walkthrough", title: "Present", action: { kind: "walkthrough-present" } },
   { id: "walkthrough.exit", category: "Walkthrough", title: "Close Walkthrough", action: { kind: "walkthrough-exit" } },
 ]
 

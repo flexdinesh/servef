@@ -89,6 +89,7 @@ import { useSidebar } from "./workspace/use-sidebar.ts"
 import { Narration } from "./features/walkthrough/Narration.tsx"
 import { WalkthroughsView } from "./features/walkthrough/WalkthroughsView.tsx"
 import { WalkthroughTab } from "./features/walkthrough/WalkthroughTab.tsx"
+import { WalkthroughStepBar } from "./features/walkthrough/WalkthroughStepBar.tsx"
 import { useWalkthroughSession } from "./features/walkthrough/use-walkthrough-session.ts"
 import { lineDrift, routeStep, routeWalkthrough, stepTarget, type Drift, type StepRoute } from "./features/walkthrough/walkthrough-steps.ts"
 import type { SourceAnnotation } from "./features/documents/SourceDocument.tsx"
@@ -199,10 +200,11 @@ export function App({ project }: AppProps) {
     openColorTheme.current = open ?? (() => {})
   }, [])
   const runNavigation = useRef<(kind: NavigationKind) => void>(() => {})
-  const walkthroughCommands = useRef({ move: (_direction: 1 | -1) => {}, close: () => {} })
+  const walkthroughCommands = useRef({ move: (_direction: 1 | -1) => {}, close: () => {}, present: () => {} })
   const runCommand = useCallback((action: CommandAction) => {
     if (action.kind === "walkthrough-step") walkthroughCommands.current.move(action.direction)
     else if (action.kind === "walkthrough-exit") walkthroughCommands.current.close()
+    else if (action.kind === "walkthrough-present") walkthroughCommands.current.present()
     else if (action.kind === "go-to-definition") runNavigation.current("definition")
     else if (action.kind === "find-references") runNavigation.current("references")
     else if (action.kind === "select-color-theme") openColorTheme.current()
@@ -282,8 +284,34 @@ export function App({ project }: AppProps) {
     project, routeId: searchWalkthrough, routeStep: searchStep, go: goStep, leave: leaveStep,
     viewShown: !sidebar.hidden && sidebar.view === "walkthroughs",
   })
+  // Present mode hides the workspace chrome around the followed walkthrough;
+  // Escape, before anything else, ends it.
+  const [presentRequested, setPresentRequested] = useState(false)
+  const presenting = presentRequested && walkthroughs.walkthrough !== null
+  const { goTo: goToStep, position: stepPosition } = walkthroughs
+  const present = useCallback(() => {
+    if (!walkthroughs.walkthrough) return
+    setPresentRequested(true)
+    if (!walkthroughs.routed) goToStep(stepPosition)
+  }, [goToStep, stepPosition, walkthroughs.routed, walkthroughs.walkthrough])
+  const { close: closeSession } = walkthroughs
+  const closeWalkthrough = useCallback(() => {
+    setPresentRequested(false)
+    closeSession()
+  }, [closeSession])
+  useEffect(() => {
+    if (!presenting) return
+    const stop = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open]")) return
+      event.preventDefault()
+      event.stopPropagation()
+      setPresentRequested(false)
+    }
+    document.addEventListener("keydown", stop, true)
+    return () => document.removeEventListener("keydown", stop, true)
+  }, [presenting])
   useLayoutEffect(() => {
-    walkthroughCommands.current = { move: walkthroughs.move, close: walkthroughs.close }
+    walkthroughCommands.current = { move: walkthroughs.move, close: closeWalkthrough, present }
   })
   // Opening a walkthrough's link shows its steps beside the code on desktop;
   // phones keep the drawer closed.
@@ -472,7 +500,7 @@ export function App({ project }: AppProps) {
   const narrationTarget = narrationStep ? stepTarget(narrationStep) : null
   const narrate = (drift: Drift | "missing") => stepWalkthrough && narrationStep && stepIndex !== null
     ? <Narration step={narrationStep} index={stepIndex} count={stepWalkthrough.steps.length} drift={drift}
-      canMove={walkthroughs.canMove} onMove={walkthroughs.move} onExit={walkthroughs.close} navigate={navigateToHref} />
+      canMove={walkthroughs.canMove} onMove={walkthroughs.move} onExit={closeWalkthrough} navigate={navigateToHref} />
     : null
   const sourceAnnotation: SourceAnnotation | undefined = narrationTarget?.kind === "file" && !reviewCompare
     && narrationTarget.path === page.selected && narrationTarget.at === page.at ? {
@@ -505,7 +533,7 @@ export function App({ project }: AppProps) {
       <div className="visually-hidden" role="status" aria-live="polite">
         {isLoading ? "Loading document…" : documentTitle ? `${documentTitle} loaded.` : ""}
       </div>
-      <div className="layout" data-sidebar={sidebar.hidden ? "hidden" : "visible"}>
+      <div className="layout" data-sidebar={sidebar.hidden ? "hidden" : "visible"} data-presenting={presenting || undefined}>
         <Sidebar
           sidebar={sidebar}
           pendingChanges={changes.result?.files.length ?? 0}
@@ -523,7 +551,7 @@ export function App({ project }: AppProps) {
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
           unseenWalkthroughs={walkthroughs.unseen}
-          walkthroughs={<WalkthroughsView session={walkthroughs} context={compareContext} mobile={sidebar.mobile}
+          walkthroughs={<WalkthroughsView session={walkthroughs} context={compareContext} mobile={sidebar.mobile} onPresent={present}
             onDismiss={sidebar.dismiss} />}
           sourceControl={<SourceControlView changes={changes} commits={commits} stack={stack} layout={sourceControlLayout} refs={refs}
             working={workingData} workingPath={reviewCompare?.kind === "working" ? currentFile : ""}
@@ -574,7 +602,7 @@ export function App({ project }: AppProps) {
               onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} annotation={reviewAnnotation} /> : undefined}
             walkthrough={walkthroughRoute ? <WalkthroughTab detail={walkthroughs.detail} position={walkthroughs.position}
               context={compareContext} canMove={walkthroughs.canMove} onMove={walkthroughs.move} onGoTo={walkthroughs.goTo}
-              onExit={walkthroughs.close} onRetry={walkthroughs.retry} navigate={navigateToHref} /> : undefined}
+              onExit={closeWalkthrough} onRetry={walkthroughs.retry} navigate={navigateToHref} /> : undefined}
             sourceAnnotation={sourceAnnotation}
             hasData={hasData}
             image={image}
@@ -601,6 +629,12 @@ export function App({ project }: AppProps) {
             <ReviewFilesSheet open={filesSheet} data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(true, uiScale(settings))}
               onClose={() => setFilesSheet(false)}
               onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
+          )}
+          {walkthroughs.walkthrough && (presenting || (sidebar.mobile && walkthroughs.routed)) && (
+            <WalkthroughStepBar walkthrough={walkthroughs.walkthrough} position={walkthroughs.position} presenting={presenting}
+              canMove={walkthroughs.canMove} onMove={walkthroughs.move}
+              onSteps={sidebar.mobile ? () => revealSidebar("walkthroughs") : undefined}
+              onStopPresenting={() => setPresentRequested(false)} />
           )}
         </section>
       </div>
