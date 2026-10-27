@@ -571,7 +571,11 @@ on hover and focus; Left and Right arrows step
 1rem and double-click restores 16rem. Its header matches a file header
 (`control-lg` tall, 1px `border` rule below) and reads “Files” (12px,
 600) with a count badge, Collapse/Expand All Folders, and Hide Files; the
-Files tree fills the rest, and opening a file scrolls the review to it. The
+Files tree fills the rest, and opening a file scrolls the review to it.
+Viewed files (rail and sheet only, decision 0053) lead their stats with a 12px
+lucide check in the lane's muted ink, title “…, Viewed”; unless selected, their
+name takes `text-muted` (4.5:1 in every theme, where a dimmed status hue is
+not) and their icon 0.6 opacity, while the status letter keeps its hue. The
 toolbar's Files toggle hides and shows the rail (persisted). Uncommitted
 reviews have no rail: the sidebar pane is their list. On phones the Files
 button opens a bottom sheet (`DialogShell` sheet: inset 4px, up to 70% of the

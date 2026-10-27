@@ -25,3 +25,4 @@ allowBuilds:
 # (decision 0034); drop once Pierre exposes it or a scroll-to-line API.
 patchedDependencies:
   '@pierre/diffs@1.6.1': patches/@pierre__diffs@1.6.1.patch
+  '@pierre/trees@1.0.0-beta.6': patches/@pierre__trees@1.0.0-beta.6.patch

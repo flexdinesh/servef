@@ -6,6 +6,7 @@ settings:
 
 patchedDependencies:
   '@pierre/diffs@1.6.1': b21f421f0309419d65b5c80db2a04abbf93562257d37dc0ea42e728ff55c297b
+  '@pierre/trees@1.0.0-beta.6': d9023c6c356398cde15929db84dbb2a621f39a43dbb8d5f8163281671504ea89
 
 importers:
 
@@ -68,7 +69,7 @@ importers:
         version: 1.0.2(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)
       '@pierre/trees':
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)
+        version: 1.0.0-beta.6(patch_hash=d9023c6c356398cde15929db84dbb2a621f39a43dbb8d5f8163281671504ea89)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)
       '@tanstack/react-router':
         specifier: 1.170.33
         version: 1.170.33(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -5495,7 +5496,7 @@ snapshots:
       react-dom: 19.2.1(react@19.2.1)
       shiki: 4.5.0
 
-  '@pierre/trees@1.0.0-beta.6(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)':
+  '@pierre/trees@1.0.0-beta.6(patch_hash=d9023c6c356398cde15929db84dbb2a621f39a43dbb8d5f8163281671504ea89)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)':
     dependencies:
       '@pierre/theming': 1.0.0(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)
       preact: 11.0.0-beta.0

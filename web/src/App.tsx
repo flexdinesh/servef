@@ -377,6 +377,10 @@ export function App({ project }: AppProps) {
   const diffNarrow = useNarrowElement(main, splitMinimumWidth) || sidebar.mobile
   const diffOptions = useDiffOptions()
   const viewed = useReviewViewed(project)
+  const isViewed = viewed.isViewed
+  const reviewStats = reviewData?.stats?.byPath
+  // railViewed marks a review file viewed in the Files rail and sheet.
+  const railViewed = useCallback((path: string) => isViewed(path, reviewStats?.get(path)?.blob ?? ""), [isViewed, reviewStats])
   // A pending navigation's location already carries the next route's hash;
   // the review keeps the fragment it last resolved until then.
   const keptShown = kept !== null && shownReview !== null && sameCompare(kept.compare, shownReview)
@@ -747,7 +751,7 @@ export function App({ project }: AppProps) {
           />
           {shownRail && shownReview && !sidebar.mobile && !sourceControlLayout.railHidden && (
             <Activity mode={reviewCompare ? "visible" : "hidden"}>
-              <ReviewFilesRail data={reviewData} marked={markedPaths} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
+              <ReviewFilesRail data={reviewData} marked={markedPaths} activePath={currentFile} viewed={railViewed} itemHeight={treeRowHeight(false, uiScale(settings))}
                 width={sourceControlLayout.railWidth} onResize={sourceControlLayout.setRailWidth}
                 onResetWidth={() => sourceControlLayout.setRailWidth(defaultRailWidth)}
                 onHide={() => sourceControlLayout.setRailHidden(true)}
@@ -756,7 +760,7 @@ export function App({ project }: AppProps) {
           )}
           </div>
           {reviewRail && reviewCompare && sidebar.mobile && (
-            <ReviewFilesSheet open={filesSheet} data={reviewData} marked={markedPaths} activePath={currentFile} itemHeight={treeRowHeight(true, uiScale(settings))}
+            <ReviewFilesSheet open={filesSheet} data={reviewData} marked={markedPaths} activePath={currentFile} viewed={railViewed} itemHeight={treeRowHeight(true, uiScale(settings))}
               onClose={() => setFilesSheet(false)}
               onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
           )}

@@ -16,6 +16,8 @@ interface FilesListProps {
   // marked are files with uncommitted edits in a branch review that
   // includes them (decision 0051).
   marked?: ReadonlySet<string>
+  // viewed says whether the review's Viewed mark holds for a file.
+  viewed(path: string): boolean
   // close is the header's dismiss action: hide the rail, or close the sheet.
   close: ReactNode
   onOpen(path: string, focusDocument: boolean): void
@@ -23,7 +25,7 @@ interface FilesListProps {
 
 // FilesList is a review's files as a tree under a header with a count and
 // Expand/Collapse All Folders (decision 0040).
-function FilesList({ activePath, close, data, itemHeight, marked, onOpen }: FilesListProps) {
+function FilesList({ activePath, close, data, itemHeight, marked, viewed, onOpen }: FilesListProps) {
   const [anyExpanded, setAnyExpanded] = useState(true)
   const [collapseRequest, setCollapseRequest] = useState<CollapseRequest | null>(null)
   const list = data?.list
@@ -55,7 +57,7 @@ function FilesList({ activePath, close, data, itemHeight, marked, onOpen }: File
       {list?.kind === "ready" && files.length === 0 && <div className="source-control-message"><StatusMessage>No file changes.</StatusMessage></div>}
       {files.length > 0 && (
         <FilesTree key={itemHeight} files={files} stats={data?.stats?.byPath ?? null} marked={marked} activePath={activePath} itemHeight={itemHeight}
-          label="Files in this review" collapseRequest={collapseRequest} onExpandedChange={setAnyExpanded} onOpen={onOpen} />
+          viewed={viewed} label="Files in this review" collapseRequest={collapseRequest} onExpandedChange={setAnyExpanded} onOpen={onOpen} />
       )}
     </div>
   </>

@@ -1384,6 +1384,36 @@ test("rail line stats stay whole at the rail's narrowest; names truncate instead
   expect(await stats.evaluate((lane) => lane.scrollWidth <= lane.clientWidth)).toBe(true)
 })
 
+test("viewed files check and dim their rail rows, except the file in view", async ({ page }) => {
+  await openReview(page, "review=branch#f=clean.md")
+  await expect(railFile(page, "clean.md")).toHaveAttribute("aria-selected", "true")
+  const row = (file: string) => rail(page).locator(`[data-item-path="${file}"]`)
+  const checked = (file: string) => row(file).locator('[data-item-section="decoration"]')
+    .evaluate((lane) => getComputedStyle(lane, "::before").content !== "none")
+  const nameInk = (file: string) => row(file).locator('[data-item-section="content"]').evaluate((name) => getComputedStyle(name).color)
+  const statusInk = await nameInk("docs/history.md")
+  const muted = await page.locator(".review-totals").evaluate((totals) => getComputedStyle(totals).color)
+  expect(await checked("docs/history.md")).toBe(false)
+
+  const viewed = (file: string) => reviewFile(page, file).getByRole("button", { name: "Viewed" })
+  await expect(viewed("docs/history.md")).toBeEnabled()
+  await viewed("docs/history.md").click()
+  await expect.poll(() => checked("docs/history.md")).toBe(true)
+  await expect.poll(() => nameInk("docs/history.md")).toBe(muted)
+  await expect(row("docs/history.md").locator('[data-item-section="decoration"] span').first()).toHaveAttribute("title", /Viewed$/)
+
+  // The selected file in view keeps full ink, checked.
+  const cleanInk = await nameInk("clean.md")
+  await expect(viewed("clean.md")).toBeEnabled()
+  await viewed("clean.md").click()
+  await expect.poll(() => checked("clean.md")).toBe(true)
+  expect(await nameInk("clean.md")).toBe(cleanInk)
+
+  await viewed("docs/history.md").click()
+  await expect.poll(() => checked("docs/history.md")).toBe(false)
+  await expect.poll(() => nameInk("docs/history.md")).toBe(statusInk)
+})
+
 test("the review header and rail are islands one gutter in from the tab strip", async ({ page }) => {
   await openReview(page, "review=branch")
   await expect(railFile(page, "clean.md")).toBeVisible()

@@ -1,0 +1,28 @@
+diff --git a/dist/render/FileTree.d.ts b/dist/render/FileTree.d.ts
+index 21af65bbdadbd2f4165ae821b6577d8f6624cfb1..7ce598abdd14bfc607e5afaa7e8b2dc4be02ac7e 100644
+--- a/dist/render/FileTree.d.ts
++++ b/dist/render/FileTree.d.ts
+@@ -50,6 +50,7 @@ declare class FileTree implements FileTreeMutationHandle, FileTreeSearchSessionH
+   setComposition(composition?: FileTreeCompositionOptions): void;
+   setGitStatus(gitStatus?: FileTreeOptions['gitStatus']): void;
+   setIcons(icons?: FileTreeOptions['icons']): void;
++  setUnsafeCSS(unsafeCSS?: string): void;
+   hydrate({
+     fileTreeContainer
+   }: FileTreeHydrationProps): void;
+diff --git a/dist/render/FileTree.js b/dist/render/FileTree.js
+index 305714319d9d988bfc025ecaaca662562a3a0ff7..ddec640d81b695b09d136ad0cfd95415994c8ba4 100644
+--- a/dist/render/FileTree.js
++++ b/dist/render/FileTree.js
+@@ -277,6 +277,11 @@ var FileTree = class {
+ 		this.#syncIconSurface(mountedTree.host, mountedTree.wrapper);
+ 		renderFileTreeRoot(mountedTree.wrapper, this.#getViewProps());
+ 	}
++	setUnsafeCSS(unsafeCSS) {
++		this.#unsafeCSS = unsafeCSS;
++		const shadowRoot = this.#fileTreeContainer?.shadowRoot;
++		if (shadowRoot != null) this.#syncUnsafeCSS(shadowRoot);
++	}
+ 	hydrate({ fileTreeContainer }) {
+ 		const host = this.#prepareHost(fileTreeContainer);
+ 		const wrapper = this.#getOrCreateWrapper(host);
