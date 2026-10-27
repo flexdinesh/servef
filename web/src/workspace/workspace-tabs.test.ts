@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import type { CompareContext } from "../features/source-control/compare.ts"
-import { documentKey, documentTab, includesTab, parseStoredTab, reviewTab, routeAt, sameTab, storedTab, tabKey, tabName, tabSearch } from "./workspace-tabs.ts"
+import { documentKey, documentTab, includesTab, parseStoredTab, reviewTab, routeAt, sameTab, storedTab, tabKey, tabName, tabSearch, walkthroughTab } from "./workspace-tabs.ts"
 
 const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
 const other = "4f76e9a1b2c3d4e5f60718293a4b5c6d7e8f9012"
@@ -83,4 +83,18 @@ test("routes read a snapshot commit only as a full hash with a path", () => {
   assert.equal(routeAt("a.md", "3577ec6"), undefined)
   assert.equal(routeAt("a.md", hash.toUpperCase()), undefined)
   assert.equal(routeAt("a.md", 1), undefined)
+})
+
+test("walkthrough tabs key, name, store, and route by ID", () => {
+  const tab = walkthroughTab("tour")
+  assert.equal(tabKey(tab), "walkthrough:tour")
+  assert.equal(sameTab(tab, walkthroughTab("tour")), true)
+  assert.equal(sameTab(tab, documentTab("tour")), false)
+  assert.deepEqual(tabName(tab, context), { label: "Walkthrough", title: "Walkthrough tour" })
+  assert.deepEqual(tabName(tab, context, (id) => id === "tour" ? "How login works" : ""), { label: "How login works", title: "Walkthrough: How login works" })
+  assert.deepEqual(storedTab(tab), { walkthrough: "tour" })
+  assert.deepEqual(parseStoredTab({ walkthrough: "tour" }), tab)
+  assert.equal(parseStoredTab({ walkthrough: "" }), null)
+  assert.equal(parseStoredTab({ walkthrough: 3 }), null)
+  assert.deepEqual(tabSearch("/p", tab), { project: "/p", wt: "tour" })
 })

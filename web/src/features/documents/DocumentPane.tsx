@@ -8,7 +8,7 @@ import { DocumentPreview } from "./DocumentPreview.tsx"
 import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
 import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
-import { SourceDocument, type LineSelection, type SourceNavigation } from "./SourceDocument.tsx"
+import { SourceDocument, type LineSelection, type SourceAnnotation, type SourceNavigation } from "./SourceDocument.tsx"
 import type { PageData } from "../../api/page-data.ts"
 import { projectUrl } from "../../api/project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
@@ -16,6 +16,10 @@ import type { ImageViewer } from "./use-image-viewer.ts"
 interface DocumentPaneProps {
   // diff is the open diff tab's content, shown instead of the page's file.
   diff?: ReactNode
+  // walkthrough is the open walkthrough tab's content, shown without a file.
+  walkthrough?: ReactNode
+  // sourceAnnotation is a zone in Source, e.g. a walkthrough's narration.
+  sourceAnnotation?: SourceAnnotation
   hasData: boolean
   image: ImageViewer
   isLoading: boolean
@@ -35,11 +39,11 @@ function fileName(path: string): string {
   return path.split("/").at(-1) || path
 }
 
-export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceNavigation, view }: DocumentPaneProps) {
-  const viewKind = loadError || page.error ? "none" : diff ? "diff" : view.kind
-  const label = page.documentType?.label ?? "File"
-  // The server declares the highlight language and the size limit.
-  const language = page.highlightDisabled ? null : page.documentType?.language ?? null
+export function DocumentPane({
+  diff, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceAnnotation, sourceNavigation, view,
+  walkthrough,
+}: DocumentPaneProps) {
+  const viewKind = loadError || page.error ? "none" : diff ? "diff" : walkthrough ? "walkthrough" : view.kind
 
   return (
     <main
@@ -64,7 +68,39 @@ export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, l
         <div className="error" role="alert">{page.error}</div>
       ) : diff ? (
         diff
-      ) : view.kind === "binary" ? (
+      ) : walkthrough ? (
+        walkthrough
+      ) : sourceAnnotation && view.kind !== "source" && view.kind !== "none" ? (
+        <div className="annotated-document">
+          <div className="document-annotation">{sourceAnnotation.render(null)}</div>
+          <PageView hasData={hasData} image={image} lineSelection={lineSelection} navigate={navigate} page={page}
+            sourceNavigation={sourceNavigation} view={view} />
+        </div>
+      ) : (
+        <PageView hasData={hasData} image={image} lineSelection={lineSelection} navigate={navigate} page={page}
+          sourceAnnotation={sourceAnnotation} sourceNavigation={sourceNavigation} view={view} />
+      )}
+    </main>
+  )
+}
+
+interface PageViewProps {
+  hasData: boolean
+  image: ImageViewer
+  lineSelection: LineSelection
+  navigate(href: string): void
+  page: PageData
+  sourceAnnotation?: SourceAnnotation
+  sourceNavigation?: SourceNavigation
+  view: DocumentView
+}
+
+// PageView is the page's file in its chosen view.
+function PageView({ hasData, image, lineSelection, navigate, page, sourceAnnotation, sourceNavigation, view }: PageViewProps) {
+  const label = page.documentType?.label ?? "File"
+  // The server declares the highlight language and the size limit.
+  const language = page.highlightDisabled ? null : page.documentType?.language ?? null
+  return view.kind === "binary" ? (
         <BinaryDocument name={fileName(page.selected)} size={page.fileSize} />
       ) : view.kind === "tooLarge" ? (
         <TooLargeDocument name={fileName(page.selected)} size={page.fileSize} />
@@ -95,14 +131,12 @@ export function DocumentPane({ diff, hasData, image, isLoading, lineSelection, l
           {page.previewDisabled && <LargeFileNotice size={page.fileSize} searchExcluded={page.searchExcluded} />}
           {view.formatError && <FormatErrorNotice reason={view.formatError} />}
           <SourceDocument key={page.selected} source={page.source} language={language} label={`${label} source`}
-            selection={lineSelection} navigation={sourceNavigation} />
+            selection={lineSelection} navigation={sourceNavigation} annotation={sourceAnnotation} />
         </div>
       ) : hasData ? (
         <div className="empty">
           <h1>Choose a file</h1>
           <p>Select a file from the folder tree.</p>
         </div>
-      ) : null}
-    </main>
-  )
+      ) : null
 }

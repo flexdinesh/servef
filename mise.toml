@@ -30,17 +30,23 @@ run = ["go mod download", "pnpm install", { task = "build:web" }]
 
 [tasks.dev]
 description = "Run Go and Vite together"
-run = [{ tasks = ["dev:server", "dev:web"] }]
+run = [{ tasks = ["dev:server", "dev:web", "dev:walkthroughs"] }]
 
 # The browser tests' git fixture, rebuilt in the gitignored .dev on each start,
-# gives Source Control a repository beside testdata/markdown.
+# gives Source Control a repository beside testdata/markdown. Walkthroughs are
+# stored in .dev/cache, not the user cache; Go keeps its own build cache.
 [tasks."dev:server"]
 description = "Run only the Go server"
 env = { SERVEF_BROWSER_GIT_ROOT = "{{config_root}}/.dev/git-fixture" }
 run = [
   "node tests/browser/git-fixture.ts",
-  "go run . testdata/markdown --path \"$SERVEF_BROWSER_GIT_ROOT\" --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open",
+  "GOCACHE=\"$(go env GOCACHE)\" XDG_CACHE_HOME=\"{{config_root}}/.dev/cache\" go run . testdata/markdown --path \"$SERVEF_BROWSER_GIT_ROOT\" --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open",
 ]
+
+[tasks."dev:walkthroughs"]
+description = "Publish sample walkthroughs once the Go server is up"
+env = { SERVEF_BROWSER_GIT_ROOT = "{{config_root}}/.dev/git-fixture" }
+run = "node scripts/dev-walkthroughs.ts"
 
 [tasks."dev:web"]
 description = "Run only Vite against the Go server"

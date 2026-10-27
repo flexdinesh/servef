@@ -12,6 +12,8 @@ import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts
 import { isProcessMetrics } from "../workspace/process-metrics.ts"
 import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
 import { isSearchDocumentsResponse } from "../features/search/search-documents.ts"
+import { isRecord } from "./http.ts"
+import { isWalkthrough, isWalkthroughSummaries } from "./walkthrough-contract.ts"
 
 async function fixture(name: string): Promise<unknown> {
   const source = await readFile(
@@ -288,4 +290,23 @@ test("compare contract validators reject malformed refs and stats", async () => 
   assert.equal(valid({ path: "a.go", status: "tooLarge", blob: "3577ec6" }), false)
   assert.equal(valid({ path: "", status: "tooLarge", blob: "" }), false)
   assert.equal(isCompareStatsResponse({ files: [] }), false)
+})
+
+test("walkthrough fixtures satisfy runtime contracts", async () => {
+  const list = await fixture("walkthroughs.json")
+  assert.ok(isWalkthroughSummaries(list))
+  assert.equal(isWalkthroughSummaries([{ id: "a", title: "A", stepCount: -1, updatedAt: "2026-10-26T09:30:00Z" }]), false)
+  assert.equal(isWalkthroughSummaries([{ id: "a", title: "A", updatedAt: "2026-10-26T09:30:00Z" }]), false)
+
+  const tour = await fixture("walkthrough-tour.json")
+  assert.ok(isWalkthrough(tour))
+  assert.ok(isRecord(tour) && Array.isArray(tour.steps))
+  const steps: unknown[] = tour.steps
+  const withStep = (step: unknown) => isWalkthrough({ ...tour, steps: [step] })
+  const [note, file, , , diff] = steps
+  assert.ok(isRecord(note) && isRecord(file) && isRecord(diff))
+  assert.equal(withStep({ ...note, bodyHTML: undefined }), false)
+  assert.equal(withStep({ ...file, diff }), false, "a step targets a file or a diff, not both")
+  assert.equal(withStep({ ...file, file: { path: "a.go", lines: [3] } }), false)
+  assert.equal(withStep({ ...diff, diff: { compare: { kind: "stash" } } }), false)
 })

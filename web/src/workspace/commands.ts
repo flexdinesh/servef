@@ -1,12 +1,16 @@
 import type { HighlightRange } from "../features/search/search-engine.ts"
 import { settingDefinitions, type SettingId } from "../settings/settings.ts"
 
+const mac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
+
 export type CommandAction =
   | { kind: "open-settings" }
   | { kind: "select-color-theme" }
   | { kind: "open-setting"; setting: SettingId }
   | { kind: "go-to-definition" }
   | { kind: "find-references" }
+  | { kind: "walkthrough-step"; direction: 1 | -1 }
+  | { kind: "walkthrough-exit" }
 
 export interface Command {
   id: string
@@ -25,7 +29,8 @@ export interface CommandMatch {
 
 // Open Settings and the Color Theme pick come first; then each setting is a
 // command that opens Settings at that setting; then code navigation, which
-// acts on the name last clicked in Source.
+// acts on the name last clicked in Source; then walkthrough stepping, which
+// acts on the walkthrough last opened.
 export const commands: readonly Command[] = [
   { id: "preferences.openSettings", category: "Preferences", title: "Open Settings", action: { kind: "open-settings" } },
   { id: "preferences.colorTheme", category: "Preferences", title: "Color Theme", action: { kind: "select-color-theme" } },
@@ -37,6 +42,9 @@ export const commands: readonly Command[] = [
   })),
   { id: "navigation.goToDefinition", category: "Navigation", title: "Go to Definition", action: { kind: "go-to-definition" }, shortcut: "F12" },
   { id: "navigation.findReferences", category: "Navigation", title: "Find All References", action: { kind: "find-references" }, shortcut: "Shift+F12" },
+  { id: "walkthrough.next", category: "Walkthrough", title: "Next Step", action: { kind: "walkthrough-step", direction: 1 }, shortcut: mac ? "⌘→" : "Ctrl+Right" },
+  { id: "walkthrough.previous", category: "Walkthrough", title: "Previous Step", action: { kind: "walkthrough-step", direction: -1 }, shortcut: mac ? "⌘←" : "Ctrl+Left" },
+  { id: "walkthrough.exit", category: "Walkthrough", title: "Close Walkthrough", action: { kind: "walkthrough-exit" } },
 ]
 
 function mergeRanges(ranges: HighlightRange[]): HighlightRange[] {

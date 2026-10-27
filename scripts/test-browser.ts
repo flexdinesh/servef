@@ -26,5 +26,7 @@ const result = spawnSync(command, args, { stdio: 'inherit', env: { ...process.en
 rmSync(gitFixtureRoot, { recursive: true, force: true })
 // The fixture's base-branch worktree sits beside it.
 rmSync(`${gitFixtureRoot}-main`, { recursive: true, force: true })
+// So does the cache holding walkthroughs the specs publish.
+rmSync(`${gitFixtureRoot}-cache`, { recursive: true, force: true })
 if (result.error) throw result.error
 process.exitCode = result.status ?? 1

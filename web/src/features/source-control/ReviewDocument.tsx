@@ -1,6 +1,7 @@
 import {
   Virtualizer, VirtualizedFileDiff,
-  type FileDiff as FileDiffInstance, type FileDiffMetadata, type LineDiffTypes, type SelectedLineRange, type SelectionSide,
+  type DiffLineAnnotation, type FileDiff as FileDiffInstance, type FileDiffMetadata, type LineDiffTypes, type SelectedLineRange,
+  type SelectionSide,
 } from "@pierre/diffs"
 import {
   FileDiff, VirtualizerContext, WorkerPoolContextProvider, useWorkerPool,
@@ -77,6 +78,23 @@ export interface ReviewSelection {
   lines: SelectedLineRange | null
 }
 
+// ReviewAnnotation is a full-width zone in a file's diff after a line on
+// side, or at the file's top when line is 0, e.g. a walkthrough step's
+// narration. render reads the side's lines by number; it gets null when the
+// review has no such file, and then shows at the review's top.
+export interface ReviewAnnotation {
+  path: string
+  side: SelectionSide
+  line: number
+  render(lineAt: ((line: number) => string | undefined) | null): ReactNode
+}
+
+// sideLines reads a diff side's lines by number.
+function sideLines(fileDiff: FileDiffMetadata | null, side: SelectionSide): (line: number) => string | undefined {
+  const lines = fileDiff ? side === "deletions" ? fileDiff.deletionLines : fileDiff.additionLines : []
+  return (line) => lines[line - 1]
+}
+
 // ReviewStatus is what the status bar shows for the file in view.
 export interface ReviewStatus {
   path: string
@@ -111,6 +129,7 @@ interface ReviewDocumentProps {
   // onRegisterHunkStep hands the toolbar the next/previous change command,
   // and null when the review is gone.
   onRegisterHunkStep(step: HunkStep | null): void
+  annotation?: ReviewAnnotation
 }
 
 // A HunkStep selects and reveals the next (1) or previous (-1) change,
@@ -150,7 +169,7 @@ export function ReviewDocument(props: ReviewDocumentProps) {
 }
 
 function ReviewBody({
-  compare, data, expandRequest, name, narrow, options, project, scrollRoot, selection, treeFiles,
+  annotation, compare, data, expandRequest, name, narrow, options, project, scrollRoot, selection, treeFiles,
   onAllExpandedChange, onCurrentFile, onOpenFile, onRegisterHunkStep, onSelectLines, onStatus, onViewedChange, viewed,
 }: ReviewDocumentProps) {
   const pool = useWorkerPool()
@@ -159,12 +178,14 @@ function ReviewBody({
   const list = data?.list
   const files = useMemo(() => list?.kind === "ready" ? displayOrder(list.files) : [], [list])
   const stats = data?.stats ?? null
-  // open overrides a file's default: viewed files start closed, others open.
+  // open overrides a file's default: viewed files start closed, others open,
+  // as does the annotated file.
   const [open, setOpen] = useState<ReadonlyMap<string, boolean>>(() => new Map())
+  const annotatedPath = annotation?.path ?? ""
   const isOpen = useCallback((file: CompareFile) => {
     const blob = stats?.byPath.get(file.path)?.blob ?? ""
-    return open.get(file.path) ?? !viewed(file.path, blob)
-  }, [open, stats, viewed])
+    return open.get(file.path) ?? (file.path === annotatedPath || !viewed(file.path, blob))
+  }, [annotatedPath, open, stats, viewed])
 
   // The pane, not a nested scroller, scrolls, so keyboard scrolling and focus
   // keep working. A fresh load mounts the pane with this review, and layout
@@ -420,6 +441,9 @@ function ReviewBody({
               {files.length > 0 && <span>{viewedCount.toLocaleString()} of {files.length.toLocaleString()} viewed</span>}
             </div>
           </header>
+          {annotation && list?.kind === "ready" && !files.some((file) => file.path === annotation.path) && (
+            <div className="review-annotation">{annotation.render(annotation.path ? null : sideLines(null, annotation.side))}</div>
+          )}
           {(!list || list.kind === "loading") && <StatusMessage className="review-note">Loading files…</StatusMessage>}
           {list?.kind === "error" && (
             <div className="review-note" role="alert">
@@ -438,6 +462,7 @@ function ReviewBody({
                 version={data?.version ?? ""}
                 open={isOpen(file)} viewed={viewed(file.path, blob)} options={options} narrow={narrow} scrollRoot={scrollRoot}
                 lines={selection?.path === file.path ? selection.lines : null}
+                annotation={annotation?.path === file.path ? annotation : undefined}
                 openFileReason={file.status === "deleted" ? "This file was deleted; there's no working copy to open"
                   : treeFiles.has(file.path) ? "" : "This file isn't in the working tree"}
                 onOpenChange={(next) => setOpen((current) => new Map(current).set(file.path, next))}
@@ -518,6 +543,7 @@ interface ReviewFileProps {
   narrow: boolean
   scrollRoot: RefObject<HTMLElement | null>
   lines: SelectedLineRange | null
+  annotation: ReviewAnnotation | undefined
   openFileReason: string
   onOpenChange(open: boolean): void
   onViewedChange(viewed: boolean): void
@@ -528,7 +554,7 @@ interface ReviewFileProps {
 
 // ReviewFile is one file's sticky header and collapsible diff.
 function ReviewFile({
-  compare, file, lines, narrow, open, openFileReason, options, project, scrollRoot, stats, version, viewed,
+  annotation, compare, file, lines, narrow, open, openFileReason, options, project, scrollRoot, stats, version, viewed,
   onOpenChange, onOpenFile, onSelectLines, onStatus, onViewedChange,
 }: ReviewFileProps) {
   const observe = useContext(ObserveContext)
@@ -596,7 +622,8 @@ function ReviewFile({
       <div id={bodyId} ref={body} className="review-file-body" hidden={!open}
         style={open && !wanted && height > 0 ? { minHeight: height } : undefined}>
         {wanted && <FileBody diff={diff} file={file} compare={compare} fileDiff={fileDiff} options={options} narrow={narrow}
-          scrollRoot={scrollRoot} lines={lines} reference={reference} onRetry={retry} onSelectLines={onSelectLines} />}
+          scrollRoot={scrollRoot} lines={lines} reference={reference} annotation={annotation} onRetry={retry}
+          onSelectLines={onSelectLines} />}
       </div>
     </section>
   )
@@ -612,11 +639,25 @@ interface FileBodyProps {
   scrollRoot: RefObject<HTMLElement | null>
   lines: SelectedLineRange | null
   reference: string
+  annotation: ReviewAnnotation | undefined
   onRetry(): void
   onSelectLines(lines: SelectedLineRange | null): void
 }
 
-function FileBody({ compare, diff, file, fileDiff, lines, narrow, options, reference, scrollRoot, onRetry, onSelectLines }: FileBodyProps) {
+function FileBody(props: FileBodyProps) {
+  const { annotation, fileDiff } = props
+  // The annotation follows its line in the diff; without a line or a shown
+  // diff it leads the file.
+  const inDiff = annotation !== undefined && annotation.line > 0 && fileDiff !== null && fileDiff.hunks.length > 0
+  return <>
+    {annotation && !inDiff && (
+      <div className="review-annotation">{annotation.render(sideLines(fileDiff, annotation.side))}</div>
+    )}
+    <FileContent {...props} annotation={inDiff ? annotation : undefined} />
+  </>
+}
+
+function FileContent({ annotation, compare, diff, file, fileDiff, lines, narrow, options, reference, scrollRoot, onRetry, onSelectLines }: FileBodyProps) {
   if (diff.kind === "loading") return <StatusMessage className="review-file-note">Loading diff…</StatusMessage>
   if (diff.kind === "error") {
     return (
@@ -640,7 +681,7 @@ function FileBody({ compare, diff, file, fileDiff, lines, narrow, options, refer
       <Notice layout="bar" role="note">{options.ignoreWhitespace ? "No changes apart from whitespace." : "File contents are unchanged."}</Notice>
     )}
     {fileDiff && fileDiff.hunks.length > 0 && <DiffView path={file.path} fileDiff={fileDiff} narrow={narrow} options={options} scrollRoot={scrollRoot}
-      lines={lines} reference={reference} onSelectLines={onSelectLines} />}
+      lines={lines} reference={reference} annotation={annotation} onSelectLines={onSelectLines} />}
   </>
 }
 
@@ -652,13 +693,14 @@ interface DiffViewProps {
   scrollRoot: RefObject<HTMLElement | null>
   lines: SelectedLineRange | null
   reference: string
+  annotation: ReviewAnnotation | undefined
   onSelectLines(lines: SelectedLineRange | null): void
 }
 
 type DiffInstance = VirtualizedFileDiff<undefined, undefined>
 
 // DiffView renders only the rows near the pane's viewport.
-function DiffView({ fileDiff, lines, narrow, options, path, reference, scrollRoot, onSelectLines }: DiffViewProps) {
+function DiffView({ annotation, fileDiff, lines, narrow, options, path, reference, scrollRoot, onSelectLines }: DiffViewProps) {
   const { resolvedTheme } = useTheme()
   // Pierre hands over its virtualized instance, which places and expands
   // rows; the review reveals and steps through it.
@@ -733,10 +775,18 @@ function DiffView({ fileDiff, lines, narrow, options, path, reference, scrollRoo
       select.current(range)
     },
   }), [inline, narrow, options, resolvedTheme, scrollRoot])
+  const annotationSide = annotation?.side ?? "additions"
+  const annotationLine = annotation?.line ?? 0
+  const lineAnnotations = useMemo((): DiffLineAnnotation<undefined>[] => annotationLine > 0
+    ? [{ side: annotationSide, lineNumber: annotationLine }]
+    : [], [annotationLine, annotationSide])
   return (
     <div ref={host}>
       <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={fileDiff} options={diffOptions} metrics={metrics}
-        selectedLines={lines} onInstance={onInstance}
+        selectedLines={lines} onInstance={onInstance} lineAnnotations={lineAnnotations}
+        renderAnnotation={() => annotation
+          ? <div className="review-annotation">{annotation.render(sideLines(fileDiff, annotation.side))}</div>
+          : null}
         renderGutterUtility={() => lines && reference
           ? <span className="diff-line-copy"><LineCopyButton reference={reference} /></span>
           : null} />

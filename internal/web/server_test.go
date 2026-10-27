@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
@@ -807,6 +809,8 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"format-error.json", func() any { return &errorResponse{} }},
 		{"error-*.json", func() any { return &errorResponse{} }},
 		{"metrics*.json", func() any { return &processMetrics{} }},
+		{"walkthroughs.json", func() any { return &[]walkthrough.Summary{} }},
+		{"walkthrough-*.json", func() any { return &walkthroughResponse{} }},
 	}
 	for _, name := range names {
 		matched := false

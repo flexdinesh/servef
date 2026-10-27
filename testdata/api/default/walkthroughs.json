@@ -1,0 +1,14 @@
+[
+  {
+    "id": "greeting-tour",
+    "title": "How a greeting gets formatted",
+    "stepCount": 6,
+    "updatedAt": "2026-10-26T09:30:00Z"
+  },
+  {
+    "id": "servef-hello",
+    "title": "Review the hello message change",
+    "stepCount": 1,
+    "updatedAt": "2026-10-20T14:00:00Z"
+  }
+]

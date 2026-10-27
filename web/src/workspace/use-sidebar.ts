@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
-export type SidebarView = "explorer" | "search" | "source-control"
+export type SidebarView = "explorer" | "search" | "source-control" | "walkthroughs"
 
 const storageKey = "servef-sidebar"
 const mobileQuery = "(max-width: 48rem)"
@@ -13,7 +13,7 @@ export interface StoredSidebar {
 const defaultSidebar: StoredSidebar = { view: "explorer", hidden: false }
 
 function isSidebarView(value: unknown): value is SidebarView {
-  return value === "explorer" || value === "search" || value === "source-control"
+  return value === "explorer" || value === "search" || value === "source-control" || value === "walkthroughs"
 }
 
 // parseSidebar reads stored sidebar state; unknown views open the Explorer.

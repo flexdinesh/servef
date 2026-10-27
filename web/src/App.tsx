@@ -57,7 +57,7 @@ import { useSourceControlLayout } from "./features/source-control/use-source-con
 import { filePaths } from "./api/page-data.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
 import {
-  documentKey, documentTab, includesTab, reviewTab, tabName, tabSearch, type WorkspaceTab,
+  documentKey, documentTab, includesTab, reviewTab, tabName, tabSearch, walkthroughTab, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
 import { ColorThemePicker } from "./workspace/ColorThemePicker.tsx"
@@ -86,12 +86,20 @@ import { usePreviewPreference } from "./features/documents/use-preview-preferenc
 import { useProjectMemory } from "./workspace/use-project-memory.ts"
 import { useSearchSession } from "./features/search/use-search-session.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
+import { Narration } from "./features/walkthrough/Narration.tsx"
+import { WalkthroughsView } from "./features/walkthrough/WalkthroughsView.tsx"
+import { WalkthroughTab } from "./features/walkthrough/WalkthroughTab.tsx"
+import { useWalkthroughSession } from "./features/walkthrough/use-walkthrough-session.ts"
+import { lineDrift, routeStep, routeWalkthrough, stepTarget, type Drift, type StepRoute } from "./features/walkthrough/walkthrough-steps.ts"
+import type { SourceAnnotation } from "./features/documents/SourceDocument.tsx"
+import type { ReviewAnnotation } from "./features/source-control/ReviewDocument.tsx"
 
-// routeTab is the tab a route shows: a review, or a document (a snapshot
-// with at), else none.
-function routeTab(review: WorkspaceTab | null, documentPath: string, at: string): WorkspaceTab | null {
+// routeTab is the tab a route shows: a review, a document (a snapshot with
+// at), or a walkthrough's own tab, else none.
+function routeTab(review: WorkspaceTab | null, documentPath: string, at: string, walkthrough: string): WorkspaceTab | null {
   if (review) return review
-  return documentPath ? documentTab(documentPath, at) : null
+  if (documentPath) return documentTab(documentPath, at)
+  return walkthrough ? walkthroughTab(walkthrough) : null
 }
 
 // reviewStatusBar describes the review's file in view, or the one holding
@@ -152,6 +160,11 @@ export function App({ project }: AppProps) {
     return compare ? reviewTab(compare) : null
   }, [searchBase, searchCommit, searchFrom, searchHead, searchPath, searchReview, searchTo])
   const reviewCompare = reviewRoute?.kind === "review" ? reviewRoute.compare : null
+  // wt=<id> follows a walkthrough, at step=<n>; without a path or review the
+  // route is the walkthrough's own tab (decision 0047).
+  const searchWalkthrough = useSearch({ strict: false, select: (search) => routeWalkthrough(search.wt) ?? "" })
+  const searchStep = useSearch({ strict: false, select: (search) => routeStep(search.step) })
+  const walkthroughRoute = !searchPath && !reviewRoute ? searchWalkthrough : ""
   const openSearch = useRef<() => void>(() => {})
   const openFiles = useRef<() => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
@@ -186,8 +199,11 @@ export function App({ project }: AppProps) {
     openColorTheme.current = open ?? (() => {})
   }, [])
   const runNavigation = useRef<(kind: NavigationKind) => void>(() => {})
+  const walkthroughCommands = useRef({ move: (_direction: 1 | -1) => {}, close: () => {} })
   const runCommand = useCallback((action: CommandAction) => {
-    if (action.kind === "go-to-definition") runNavigation.current("definition")
+    if (action.kind === "walkthrough-step") walkthroughCommands.current.move(action.direction)
+    else if (action.kind === "walkthrough-exit") walkthroughCommands.current.close()
+    else if (action.kind === "go-to-definition") runNavigation.current("definition")
     else if (action.kind === "find-references") runNavigation.current("references")
     else if (action.kind === "select-color-theme") openColorTheme.current()
     else openSettings.current(action.kind === "open-setting" ? action.setting : undefined)
@@ -215,10 +231,12 @@ export function App({ project }: AppProps) {
   const routedPage = result?.kind === "page" ? result.page : null
   const routedDocument = routedPage?.hasFile ? routedPage.selected : ""
   const routedAt = routedPage?.hasFile ? routedPage.at : ""
-  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument, routedAt), [reviewRoute, routedAt, routedDocument])
+  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument, routedAt, walkthroughRoute),
+    [reviewRoute, routedAt, routedDocument, walkthroughRoute])
   const activeDocument = page.hasFile ? page.selected : ""
   const activeAt = page.hasFile ? page.at : ""
-  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument, activeAt), [activeAt, activeDocument, reviewRoute])
+  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument, activeAt, walkthroughRoute),
+    [activeAt, activeDocument, reviewRoute, walkthroughRoute])
   // pageKey keys the document's mode, format, and scroll.
   const pageKey = documentKey(page.selected, page.at)
   const workspace = useDocumentWorkspace(routedTab)
@@ -252,6 +270,34 @@ export function App({ project }: AppProps) {
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError,
     reviewCompare ? compareKey(reviewCompare) : "")
+
+  // Walkthrough steps open ordinary routes with wt and step added.
+  const goStep = useCallback((route: StepRoute, focusDocument: boolean) => {
+    if (focusDocument) prepareDocumentNavigation()
+    void navigate({ to: "/view", search: { ...route.search }, hash: route.hash })
+  }, [navigate, prepareDocumentNavigation])
+  const leaveWalkthrough = useRef<() => void>(() => {})
+  const leaveStep = useCallback(() => leaveWalkthrough.current(), [])
+  const walkthroughs = useWalkthroughSession({
+    project, routeId: searchWalkthrough, routeStep: searchStep, go: goStep, leave: leaveStep,
+    viewShown: !sidebar.hidden && sidebar.view === "walkthroughs",
+  })
+  useLayoutEffect(() => {
+    walkthroughCommands.current = { move: walkthroughs.move, close: walkthroughs.close }
+  })
+  // Opening a walkthrough's link shows its steps beside the code on desktop;
+  // phones keep the drawer closed.
+  const revealedWalkthrough = useRef("")
+  const mobileSidebar = sidebar.mobile
+  useEffect(() => {
+    if (!searchWalkthrough || searchWalkthrough === revealedWalkthrough.current) return
+    revealedWalkthrough.current = searchWalkthrough
+    if (!mobileSidebar) revealSidebar("walkthroughs")
+  }, [mobileSidebar, revealSidebar, searchWalkthrough])
+  // Line selections keep the step, so its narration stays.
+  const stepSearch = useMemo(() => walkthroughs.routed && searchStep !== undefined
+    ? { wt: searchWalkthrough, step: searchStep }
+    : {}, [searchStep, searchWalkthrough, walkthroughs.routed])
 
   // The Commits pane's selection follows an open commit or range review.
   const [commitSelection, setCommitSelection] = useState<Compare | null>(null)
@@ -291,8 +337,8 @@ export function App({ project }: AppProps) {
   }, [main, navigate, prepareDocumentNavigation, project, reviewCompare])
   const selectReviewLines = useCallback((path: string, lines: Parameters<typeof reviewFragment>[1]) => {
     if (!reviewCompare) return
-    void navigate({ to: "/view", search: { project, ...compareSearch(reviewCompare) }, hash: reviewFragment(path, lines), replace: true })
-  }, [navigate, project, reviewCompare])
+    void navigate({ to: "/view", search: { project, ...compareSearch(reviewCompare), ...stepSearch }, hash: reviewFragment(path, lines), replace: true })
+  }, [navigate, project, reviewCompare, stepSearch])
   const hasReviewTabs = workspace.tabs.some((tab) => tab.kind === "review")
   // Closing the last review tab frees its workers and caches until the next one.
   useEffect(() => {
@@ -311,18 +357,22 @@ export function App({ project }: AppProps) {
     base: defaultBase,
     subject: (hash) => listed?.find((commit) => commit.hash === hash)?.subject ?? "",
   }), [defaultBase, listed])
-  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, compareContext), [compareContext])
+  const listedWalkthroughs = walkthroughs.list.result
+  const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, compareContext,
+    (id) => listedWalkthroughs?.find((entry) => entry.id === id)?.title ?? ""), [compareContext, listedWalkthroughs])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
+  const { open: openWalkthrough } = walkthroughs
   const selectTab = useCallback((tab: WorkspaceTab) => {
     if (tab.kind === "document") navigateToDocument(tab.path, tab.at)
+    else if (tab.kind === "walkthrough") openWalkthrough(tab.id)
     else openReview(tab.compare, true)
-  }, [navigateToDocument, openReview])
+  }, [navigateToDocument, openReview, openWalkthrough])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
     const search = page.at ? { project, path: page.selected, at: page.at } : { project, path: page.selected }
-    void navigate({ to: "/view", search, hash: range ? lineAnchor(range) : "", replace: true })
-  }, [navigate, page.at, page.selected, project])
+    void navigate({ to: "/view", search: { ...search, ...stepSearch }, hash: range ? lineAnchor(range) : "", replace: true })
+  }, [navigate, page.at, page.selected, project, stepSearch])
   const showSource = view.kind === "source" && !loadError && !page.error
 
   // The name last clicked in Source, per file, for F12 and the palette.
@@ -406,6 +456,44 @@ export function App({ project }: AppProps) {
     }
   }
 
+  // Leaving a walkthrough closes its own tab, or keeps the step's file or
+  // review open without the narration.
+  useLayoutEffect(() => {
+    leaveWalkthrough.current = () => {
+      if (walkthroughRoute) closeTabs([walkthroughTab(walkthroughRoute)])
+      else void navigate({ to: "/view", search: (current) => ({ ...current, wt: undefined, step: undefined }), hash, replace: true })
+    }
+  })
+
+  // The routed step's narration sits in the code it explains.
+  const stepWalkthrough = walkthroughs.routed ? walkthroughs.walkthrough : null
+  const stepIndex = walkthroughs.position
+  const narrationStep = stepWalkthrough && stepIndex !== null ? stepWalkthrough.steps[stepIndex] : undefined
+  const narrationTarget = narrationStep ? stepTarget(narrationStep) : null
+  const narrate = (drift: Drift | "missing") => stepWalkthrough && narrationStep && stepIndex !== null
+    ? <Narration step={narrationStep} index={stepIndex} count={stepWalkthrough.steps.length} drift={drift}
+      canMove={walkthroughs.canMove} onMove={walkthroughs.move} onExit={walkthroughs.close} navigate={navigateToHref} />
+    : null
+  const sourceAnnotation: SourceAnnotation | undefined = narrationTarget?.kind === "file" && !reviewCompare
+    && narrationTarget.path === page.selected && narrationTarget.at === page.at ? {
+      line: narrationTarget.lines?.end ?? 0,
+      render: (lineAt) => {
+        const lines = narrationTarget.lines
+        return narrate(lines && lineAt ? lineDrift(narrationTarget.expect, lineAt(lines.start)) : "unknown")
+      },
+    } : undefined
+  const reviewAnnotation: ReviewAnnotation | undefined = narrationTarget?.kind === "diff" && reviewCompare
+    && sameCompare(narrationTarget.compare, reviewCompare) ? {
+      path: narrationTarget.path,
+      side: narrationTarget.side,
+      line: narrationTarget.lines?.end ?? 0,
+      render: (lineAt) => {
+        const lines = narrationTarget.lines
+        if (!lineAt) return narrate("missing")
+        return narrate(lines ? lineDrift(narrationTarget.expect, lineAt(lines.start)) : "unknown")
+      },
+    } : undefined
+
   const documentTitle = activeTab ? nameTab(activeTab).title : ""
   useEffect(() => {
     document.title = `${documentTitle ? `${documentTitle} · ` : ""}servef`
@@ -434,6 +522,9 @@ export function App({ project }: AppProps) {
           />}
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
+          unseenWalkthroughs={walkthroughs.unseen}
+          walkthroughs={<WalkthroughsView session={walkthroughs} context={compareContext} mobile={sidebar.mobile}
+            onDismiss={sidebar.dismiss} />}
           sourceControl={<SourceControlView changes={changes} commits={commits} stack={stack} layout={sourceControlLayout} refs={refs}
             working={workingData} workingPath={reviewCompare?.kind === "working" ? currentFile : ""}
             commitSelection={commitSelection} allOnly={allOnly} mobile={sidebar.mobile}
@@ -480,7 +571,11 @@ export function App({ project }: AppProps) {
               scrollRoot={main} selection={fragment} expandRequest={expandRequest} treeFiles={treeFiles}
               viewed={viewed.isViewed} onViewedChange={viewed.mark} onSelectLines={selectReviewLines}
               onCurrentFile={setCurrentFile} onStatus={setReviewStatus} onOpenFile={navigateToDocument}
-              onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} /> : undefined}
+              onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} annotation={reviewAnnotation} /> : undefined}
+            walkthrough={walkthroughRoute ? <WalkthroughTab detail={walkthroughs.detail} position={walkthroughs.position}
+              context={compareContext} canMove={walkthroughs.canMove} onMove={walkthroughs.move} onGoTo={walkthroughs.goTo}
+              onExit={walkthroughs.close} onRetry={walkthroughs.retry} navigate={navigateToHref} /> : undefined}
+            sourceAnnotation={sourceAnnotation}
             hasData={hasData}
             image={image}
             isLoading={isLoading}

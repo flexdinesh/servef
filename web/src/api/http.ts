@@ -89,3 +89,27 @@ export async function fetchJSON<T>(
   if (reason) throw fail({ kind: "rejected", status: response.status, ...reason })
   throw fail({ kind: "invalid", status: response.status, ok: response.ok })
 }
+
+// deleteResource deletes url, expecting 204 No Content. Failures reject as
+// fetchJSON's do.
+export async function deleteResource(url: string, options: FetchJSONOptions, describe: (failure: RequestFailure) => string): Promise<void> {
+  const fail = (failure: RequestFailure) => new RequestError(describe(failure), failure)
+  let response: Response
+  try {
+    response = await fetch(url, { method: "DELETE", headers: { Accept: "application/json", ...options.headers }, signal: options.signal })
+  } catch (error: unknown) {
+    if (isAbort(error)) throw error
+    throw fail({ kind: "unreachable" })
+  }
+  if (response.status === 204) return
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch (error: unknown) {
+    if (isAbort(error)) throw error
+    throw fail({ kind: "malformed", status: response.status, ok: response.ok })
+  }
+  const reason = serverReason(payload)
+  if (reason) throw fail({ kind: "rejected", status: response.status, ...reason })
+  throw fail({ kind: "invalid", status: response.status, ok: response.ok })
+}
