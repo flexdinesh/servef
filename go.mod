@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.3
 	github.com/fatih/color v1.18.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3

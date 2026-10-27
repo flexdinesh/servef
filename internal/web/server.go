@@ -13,6 +13,7 @@ import (
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
+	"github.com/flexdinesh/servef/internal/watch"
 )
 
 // Config controls project discovery and the live file scan performed for each
@@ -30,6 +31,9 @@ type Config struct {
 	// uses the built-in servers for Types' text families. The App
 	// closes it.
 	LanguageServers *lsp.Manager
+	// LiveUpdates follows the projects browsers show (decision 0050); nil
+	// uses watch.DefaultOptions. The App closes it.
+	LiveUpdates *watch.Hub
 	// WalkthroughDirectory stores published walkthroughs; empty uses
 	// walkthrough.DefaultDirectory.
 	WalkthroughDirectory string
@@ -50,6 +54,7 @@ type App struct {
 	statsBudget  int64
 	shell        string
 	servers      *lsp.Manager
+	watches      *watch.Hub
 	walkthroughs *walkthrough.Service
 	routes       *http.ServeMux
 }
@@ -103,7 +108,10 @@ func New(config Config) (*App, error) {
 			return nil, err
 		}
 	}
-	app := &App{config: config, roots: roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers}
+	if config.LiveUpdates == nil {
+		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
+	}
+	app := &App{config: config, roots: roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
 	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{app: app})
 	app.routes = app.newRoutes()
 	return app, nil
@@ -160,8 +168,15 @@ func checkLanguageServers(servers []lsp.Server, types *document.Registry) error 
 	return nil
 }
 
-// Close stops running language servers.
-func (a *App) Close() { a.servers.Close() }
+// Close ends event streams and stops running language servers.
+func (a *App) Close() {
+	a.StopLiveUpdates()
+	a.servers.Close()
+}
+
+// StopLiveUpdates ends every event stream and stops watching, so a server
+// shutdown need not wait for streams that never end on their own.
+func (a *App) StopLiveUpdates() { a.watches.Close() }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
 

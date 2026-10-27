@@ -473,16 +473,9 @@ func worktrees(common string) []string {
 // short commit when detached. It is empty when dir is not a worktree or HEAD
 // cannot be read.
 func Branch(dir string) string {
-	gitPath := filepath.Join(dir, ".git")
-	info, err := os.Lstat(gitPath)
+	gitDir, err := adminDir(dir)
 	if err != nil {
 		return ""
-	}
-	gitDir := gitPath
-	if !info.IsDir() {
-		if gitDir, err = readGitFile(gitPath); err != nil {
-			return ""
-		}
 	}
 	content, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
 	if err != nil {

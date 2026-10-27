@@ -1,6 +1,6 @@
 # 0024: Source Control view and working-tree diffs
 
-- Status: Accepted; diff line selection added by [0028](0028-diff-line-links-and-copy.md); Shiki highlighting superseded by [0029](0029-highlights-syntax-highlighting.md); view layout and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md)
+- Status: Accepted; diff line selection added by [0028](0028-diff-line-links-and-copy.md); Shiki highlighting superseded by [0029](0029-highlights-syntax-highlighting.md); view layout and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md); "No polling" refresh superseded by [0050](0050-live-updates.md)
 - Date: 2026-10-21
 - Extends: [0020](0020-activity-bar-and-search-view.md)
 

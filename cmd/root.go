@@ -189,6 +189,8 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	// Event streams never end on their own; shutdown ends them first.
+	server.RegisterOnShutdown(app.StopLiveUpdates)
 	serveErrors := make(chan error, 1)
 	go func() {
 		serveErrors <- server.Serve(listener)
