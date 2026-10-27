@@ -1,0 +1,80 @@
+# Walkthroughs
+
+A walkthrough is an ordered tour of code that an agent writes for you: notes,
+line ranges in files, files at a commit, and diffs, each with Markdown
+narration. Ask an agent to explain a pull request, a branch, or how a feature
+works as a walkthrough; servef shows it beside the code.
+
+## Following a walkthrough
+
+Open the **Walkthroughs** view (the route icon in the activity bar), or the
+link the agent prints. The badge counts walkthroughs published since you last
+looked. Choose one to see its steps; **Overview** opens its cover, with the
+summary and an outline.
+
+Each step opens an ordinary tab: the file in Source with the step's lines
+selected, a read-only snapshot at a commit, or a review of uncommitted work, a
+commit, a range, or a branch. The narration appears inside the code, right
+after the step's lines, with Previous, Next, and Close. Notes appear in the
+walkthrough's own tab.
+
+| Action | Keys |
+| --- | --- |
+| Next step | Ctrl+Right (Cmd+Right on macOS) |
+| Previous step | Ctrl+Left (Cmd+Left on macOS) |
+| Present | **Present** in the view, or **Walkthrough: Present** in the command palette |
+| Stop presenting | Esc |
+
+Present hides the activity bar, sidebar, tabs, and status bar and floats a
+step bar over the document. On phones the step bar shows while you follow a
+walkthrough; **Steps** opens the list.
+
+A step can record the start of its first line when it is written. If the code
+changes later, the step says so instead of guessing where the code moved.
+Steps pinned to a commit never change.
+
+Walkthroughs live in your user cache (`servef/walkthroughs`), up to 100 per
+project; the least recently updated go first. Delete one from its step list.
+They are per machine and are not shared through git.
+
+## Writing walkthroughs (for agents)
+
+Agents publish with `POST /api/walkthroughs` on the running servef:
+
+```sh
+curl -q -sS -X POST -H 'Content-Type: application/json' \
+  --data @walkthrough.json http://localhost:7971/api/walkthroughs
+```
+
+```json
+{
+  "project": "/absolute/path/to/repository",
+  "title": "How login sessions refresh",
+  "summary": "From the cookie check to the token refresh.",
+  "steps": [
+    { "title": "Where it starts", "body": "Every request passes through `requireSession`." },
+    { "title": "The cookie check", "body": "Expired cookies fall through to refresh.", "file": { "path": "auth/session.go", "lines": [40, 58] } },
+    { "title": "What this branch changes", "body": "Refresh now retries once.", "diff": { "compare": { "kind": "branch", "base": "main" }, "path": "auth/refresh.go", "lines": [12, 30] } }
+  ]
+}
+```
+
+The response carries the walkthrough's `id` and `url`; `"open": true` also
+opens it in the browser unless servef runs with `--no-open`. Publishing again
+with the same `id` replaces it. `GET /api/walkthrough-schema` returns the JSON
+Schema, and any mistake comes back as a 400 naming each problem field, such as
+`steps[2].file.lines: end 90 is past the file's last line, 61`.
+
+servef ships an agent skill with the full guidance: discovery, targets, and
+how to tell a good story. Install it with the
+[`skills`](https://github.com/vercel-labs/skills) CLI:
+
+```sh
+npx skills add flexdinesh/servef --skill servef-walkthrough
+```
+
+The skill is documentation only; servef does not install it. Its source is
+[`skills/servef-walkthrough`](https://github.com/flexdinesh/servef/tree/main/skills/servef-walkthrough).
+
+The endpoint accepts JSON only, from any local process; requests from another
+site's pages are refused.
