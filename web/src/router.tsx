@@ -12,6 +12,7 @@ import { loadPage } from "./api/page-data.ts"
 import { parseDiffLineAnchor } from "./features/source-control/diff-line-selection.ts"
 import { defaultProject, fetchDirectories, fetchProjects, landingProject, requestLandingPick } from "./api/projects-data.ts"
 import { readMemory } from "./workspace/workspace-memory.ts"
+import { readStoredSettings } from "./settings/settings.ts"
 import { compareSearch, legacyCompare, reviewFragment, routeCompare } from "./features/source-control/compare.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
 import { routeAt } from "./workspace/workspace-tabs.ts"
@@ -39,6 +40,9 @@ interface PageSearch {
   // route opens the walkthrough's own tab.
   wt?: string
   step?: number
+  // welcome=1, without a path, review, or walkthrough, opens the Welcome tab
+  // (decision 0052).
+  welcome?: 1
   // With a path, diff=1, commit=, branch=1, and from=&to= are per-file diff
   // routes from before review tabs; they redirect to the review.
   diff?: 1
@@ -62,6 +66,7 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     to: isCommitHash(search.to) ? search.to : undefined,
     wt: routeWalkthrough(search.wt),
     step: routeStep(search.step),
+    welcome: search.welcome === 1 || search.welcome === "1" ? 1 : undefined,
   }
 }
 
@@ -92,7 +97,8 @@ const indexRoute = createRoute({
     if (search.project) return
     let project = ""
     try {
-      const landing = landingProject(await fetchProjects(abortController.signal), readMemory())
+      const landing = landingProject(await fetchProjects(abortController.signal), readMemory(),
+        readStoredSettings().showWelcome === "on")
       project = landing.fallback
       // An unlisted folder (opened by hand) reopens only while it still exists.
       if (!landing.listed) await fetchDirectories(landing.project, abortController.signal)
@@ -139,10 +145,10 @@ const viewRoute = createRoute({
     // Keep line anchors (#L12) across the default-project redirect.
     if (project) throw redirect({ to: "/view", search: withProject(search, project), hash: location.hash, replace: true })
   },
-  // A review or walkthrough tab loads only the tree; a review's pane reads
-  // /api/diff per file.
+  // A review, walkthrough, or Welcome tab loads only the tree; a review's
+  // pane reads /api/diff per file.
   loaderDeps: ({ search }) => {
-    const diff = routeCompare(search) !== null || (!search.path && search.wt !== undefined)
+    const diff = routeCompare(search) !== null || (!search.path && (search.wt !== undefined || search.welcome !== undefined))
     return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", at: diff ? "" : search.at ?? "", diff }
   },
   loader: ({ abortController, deps }) => loadPage({

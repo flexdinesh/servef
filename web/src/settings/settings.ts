@@ -5,6 +5,20 @@ export const SETTINGS_STORAGE_KEY = "servef-settings"
 export interface Settings {
   fontSize: number
   languageServers: LanguageServerSetting
+  showWelcome: ShowWelcomeSetting
+}
+
+// ShowWelcomeSetting opens the Welcome tab when a project opens with no tabs
+// (decision 0052).
+export type ShowWelcomeSetting = "off" | "on"
+
+export const showWelcomeOptions: readonly { label: string; value: ShowWelcomeSetting }[] = [
+  { label: "Off", value: "off" },
+  { label: "On", value: "on" },
+]
+
+export function isShowWelcomeSetting(value: unknown): value is ShowWelcomeSetting {
+  return value === "off" || value === "on"
 }
 
 // LanguageServerSetting opts code navigation into installed language
@@ -25,7 +39,7 @@ export function isLanguageServerSetting(value: unknown): value is LanguageServer
 export type SettingKey = keyof Settings
 export type SettingId = SettingKey | "theme"
 
-const storedKeys: readonly SettingKey[] = ["fontSize", "languageServers"]
+const storedKeys: readonly SettingKey[] = ["fontSize", "languageServers", "showWelcome"]
 
 // The UI type scale is authored for a 13px base: explorer, tabs, and source
 // text are 0.8125rem, so 1rem is 16px at the default.
@@ -33,7 +47,7 @@ export const DEFAULT_FONT_SIZE = 13
 export const FONT_SIZE_MIN = 10
 export const FONT_SIZE_MAX = 20
 
-export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }
+export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on", showWelcome: "on" }
 
 interface SettingBase {
   id: SettingId
@@ -83,6 +97,14 @@ export const settingDefinitions: readonly SettingDefinition[] = [
     description: "Use installed language servers, such as gopls and typescript-language-server, for go to definition and find references. Each starts on first use, can take hundreds of MB, and stops after 10 idle minutes. Off disables code navigation.",
     options: languageServerOptions,
   },
+  {
+    id: "showWelcome",
+    kind: "select",
+    category: "Workbench",
+    title: "Show Welcome on Startup",
+    description: "Open the Welcome tab when a project opens with no tabs to restore. Off opens the project picker on first launch instead.",
+    options: showWelcomeOptions,
+  },
 ]
 
 // parseSettingValue accepts whole numbers, or numeric text, within the
@@ -111,7 +133,10 @@ export function parseSettings(raw: string | null): Settings {
   const languageServers = "languageServers" in stored && isLanguageServerSetting(stored.languageServers)
     ? stored.languageServers
     : defaultSettings.languageServers
-  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE, languageServers }
+  const showWelcome = "showWelcome" in stored && isShowWelcomeSetting(stored.showWelcome)
+    ? stored.showWelcome
+    : defaultSettings.showWelcome
+  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE, languageServers, showWelcome }
 }
 
 export function modifiedSettings(settings: Settings): SettingKey[] {

@@ -12,12 +12,30 @@ import {
   rememberedProjects,
   restoreTabs,
   restoreExpanded,
+  startupTab,
 } from "./workspace-memory.ts"
-import { documentTab, reviewTab } from "./workspace-tabs.ts"
+import { documentTab, reviewTab, welcomeTab } from "./workspace-tabs.ts"
 
 const working = reviewTab({ kind: "working" })
 
 const docs = (...paths: string[]) => paths.map((path) => documentTab(path))
+
+test("a project opens on its remembered tab, else Welcome when nothing was restored", () => {
+  const readme = documentTab("README.md")
+  assert.deepEqual(startupTab(null, { tabs: [readme], active: readme }, true), readme)
+  assert.deepEqual(startupTab(null, { tabs: [], active: null }, true), welcomeTab())
+  assert.equal(startupTab(null, { tabs: [], active: null }, false), null)
+  // Restored tabs without an active one keep the pane empty.
+  assert.equal(startupTab(null, { tabs: [readme], active: null }, true), null)
+  // A routed tab wins over memory and Welcome.
+  assert.equal(startupTab(working, { tabs: [], active: null }, true), null)
+  assert.equal(startupTab(working, { tabs: [readme], active: readme }, true), null)
+})
+
+test("the Welcome tab is remembered like any tab", () => {
+  const memory = rememberProject(emptyMemory, ["/r"], "/r", [welcomeTab(), documentTab("a.md")], welcomeTab())
+  assert.deepEqual(restoreTabs(projectMemory(memory, "/r"), new Set(["a.md"])), { tabs: [welcomeTab(), documentTab("a.md")], active: welcomeTab() })
+})
 
 test("memory shares a project's tabs across sessions and keeps the last project per set of roots", () => {
   let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md", "go.mod"), documentTab("go.mod"))

@@ -4,10 +4,12 @@ import {
   DEFAULT_FONT_SIZE,
   defaultSettings,
   isLanguageServerSetting,
+  isShowWelcomeSetting,
   languageServerOptions,
   modifiedSettings,
   parseFontSize,
   settingDefinitions,
+  showWelcomeOptions,
   type SettingDefinition,
   type SettingId,
 } from "./settings.ts"
@@ -39,6 +41,10 @@ function definition(id: SettingId): SettingDefinition {
 
 function languageServerLabel(value: string): string {
   return languageServerOptions.find((option) => option.value === value)?.label ?? value
+}
+
+function showWelcomeLabel(value: string): string {
+  return showWelcomeOptions.find((option) => option.value === value)?.label ?? value
 }
 
 function themeLabel(value: string): string {
@@ -93,6 +99,19 @@ export function useSettingValues(): SettingValues {
           return true
         },
         reset() { resetSetting("languageServers") },
+      },
+      showWelcome: {
+        definition: definition("showWelcome"),
+        value: settings.showWelcome,
+        label: showWelcomeLabel(settings.showWelcome),
+        defaultLabel: showWelcomeLabel(defaultSettings.showWelcome),
+        modified: settings.showWelcome !== defaultSettings.showWelcome,
+        set(value) {
+          if (!isShowWelcomeSetting(value)) return false
+          setSetting("showWelcome", value)
+          return true
+        },
+        reset() { resetSetting("showWelcome") },
       },
     },
     modifiedCount: modifiedSettings(settings).length + (themeModified ? 1 : 0),

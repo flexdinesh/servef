@@ -1,0 +1,172 @@
+/* The Welcome tab (decision 0052): a flat page on the document surface, no
+   cards. Two columns once the pane has room, one below. */
+.welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 68rem;
+  container: welcome / inline-size;
+  gap: var(--space-6);
+}
+
+.welcome-header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.welcome-meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: var(--text-label);
+}
+
+.welcome-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--preview-h1);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.welcome-tagline {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--preview-font-size);
+}
+
+.welcome-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6) var(--space-7);
+}
+
+@container welcome (min-width: 48rem) {
+  .welcome-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.welcome-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.welcome-section h2 {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-size: var(--preview-h4);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.welcome-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-entries {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.welcome-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  font-size: var(--text-label);
+}
+
+.welcome-entry > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-top: 0.1em;
+  color: var(--color-text-secondary);
+}
+
+.welcome-entry-text {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.welcome-entry-description {
+  color: var(--color-text-muted);
+  font-size: var(--text-metadata);
+  line-height: var(--text-xs--line-height);
+}
+
+.welcome-facts {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+.welcome-docs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-5);
+  color: var(--color-accent);
+  font-size: var(--text-label);
+  text-decoration: none;
+  text-underline-offset: 0.16em;
+}
+
+.welcome-docs:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.welcome-docs:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.welcome-docs svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.welcome-projects-filter {
+  margin-bottom: var(--space-2);
+}
+
+.welcome-projects-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-metadata);
+}
+
+.welcome-projects-status:empty {
+  display: none;
+}
+
+.welcome-project-group + .welcome-project-group {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.welcome-section .welcome-worktrees {
+  padding-left: var(--space-5);
+}
+
+.welcome-footer {
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-metadata);
+}

@@ -309,8 +309,8 @@ test("an uncommitted file opens the Uncommitted review scrolled to it", async ({
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
   await expect(changeRow(page, "src/app.ts")).toHaveAttribute("aria-selected", "true")
   await expect(changeRow(page, "src/app.ts")).toBeFocused()
-  // The same tab stays open; no per-file tabs and no rail.
-  await expect(page.getByRole("tab")).toHaveCount(1)
+  // The same tab stays open beside Welcome; no per-file tabs and no rail.
+  await expect(page.getByRole("tab")).toHaveText(["Welcome", "Uncommitted"])
   await expect(rail(page)).toHaveCount(0)
 
   // Rows run in path order; Enter opens and moves focus to the review.
@@ -607,7 +607,7 @@ test("phones stack the panes, open diffs from a tapped commit, and force Unified
   const commit = commits.getByRole("option", { name: new RegExp(`^${featureSubject}, `) })
   await commit.click()
   await expect(commit).toHaveAttribute("aria-selected", "true")
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
   await commit.getByRole("button", { name: "Open changes" }).click()
   await expect(drawer).toBeHidden()
   await expect(commitTab(page, featureSubject)).toHaveAttribute("aria-selected", "true")
@@ -700,7 +700,7 @@ test("clicking a commit selects it; its diff opens the commit's review with a Fi
   await commit.click()
   await expect(commit).toHaveAttribute("aria-selected", "true")
   await expect(lower).toHaveAttribute("aria-selected", "false")
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
   await expect(page).not.toHaveURL(/[?&]commit=/)
   // The selection keeps its diff button; other rows show theirs on hover.
   await lower.hover()
@@ -810,7 +810,7 @@ test("a commit's rail scrolls its review to a file and selects the file in view"
   await expect.poll(() => topOffset(page, "src/app.ts")).toBeCloseTo(pinnedOffset, 0)
   await expect(page.locator(".status-path")).toHaveText("src/app.ts")
   await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "true")
-  await expect(page.getByRole("tab")).toHaveCount(1)
+  await expect(page.getByRole("tab")).toHaveCount(2)
 
   // Scrolling the review selects the file in view.
   await page.locator("main").evaluate((pane) => {
@@ -1170,7 +1170,7 @@ test("Shift-selecting commits opens their range from the newest commit's diff", 
   await feature.click()
   await initial.click({ modifiers: ["Shift"] })
   for (const row of [feature, lower, initial]) await expect(row).toHaveAttribute("aria-selected", "true")
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
   // Only the newest selected commit offers the range's diff.
   await lower.hover()
   await expect(lower.getByRole("button", { name: /^Open changes/ })).toHaveCount(0)
@@ -1317,7 +1317,7 @@ test("the panes work from the keyboard", async ({ page }) => {
   await page.keyboard.press("Home")
   await expect(feature).toBeFocused()
   await expect(feature).toHaveAttribute("aria-selected", "true")
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
 
   // Ctrl/Cmd+C copies the focused commit's hash.
   await page.keyboard.press("ControlOrMeta+c")

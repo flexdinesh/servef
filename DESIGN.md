@@ -397,7 +397,7 @@ Non-image files over 32 MiB use the same layout: “Too large to display”, `na
 
 ### Footer
 
-Explorer footer: servef home, process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
+Explorer footer: the servef brand (opens or activates the Welcome tab), process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
 
 LSP availability sits beside the document language for every text file, including
 unsupported languages: LSP unavailable, missing, off, available, starting, ready,
@@ -413,7 +413,7 @@ label. No line selection.
 
 ### Settings
 
-The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, or Code Navigation, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a `surface-recessed` fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, and Code Navigation: Language Servers (On by default; Off disables code navigation in this browser). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, and language servers On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
+The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, Code Navigation, or Workbench, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a `surface-recessed` fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, Code Navigation: Language Servers (On by default; Off disables code navigation in this browser), and Workbench: Show Welcome on Startup (On by default; decision 0052). Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, language servers On, and Welcome on startup On. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
 
 Opened at a setting (from the command palette), Settings clears its search, scrolls the item into view, focuses its control (selecting a number's text), and flashes the item: `accent-subtle` fill and a 1px inset accent ring hold for the first third of 1.6s, then ease out (`cubic-bezier(0.16, 1, 0.3, 1)`). Reduced motion shows the highlight statically for 1.6s.
 
@@ -623,6 +623,37 @@ A step opens its ordinary tab: Source with the lines selected, a snapshot, or a 
 The walkthrough's own tab is its cover: muted “Walkthrough · 7 steps · updated …”, the title at the preview h1 size, the summary as prose, a primary “Start walkthrough” button, and a numbered outline of link buttons with mono target labels. A note step shows its zone across the top of the cover.
 
 Present (the view header's presentation icon, or the palette) hides the activity bar, sidebar, tab strip, and status bar so the document fills the canvas; Escape ends it before any other Escape handling. A step bar floats at the foot of the workspace: Previous, tabular “4 / 7”, the step title truncated at 24rem, Next, and Stop Presenting, on `surface-raised` with a strong border, the overlay radius, and `--shadow-overlay`. On phones the same bar shows whenever a walkthrough is followed, spanning the width with a Steps button that opens the drawer at the step list; choosing a step closes the drawer. The document pads its foot so the bar never covers the last lines.
+
+### Welcome and the empty pane
+
+The Welcome tab (decision 0052) is a flat page on the document surface, in
+the walkthrough cover's voice and without cards: a muted “Serving <roots>”
+line, “servef” at the preview h1 size (600, -0.02em), and a secondary
+one-line tagline, then two columns once the tab is 48rem wide (a container
+query; one column below), 68rem at most. Section titles are 15px 600
+(`--preview-h4`) in `text-primary`, 12px above their content. Start and What
+you can do are lists of entries: a 14px `text-secondary` icon, a link-variant
+inline Button naming the action, an optional 12px muted description under
+it, and the shortcut as a `Kbd` at the end. This project lists the branch and
+counts in 13px secondary text, links where they open something. Projects
+reuses the picker's rows (32px pick `ListButton`s with its icons, branch
+chip, tail-truncated path, worktree count, and accent Current mark) under a
+28px filter field (funnel icon, clear action); a repository with several
+worktrees carries a 20px chevron IconButton that rotates and lists them
+indented 24px. Documentation is an accent link with a 12px arrow-up-right
+icon, opening a new tab. A 12px muted footer line above a 1px `border`
+links Show Welcome on Startup in Settings. The tab shows a house icon.
+
+With no tab open, the pane keeps the centered empty-state layout but names
+what the sidebar's view offers: a heading, a 14px hint, then an outline
+action (with its `Kbd` shortcut) and a link-variant “Show Welcome”, 12px
+apart. Explorer: “Choose a file”, Find a file. Search: “Search file
+contents”, or “Open a match” once results show. Source Control: “Review your
+changes” with the count and Review uncommitted changes, “Review history” when
+clean, “Not a git repository” for folders. Walkthroughs: “Choose a
+walkthrough”, or “No walkthroughs yet”. A hidden sidebar: “Nothing open”,
+Show sidebar. Phones follow the last view; a view without an action offers
+“Open <view>”, which opens its drawer.
 
 ### Markdown, code, diagrams
 

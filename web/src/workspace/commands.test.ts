@@ -15,14 +15,20 @@ test("Open Settings and Color Theme come first, then every setting opens Setting
     ["Settings", "Theme", { kind: "open-setting", setting: "theme" }],
     ["Settings", "Font Size", { kind: "open-setting", setting: "fontSize" }],
     ["Settings", "Language Servers", { kind: "open-setting", setting: "languageServers" }],
+    ["Settings", "Show Welcome on Startup", { kind: "open-setting", setting: "showWelcome" }],
     ["Navigation", "Go to Definition", { kind: "go-to-definition" }],
     ["Navigation", "Find All References", { kind: "find-references" }],
     ["Walkthrough", "Next Step", { kind: "walkthrough-step", direction: 1 }],
     ["Walkthrough", "Previous Step", { kind: "walkthrough-step", direction: -1 }],
     ["Walkthrough", "Present", { kind: "walkthrough-present" }],
     ["Walkthrough", "Close Walkthrough", { kind: "walkthrough-exit" }],
+    ["Help", "Welcome", { kind: "open-welcome" }],
   ])
-  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12", "Ctrl+Right", "Ctrl+Left", undefined, undefined])
+  assert.deepEqual(commands.slice(6).map((command) => command.shortcut), ["F12", "Shift+F12", "Ctrl+Right", "Ctrl+Left", undefined, undefined, undefined])
+})
+
+test("typing welcome finds the Welcome tab and its startup setting", () => {
+  assert.deepEqual(matchCommands(commands, "welcome").map((match) => match.command.id), ["settings.showWelcome", "help.welcome"])
 })
 
 test("an empty query lists every command in order", () => {

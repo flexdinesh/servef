@@ -20,6 +20,10 @@ interface DocumentPaneProps {
   diffShown?: boolean
   // walkthrough is the open walkthrough tab's content, shown without a file.
   walkthrough?: ReactNode
+  // welcome is the Welcome tab's content, shown without a file.
+  welcome?: ReactNode
+  // empty fills the pane while no tab is open.
+  empty?: ReactNode
   // sourceAnnotation is a zone in Source, e.g. a walkthrough's narration.
   sourceAnnotation?: SourceAnnotation
   hasData: boolean
@@ -42,11 +46,11 @@ function fileName(path: string): string {
 }
 
 export function DocumentPane({
-  diff, diffShown = true, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceAnnotation,
-  sourceNavigation, view, walkthrough,
+  diff, diffShown = true, empty, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceAnnotation,
+  sourceNavigation, view, walkthrough, welcome,
 }: DocumentPaneProps) {
   const showDiff = Boolean(diff) && diffShown && !loadError && !page.projectUnavailable && !page.error
-  const viewKind = loadError || page.error ? "none" : showDiff ? "diff" : walkthrough ? "walkthrough" : view.kind
+  const viewKind = loadError || page.error ? "none" : showDiff ? "diff" : walkthrough ? "walkthrough" : welcome ? "welcome" : view.kind
 
   return (
     <main
@@ -73,14 +77,18 @@ export function DocumentPane({
         <div className="error" role="alert">{page.error}</div>
       ) : walkthrough ? (
         walkthrough
-      ) : sourceAnnotation && view.kind !== "source" && view.kind !== "none" ? (
+      ) : welcome ? (
+        welcome
+      ) : view.kind === "none" ? (
+        hasData ? empty : null
+      ) : sourceAnnotation && view.kind !== "source" ? (
         <div className="annotated-document">
           <div className="document-annotation">{sourceAnnotation.render(null)}</div>
-          <PageView hasData={hasData} image={image} lineSelection={lineSelection} navigate={navigate} page={page}
+          <PageView image={image} lineSelection={lineSelection} navigate={navigate} page={page}
             sourceNavigation={sourceNavigation} view={view} />
         </div>
       ) : (
-        <PageView hasData={hasData} image={image} lineSelection={lineSelection} navigate={navigate} page={page}
+        <PageView image={image} lineSelection={lineSelection} navigate={navigate} page={page}
           sourceAnnotation={sourceAnnotation} sourceNavigation={sourceNavigation} view={view} />
       )}
     </main>
@@ -88,7 +96,6 @@ export function DocumentPane({
 }
 
 interface PageViewProps {
-  hasData: boolean
   image: ImageViewer
   lineSelection: LineSelection
   navigate(href: string): void
@@ -99,7 +106,7 @@ interface PageViewProps {
 }
 
 // PageView is the page's file in its chosen view.
-function PageView({ hasData, image, lineSelection, navigate, page, sourceAnnotation, sourceNavigation, view }: PageViewProps) {
+function PageView({ image, lineSelection, navigate, page, sourceAnnotation, sourceNavigation, view }: PageViewProps) {
   const label = page.documentType?.label ?? "File"
   // The server declares the highlight language and the size limit.
   const language = page.highlightDisabled ? null : page.documentType?.language ?? null
@@ -135,11 +142,6 @@ function PageView({ hasData, image, lineSelection, navigate, page, sourceAnnotat
           {view.formatError && <FormatErrorNotice reason={view.formatError} />}
           <SourceDocument key={page.selected} source={page.source} language={language} label={`${label} source`}
             selection={lineSelection} navigation={sourceNavigation} annotation={sourceAnnotation} />
-        </div>
-      ) : hasData ? (
-        <div className="empty">
-          <h1>Choose a file</h1>
-          <p>Select a file from the folder tree.</p>
         </div>
       ) : null
 }

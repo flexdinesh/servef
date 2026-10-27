@@ -81,7 +81,8 @@ test("restoring tabs never writes an empty workspace before navigation finishes"
       original.call(this, key, value)
     }
   })
-  await page.reload()
+  // The first visit routed Welcome; land on the project home again.
+  await page.goto(`/?project=${rootParam}`)
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=config%2Fsettings.json`))
   const tabs = page.getByRole("tablist", { name: "Open documents" })
   await expect(tabs.getByRole("tab")).toHaveCount(2)

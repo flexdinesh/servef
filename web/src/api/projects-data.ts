@@ -16,7 +16,8 @@ export interface Landing {
   project: string
   // listed is false for a folder discovery does not vouch for; check it exists.
   listed: boolean
-  // pick opens the picker: nothing is remembered and there is a choice.
+  // pick opens the picker: nothing is remembered, there is a choice, and
+  // Welcome, which lists the projects, is off (decision 0052).
   pick: boolean
   // fallback is the first served root, opened when project is gone.
   fallback: string
@@ -29,12 +30,12 @@ export function defaultProject(projects: ProjectsResponse): string {
 
 // landingProject picks the project for a URL without one: the last project
 // remembered for these served roots, or the first root.
-export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory): Landing {
+export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory, welcome: boolean): Landing {
   const fallback = defaultProject(projects)
   const last = lastProject(memory, projects.roots.map((root) => root.path))
   if (!last) {
     const choices = projects.projects.filter((project) => project.available).length
-    return { project: fallback, listed: true, pick: choices > 1, fallback }
+    return { project: fallback, listed: true, pick: !welcome && choices > 1, fallback }
   }
   return { project: last, listed: projects.projects.some((project) => project.available && project.id === last), pick: false, fallback }
 }

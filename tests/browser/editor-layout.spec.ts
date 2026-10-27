@@ -118,7 +118,7 @@ test("file tree supports arrow navigation and Enter activation", async ({ page }
 
 test("content shortcut reveals the Search view, which keeps its query across views", async ({ page }) => {
   await page.goto("/")
-  const trigger = page.getByRole("button", { name: /^Find in files/ })
+  const trigger = page.locator(".status-bar").getByRole("button", { name: /^Find in files/ })
   const explorer = page.getByRole("button", { name: "Explorer" })
   const searchActivity = page.getByRole("button", { name: "Search", exact: true })
   await expect(explorer).toHaveAttribute("aria-pressed", "true")
@@ -167,10 +167,10 @@ test("mobile explorer opens, selects, and closes without reserving reading space
   await page.getByRole("button", { name: "Open files" }).click()
   await drawer.getByRole("treeitem", { name: "code-blocks.md" }).click()
   await expect(drawer).toBeHidden()
-  await expect(page.getByRole("button", { name: /^Find in files/ })).toBeVisible()
+  await expect(page.locator(".status-bar").getByRole("button", { name: /^Find in files/ })).toBeVisible()
   await expect(page.locator(".status-path")).toBeVisible()
   await expect(page.locator(".status-path")).toHaveText("guides/code-blocks.md")
-  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
 })
 
@@ -191,7 +191,7 @@ test("mobile file search closes the drawer when a result opens", async ({ page }
 test("mobile content search opens in the drawer and closes it when a match opens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   const drawer = page.getByRole("dialog", { name: "Search", exact: true })
   const search = drawer.getByRole("textbox", { name: "Search", exact: true })
   await expect(search).toBeFocused()

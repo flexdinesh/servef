@@ -96,8 +96,8 @@ test("searches fixture content and opens a match at its source line", async ({ p
   await page.goto("/")
 
   const search = page.getByRole("textbox", { name: "Search", exact: true })
-  await expect(page.getByText("Select a file from the folder tree.")).toBeVisible()
-  await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
+  await expect(page.getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
   await expect(search).toBeFocused()
   await search.fill("luminous-orchid")
 
@@ -121,7 +121,7 @@ test("searches fixture content and opens a match at its source line", async ({ p
 
 test("search options, scopes, and keyboard navigation follow VS Code", async ({ page }) => {
   await page.goto("/")
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   const search = page.getByRole("textbox", { name: "Search", exact: true })
   const results = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem")
   await search.fill("Getting started")
@@ -273,7 +273,7 @@ test("recovers from an invalid page response", async ({ page }) => {
   })
   await page.goto("/")
 
-  await page.getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).press("ControlOrMeta+Shift+f")
   const search = page.getByRole("textbox", { name: "Search", exact: true })
   await search.fill("exercise GitHub")
   await page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "exercise GitHub" }).press("Enter")
@@ -308,13 +308,13 @@ test("commits only the latest rapid navigation", async ({ page }) => {
 test("opens content search from the status bar", async ({ page }) => {
   await page.goto("/")
 
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeFocused()
 })
 
 // themeSetting opens Settings and returns its Theme select.
 async function themeSetting(page: Page) {
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   return page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
 }
 
@@ -363,18 +363,20 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const input = palette.getByRole("combobox", { name: "Command" })
   await expect(input).toBeFocused()
   const options = palette.getByRole("option")
-  await expect(options).toHaveCount(11)
+  await expect(options).toHaveCount(13)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
   await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Servef Dark")
   await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Servef Dark")
   await expect(options.nth(3)).toHaveAccessibleName("Settings: Font Size, 13px")
   await expect(options.nth(4)).toHaveAccessibleName("Settings: Language Servers, On")
-  await expect(options.nth(5)).toHaveAccessibleName("Navigation: Go to Definition, F12")
-  await expect(options.nth(6)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
-  await expect(options.nth(7)).toHaveAccessibleName(/^Walkthrough: Next Step, (Ctrl\+Right|⌘→)$/)
-  await expect(options.nth(8)).toHaveAccessibleName(/^Walkthrough: Previous Step, (Ctrl\+Left|⌘←)$/)
-  await expect(options.nth(9)).toHaveAccessibleName("Walkthrough: Present")
-  await expect(options.nth(10)).toHaveAccessibleName("Walkthrough: Close Walkthrough")
+  await expect(options.nth(5)).toHaveAccessibleName("Settings: Show Welcome on Startup, On")
+  await expect(options.nth(6)).toHaveAccessibleName("Navigation: Go to Definition, F12")
+  await expect(options.nth(7)).toHaveAccessibleName("Navigation: Find All References, Shift+F12")
+  await expect(options.nth(8)).toHaveAccessibleName(/^Walkthrough: Next Step, (Ctrl\+Right|⌘→)$/)
+  await expect(options.nth(9)).toHaveAccessibleName(/^Walkthrough: Previous Step, (Ctrl\+Left|⌘←)$/)
+  await expect(options.nth(10)).toHaveAccessibleName("Walkthrough: Present")
+  await expect(options.nth(11)).toHaveAccessibleName("Walkthrough: Close Walkthrough")
+  await expect(options.nth(12)).toHaveAccessibleName("Help: Welcome")
   await expect(options.first()).toHaveAttribute("aria-selected", "true")
 
   await input.fill("nothing here")
@@ -436,7 +438,7 @@ test("font size setting scales the interface, persists, and resets", async ({ pa
   const status = page.locator(".status-bar")
   await expect(source).toHaveCSS("font-size", "13px")
 
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   const dialog = page.getByRole("dialog", { name: "Settings" })
   await expect(dialog.getByRole("searchbox", { name: "Search settings" })).toBeFocused()
   const fontSize = dialog.getByRole("spinbutton", { name: "Appearance: Font Size" })

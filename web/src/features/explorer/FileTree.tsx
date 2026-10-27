@@ -32,7 +32,8 @@ interface FileTreeProps {
   // onOpenWorktrees lists the current repository's worktrees.
   onOpenWorktrees(): void
   page: PageData
-  registerOpen(open: (() => void) | null): void
+  // open reveals the Explorer; with search, it also opens file search.
+  registerOpen(open: ((search?: boolean) => void) | null): void
   // onReveal shows the Explorer view, opening the mobile drawer.
   onReveal(): void
   // onDismiss closes the mobile drawer after a file opens.
@@ -252,18 +253,17 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
   }
 
   useEffect(() => {
-    const open = () => {
+    const open = (search = false) => {
       onReveal()
-      if (model.isSearchOpen()) searchInput.current?.focus()
+      if (search) model.openSearch()
+      if (search || model.isSearchOpen()) searchInput.current?.focus()
     }
     registerOpen(open)
     const shortcut = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) return
       if (event.key.toLowerCase() !== "p" && event.key.toLowerCase() !== "k") return
       event.preventDefault()
-      open()
-      model.openSearch()
-      searchInput.current?.focus()
+      open(true)
     }
     document.addEventListener("keydown", shortcut)
     return () => {

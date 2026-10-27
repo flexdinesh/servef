@@ -13,7 +13,7 @@ for (const entry of [
       if (new URL(request.url()).pathname === "/api/search-documents") indexRequests++
     })
     await page.goto(entry.url)
-    await page.getByRole("button", { name: /^Find in files/ }).click()
+    await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
     const input = page.getByRole("textbox", { name: "Search", exact: true })
     await input.fill("exercise GitHub")
     const result = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "exercise GitHub" })
@@ -21,7 +21,7 @@ for (const entry of [
     await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Getting started")
     await expect(page.locator("main")).toBeFocused()
 
-    await page.getByRole("button", { name: /^Find in files/ }).click()
+    await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
     await expect(input).toHaveValue("exercise GitHub")
     await expect(input).toBeFocused()
     await expect(result).toBeVisible()
@@ -42,7 +42,7 @@ test("search retries transient failure without losing the query", async ({ page 
     }
   })
   await page.goto("/")
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   const input = page.getByRole("textbox", { name: "Search", exact: true })
   await input.fill("getting-started")
   await expect(page.locator(".search-message")).toContainText("Search is unavailable.")
@@ -62,7 +62,7 @@ test("search survives unavailable Worker and recovers when support returns", asy
     } })
   })
   await page.goto("/")
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   await expect(page.locator(".search-message")).toContainText("Search is unavailable.")
   await page.evaluate(() => { document.documentElement.dataset.restoreWorker = "true" })
   await page.getByRole("textbox", { name: "Search", exact: true }).fill("getting-started")
@@ -104,7 +104,7 @@ for (const entry of [
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 
     await page.getByRole("link", { name: "servef home" }).click()
-    await expect(page.getByRole("heading", { name: "Choose a file" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
     await page.goBack()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 

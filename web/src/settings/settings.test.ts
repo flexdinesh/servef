@@ -10,6 +10,7 @@ import {
   parseFontSize,
   parseSettings,
   uiScale,
+  type Settings,
 } from "./settings.ts"
 
 test("font size accepts whole pixel values within range", () => {
@@ -27,7 +28,7 @@ test("font size accepts whole pixel values within range", () => {
 })
 
 test("stored settings keep valid values and default the rest", () => {
-  const defaults = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }
+  const defaults = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on", showWelcome: "on" }
   assert.deepEqual(parseSettings(null), defaults)
   assert.deepEqual(parseSettings("not json"), defaults)
   assert.deepEqual(parseSettings("[]"), defaults)
@@ -36,21 +37,26 @@ test("stored settings keep valid values and default the rest", () => {
   assert.deepEqual(parseSettings('{"fontSize":"15"}'), { ...defaults, fontSize: 15 })
   assert.deepEqual(parseSettings('{"languageServers":"off"}'), { ...defaults, languageServers: "off" })
   assert.deepEqual(parseSettings('{"languageServers":true}'), defaults)
+  assert.deepEqual(parseSettings('{"showWelcome":"off"}'), { ...defaults, showWelcome: "off" })
+  assert.deepEqual(parseSettings('{"showWelcome":false}'), defaults)
 })
 
 test("only values differing from defaults count as modified", () => {
-  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "on" }), [])
-  assert.deepEqual(modifiedSettings({ fontSize: 15, languageServers: "on" }), ["fontSize"])
-  assert.deepEqual(modifiedSettings({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), ["languageServers"])
+  const defaults: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on", showWelcome: "on" }
+  assert.deepEqual(modifiedSettings(defaults), [])
+  assert.deepEqual(modifiedSettings({ ...defaults, fontSize: 15 }), ["fontSize"])
+  assert.deepEqual(modifiedSettings({ ...defaults, languageServers: "off" }), ["languageServers"])
+  assert.deepEqual(modifiedSettings({ ...defaults, showWelcome: "off" }), ["showWelcome"])
 })
 
 test("ui scale is relative to the default font size", () => {
-  assert.equal(uiScale({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off" }), 1)
-  assert.equal(uiScale({ fontSize: 26, languageServers: "off" }), 2)
+  assert.equal(uiScale({ fontSize: DEFAULT_FONT_SIZE, languageServers: "off", showWelcome: "on" }), 1)
+  assert.equal(uiScale({ fontSize: 26, languageServers: "off", showWelcome: "on" }), 2)
 })
 
 test("setting search matches every term across category, title, and description", () => {
-  assert.deepEqual(matchSettings("").map((definition) => definition.id), ["theme", "fontSize", "languageServers"])
+  assert.deepEqual(matchSettings("").map((definition) => definition.id), ["theme", "fontSize", "languageServers", "showWelcome"])
+  assert.deepEqual(matchSettings("welcome startup").map((definition) => definition.id), ["showWelcome"])
   assert.deepEqual(matchSettings("gopls").map((definition) => definition.id), ["languageServers"])
   assert.deepEqual(matchSettings("font").map((definition) => definition.id), ["fontSize"])
   assert.deepEqual(matchSettings("APPEARANCE size").map((definition) => definition.id), ["fontSize"])

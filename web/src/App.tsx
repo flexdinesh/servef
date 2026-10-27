@@ -31,7 +31,7 @@ import {
 } from "./api/page-data.ts"
 import type { SearchMatch } from "./features/search/search-engine.ts"
 import { SearchView } from "./features/search/SearchView.tsx"
-import { Sidebar } from "./workspace/Sidebar.tsx"
+import { Sidebar, sidebarViewName } from "./workspace/Sidebar.tsx"
 import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
 import { ReviewDocument, type HunkStep, type ReviewStatus } from "./features/source-control/ReviewDocument.tsx"
 import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
@@ -59,8 +59,12 @@ import { useSourceControlLayout } from "./features/source-control/use-source-con
 import { filePaths } from "./api/page-data.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
 import {
-  documentKey, documentTab, includesTab, reviewTab, tabName, tabSearch, walkthroughTab, type WorkspaceTab,
+  documentKey, documentTab, includesTab, reviewTab, tabName, tabSearch, walkthroughTab, welcomeTab, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
+import { EmptyWorkspace } from "./workspace/EmptyWorkspace.tsx"
+import { emptyWorkspace, type EmptyWorkspaceAction } from "./workspace/empty-workspace.ts"
+import { WelcomeTab } from "./features/welcome/WelcomeTab.tsx"
+import type { WelcomeAction } from "./features/welcome/welcome-model.ts"
 import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
 import { ColorThemePicker } from "./workspace/ColorThemePicker.tsx"
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
@@ -101,11 +105,12 @@ import type { SourceAnnotation } from "./features/documents/SourceDocument.tsx"
 import type { ReviewAnnotation } from "./features/source-control/ReviewDocument.tsx"
 
 // routeTab is the tab a route shows: a review, a document (a snapshot with
-// at), or a walkthrough's own tab, else none.
-function routeTab(review: WorkspaceTab | null, documentPath: string, at: string, walkthrough: string): WorkspaceTab | null {
+// at), a walkthrough's own tab, or Welcome, else none.
+function routeTab(review: WorkspaceTab | null, documentPath: string, at: string, walkthrough: string, welcome: boolean): WorkspaceTab | null {
   if (review) return review
   if (documentPath) return documentTab(documentPath, at)
-  return walkthrough ? walkthroughTab(walkthrough) : null
+  if (walkthrough) return walkthroughTab(walkthrough)
+  return welcome ? welcomeTab() : null
 }
 
 // reviewStatusBar describes the review's file in view, or the one holding
@@ -173,8 +178,11 @@ export function App({ project }: AppProps) {
   const searchWalkthrough = useSearch({ strict: false, select: (search) => routeWalkthrough(search.wt) ?? "" })
   const searchStep = useSearch({ strict: false, select: (search) => routeStep(search.step) })
   const walkthroughRoute = !searchPath && !reviewRoute ? searchWalkthrough : ""
+  // welcome=1 alone routes the Welcome tab (decision 0052).
+  const searchWelcome = useSearch({ strict: false, select: (search) => search.welcome === 1 })
+  const welcomeRoute = !searchPath && !reviewRoute && !walkthroughRoute && searchWelcome
   const openSearch = useRef<() => void>(() => {})
-  const openFiles = useRef<() => void>(() => {})
+  const openFiles = useRef<(search?: boolean) => void>(() => {})
   const openProjects = useRef<(options?: PickerOpenOptions) => void>(() => {})
   const openSettings = useRef<OpenSettings>(() => {})
   const openCommands = useRef<() => void>(() => {})
@@ -191,7 +199,7 @@ export function App({ project }: AppProps) {
   const registerHunkStep = useCallback((step: HunkStep | null) => {
     stepHunk.current = step ?? (() => {})
   }, [])
-  const registerFiles = useCallback((open: (() => void) | null) => {
+  const registerFiles = useCallback((open: ((search?: boolean) => void) | null) => {
     openFiles.current = open ?? (() => {})
   }, [])
   const registerProjects = useCallback((open: ((options?: PickerOpenOptions) => void) | null) => {
@@ -208,8 +216,10 @@ export function App({ project }: AppProps) {
   }, [])
   const runNavigation = useRef<(kind: NavigationKind) => void>(() => {})
   const walkthroughCommands = useRef({ move: (_direction: 1 | -1) => {}, close: () => {}, present: () => {} })
+  const openWelcomeCommand = useRef(() => {})
   const runCommand = useCallback((action: CommandAction) => {
-    if (action.kind === "walkthrough-step") walkthroughCommands.current.move(action.direction)
+    if (action.kind === "open-welcome") openWelcomeCommand.current()
+    else if (action.kind === "walkthrough-step") walkthroughCommands.current.move(action.direction)
     else if (action.kind === "walkthrough-exit") walkthroughCommands.current.close()
     else if (action.kind === "walkthrough-present") walkthroughCommands.current.present()
     else if (action.kind === "go-to-definition") runNavigation.current("definition")
@@ -224,7 +234,7 @@ export function App({ project }: AppProps) {
   const sourceControlActive = !sidebar.hidden && sidebar.view === "source-control"
   // A live review rereads its compare like an open Source Control view.
   const reviewLive = reviewCompare !== null && isLiveCompare(reviewCompare)
-  const changes = useChanges(project, sourceControlActive || reviewCompare?.kind === "working")
+  const changes = useChanges(project, sourceControlActive || reviewCompare?.kind === "working" || welcomeRoute)
   const sourceControlLayout = useSourceControlLayout(project)
   const stack = useBranchStack(project, sourceControlActive, sourceControlLayout.base)
   // On the base branch itself, commits list all history (decision 0040).
@@ -240,17 +250,18 @@ export function App({ project }: AppProps) {
   const routedPage = result?.kind === "page" ? result.page : null
   const routedDocument = routedPage?.hasFile ? routedPage.selected : ""
   const routedAt = routedPage?.hasFile ? routedPage.at : ""
-  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument, routedAt, walkthroughRoute),
-    [reviewRoute, routedAt, routedDocument, walkthroughRoute])
+  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument, routedAt, walkthroughRoute, welcomeRoute),
+    [reviewRoute, routedAt, routedDocument, walkthroughRoute, welcomeRoute])
   const activeDocument = page.hasFile ? page.selected : ""
   const activeAt = page.hasFile ? page.at : ""
-  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument, activeAt, walkthroughRoute),
-    [activeAt, activeDocument, reviewRoute, walkthroughRoute])
+  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument, activeAt, walkthroughRoute, welcomeRoute),
+    [activeAt, activeDocument, reviewRoute, walkthroughRoute, welcomeRoute])
   // pageKey keys the document's mode, format, and scroll.
   const pageKey = documentKey(page.selected, page.at)
   const workspace = useDocumentWorkspace(routedTab)
   const { setDocumentMode } = workspace
   const previewPreference = usePreviewPreference(project)
+  const { settings } = useSettings()
   const openRemembered = useCallback((tab: WorkspaceTab) => {
     void navigate({ to: "/view", search: tabSearch(project, tab), hash: "", replace: true })
   }, [navigate, project])
@@ -259,6 +270,7 @@ export function App({ project }: AppProps) {
     page: routedPage,
     active: routedTab,
     tabs: workspace.tabs,
+    welcome: settings.showWelcome === "on",
     restore: workspace.restore,
     openRemembered,
   })
@@ -436,11 +448,20 @@ export function App({ project }: AppProps) {
     (id) => listedWalkthroughs?.find((entry) => entry.id === id)?.title ?? ""), [compareContext, listedWalkthroughs])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
   const { open: openWalkthrough } = walkthroughs
+  const openWelcome = useCallback(() => {
+    if (welcomeRoute) return
+    prepareDocumentNavigation()
+    void navigate({ to: "/view", search: tabSearch(project, welcomeTab()), hash: "" })
+  }, [navigate, prepareDocumentNavigation, project, welcomeRoute])
+  useLayoutEffect(() => {
+    openWelcomeCommand.current = openWelcome
+  })
   const selectTab = useCallback((tab: WorkspaceTab) => {
     if (tab.kind === "document") navigateToDocument(tab.path, tab.at)
     else if (tab.kind === "walkthrough") openWalkthrough(tab.id)
+    else if (tab.kind === "welcome") openWelcome()
     else openReview(tab.compare, true)
-  }, [navigateToDocument, openReview, openWalkthrough])
+  }, [navigateToDocument, openReview, openWalkthrough, openWelcome])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
@@ -482,7 +503,6 @@ export function App({ project }: AppProps) {
     if (targets.search) markSearchStale(searchShown)
   }, [liveDocument, markSearchStale, refreshChanges, refreshCommits, refreshStack, reread, searchShown])
   const liveStatus = useLiveUpdates(project, applyLiveChange)
-  const { settings } = useSettings()
   const languageServers = settings.languageServers === "on"
   // Snapshots do not navigate: language servers see the working tree.
   const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary && !page.at, languageServers)
@@ -520,6 +540,36 @@ export function App({ project }: AppProps) {
     prepareDocumentNavigation()
     void navigate({ to: "/", search: { project: next }, hash: "" })
   }, [navigate, prepareDocumentNavigation])
+
+  // Welcome's entries and the empty pane's actions run what they name.
+  function runWelcomeAction(action: WelcomeAction) {
+    switch (action) {
+      case "open-project": chooseProject(); break
+      case "find-file": openFiles.current(true); break
+      case "show-commands": openCommands.current(); break
+      case "find-in-files": openSearch.current(); break
+      case "source-control": revealSidebar("source-control"); break
+      case "walkthroughs": revealSidebar("walkthroughs"); break
+      case "language-servers": openSettings.current("languageServers"); break
+      case "color-theme": openColorTheme.current(); break
+      case "font-size": openSettings.current("fontSize"); break
+      case "review-uncommitted": openReview(workingCompare, true); break
+    }
+  }
+  function runEmptyAction(action: EmptyWorkspaceAction) {
+    if (action === "find-file") openFiles.current(true)
+    else if (action === "review-uncommitted") openReview(workingCompare, true)
+    else revealSidebar(sidebar.view)
+  }
+  const empty = emptyWorkspace({
+    view: sidebar.hidden ? "hidden" : sidebar.view,
+    mobile: sidebar.mobile,
+    searchPattern: search.query.pattern,
+    searchFiles: search.results?.files.length ?? 0,
+    changes: changes.result ? changes.result.files.length : null,
+    repository: changes.result?.repository ?? true,
+    walkthroughs: walkthroughs.list.result?.length ?? null,
+  })
 
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
@@ -669,6 +719,18 @@ export function App({ project }: AppProps) {
             walkthrough={walkthroughRoute ? <WalkthroughTab detail={walkthroughs.detail} position={walkthroughs.position}
               context={compareContext} canMove={walkthroughs.canMove} onMove={walkthroughs.move} onGoTo={walkthroughs.goTo}
               onExit={closeWalkthrough} onRetry={walkthroughs.retry} navigate={navigateToHref} /> : undefined}
+            welcome={welcomeRoute ? <WelcomeTab project={project} roots={page.roots}
+              facts={{
+                repository: changes.result?.repository ?? true,
+                branch: page.branch,
+                changes: changes.result ? changes.result.files.length : null,
+                walkthroughs: walkthroughs.list.result?.length ?? null,
+                unseen: walkthroughs.unseen,
+              }}
+              onAction={runWelcomeAction} onOpenProject={switchProject}
+              onStartupSetting={() => openSettings.current("showWelcome")} /> : undefined}
+            empty={<EmptyWorkspace state={empty} viewName={sidebarViewName(sidebar.view)}
+              onAction={runEmptyAction} onWelcome={openWelcome} />}
             sourceAnnotation={sourceAnnotation}
             hasData={hasData}
             image={image}
@@ -719,10 +781,7 @@ export function App({ project }: AppProps) {
         } : undefined}
         onSearch={() => openSearch.current()}
         onSettings={() => openSettings.current()}
-        onHome={() => {
-          prepareDocumentNavigation()
-          void navigate({ to: "/", search: { project }, hash: "" })
-        }} />
+        onHome={openWelcome} />
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
       <SettingsDialog registerOpen={registerSettings} />
       <CommandPalette registerOpen={registerCommands} onRun={runCommand} />
