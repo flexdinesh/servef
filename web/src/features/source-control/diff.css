@@ -24,6 +24,12 @@
   margin: 0 var(--space-1);
 }
 
+/* The rail toggle ends the toolbar; the end gap keeps it clear of the
+   workspace island's rounded corner. */
+.diff-files-toggle {
+  margin-right: var(--space-1);
+}
+
 .diff-inline-check {
   display: inline-grid;
   width: var(--icon-sm);
