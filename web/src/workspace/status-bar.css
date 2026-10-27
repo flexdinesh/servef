@@ -39,6 +39,10 @@
   color: color-mix(in srgb, var(--color-warning), var(--color-text-primary) 30%);
 }
 
+.status-live[data-mode="off"] {
+  color: color-mix(in srgb, var(--color-warning), var(--color-text-primary) 30%);
+}
+
 .status-path {
   min-width: 0;
   max-width: 22rem;
@@ -99,7 +103,8 @@
   .status-file-type,
   .status-file-count,
   .status-search kbd,
-  .status-process {
+  .status-process,
+  .status-live {
     display: none;
   }
 

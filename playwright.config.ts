@@ -3,7 +3,10 @@ import { execFileSync } from "node:child_process"
 import { defineConfig, devices } from "@playwright/test"
 
 import { gitFixtureRoot } from "./tests/browser/git-fixture.ts"
-import { apiPort, filteredApiOrigin, filteredApiPort, gitApiOrigin, gitApiPort } from "./tests/browser/ports.ts"
+import { liveFixtureRoot } from "./tests/browser/live-fixture.ts"
+import {
+  apiPort, filteredApiOrigin, filteredApiPort, gitApiOrigin, gitApiPort, liveApiOrigin, liveApiPort,
+} from "./tests/browser/ports.ts"
 
 const webPort = 15173
 
@@ -47,6 +50,14 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${gitApiOrigin}/api/page`,
+    },
+    {
+      // A throwaway repository the live-update specs change on disk.
+      command: `node tests/browser/live-fixture.ts && go run . '${liveFixtureRoot}' --port ${liveApiPort} --no-open`,
+      env: gitServerEnv,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: `${liveApiOrigin}/api/page`,
     },
     {
       command: `go run . testdata/markdown --port ${apiPort} --no-open`,

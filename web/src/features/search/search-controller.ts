@@ -18,6 +18,9 @@ export interface SearchHandlers {
   onInput(query: SearchQuery): void
   onRefresh(): void
   onRetry(): void
+  // onStale reports changed files on disk (decision 0050); shown says the
+  // search view is visible.
+  onStale(shown: boolean): void
 }
 
 export interface SearchView {
@@ -100,6 +103,8 @@ export function createSearchController({
   let loadController: AbortController | undefined
   let ready = false
   let unavailable = false
+  // stale marks loaded documents that changed on disk since.
+  let stale = false
   let warnings: string[] = []
   let query = emptyQuery
   let debounceTimer: TimerHandle | undefined
@@ -200,12 +205,14 @@ export function createSearchController({
       fail()
       return
     }
-    void ensureLoaded()
+    if (stale) reload()
+    else void ensureLoaded()
   }
 
   // reload fetches documents again, as files may have changed on disk.
   const reload = (): void => {
     if (!started) return
+    stale = false
     unavailable = false
     ready = false
     loadController?.abort()
@@ -214,6 +221,14 @@ export function createSearchController({
     cancelTimer()
     activeRequestId = ++nextRequestId
     void ensureLoaded()
+  }
+
+  // markStale rereads changed documents now while the view shows, else when
+  // search next opens. Documents never loaded stay unloaded.
+  const markStale = (shown: boolean): void => {
+    if (!started || !loading) return
+    if (shown) reload()
+    else stale = true
   }
 
   const retry = (): void => {
@@ -293,6 +308,7 @@ export function createSearchController({
       onInput: scheduleSearch,
       onRefresh: reload,
       onRetry: retry,
+      onStale: markStale,
     })
     shortcutTarget.addEventListener("keydown", onShortcut)
   }

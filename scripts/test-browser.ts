@@ -21,9 +21,15 @@ function isolated(): boolean {
 
 // One git fixture folder per run; see tests/browser/git-fixture.ts.
 const gitFixtureRoot = mkdtempSync(path.join(tmpdir(), 'servef-browser-git-'))
+// And one live-update fixture; see tests/browser/live-fixture.ts.
+const liveFixtureRoot = mkdtempSync(path.join(tmpdir(), 'servef-browser-live-'))
 const [command, args] = isolated() ? ['unshare', [...isolate, ...playwright]] : [playwright[0], playwright.slice(1)]
-const result = spawnSync(command, args, { stdio: 'inherit', env: { ...process.env, SERVEF_BROWSER_GIT_ROOT: gitFixtureRoot } })
+const result = spawnSync(command, args, {
+  stdio: 'inherit',
+  env: { ...process.env, SERVEF_BROWSER_GIT_ROOT: gitFixtureRoot, SERVEF_BROWSER_LIVE_ROOT: liveFixtureRoot },
+})
 rmSync(gitFixtureRoot, { recursive: true, force: true })
+rmSync(liveFixtureRoot, { recursive: true, force: true })
 // The fixture's base-branch worktree sits beside it.
 rmSync(`${gitFixtureRoot}-main`, { recursive: true, force: true })
 // So does the cache holding walkthroughs the specs publish.

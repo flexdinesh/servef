@@ -82,7 +82,9 @@ function mockApi(enabled: boolean): Plugin {
           response.statusCode = fixture.status
           response.setHeader("Cache-Control", "no-store")
           response.setHeader("Content-Type", fixture.contentType ?? "application/json; charset=utf-8")
-          response.end(await readFile(join(mockFixturesDirectory, fixture.name)))
+          const body = await readFile(join(mockFixturesDirectory, fixture.name))
+          if (fixture.event) response.write(`event: ${fixture.event}\ndata: ${body.toString("utf8").trim()}\n\n`)
+          else response.end(body)
         } catch {
           response.statusCode = 500
           response.end('{"error":"mock fixture unavailable"}')

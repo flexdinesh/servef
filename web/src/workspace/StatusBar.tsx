@@ -12,6 +12,8 @@ import { NavigationStatusPanel, type NavigationStatusPanelProps } from "../featu
 import type { DiffStats } from "../features/source-control/diff-stats.ts"
 import { DiffStatsText } from "../features/source-control/DiffStatsText.tsx"
 import type { DiffLineTarget } from "../features/source-control/diff-line-selection.ts"
+import type { LiveStatus } from "../api/events-contract.ts"
+import { liveIndicator } from "../features/live-updates/live-updates.ts"
 
 // DiffStatus describes the active diff tab, which replaces document status.
 export interface DiffStatus {
@@ -26,6 +28,8 @@ interface StatusBarProps {
   diff?: DiffStatus
   isLoading: boolean
   lines?: LineRange | null
+  // live is how the project is followed; null before the stream reports.
+  live?: LiveStatus | null
   // navigation shows who answers code navigation for the open file.
   navigation?: NavigationStatusPanelProps
   page: PageData
@@ -35,8 +39,9 @@ interface StatusBarProps {
   onHome?(): void
 }
 
-export function StatusBar({ detail, diff, isLoading, error, lines, navigation, onSearch, onSettings, onHome, page }: StatusBarProps) {
+export function StatusBar({ detail, diff, isLoading, error, lines, live, navigation, onSearch, onSettings, onHome, page }: StatusBarProps) {
   const metrics = useProcessMetrics()
+  const liveState = live ? liveIndicator(live) : null
   const pathCopy = useClipboardCopy()
   const processTitle = metrics
     ? [
@@ -70,6 +75,12 @@ export function StatusBar({ detail, diff, isLoading, error, lines, navigation, o
               : <p>Process metrics unavailable.</p>}
           </div>
         </details>
+        {liveState && (
+          <span className="status-live" data-mode={liveState.mode} title={liveState.description}>
+            <span aria-hidden="true">{liveState.label}</span>
+            <span className="visually-hidden">{liveState.description}</span>
+          </span>
+        )}
         <span className="status-grow" />
         <span className="status-file-count">{page.fileCount.toLocaleString()} files</span>
       </div>

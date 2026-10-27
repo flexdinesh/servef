@@ -19,6 +19,9 @@ export interface MockFixture {
   name: string
   status: number
   contentType?: string
+  // event streams the fixture as one server-sent event of this name and
+  // keeps the response open, as /api/events does.
+  event?: string
 }
 
 // Maps keep request paths such as "constructor" from hitting prototype keys.
@@ -249,6 +252,9 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     // One walkthrough reads in full; the other is gone.
     case "/walkthroughs":
       return { name: "walkthroughs.json", status: 200 }
+    // The mock project is always watched and never changes.
+    case "/events":
+      return { name: "events-status.json", status: 200, contentType: "text/event-stream", event: "status" }
     case "/walkthrough":
       return url.searchParams.get("id") === "greeting-tour"
         ? { name: "walkthrough-tour.json", status: 200 }

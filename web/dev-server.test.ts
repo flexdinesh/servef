@@ -124,6 +124,9 @@ test("mockFixtureName maps supported API scenarios", () => {
     name: "format-error.json",
     status: 422,
   })
+  assert.deepEqual(mockFixtureName("GET", "/events?project=."), {
+    name: "events-status.json", status: 200, contentType: "text/event-stream", event: "status",
+  })
   assert.deepEqual(mockFixtureName("GET", "/page?path=navigation%2Fgreet.go"), { name: "page-go.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/page?path=navigation%2Fgreet.go&at=3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"), { name: "page-commit.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/page?path=guides%2Fgetting-started.md&at=3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"), { name: "page-missing.json", status: 404 })

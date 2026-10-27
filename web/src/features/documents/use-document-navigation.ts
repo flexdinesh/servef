@@ -25,6 +25,10 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
   const displayedPath = useRef("")
   const documentPositions = useRef(new Map<string, number>())
   const historyPositions = useRef(new Map<string, { path: string; top: number }>())
+  // placed is the location and document whose scroll was last placed. A
+  // reread of the same page (decision 0050) updates its content in the
+  // background and leaves the scroll where the user left it.
+  const placed = useRef("")
   const selected = review ? `\n${review}` : page.hasFile && !page.error && !loadError ? documentKey(page.selected, page.at) : ""
 
   useLayoutEffect(() => { displayedPath.current = selected }, [selected])
@@ -48,6 +52,9 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
     const frame = window.requestAnimationFrame(() => {
       const pane = main.current
       if (!pane) return
+      const place = `${location.state.__TSR_key ?? location.href}\n${selected}`
+      if (placed.current === place) return
+      placed.current = place
       // A review's file fragment scrolls the review to that file.
       if (review && location.hash.startsWith("f=")) return
       let hash = location.hash
@@ -68,6 +75,9 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
   }, [isLoading, loadError, location.hash, location.href, location.state.__TSR_key, page.content, review, selected])
 
   const prepareDocumentNavigation = useCallback(() => { focusDocument.current = true }, [])
+
+  // reread loads the routed page again in place, keeping its scroll.
+  const reread = useCallback(() => { void router.invalidate() }, [router])
 
   const navigateToDocument = useCallback((path: string, at = "") => {
     prepareDocumentNavigation()
@@ -97,5 +107,5 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
   }, [])
 
   return { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
-    forgetDocumentScroll, resetDocumentScroll }
+    forgetDocumentScroll, resetDocumentScroll, reread }
 }

@@ -154,11 +154,15 @@ export function useSearchSession({ documentPane, openMatch, project, registerOpe
 
   const focusInput = useCallback(() => setFocusRequest((count) => count + 1), [])
 
+  // markStale reports changed files: shown rereads now, else on next open.
+  const markStale = useCallback((shown: boolean) => handlers.current?.onStale(shown), [])
+
   return {
     active, changeQuery, clear, collapsed, details, focusInput, input, open, query, results, setActive,
     setAllCollapsed, setDetails, status, toggleFile,
     refresh: () => handlers.current?.onRefresh(),
     retry: () => handlers.current?.onRetry(),
+    markStale,
   }
 }
 

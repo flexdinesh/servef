@@ -14,6 +14,7 @@ import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.t
 import { isSearchDocumentsResponse } from "../features/search/search-documents.ts"
 import { isRecord } from "./http.ts"
 import { isWalkthrough, isWalkthroughSummaries } from "./walkthrough-contract.ts"
+import { isLiveChange, isLiveStatus } from "./events-contract.ts"
 
 async function fixture(name: string): Promise<unknown> {
   const source = await readFile(
@@ -309,4 +310,13 @@ test("walkthrough fixtures satisfy runtime contracts", async () => {
   assert.equal(withStep({ ...file, diff }), false, "a step targets a file or a diff, not both")
   assert.equal(withStep({ ...file, file: { path: "a.go", lines: [3] } }), false)
   assert.equal(withStep({ ...diff, diff: { compare: { kind: "stash" } } }), false)
+})
+
+test("live update fixtures satisfy runtime contracts", async () => {
+  assert.ok(isLiveStatus(await fixture("events-status.json")))
+  assert.ok(isLiveChange(await fixture("events-change.json")))
+  assert.equal(isLiveStatus({ mode: "paused", reason: "" }), false)
+  assert.equal(isLiveStatus({ mode: "off" }), false)
+  assert.equal(isLiveChange({ paths: [""], tree: false, git: false, overflow: false }), false)
+  assert.equal(isLiveChange({ paths: [], tree: false, git: false }), false)
 })

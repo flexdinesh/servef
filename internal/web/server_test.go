@@ -811,6 +811,8 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"metrics*.json", func() any { return &processMetrics{} }},
 		{"walkthroughs.json", func() any { return &[]walkthrough.Summary{} }},
 		{"walkthrough-*.json", func() any { return &walkthroughResponse{} }},
+		{"events-status.json", func() any { return &statusEvent{} }},
+		{"events-change.json", func() any { return &changeEvent{} }},
 	}
 	for _, name := range names {
 		matched := false
