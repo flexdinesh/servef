@@ -23,10 +23,12 @@ interface PageSearch {
   project?: string
   // Without a path, review=working, review=branch (with base, and head for a
   // stack layer), commit=<hash>, or from=<hash>&to=<hash> open a review tab
-  // (decisions 0035, 0040).
+  // (decisions 0035, 0040). review=branch&uncommitted=1 adds the working
+  // tree to HEAD's branch (decision 0051).
   review?: "working" | "branch"
   base?: string
   head?: string
+  uncommitted?: 1
   commit?: string
   from?: string
   to?: string
@@ -52,6 +54,7 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
     review: search.review === "working" || search.review === "branch" ? search.review : undefined,
     base: typeof search.base === "string" && search.base !== "" ? search.base : undefined,
     head: typeof search.head === "string" && search.head !== "" ? search.head : undefined,
+    uncommitted: search.uncommitted === 1 || search.uncommitted === "1" ? 1 : undefined,
     diff: search.diff === 1 || search.diff === "1" ? 1 : undefined,
     commit: isCommitHash(search.commit) ? search.commit : undefined,
     branch: search.branch === 1 || search.branch === "1" ? 1 : undefined,

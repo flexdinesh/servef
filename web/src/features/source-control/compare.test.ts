@@ -3,8 +3,8 @@ import test from "node:test"
 
 import type { Commit } from "../../api/commits-contract.ts"
 import {
-  commitAge, compareKey, compareName, compareSearch, isLiveCompare, legacyCompare, parseReviewFragment, parseStoredCompare, rangeCount,
-  reviewFragment, routeCompare, sameCompare, selectedHashes, selectionCompare, storedCompare, type Compare,
+  branchCompare, commitAge, compareKey, compareName, compareSearch, isLiveCompare, legacyCompare, parseReviewFragment, parseStoredCompare,
+  rangeCount, reviewFragment, reviewScope, routeCompare, sameCompare, selectedHashes, selectionCompare, storedCompare, type Compare,
 } from "./compare.ts"
 
 const first = "1111111111111111111111111111111111111111"
@@ -19,25 +19,51 @@ function commit(hash: string): Commit {
 const list = [commit(first), commit(second), commit(third)]
 
 const compares: Compare[] = [
-  { kind: "working" }, { kind: "branch", base: "", head: "" }, { kind: "branch", base: "origin/main", head: "" },
-  { kind: "branch", base: "feat-a", head: "feat-b" }, { kind: "branch", base: "", head: "feat-b" },
+  { kind: "working" }, { kind: "branch", base: "", head: "", uncommitted: false }, { kind: "branch", base: "origin/main", head: "", uncommitted: false },
+  { kind: "branch", base: "feat-a", head: "feat-b", uncommitted: false }, { kind: "branch", base: "", head: "feat-b", uncommitted: false },
   { kind: "commit", hash: first }, { kind: "range", from: third, to: first },
+  { kind: "branch", base: "", head: "", uncommitted: true }, { kind: "branch", base: "origin/main", head: "", uncommitted: true },
 ]
 
 test("compares have distinct keys; only the working tree and branches are live", () => {
   assert.equal(new Set(compares.map(compareKey)).size, compares.length)
   assert.equal(sameCompare({ kind: "commit", hash: first }, { kind: "commit", hash: first }), true)
   assert.equal(sameCompare({ kind: "working" }, null), false)
-  assert.deepEqual(compares.map(isLiveCompare), [true, true, true, true, true, false, false])
+  assert.deepEqual(compares.map(isLiveCompare), [true, true, true, true, true, false, false, true, true])
 })
 
 test("stack layer compares name their head and base", () => {
   const context = { base: "main", subject: () => "" }
-  assert.equal(compareName({ kind: "branch", base: "feat-a", head: "feat-b" }, context).label, "feat-b vs feat-a")
-  assert.equal(compareName({ kind: "branch", base: "", head: "feat-b" }, context).label, "feat-b vs main")
-  assert.equal(compareName({ kind: "branch", base: "", head: "" }, context).label, "vs main")
-  assert.deepEqual(compareSearch({ kind: "branch", base: "feat-a", head: "feat-b" }), { review: "branch", base: "feat-a", head: "feat-b" })
-  assert.deepEqual(parseStoredCompare({ review: "branch", base: "main" }), { kind: "branch", base: "main", head: "" })
+  assert.equal(compareName({ kind: "branch", base: "feat-a", head: "feat-b", uncommitted: false }, context).label, "feat-b vs feat-a")
+  assert.equal(compareName({ kind: "branch", base: "", head: "feat-b", uncommitted: false }, context).label, "feat-b vs main")
+  assert.equal(compareName({ kind: "branch", base: "", head: "", uncommitted: false }, context).label, "vs main")
+  assert.deepEqual(compareSearch({ kind: "branch", base: "feat-a", head: "feat-b", uncommitted: false }), { review: "branch", base: "feat-a", head: "feat-b" })
+  assert.deepEqual(parseStoredCompare({ review: "branch", base: "main" }), { kind: "branch", base: "main", head: "", uncommitted: false })
+})
+
+test("HEAD's branch review can include the working tree", () => {
+  const context = { base: "main", subject: () => "" }
+  const working = branchCompare("", "", true)
+  assert.deepEqual(working, { kind: "branch", base: "", head: "", uncommitted: true })
+  // A stack layer's worktree is not checked out.
+  assert.deepEqual(branchCompare("feat-a", "feat-b", true), { kind: "branch", base: "feat-a", head: "feat-b", uncommitted: false })
+  assert.notEqual(compareKey(working), compareKey(branchCompare("")))
+  assert.equal(isLiveCompare(working), true)
+  assert.deepEqual(compareName(working, context), {
+    label: "vs main + uncommitted", title: "Changes on this branch since it left main, with uncommitted changes",
+  })
+  assert.equal(compareName(working, { ...context, base: "" }).label, "Branch + uncommitted")
+  assert.deepEqual(compareSearch(branchCompare("develop", "", true)), { review: "branch", base: "develop", uncommitted: 1 })
+  assert.deepEqual(routeCompare({ review: "branch", uncommitted: "1" }), working)
+  assert.deepEqual(routeCompare({ review: "branch", head: "feat-b", uncommitted: "1" }), branchCompare("", "feat-b"))
+  assert.deepEqual(routeCompare({ review: "branch", uncommitted: "true" }), branchCompare(""))
+  assert.deepEqual(storedCompare(working), { review: "branch", base: "", uncommitted: true })
+  assert.deepEqual(parseStoredCompare({ review: "branch", base: "", uncommitted: "yes" }), branchCompare(""))
+  assert.equal(reviewScope(working), true)
+  assert.equal(reviewScope(branchCompare("develop")), false)
+  assert.equal(reviewScope(branchCompare("feat-a", "feat-b")), null)
+  assert.equal(reviewScope({ kind: "working" }), null)
+  assert.equal(reviewScope({ kind: "commit", hash: first }), null)
 })
 
 test("compares round-trip through routes and memory", () => {
@@ -55,7 +81,7 @@ test("per-file diff routes from before reviews open their review at the file", (
   assert.deepEqual(legacyCompare({ path: "a.md", diff: 1 }), { compare: { kind: "working" }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", diff: "1" }), { compare: { kind: "working" }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", commit: first }), { compare: { kind: "commit", hash: first }, path: "a.md" })
-  assert.deepEqual(legacyCompare({ path: "a.md", branch: 1 }), { compare: { kind: "branch", base: "", head: "" }, path: "a.md" })
+  assert.deepEqual(legacyCompare({ path: "a.md", branch: 1 }), { compare: { kind: "branch", base: "", head: "", uncommitted: false }, path: "a.md" })
   assert.deepEqual(legacyCompare({ path: "a.md", from: third, to: first }), { compare: { kind: "range", from: third, to: first }, path: "a.md" })
   assert.equal(legacyCompare({ path: "a.md" }), null)
   assert.equal(legacyCompare({ commit: first }), null)

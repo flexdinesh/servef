@@ -45,6 +45,7 @@ export function diffUrl(project: string, compare: Compare, file: CompareFile): s
     params.set("branch", "1")
     if (compare.base) params.set("base", compare.base)
     if (compare.head) params.set("head", compare.head)
+    if (compare.uncommitted) params.set("uncommitted", "1")
   }
   if (compare.kind === "range") {
     params.set("from", compare.from)

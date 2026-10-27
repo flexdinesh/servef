@@ -2,7 +2,7 @@
 // HEAD, refs, objects, and the index. It never runs git and knows no HTTP or
 // document policy.
 //
-// Changes compare HEAD with the working tree. Clean and smudge filters are not
+// Changes compare HEAD, or a branch's merge base, with the working tree. Clean and smudge filters are not
 // applied, submodules and nested repositories are skipped, and renames are
 // exact content matches only.
 package git
@@ -207,7 +207,17 @@ func (r *Repository) Branch() string {
 // walking the worktree without ignored directories. A deleted path and an
 // added or untracked path with the same content pair as a rename.
 func (r *Repository) Status(ctx context.Context, options StatusOptions) (Changes, error) {
-	head, err := r.headFiles(ctx)
+	tree, err := r.headTree()
+	if err != nil {
+		return Changes{}, err
+	}
+	return r.status(ctx, tree, options)
+}
+
+// status compares tree, nil being empty, with the index and the working
+// tree as Status does with HEAD's.
+func (r *Repository) status(ctx context.Context, tree *object.Tree, options StatusOptions) (Changes, error) {
+	head, err := r.treeFiles(ctx, tree)
 	if err != nil {
 		return Changes{}, err
 	}
@@ -371,6 +381,12 @@ func (r *Repository) Lookup(ctx context.Context, name, oldPath string) (Entry, e
 	if err != nil {
 		return Entry{}, err
 	}
+	return r.lookup(ctx, tree, name, oldPath)
+}
+
+// lookup classifies one valid path against tree, nil being empty, as Lookup
+// does against HEAD's.
+func (r *Repository) lookup(ctx context.Context, tree *object.Tree, name, oldPath string) (Entry, error) {
 	staged, err := r.readIndex()
 	if err != nil {
 		return Entry{}, err
@@ -572,12 +588,12 @@ func treeFile(storage *filesystem.Storage, tree *object.Tree, name string) (reco
 	return recorded{}, false, nil
 }
 
-// headFiles lists HEAD's files by path, skipping submodules.
-func (r *Repository) headFiles(ctx context.Context) (map[string]recorded, error) {
+// treeFiles lists a tree's files by path, skipping submodules; a nil tree
+// is empty.
+func (r *Repository) treeFiles(ctx context.Context, tree *object.Tree) (map[string]recorded, error) {
 	result := map[string]recorded{}
-	tree, err := r.headTree()
-	if err != nil || tree == nil {
-		return result, err
+	if tree == nil {
+		return result, nil
 	}
 	var walk func(tree *object.Tree, prefix string) error
 	walk = func(tree *object.Tree, prefix string) error {

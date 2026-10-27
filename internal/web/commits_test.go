@@ -313,7 +313,7 @@ func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 		{Path: "large.txt", Status: git.Modified},
 		{Path: "moved.md", OldPath: "old.md", Status: git.Renamed},
 		{Path: "scope/x.zzz", Status: git.Modified},
-	}}
+	}, Warnings: []string{}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("branch files = %+v\nwant %+v", got, want)
 	}
@@ -330,8 +330,17 @@ func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := request(t, app, "/api/branch-files?project=.").Body.String()
-	if want := `{"repository":true,"branch":"feature","base":"master","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false}`; strings.TrimSpace(body) != want {
+	if want := `{"repository":true,"branch":"feature","base":"master","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false,"warnings":[]}`; strings.TrimSpace(body) != want {
 		t.Fatalf("nothing ahead = %s", body)
+	}
+	// With uncommitted changes, nothing ahead lists the working tree's
+	// changes since HEAD.
+	var working branchFilesResponse
+	requestJSON(t, app, "/api/branch-files?project=.&uncommitted=1", &working)
+	var changes changesResponse
+	requestJSON(t, app, "/api/changes?project=.", &changes)
+	if working.Ahead != 0 || len(working.Files) == 0 || !reflect.DeepEqual(working.Files, changes.Files) {
+		t.Fatalf("nothing ahead with uncommitted = %+v, changes %+v", working.Files, changes.Files)
 	}
 	var unchanged errorResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != "unchanged" || unchanged.Error == "" {
@@ -392,7 +401,7 @@ func TestBranchAndRangeFilesInFolders(t *testing.T) {
 	app := newTestApp(t, root)
 
 	response := request(t, app, "/api/branch-files?project=.")
-	want := `{"repository":false,"branch":"","base":"","mergeBase":"","head":"","ahead":0,"files":[],"truncated":false}`
+	want := `{"repository":false,"branch":"","base":"","mergeBase":"","head":"","ahead":0,"files":[],"truncated":false,"warnings":[]}`
 	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != want {
 		t.Fatalf("folder branch files = %d %s", response.Code, response.Body.String())
 	}
@@ -538,6 +547,18 @@ func TestHistoryFixturesMatchServerContract(t *testing.T) {
 		if _, ok := git.ParseHash(hash); !ok {
 			t.Errorf("fixture hash %q is not a full hash", hash)
 		}
+	}
+
+	// The branch with uncommitted changes shares the branch's range and lists
+	// the working tree's files, which hold the branch's, as the dev server
+	// pairs it with compare-stats.json and the working tree's diffs.
+	var working branchFilesResponse
+	decodeFixture(t, filepath.Join(dir, "branch-files-uncommitted.json"), &working)
+	var changes changesResponse
+	decodeFixture(t, filepath.Join(dir, "changes.json"), &changes)
+	if working.Branch != branch.Branch || working.Base != branch.Base || working.MergeBase != branch.MergeBase || working.Head != branch.Head ||
+		working.Ahead != branch.Ahead || !reflect.DeepEqual(working.Files, changes.Files) {
+		t.Errorf("branch-files-uncommitted = %+v, branch-files = %+v, changes = %+v", working, branch, changes.Files)
 	}
 
 	// The stack describes branch-files' branch: its current layer is HEAD,

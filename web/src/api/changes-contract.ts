@@ -45,7 +45,7 @@ export function isChangeStatus(value: unknown): value is ChangeStatus {
   return value === "modified" || value === "added" || value === "untracked" || value === "deleted" || value === "renamed"
 }
 
-function isChangedFile(value: unknown): value is ChangedFile {
+export function isChangedFile(value: unknown): value is ChangedFile {
   return isRecord(value)
     && typeof value.path === "string"
     && value.path !== ""

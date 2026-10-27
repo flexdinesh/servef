@@ -14,16 +14,23 @@ import { diffLineAnchor, parseDiffLineAnchor } from "./diff-line-selection.ts"
 export type Compare =
   | { kind: "working" }
   // base is the chosen base branch, "" for the server's default; head is a
-  // local branch compared with it (a stack layer), "" for HEAD.
-  | { kind: "branch"; base: string; head: string }
+  // local branch compared with it (a stack layer), "" for HEAD. uncommitted
+  // adds the working tree to HEAD's branch (decision 0051); never with head.
+  | { kind: "branch"; base: string; head: string; uncommitted: boolean }
   | { kind: "commit"; hash: string }
   | { kind: "range"; from: string; to: string }
 
 export const workingCompare: Compare = { kind: "working" }
 
+// branchCompare is a branch compare; uncommitted applies to HEAD's only.
+export function branchCompare(base: string, head = "", uncommitted = false): Compare {
+  return { kind: "branch", base, head, uncommitted: uncommitted && !head }
+}
+
 // compareKey identifies a compare uniquely.
 export function compareKey(compare: Compare): string {
   // Git branch names never hold ":", so the key is unambiguous.
+  if (compare.kind === "branch" && compare.uncommitted) return `branch-working:${compare.base}`
   if (compare.kind === "branch") return compare.head ? `branch:${compare.base}:${compare.head}` : `branch:${compare.base}`
   if (compare.kind === "commit") return `commit:${compare.hash}`
   if (compare.kind === "range") return `range:${compare.from}:${compare.to}`
@@ -32,6 +39,14 @@ export function compareKey(compare: Compare): string {
 
 export function sameCompare(left: Compare | null, right: Compare | null): boolean {
   return left !== null && right !== null && compareKey(left) === compareKey(right)
+}
+
+// reviewScope is whether a review that offers the Committed / + Uncommitted
+// switch includes the working tree (decision 0051); null for reviews without
+// one. Only HEAD's branch compare offers it: a stack layer's worktree is not
+// checked out.
+export function reviewScope(compare: Compare): boolean | null {
+  return compare.kind === "branch" && !compare.head ? compare.uncommitted : null
 }
 
 // live compares change as the working tree or branch moves; commits never do.
@@ -68,6 +83,11 @@ export function compareName(compare: Compare, context: CompareContext): CompareN
         ? { label: `${compare.head} vs ${base}`, title: `Changes on ${compare.head} since it left ${base}` }
         : { label: compare.head, title: `Changes on ${compare.head}` }
     }
+    if (compare.uncommitted) {
+      return base
+        ? { label: `vs ${base} + uncommitted`, title: `Changes on this branch since it left ${base}, with uncommitted changes` }
+        : { label: "Branch + uncommitted", title: "Changes on this branch, with uncommitted changes" }
+    }
     return base
       ? { label: `vs ${base}`, title: `Changes on this branch since it left ${base}` }
       : { label: "Branch", title: "Changes on this branch" }
@@ -82,12 +102,14 @@ export function compareName(compare: Compare, context: CompareContext): CompareN
 }
 
 // CompareSearch is the /view search that opens a compare's review tab:
-// review=working, review=branch (with base when chosen and head for a stack
-// layer), commit=<hash>, or from=<hash>&to=<hash>, without a path.
+// review=working, review=branch (with base when chosen, head for a stack
+// layer, and uncommitted=1 with the working tree), commit=<hash>, or
+// from=<hash>&to=<hash>, without a path.
 export interface CompareSearch {
   review?: "working" | "branch"
   base?: string
   head?: string
+  uncommitted?: 1
   commit?: string
   from?: string
   to?: string
@@ -96,7 +118,12 @@ export interface CompareSearch {
 export function compareSearch(compare: Compare): CompareSearch {
   if (compare.kind === "working") return { review: "working" }
   if (compare.kind === "branch") {
-    return { review: "branch", ...(compare.base ? { base: compare.base } : {}), ...(compare.head ? { head: compare.head } : {}) }
+    return {
+      review: "branch",
+      ...(compare.base ? { base: compare.base } : {}),
+      ...(compare.head ? { head: compare.head } : {}),
+      ...(compare.uncommitted ? { uncommitted: 1 } : {}),
+    }
   }
   if (compare.kind === "commit") return { commit: compare.hash }
   return { from: compare.from, to: compare.to }
@@ -108,6 +135,7 @@ export interface RouteSearch {
   review?: unknown
   base?: unknown
   head?: unknown
+  uncommitted?: unknown
   commit?: unknown
   from?: unknown
   to?: unknown
@@ -118,7 +146,8 @@ export function routeCompare(search: RouteSearch): Compare | null {
   if (typeof search.path === "string" && search.path) return null
   if (search.review === "working") return workingCompare
   if (search.review === "branch") {
-    return { kind: "branch", base: typeof search.base === "string" ? search.base : "", head: typeof search.head === "string" ? search.head : "" }
+    return branchCompare(typeof search.base === "string" ? search.base : "", typeof search.head === "string" ? search.head : "",
+      search.uncommitted === 1 || search.uncommitted === "1")
   }
   if (isCommitHash(search.commit)) return { kind: "commit", hash: search.commit }
   if (isCommitHash(search.from) && isCommitHash(search.to)) return { kind: "range", from: search.from, to: search.to }
@@ -143,7 +172,7 @@ export function legacyCompare(search: LegacySearch): { compare: Compare; path: s
   if (!path) return null
   if (isCommitHash(search.commit)) return { compare: { kind: "commit", hash: search.commit }, path }
   if (isCommitHash(search.from) && isCommitHash(search.to)) return { compare: { kind: "range", from: search.from, to: search.to }, path }
-  if (search.branch === 1 || search.branch === "1") return { compare: { kind: "branch", base: "", head: "" }, path }
+  if (search.branch === 1 || search.branch === "1") return { compare: branchCompare(""), path }
   if (search.diff === 1 || search.diff === "1") return { compare: workingCompare, path }
   return null
 }
@@ -151,13 +180,16 @@ export function legacyCompare(search: LegacySearch): { compare: Compare; path: s
 // StoredCompare is a remembered review tab.
 export type StoredCompare =
   | { review: "working" }
-  | { review: "branch"; base: string; head?: string }
+  | { review: "branch"; base: string; head?: string; uncommitted?: true }
   | { review: "commit"; commit: string }
   | { review: "range"; from: string; to: string }
 
 export function storedCompare(compare: Compare): StoredCompare {
   if (compare.kind === "working") return { review: "working" }
-  if (compare.kind === "branch") return compare.head ? { review: "branch", base: compare.base, head: compare.head } : { review: "branch", base: compare.base }
+  if (compare.kind === "branch") {
+    if (compare.head) return { review: "branch", base: compare.base, head: compare.head }
+    return compare.uncommitted ? { review: "branch", base: compare.base, uncommitted: true } : { review: "branch", base: compare.base }
+  }
   if (compare.kind === "commit") return { review: "commit", commit: compare.hash }
   return { review: "range", from: compare.from, to: compare.to }
 }
@@ -170,7 +202,7 @@ export function parseStoredCompare(value: unknown): Compare | null {
   if ("review" in value) {
     if (value.review === "working") return workingCompare
     if (value.review === "branch") {
-      return { kind: "branch", base: typeof value.base === "string" ? value.base : "", head: typeof value.head === "string" ? value.head : "" }
+      return branchCompare(typeof value.base === "string" ? value.base : "", typeof value.head === "string" ? value.head : "", value.uncommitted === true)
     }
     if (value.review === "commit") return isCommitHash(value.commit) ? { kind: "commit", hash: value.commit } : null
     if (value.review === "range") {
@@ -182,7 +214,7 @@ export function parseStoredCompare(value: unknown): Compare | null {
   if ("from" in value || "to" in value) {
     return isCommitHash(value.from) && isCommitHash(value.to) ? { kind: "range", from: value.from, to: value.to } : null
   }
-  if ("branch" in value) return typeof value.branch === "string" && value.branch ? { kind: "branch", base: "", head: "" } : null
+  if ("branch" in value) return typeof value.branch === "string" && value.branch ? branchCompare("") : null
   if ("diff" in value) return typeof value.diff === "string" && value.diff ? workingCompare : null
   return null
 }

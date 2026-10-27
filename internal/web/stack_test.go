@@ -134,7 +134,7 @@ func TestHeadParameterChoosesTheHeadBranch(t *testing.T) {
 	if status := requestJSON(t, app, "/api/branch-files?project=.&base=feature&head=above", &layer); status != http.StatusOK {
 		t.Fatalf("base=feature&head=above status = %d", status)
 	}
-	if want := (branchFilesResponse{Repository: true, Branch: "above", Base: "feature", MergeBase: change.String(), Head: above.String(), Ahead: 1, Files: []git.Change{{Path: "above.md", Status: git.Added}}}); !reflect.DeepEqual(layer, want) {
+	if want := (branchFilesResponse{Repository: true, Branch: "above", Base: "feature", MergeBase: change.String(), Head: above.String(), Ahead: 1, Files: []git.Change{{Path: "above.md", Status: git.Added}}, Warnings: []string{}}); !reflect.DeepEqual(layer, want) {
 		t.Fatalf("base=feature&head=above = %+v\nwant %+v", layer, want)
 	}
 	// A layer against the base lists the whole stack below it.

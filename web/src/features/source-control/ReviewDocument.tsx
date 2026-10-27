@@ -19,6 +19,7 @@ import { Notice, StatusMessage } from "@/components/ui/notice"
 import { FileIcon } from "../../components/FileIcon.tsx"
 import { Chevron } from "../../components/ui/section-toggle.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
+import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { ToggleButton } from "../../components/ui/toggle-button.tsx"
 import type { FileStats } from "../../api/compare-stats-contract.ts"
 import { formatBytes } from "../../lib/format-bytes.ts"
@@ -130,6 +131,21 @@ interface ReviewDocumentProps {
   // and null when the review is gone.
   onRegisterHunkStep(step: HunkStep | null): void
   annotation?: ReviewAnnotation
+  // scope offers HEAD's branch review the Committed / + Uncommitted switch
+  // (decision 0051); absent for other reviews.
+  scope?: ReviewScope
+  // marked are files with uncommitted edits, dotted while uncommitted
+  // changes are included.
+  marked?: ReadonlySet<string>
+}
+
+// ReviewScope is whether a branch review includes the working tree, and how
+// many files it changes.
+export interface ReviewScope {
+  uncommitted: boolean
+  count: number
+  truncated: boolean
+  onChange(uncommitted: boolean): void
 }
 
 // A HunkStep selects and reveals the next (1) or previous (-1) change,
@@ -169,7 +185,7 @@ export function ReviewDocument(props: ReviewDocumentProps) {
 }
 
 function ReviewBody({
-  annotation, compare, data, expandRequest, name, narrow, options, project, scrollRoot, selection, treeFiles,
+  annotation, compare, data, expandRequest, marked, name, narrow, options, project, scope, scrollRoot, selection, treeFiles,
   onAllExpandedChange, onCurrentFile, onOpenFile, onRegisterHunkStep, onSelectLines, onStatus, onViewedChange, viewed,
 }: ReviewDocumentProps) {
   const pool = useWorkerPool()
@@ -463,6 +479,7 @@ function ReviewBody({
           <header className="review-header">
             <h1 className="review-title" title={name.title}>{reviewHeading(compare, data, name)}</h1>
             <ReviewMeta compare={compare} data={data} />
+            {scope && <ScopeSwitch scope={scope} />}
             <div className="review-totals">
               {list?.kind === "ready" && <span>{list.files.length.toLocaleString()}{list.truncated ? "+" : ""} {list.files.length === 1 ? "file" : "files"}</span>}
               {sum && <span className="review-totals-lines" title={`${sum.additions.toLocaleString()} added, ${sum.deletions.toLocaleString()} deleted lines`}>
@@ -489,7 +506,7 @@ function ReviewBody({
             const blob = fileStats?.blob ?? ""
             return (
               <ReviewFile key={file.path} project={project} compare={compare} file={file} stats={fileStats}
-                version={data?.version ?? ""}
+                version={data?.version ?? ""} uncommitted={marked?.has(file.path) ?? false}
                 open={isOpen(file)} viewed={viewed(file.path, blob)} options={options} narrow={narrow} scrollRoot={scrollRoot}
                 lines={selection?.path === file.path ? selection.lines : null}
                 annotation={annotation?.path === file.path ? annotation : undefined}
@@ -518,6 +535,29 @@ function reviewHeading(compare: Compare, data: CompareData | null, name: Compare
   if (data?.details.kind === "commit" && data.details.commit) return data.details.commit.subject || shortHash(data.details.commit.hash)
   if (compare.kind === "working") return "Uncommitted changes"
   return name.label
+}
+
+// ScopeSwitch chooses between the branch's committed changes, as a pull
+// request shows them, and those plus the uncommitted ones (decision 0051).
+// With nothing uncommitted, the second choice stays in place, disabled with
+// its reason.
+function ScopeSwitch({ scope }: { scope: ReviewScope }) {
+  const count = `${scope.count.toLocaleString()}${scope.truncated ? "+" : ""}`
+  const files = `${count} ${scope.count === 1 ? "file" : "files"}`
+  const unavailable = scope.count === 0 && !scope.uncommitted
+  return (
+    <SegmentedControl size="sm" className="review-scope" aria-label="Changes to include">
+      <SegmentedItem pressed={!scope.uncommitted} title="Committed changes only, as a pull request shows them"
+        onClick={() => scope.onChange(false)}>Committed</SegmentedItem>
+      <SegmentedItem pressed={scope.uncommitted} aria-disabled={unavailable || undefined}
+        aria-label={unavailable ? "Include uncommitted changes" : `Include uncommitted changes, ${files}`}
+        title={unavailable ? "No uncommitted changes" : `Add the ${files} with uncommitted changes`}
+        onClick={() => { if (!unavailable) scope.onChange(true) }}>
+        + Uncommitted
+        {!unavailable && <span className="review-scope-count">{count}</span>}
+      </SegmentedItem>
+    </SegmentedControl>
+  )
 }
 
 function ReviewMeta({ compare, data }: { compare: Compare; data: CompareData | null }): ReactNode {
@@ -567,6 +607,8 @@ interface ReviewFileProps {
   file: CompareFile
   stats: FileStats | undefined
   version: string
+  // uncommitted marks a file with uncommitted edits (decision 0051).
+  uncommitted: boolean
   open: boolean
   viewed: boolean
   options: DiffOptions
@@ -584,7 +626,7 @@ interface ReviewFileProps {
 
 // ReviewFile is one file's sticky header and collapsible diff.
 function ReviewFile({
-  annotation, compare, file, lines, narrow, open, openFileReason, options, project, scrollRoot, stats, version, viewed,
+  annotation, compare, file, lines, narrow, open, openFileReason, options, project, scrollRoot, stats, uncommitted, version, viewed,
   onOpenChange, onOpenFile, onSelectLines, onStatus, onViewedChange,
 }: ReviewFileProps) {
   const observe = useContext(ObserveContext)
@@ -640,6 +682,7 @@ function ReviewFile({
           {file.oldPath && <span className="review-file-from">from {file.oldPath}</span>}
         </Button>
         {label && <span className="review-file-stats"><FileStatsText stats={stats} /></span>}
+        {uncommitted && <span className="review-file-uncommitted" role="img" aria-label="Has uncommitted changes" title="Has uncommitted changes" />}
         <span className="commit-file-status" data-status={file.status} title={statusNames[file.status]}>{statusLetters[file.status]}</span>
         <ToggleButton size="text" className="review-viewed" pressed={viewed} disabled={!stats?.blob}
           title={stats?.blob ? "Mark as viewed; changes to the file unmark it" : "Waiting for the file's content hash"}

@@ -56,3 +56,4 @@ rewriting history; update `Status` on the old record.
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted |
 | [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted |
+| [0051](0051-branch-review-with-uncommitted.md) | Branch review with uncommitted changes | Accepted |

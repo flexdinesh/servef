@@ -990,6 +990,78 @@ func (r *Repository) branchChanges(ctx context.Context, base, head string) (Bran
 	return compared, changes, nil
 }
 
+// BranchWorking is HEAD's branch range and the commit a branch compare with
+// uncommitted changes starts from.
+type BranchWorking struct {
+	BranchRange
+	// Reference is the merge base when HEAD is ahead of the base, HEAD when
+	// nothing is ahead, and zero, an empty tree, for unrelated histories or
+	// an unborn HEAD.
+	Reference Hash
+}
+
+// BranchWorkingFiles compares Reference's tree with the index and the
+// working tree, as git diff base...HEAD and the uncommitted changes on top
+// of it do together (git diff $(git merge-base base HEAD)). Statuses,
+// renames, warnings, and the limit follow Status; base follows
+// BranchCompare.
+func (r *Repository) BranchWorkingFiles(ctx context.Context, base string, options StatusOptions) (BranchWorking, Changes, error) {
+	compared, tree, err := r.branchWorking(ctx, base)
+	if err != nil {
+		return BranchWorking{}, Changes{}, err
+	}
+	changes, err := r.status(ctx, tree, options)
+	if err != nil {
+		return BranchWorking{}, Changes{}, err
+	}
+	return compared, changes, nil
+}
+
+// BranchWorkingLookup classifies one path under BranchWorkingFiles's rules,
+// as Lookup does against HEAD. Original sides read through CommitBlob at
+// Reference. It returns ErrUnchanged for a tracked path identical to
+// Reference and ErrUnavailable for anything else that is not a change; an
+// unknown base is ErrUnknownBase whatever the path.
+func (r *Repository) BranchWorkingLookup(ctx context.Context, base, name, oldPath string) (BranchWorking, Entry, error) {
+	compared, tree, err := r.branchWorking(ctx, base)
+	if err != nil {
+		return BranchWorking{}, Entry{}, err
+	}
+	if !validLookup(name, oldPath) {
+		return BranchWorking{}, Entry{}, ErrUnavailable
+	}
+	entry, err := r.lookup(ctx, tree, name, oldPath)
+	if err != nil {
+		return BranchWorking{}, Entry{}, err
+	}
+	return compared, entry, nil
+}
+
+// branchWorking finds HEAD's branch range and the tree of its Reference,
+// nil for an empty tree.
+func (r *Repository) branchWorking(ctx context.Context, base string) (BranchWorking, *object.Tree, error) {
+	compared, err := r.BranchCompare(ctx, base, "")
+	if err != nil {
+		return BranchWorking{}, nil, err
+	}
+	result := BranchWorking{BranchRange: compared, Reference: compared.Head}
+	if compared.Ahead > 0 {
+		result.Reference = compared.MergeBase
+	}
+	if result.Reference.IsZero() {
+		return result, nil, nil
+	}
+	commit, err := r.commit(plumbing.Hash(result.Reference))
+	if err != nil {
+		return BranchWorking{}, nil, err
+	}
+	tree, err := commit.Tree()
+	if err != nil {
+		return BranchWorking{}, nil, fmt.Errorf("read tree of %s: %w", result.Reference, err)
+	}
+	return result, tree, nil
+}
+
 // CommitBlob returns the file name has in a commit. It returns
 // ErrUnavailable when the commit is unknown or has no file there.
 func (r *Repository) CommitBlob(hash Hash, name string) (Blob, error) {

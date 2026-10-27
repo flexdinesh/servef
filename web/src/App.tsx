@@ -37,9 +37,10 @@ import { ReviewDocument, type HunkStep, type ReviewStatus } from "./features/sou
 import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
 import type { CollapseRequest } from "./features/source-control/FilesTree.tsx"
 import {
-  compareKey, compareSearch, isLiveCompare, parseReviewFragment, reviewFragment, routeCompare, sameCompare, workingCompare,
-  type Compare, type CompareContext,
+  branchCompare, compareKey, compareSearch, isLiveCompare, parseReviewFragment, reviewFragment, reviewScope, routeCompare, sameCompare,
+  workingCompare, type Compare, type CompareContext,
 } from "./features/source-control/compare.ts"
+import { uncommittedPaths } from "./features/source-control/compare-files.ts"
 import { splitMinimumWidth } from "./features/source-control/diff-options.ts"
 import { ReviewFilesRail, ReviewFilesSheet } from "./features/source-control/ReviewFilesRail.tsx"
 import { defaultRailWidth } from "./features/source-control/source-control-layout.ts"
@@ -155,15 +156,17 @@ export function App({ project }: AppProps) {
   const searchReview = useSearch({ strict: false, select: (search) => search.review === "working" || search.review === "branch" ? search.review : "" })
   const searchBase = useSearch({ strict: false, select: (search) => typeof search.base === "string" ? search.base : "" })
   const searchHead = useSearch({ strict: false, select: (search) => typeof search.head === "string" ? search.head : "" })
+  const searchUncommitted = useSearch({ strict: false, select: (search) => search.uncommitted === 1 ? 1 : undefined })
   const searchCommit = useSearch({ strict: false, select: (search) => isCommitHash(search.commit) ? search.commit : "" })
   const searchFrom = useSearch({ strict: false, select: (search) => isCommitHash(search.from) ? search.from : "" })
   const searchTo = useSearch({ strict: false, select: (search) => isCommitHash(search.to) ? search.to : "" })
   const reviewRoute = useMemo(() => {
     const compare = routeCompare({
-      path: searchPath, review: searchReview, base: searchBase, head: searchHead, commit: searchCommit, from: searchFrom, to: searchTo,
+      path: searchPath, review: searchReview, base: searchBase, head: searchHead, uncommitted: searchUncommitted, commit: searchCommit,
+      from: searchFrom, to: searchTo,
     })
     return compare ? reviewTab(compare) : null
-  }, [searchBase, searchCommit, searchFrom, searchHead, searchPath, searchReview, searchTo])
+  }, [searchBase, searchCommit, searchFrom, searchHead, searchPath, searchReview, searchTo, searchUncommitted])
   const reviewCompare = reviewRoute?.kind === "review" ? reviewRoute.compare : null
   // wt=<id> follows a walkthrough, at step=<n>; without a path or review the
   // route is the walkthrough's own tab (decision 0047).
@@ -386,6 +389,26 @@ export function App({ project }: AppProps) {
       replace: Boolean(reviewCompare && sameCompare(compare, reviewCompare)) })
     if (focusDocument && reviewCompare && sameCompare(compare, reviewCompare)) main.current?.focus({ preventScroll: true })
   }, [kept, main, navigate, prepareDocumentNavigation, project, reviewCompare])
+  // HEAD's branch review switches between committed changes and committed
+  // plus uncommitted ones in place: the tab keeps its slot and the file in
+  // view (decision 0051).
+  const { replaceTab } = workspace
+  const changeReviewScope = useCallback((uncommitted: boolean) => {
+    if (!reviewCompare || reviewScope(reviewCompare) === null || reviewCompare.kind !== "branch") return
+    const next = branchCompare(reviewCompare.base, "", uncommitted)
+    if (sameCompare(next, reviewCompare)) return
+    replaceTab(reviewTab(reviewCompare), reviewTab(next))
+    void navigate({ to: "/view", search: { project, ...compareSearch(next) }, hash: currentFile ? reviewFragment(currentFile) : "", replace: true })
+  }, [currentFile, navigate, project, replaceTab, reviewCompare])
+  const shownScope = shownReview ? reviewScope(shownReview) : null
+  const workingFiles = changes.result?.files
+  const markedPaths = useMemo(() => shownScope && workingFiles ? uncommittedPaths(workingFiles) : undefined, [shownScope, workingFiles])
+  const scope = shownScope === null ? undefined : {
+    uncommitted: shownScope,
+    count: workingFiles?.length ?? 0,
+    truncated: changes.result?.truncated ?? false,
+    onChange: changeReviewScope,
+  }
   const selectReviewLines = useCallback((path: string, lines: Parameters<typeof reviewFragment>[1]) => {
     if (!reviewCompare) return
     void navigate({ to: "/view", search: { project, ...compareSearch(reviewCompare), ...stepSearch }, hash: reviewFragment(path, lines), replace: true })
@@ -640,7 +663,8 @@ export function App({ project }: AppProps) {
               scrollRoot={main} selection={fragment} expandRequest={expandRequest} treeFiles={treeFiles}
               viewed={viewed.isViewed} onViewedChange={viewed.mark} onSelectLines={selectReviewLines}
               onCurrentFile={setCurrentFile} onStatus={setReviewStatus} onOpenFile={navigateToDocument}
-              onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} annotation={reviewAnnotation} /> : undefined}
+              onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} annotation={reviewAnnotation}
+              scope={scope} marked={markedPaths} /> : undefined}
             diffShown={reviewCompare !== null}
             walkthrough={walkthroughRoute ? <WalkthroughTab detail={walkthroughs.detail} position={walkthroughs.position}
               context={compareContext} canMove={walkthroughs.canMove} onMove={walkthroughs.move} onGoTo={walkthroughs.goTo}
@@ -661,7 +685,7 @@ export function App({ project }: AppProps) {
           />
           {shownRail && shownReview && !sidebar.mobile && !sourceControlLayout.railHidden && (
             <Activity mode={reviewCompare ? "visible" : "hidden"}>
-              <ReviewFilesRail data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
+              <ReviewFilesRail data={reviewData} marked={markedPaths} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
                 width={sourceControlLayout.railWidth} onResize={sourceControlLayout.setRailWidth}
                 onResetWidth={() => sourceControlLayout.setRailWidth(defaultRailWidth)}
                 onHide={() => sourceControlLayout.setRailHidden(true)}
@@ -670,7 +694,7 @@ export function App({ project }: AppProps) {
           )}
           </div>
           {reviewRail && reviewCompare && sidebar.mobile && (
-            <ReviewFilesSheet open={filesSheet} data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(true, uiScale(settings))}
+            <ReviewFilesSheet open={filesSheet} data={reviewData} marked={markedPaths} activePath={currentFile} itemHeight={treeRowHeight(true, uiScale(settings))}
               onClose={() => setFilesSheet(false)}
               onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
           )}

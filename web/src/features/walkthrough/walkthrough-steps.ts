@@ -3,7 +3,7 @@ import type { SelectedLineRange, SelectionSide } from "@pierre/diffs"
 import type { WalkthroughStep } from "../../api/walkthrough-contract.ts"
 import { isCommitHash, shortHash } from "../../lib/commit-hash.ts"
 import { lineAnchor, type LineRange } from "../../lib/line-selection.ts"
-import { compareName, compareSearch, reviewFragment, workingCompare, type Compare, type CompareContext, type CompareSearch } from "../source-control/compare.ts"
+import { branchCompare, compareName, compareSearch, reviewFragment, workingCompare, type Compare, type CompareContext, type CompareSearch } from "../source-control/compare.ts"
 
 // Pure model of walkthrough steps (decision 0047): what each step opens, the
 // route that opens it, how it is labelled, and whether its code has drifted
@@ -26,7 +26,7 @@ export function walkthroughCompare(compare: NonNullable<WalkthroughStep["diff"]>
     case "working":
       return workingCompare
     case "branch":
-      return { kind: "branch", base: compare.base ?? "", head: compare.head ?? "" }
+      return branchCompare(compare.base ?? "", compare.head ?? "")
     case "commit":
       return isCommitHash(compare.commit) ? { kind: "commit", hash: compare.commit } : null
     case "range":

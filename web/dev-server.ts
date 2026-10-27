@@ -69,9 +69,11 @@ const mockCommitDiffs: ReadonlyMap<string, string> = new Map([
 // same files as mockCommit and reuse its diffs.
 const mockRangeFrom = "4f76e9a2b3c4d5e6f708192a3b4c5d6e7f8091a2"
 
+// The branch with uncommitted changes lists changes.json's files, which hold
+// the branch's, and reuses the working tree's diffs and stats.
 function historyDiffs(params: URLSearchParams): ReadonlyMap<string, string> | undefined {
   if (params.has("commit")) return params.get("commit") === mockCommit ? mockCommitDiffs : undefined
-  if (params.has("branch")) return mockCommitDiffs
+  if (params.has("branch")) return params.get("uncommitted") === "1" ? mockDiffs : mockCommitDiffs
   if (params.has("from") || params.has("to")) return mockRange(params) ? mockCommitDiffs : undefined
   return mockDiffs
 }
@@ -116,7 +118,8 @@ function mockCompareStats(params: URLSearchParams): MockFixture {
     case "working":
       return { name: "compare-stats.json", status: 200 }
     case "branch":
-      return mockUnknownBase(params) ?? { name: "compare-stats-history.json", status: 200 }
+      return mockUnknownBase(params)
+        ?? { name: params.get("uncommitted") === "1" ? "compare-stats.json" : "compare-stats-history.json", status: 200 }
     case "commit":
       return params.get("commit") === mockCommit ? { name: "compare-stats-history.json", status: 200 } : notFound
     case "range":
@@ -240,7 +243,8 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     case "/commit-files":
       return url.searchParams.get("commit") === mockCommit ? { name: "commit-files.json", status: 200 } : notFound
     case "/branch-files":
-      return mockUnknownBase(url.searchParams) ?? { name: "branch-files.json", status: 200 }
+      return mockUnknownBase(url.searchParams)
+        ?? { name: url.searchParams.get("uncommitted") === "1" ? "branch-files-uncommitted.json" : "branch-files.json", status: 200 }
     case "/range-files":
       return mockRange(url.searchParams) ? { name: "range-files.json", status: 200 } : notFound
     case "/refs":

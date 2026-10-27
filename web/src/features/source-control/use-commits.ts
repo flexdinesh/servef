@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
-import type { FileList } from "./compare-files.ts"
+import type { CompareFile, FileList } from "./compare-files.ts"
 import {
   historyError, isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
-  type BranchFilesResponse, type CommitFile, type CommitRange, type CommitsResponse,
+  type BranchFilesResponse, type CommitRange, type CommitsResponse,
 } from "../../api/commits-contract.ts"
 import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
@@ -33,9 +33,11 @@ export interface BranchState {
 }
 
 // branchKey names a base and head pair in the branch file lists: the base
-// alone for HEAD. Git branch names never hold ":".
-export function branchKey(base: string, head: string): string {
-  return head ? `${base}:${head}` : base
+// alone for HEAD, and with "::uncommitted" for HEAD with the working tree.
+// Git branch names never hold ":".
+export function branchKey(base: string, head: string, uncommitted = false): string {
+  if (head) return `${base}:${head}`
+  return uncommitted ? `${base}::uncommitted` : base
 }
 
 // rangeKey names a commit range in the range file lists.
@@ -47,7 +49,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : historyError("unknown error")
 }
 
-function readyList(response: { files: CommitFile[]; truncated: boolean }): FileList {
+function readyList(response: { files: CompareFile[]; truncated: boolean }): FileList {
   return { kind: "ready", files: response.files, truncated: response.truncated }
 }
 
@@ -79,17 +81,19 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
   const branchRequests = useRef(new Map<string, AbortController>())
   // knownBranches are the base and head pairs read so far, by key; a refresh
   // rereads them all.
-  const knownBranches = useRef(new Map<string, { base: string; head: string }>())
+  const knownBranches = useRef(new Map<string, { base: string; head: string; uncommitted: boolean }>())
   const [rangeFiles, setRangeFiles] = useState<ReadonlyMap<string, FileList>>(() => new Map())
   const rangeRequests = useRef(new Map<string, AbortController>())
 
   // loadBranch reads head's files against a base; "" is the default base and
-  // HEAD. Without reread it joins a read already running.
-  const loadBranch = useCallback((branchBase: string, head = "", reread = false) => {
+  // HEAD. uncommitted reads HEAD's with the working tree. Without reread it
+  // joins a read already running.
+  const loadBranch = useCallback((branchBase: string, head = "", reread = false, uncommitted = false) => {
     if (!project) return
-    const key = branchKey(branchBase, head)
+    const working = uncommitted && !head
+    const key = branchKey(branchBase, head, working)
     if (!reread && branchRequests.current.has(key)) return
-    knownBranches.current.set(key, { base: branchBase, head })
+    knownBranches.current.set(key, { base: branchBase, head, uncommitted: working })
     branchRequests.current.get(key)?.abort()
     const current = new AbortController()
     branchRequests.current.set(key, current)
@@ -102,6 +106,7 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
     const params = new URLSearchParams({ project })
     if (branchBase) params.set("base", branchBase)
     if (head) params.set("head", head)
+    if (working) params.set("uncommitted", "1")
     fetchHistory(`/api/branch-files?${params.toString()}`, current.signal, isBranchFilesResponse).then((result) => {
       if (branchRequests.current.get(key) !== current) return
       branchRequests.current.delete(key)
@@ -129,7 +134,9 @@ export function useCommits(project: string, viewActive: boolean, range: CommitRa
       setState((previous) => ({ ...previous, error: errorMessage(error), loading: false }))
     })
     loadBranch(base, "", true)
-    for (const [key, known] of knownBranches.current) if (key !== branchKey(base, "")) loadBranch(known.base, known.head, true)
+    for (const [key, known] of knownBranches.current) {
+      if (key !== branchKey(base, "")) loadBranch(known.base, known.head, true, known.uncommitted)
+    }
   }, [base, loadBranch, project, range])
 
   useEffect(() => {

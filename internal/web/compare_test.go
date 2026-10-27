@@ -158,7 +158,7 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 		t.Fatalf("range=all base=origin/feature = %d %+v", status, remoteAll)
 	}
 	body := request(t, app, "/api/branch-files?project=.&base=origin/feature").Body.String()
-	if want := `{"repository":true,"branch":"feature","base":"origin/feature","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false}`; strings.TrimSpace(body) != want {
+	if want := `{"repository":true,"branch":"feature","base":"origin/feature","mergeBase":"","head":"` + change.String() + `","ahead":0,"files":[],"truncated":false,"warnings":[]}`; strings.TrimSpace(body) != want {
 		t.Fatalf("branch-files base=origin/feature = %s", body)
 	}
 	var unchanged errorResponse

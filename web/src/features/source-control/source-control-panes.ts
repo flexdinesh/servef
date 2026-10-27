@@ -1,5 +1,5 @@
 import type { StackLayer, StackResponse } from "../../api/stack-contract.ts"
-import type { Compare } from "./compare.ts"
+import { branchCompare, type Compare } from "./compare.ts"
 
 // Pure decisions behind Source Control's panes (decision 0040): when the
 // branch range applies, what each commit and stack row diffs, and how the
@@ -65,8 +65,8 @@ export function stackRows(stack: StackResponse | null, base: string): StackRow[]
     const below = stack.layers.find((other) => other.name !== "" && other.name === layer.parent)
     return {
       layer,
-      layerDiff: below ? { kind: "branch", base: below.name, head } : null,
-      baseDiff: { kind: "branch", base, head },
+      layerDiff: below ? branchCompare(below.name, head) : null,
+      baseDiff: branchCompare(base, head),
     }
   })
 }
