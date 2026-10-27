@@ -1370,6 +1370,67 @@ test("Collapse All Files and Expand All Files toggle every review diff", async (
   await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
 })
 
+test("rail line stats stay whole at the rail's narrowest; names truncate instead", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await commitRow(page, "Initial").dblclick()
+  await expect(railFile(page, "large.txt")).toBeVisible()
+  const separator = rail(page).getByRole("separator", { name: "Resize review files" })
+  await separator.focus()
+  for (let step = 0; step < 4; step += 1) await page.keyboard.press("ArrowRight")
+  await expect(separator).toHaveAttribute("aria-valuenow", "12")
+  const stats = rail(page).locator('[data-item-path="large.txt"] [data-item-section="decoration"]')
+  await expect(stats).toHaveText("+24,000 −0")
+  expect(await stats.evaluate((lane) => lane.scrollWidth <= lane.clientWidth)).toBe(true)
+})
+
+test("viewed files check and dim their rail rows, except the file in view", async ({ page }) => {
+  await openReview(page, "review=branch#f=clean.md")
+  await expect(railFile(page, "clean.md")).toHaveAttribute("aria-selected", "true")
+  const row = (file: string) => rail(page).locator(`[data-item-path="${file}"]`)
+  const checked = (file: string) => row(file).locator('[data-item-section="decoration"]')
+    .evaluate((lane) => getComputedStyle(lane, "::before").content !== "none")
+  const nameInk = (file: string) => row(file).locator('[data-item-section="content"]').evaluate((name) => getComputedStyle(name).color)
+  const statusInk = await nameInk("docs/history.md")
+  const muted = await page.locator(".review-totals").evaluate((totals) => getComputedStyle(totals).color)
+  expect(await checked("docs/history.md")).toBe(false)
+
+  const viewed = (file: string) => reviewFile(page, file).getByRole("button", { name: "Viewed" })
+  await expect(viewed("docs/history.md")).toBeEnabled()
+  await viewed("docs/history.md").click()
+  await expect.poll(() => checked("docs/history.md")).toBe(true)
+  await expect.poll(() => nameInk("docs/history.md")).toBe(muted)
+  await expect(row("docs/history.md").locator('[data-item-section="decoration"] span').first()).toHaveAttribute("title", /Viewed$/)
+
+  // The selected file in view keeps full ink, checked.
+  const cleanInk = await nameInk("clean.md")
+  await expect(viewed("clean.md")).toBeEnabled()
+  await viewed("clean.md").click()
+  await expect.poll(() => checked("clean.md")).toBe(true)
+  expect(await nameInk("clean.md")).toBe(cleanInk)
+
+  await viewed("docs/history.md").click()
+  await expect.poll(() => checked("docs/history.md")).toBe(false)
+  await expect.poll(() => nameInk("docs/history.md")).toBe(statusInk)
+})
+
+test("the review header and rail are islands one gutter in from the tab strip", async ({ page }) => {
+  await openReview(page, "review=branch")
+  await expect(railFile(page, "clean.md")).toBeVisible()
+  const [main, header, column, card] = await Promise.all([
+    page.getByRole("main").boundingBox(),
+    page.getByRole("main").locator(".review-header").boundingBox(),
+    rail(page).boundingBox(),
+    rail(page).locator(".review-rail-panel").boundingBox(),
+  ])
+  if (!main || !header || !column || !card) throw new Error("review layout is not rendered")
+  expect(header.y - main.y).toBeCloseTo(pinnedOffset, 0)
+  expect(card.y - column.y).toBeCloseTo(pinnedOffset, 0)
+  expect(card.y).toBeCloseTo(header.y, 0)
+  expect(column.x + column.width - (card.x + card.width)).toBeCloseTo(pinnedOffset, 0)
+  expect(column.y + column.height - (card.y + card.height)).toBeCloseTo(pinnedOffset, 0)
+})
+
 test("Viewed marks collapse files, survive reloads, and clear when the file changes", async ({ page }) => {
   const file = path.join(gitFixtureRoot, "untracked.txt")
   const original = readFileSync(file, "utf8")

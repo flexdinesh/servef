@@ -5,13 +5,15 @@ import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent } fro
 import type { FileStats } from "../../api/compare-stats-contract.ts"
 import { treeCSS } from "../../lib/tree-css.ts"
 import { ancestorDirectories, type CompareFile } from "./compare-files.ts"
-import { statsLabel } from "./use-compare-stats.ts"
+import { fileDecoration, viewedCSS } from "./files-tree-decoration.ts"
 
 // Every Source Control folder holds changes, so folder dots add no signal;
-// deleted files read as removed.
+// deleted files read as removed. Line stats keep their width, so long names
+// truncate instead, and their figures align down the tree.
 const changesTreeCSS = `${treeCSS}
 [data-item-contains-git-change="true"] > [data-item-section="git"] { visibility: hidden; }
-[data-item-git-status="deleted"] > [data-item-section="content"] { text-decoration: line-through; }`
+[data-item-git-status="deleted"] > [data-item-section="content"] { text-decoration: line-through; }
+[data-item-section="decoration"] { flex: none; font-variant-numeric: tabular-nums; }`
 
 // CollapseRequest asks the tree to open or close every folder; id makes a
 // repeat request distinct.
@@ -30,6 +32,8 @@ interface FilesTreeProps {
   stats: ReadonlyMap<string, FileStats> | null
   // marked files carry the uncommitted dot (decision 0051).
   marked?: ReadonlySet<string>
+  // viewed, when given, dims viewed files and checks them.
+  viewed?: (path: string) => boolean
   onExpandedChange(expanded: boolean): void
   // onOpen reviews a file; focusDocument moves focus to the review.
   onOpen(path: string, focusDocument: boolean): void
@@ -37,8 +41,9 @@ interface FilesTreeProps {
 
 // FilesTree shows one compare's changed files under compact folders, with
 // status letters and line stats (decision 0035).
-export function FilesTree({ activePath, collapseRequest, files, itemHeight, label, marked, stats, onExpandedChange, onOpen }: FilesTreeProps) {
+export function FilesTree({ activePath, collapseRequest, files, itemHeight, label, marked, stats, viewed, onExpandedChange, onOpen }: FilesTreeProps) {
   const paths = useMemo(() => files.map((file) => file.path), [files])
+  const viewedPaths = useMemo(() => viewed ? paths.filter(viewed) : [], [paths, viewed])
   const byPath = useMemo(() => new Map(files.map((file): [string, CompareFile] => [file.path, file])), [files])
   const gitStatus = useMemo(() => files.map((file): GitStatusEntry => ({ path: file.path, status: file.status })), [files])
   const directories = useMemo(() => ancestorDirectories(paths), [paths])
@@ -46,8 +51,8 @@ export function FilesTree({ activePath, collapseRequest, files, itemHeight, labe
   const collapsed = useRef(new Set<string>())
   const previousPaths = useRef(paths)
   const syncing = useRef(false)
-  const current = useRef({ activePath, byPath, marked, stats, onOpen })
-  useLayoutEffect(() => { current.current = { activePath, byPath, marked, stats, onOpen } }, [activePath, byPath, marked, stats, onOpen])
+  const current = useRef({ activePath, byPath, marked, stats, viewedPaths, onOpen })
+  useLayoutEffect(() => { current.current = { activePath, byPath, marked, stats, viewedPaths, onOpen } }, [activePath, byPath, marked, stats, viewedPaths, onOpen])
 
   const { model } = useFileTree({
     paths,
@@ -62,25 +67,13 @@ export function FilesTree({ activePath, collapseRequest, files, itemHeight, labe
     gitStatus,
     renderRowDecoration({ item }) {
       if (item.kind !== "file") return null
-      const oldPath = current.current.byPath.get(item.path)?.oldPath
-      const lines = statsLabel(current.current.stats?.get(item.path))
-      // Pierre truncates decorations from the start, so line stats win the
-      // room; the R badge says "renamed" and the title says from where.
-      const text = lines || (oldPath ? `from ${oldPath}` : "")
-      const title = [oldPath ? `Renamed from ${oldPath}` : "", lines ? `${lines} lines` : ""].filter(Boolean).join(", ")
-      // Pierre decorations are text or an icon, never both, and its CSS is
-      // fixed, so the uncommitted dot is an accent-colored text part.
-      if (current.current.marked?.has(item.path)) {
-        // A no-break space, as Pierre's decoration collapses a plain one.
-        const dot = "●"
-        return {
-          text: text ? `${dot} ${text}` : dot,
-          title: ["Has uncommitted changes", title].filter(Boolean).join(", "),
-          parts: [{ text: dot, color: "var(--color-accent)" }, ...(text ? [{ text: ` ${text}` }] : [])],
-        }
-      }
-      if (!text) return null
-      return { text, title }
+      // Line stats win the room; the R badge says "renamed" and the title
+      // says from where.
+      const { byPath, marked, stats, viewedPaths } = current.current
+      return fileDecoration(stats?.get(item.path), byPath.get(item.path)?.oldPath, {
+        marked: marked?.has(item.path) ?? false,
+        viewed: viewedPaths.includes(item.path),
+      })
     },
     onSelectionChange(selected) {
       if (syncing.current) return
@@ -132,6 +125,15 @@ export function FilesTree({ activePath, collapseRequest, files, itemHeight, labe
     model.setGitStatus(undefined)
     model.setGitStatus(gitStatus)
   }, [gitStatus, marked, model, stats])
+
+  // Viewed marks follow the review's Viewed toggles: dim their rows (by
+  // path, through the patched setUnsafeCSS) and redraw their checks.
+  useLayoutEffect(() => {
+    if (!viewed) return
+    model.setUnsafeCSS(`${changesTreeCSS}${viewedCSS(viewedPaths)}`)
+    model.setGitStatus(undefined)
+    model.setGitStatus(gitStatus)
+  }, [gitStatus, model, viewed, viewedPaths])
 
   useLayoutEffect(() => {
     if (!collapseRequest) return
