@@ -82,6 +82,12 @@
   --color-field-bg: var(--color-surface);
   /* Field edges hold 3:1 against the field and its surroundings (WCAG 1.4.11). */
   --color-field-border: color-mix(in srgb, var(--color-text-muted) 90%, var(--color-surface));
+  /* Scrollbar thumbs are translucent ink too (decision 0055). */
+  --color-scrollbar-thumb: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  --color-scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
+  --color-scrollbar-thumb-active: color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+  /* VS Code's 10px vertical scrollbar; the gutter is always reserved. */
+  --scrollbar-size: 0.625rem;
 
   /* Spacing scale. */
   --space-1: 0.25rem;

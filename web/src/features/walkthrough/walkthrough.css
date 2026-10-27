@@ -36,6 +36,7 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding-bottom: var(--space-2);
 }
 
@@ -253,6 +254,8 @@
 
 main:not(.source-mode, .image-mode) > .annotated-document > .document-annotation {
   margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-6);
+  /* The pane's end padding stops at its scrollbar gutter (decision 0055). */
+  margin-inline-end: calc(var(--scrollbar-size) - var(--space-6));
 }
 
 /* The walkthrough's own tab reads as a cover page. A note's zone bleeds to

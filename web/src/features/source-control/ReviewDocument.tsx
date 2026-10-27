@@ -55,8 +55,12 @@ const poolOptions: WorkerPoolOptions = {
   mainThreadMaxCharacters: MAIN_THREAD_MAX_CHARACTERS,
 }
 
-// Browser surfaces inside Pierre's shadow root follow servef tokens.
-const diffCSS = `::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }`
+// Browser surfaces inside Pierre's shadow root follow servef tokens: the
+// selection, and wide code's square, inset scrollbar thumb (decision 0055).
+const diffCSS = `::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }
+[data-code]::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 0; }
+:is([data-diff], [data-file]):hover [data-code]::-webkit-scrollbar-thumb { background-color: var(--color-scrollbar-thumb); }
+@supports not selector(::-webkit-scrollbar) { [data-code] { scrollbar-color: var(--color-scrollbar-thumb) transparent; } }`
 
 // Sections within this distance of the viewport read and render their diffs.
 const nearMargin = "1600px 0px"
