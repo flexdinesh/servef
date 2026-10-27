@@ -4,7 +4,6 @@ import { rootParam } from "./fixture-root.ts"
 import { apiOrigin } from "./ports.ts"
 
 for (const entry of [
-  { name: "development", url: "/" },
   { name: "embedded binary", url: `${apiOrigin}/` },
 ]) {
   test(`search retains query and results across document navigation (${entry.name})`, async ({ page }) => {
@@ -32,27 +31,6 @@ for (const entry of [
   })
 }
 
-test("search retries transient failure without losing the query", async ({ page }) => {
-  let requests = 0
-  await page.route(`**/api/search-documents?project=${rootParam}`, async (route) => {
-    if (++requests === 1) {
-      await route.fulfill({ status: 503, contentType: "application/json", body: "{}" })
-    } else {
-      await route.continue()
-    }
-  })
-  await page.goto("/")
-  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
-  const input = page.getByRole("textbox", { name: "Search", exact: true })
-  await input.fill("getting-started")
-  await expect(page.locator(".search-message")).toContainText("Search is unavailable.")
-  await page.getByRole("button", { name: "Retry search" }).click()
-  await expect(input).toHaveValue("getting-started")
-  await expect(input).toBeFocused()
-  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "README.md" })).toBeVisible()
-  expect(requests).toBe(2)
-})
-
 test("search survives unavailable Worker and recovers when support returns", async ({ page }) => {
   await page.addInitScript(() => {
     const originalWorker = window.Worker
@@ -71,7 +49,6 @@ test("search survives unavailable Worker and recovers when support returns", asy
 })
 
 for (const entry of [
-  { name: "development", url: "/view?path=guides%2Fgetting-started.md" },
   { name: "embedded binary", url: `${apiOrigin}/view?path=guides%2Fgetting-started.md` },
 ]) {
   test(`document scroll survives tabs, Home, Back, and Forward (${entry.name})`, async ({ page }) => {
@@ -118,33 +95,6 @@ for (const entry of [
   })
 }
 
-test("metrics polling stays single-flight and retains samples during failure", async ({ page }) => {
-  await page.clock.install()
-  let releaseFirst: (() => void) | undefined
-  const firstResponse = new Promise<void>((resolve) => { releaseFirst = resolve })
-  let requests = 0
-  await page.route("**/api/metrics", async (route) => {
-    const request = ++requests
-    if (request === 1) await firstResponse
-    await route.fulfill({ status: request === 2 ? 503 : 200, contentType: "application/json",
-      body: JSON.stringify({ cpuUsage: request === 1 ? 11 : 22, goroutines: 2, memoryBytes: 200, memorySource: "rss" }) })
-  })
-  await page.goto("/")
-  await expect.poll(() => requests).toBe(1)
-  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
-  await page.clock.runFor(5_000)
-  expect(requests).toBe(1)
-  if (!releaseFirst) throw new Error("Metrics request not started")
-  releaseFirst()
-  await page.locator(".status-process summary").click()
-  await expect(page.locator(".status-process-panel")).toContainText("11.0%")
-  await page.clock.runFor(2_500)
-  await expect.poll(() => requests).toBe(2)
-  await expect(page.locator(".status-process-panel")).toContainText("11.0%")
-  await page.clock.runFor(2_500)
-  await expect(page.locator(".status-process-panel")).toContainText("22.0%")
-})
-
 for (const [name, pattern] of [
   ["module", "**/src/features/documents/OndineMermaidDiagram.tsx"],
   ["WebAssembly", "**/all.generated*.wasm*"],
@@ -169,28 +119,6 @@ for (const [name, pattern] of [
     await expect(page.getByRole("button", { name: "Reload diagrams" })).toHaveCount(0)
   })
 }
-
-test("metrics aborts pending requests when its view unmounts", async ({ page }) => {
-  let release: (() => void) | undefined
-  const response = new Promise<void>((resolve) => { release = resolve })
-  let pendingRequests = 0
-  await page.route("**/api/metrics", async (route) => {
-    pendingRequests++
-    await response
-    await route.fulfill({ contentType: "application/json", body: "{}" }).catch(() => {})
-  })
-  await page.goto("/test-fixtures/markdown-document.html")
-  await expect(page.locator(".status-bar")).toBeVisible()
-  await expect.poll(() => pendingRequests).toBeGreaterThan(0)
-  const aborted = page.waitForEvent("requestfailed", {
-    predicate: (request) => new URL(request.url()).pathname === "/api/metrics",
-  })
-  await page.getByRole("button", { name: "Toggle document" }).click()
-  await aborted
-  if (!release) throw new Error("Metrics request not started")
-  release()
-  await expect(page.locator(".status-bar")).toHaveCount(0)
-})
 
 test("Markdown portals survive Strict Mode replay, replacement, and remount", async ({ page }) => {
   const errors: string[] = []

@@ -159,19 +159,37 @@ depends = [
   "tidy:check",
   "mise:check",
   "vet",
-  "build:go",
   "test:web",
   "test:release",
   "typecheck",
   "lint",
-  "build:site",
 ]
 
 [tasks.check]
-description = "Run every check CI runs"
-depends = ["check:shared", "test:go"]
+description = "Run non-browser checks, including the docs build"
+depends = ["check:shared", "test:go", "build:site"]
 
-# Browser tests run after the rest so CPU contention does not time them out.
+# The shared Git directory gives all worktrees the same OS-backed lock.
 [tasks."check:push"]
-description = "Pre-push checks: check with race tests, then browser tests"
-run = [{ tasks = ["check:shared", "test:race"] }, { task = "test:browser" }]
+description = "Queue pre-push checks across worktrees"
+run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run check:push:run"
+
+[tasks."check:push:run"]
+description = "Run ordinary checks, then critical browser tests"
+hide = true
+run = [{ tasks = ["check:shared", "test:go"] }, { task = "test:browser" }]
+
+[tasks."check:full"]
+description = "Queue full checks, including race tests and the docs build"
+run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run check:full:run"
+
+[tasks."check:full:run"]
+hide = true
+run = [
+  { tasks = [
+    "check:shared",
+    "test:race",
+    "build:site",
+  ] },
+  { task = "test:browser" },
+]

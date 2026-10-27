@@ -7,7 +7,7 @@
     "dev": "vite --configLoader native",
     "dev:mock": "vite --configLoader native --mode mock",
     "lint": "oxlint && stylelint \"src/**/*.css\"",
-    "test": "node --test dev-server.test.ts 'src/**/*.test.ts'",
+    "test": "node --test --test-concurrency=2 dev-server.test.ts 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

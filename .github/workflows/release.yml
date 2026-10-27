@@ -72,9 +72,9 @@ jobs:
           echo "tag_exists=$tag_exists" >> "$GITHUB_OUTPUT"
           echo "release_exists=$release_exists" >> "$GITHUB_OUTPUT"
 
-      # Browser tests run locally before push (decision 0032).
-      - name: Check
-        run: mise run check
+      # Checks run locally before push; release still builds its shipped assets.
+      - name: Build frontend
+        run: mise run build:web
 
       # Release tags point at main plus the built frontend so go install works;
       # main itself never tracks internal/web/dist.

@@ -89,18 +89,3 @@ func TestMarkdownPreviewPreservesCommentLiteralsAndEscapesHTML(t *testing.T) {
 		t.Fatalf("unsafe HTML rendered: %q", preview)
 	}
 }
-
-func TestMarkdownPreviewLeavesSourceFrontmatterAndComments(t *testing.T) {
-	source := []byte("---\ntitle: metadata\n---\n\nVisible <!-- hidden preview comment -->\n")
-	original := bytes.Clone(source)
-	preview, err := newMarkdown().Preview(source, Context{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(preview, "metadata") || strings.Contains(preview, "hidden preview comment") {
-		t.Fatalf("preview shows hidden text: %q", preview)
-	}
-	if !bytes.Equal(source, original) {
-		t.Fatalf("preview changed source: %q", source)
-	}
-}

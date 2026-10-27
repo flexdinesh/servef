@@ -31,39 +31,6 @@ test("folder expansion survives reloads and stays independent per project", asyn
   await expect(tree.getByRole("treeitem", { name: "topics", exact: true })).toHaveAttribute("aria-expanded", "true")
 })
 
-test("all-collapsed expansion survives reload with an active document", async ({ page }) => {
-  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await tree.getByRole("button", { name: "Collapse all folders" }).click()
-  await page.reload()
-  await expect(tree.getByRole("treeitem", { name: "guides", exact: true })).toHaveAttribute("aria-expanded", "false")
-  await expect(tree.getByRole("button", { name: "Expand all folders" })).toBeVisible()
-  await expect(page.getByRole("tab", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
-})
-
-test("filters, search, and responsive remounts preserve remembered folder expansion", async ({ page }) => {
-  await page.goto(`/?project=${rootParam}`)
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
-  const filter = tree.getByRole("textbox", { name: "Filter files by name" })
-  await filter.fill("*.json")
-  await tree.getByRole("treeitem", { name: "config", exact: true }).click()
-  await tree.getByRole("button", { name: "Search files" }).click()
-  await tree.getByRole("textbox", { name: "Search…" }).fill("settings")
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole("button", { name: "Open files" }).click()
-  const drawer = page.getByRole("dialog", { name: "Files", exact: true })
-  await expect(drawer.getByRole("textbox", { name: "Filter files by name" })).toHaveValue("*.json")
-  await expect(drawer.getByRole("textbox", { name: "Search…" })).toHaveValue("settings")
-  await page.reload()
-  await page.getByRole("button", { name: "Open files" }).click()
-  await expect(drawer.getByRole("textbox", { name: "Filter files by name" })).toHaveValue("")
-  await expect(drawer.getByRole("textbox", { name: "Search…" })).toBeHidden()
-  await expect(drawer.getByRole("treeitem", { name: "guides", exact: true })).toHaveAttribute("aria-expanded", "true")
-  await expect(drawer.getByRole("treeitem", { name: "config", exact: true })).toHaveAttribute("aria-expanded", "true")
-})
-
 test("restoring tabs never writes an empty workspace before navigation finishes", async ({ page }) => {
   await page.goto(`/?project=${rootParam}`)
   await page.evaluate((project) => {

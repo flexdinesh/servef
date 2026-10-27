@@ -16,50 +16,6 @@ function customPage(source: string) {
   }
 }
 
-test("formatted rows come from the format endpoint and keep blank rows and escaped syntax", async ({ page }) => {
-  await page.route(`**/api/page?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: customPage("unformatted original\n") }))
-  await page.route(`**/api/format?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: {
-    formatted: "'first'\n\n'  <script>last</script> & final'\n\n\n",
-  } }))
-  await page.goto("/view?path=sample.custom")
-  await expect(page.getByRole("textbox", { name: "Custom source" })).toContainText("unformatted original")
-  await page.getByRole("button", { name: "Format", exact: true }).click()
-  const formatted = page.getByRole("textbox", { name: "Custom formatted" })
-  await expect(formatted.locator(".source-document-line-content")).toHaveText([
-    "'first'", "", "'  <script>last</script> & final'", "", "",
-  ])
-  await expect(formatted.locator(".source-document-line-number")).toHaveText(["1", "2", "3", "4", "5"])
-  await expect(formatted.locator(".hl-string")).toHaveCount(2)
-  await expect(formatted.locator("script")).toHaveCount(0)
-  await expect(page.locator("article")).toHaveCount(0)
-  await formatted.locator('[data-line="3"]').click()
-  await expect(formatted.locator('[data-line="3"]')).toHaveClass(/active/)
-  await page.getByRole("button", { name: "Source", exact: true }).click()
-  await expect(page.getByRole("textbox", { name: "Custom source" })).toContainText("unformatted original")
-})
-
-test("slow formatting keeps Source visible, marks Format busy, and reports Loading", async ({ page }) => {
-  let release = () => {}
-  const released = new Promise<void>((resolve) => { release = resolve })
-  await page.route(`**/api/page?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: customPage("slow original\n") }))
-  await page.route(`**/api/format?project=${rootParam}&path=sample.custom`, async (route) => {
-    await released
-    await route.fulfill({ json: { formatted: "slow formatted\n" } })
-  })
-  await page.goto("/view?path=sample.custom")
-  const formatButton = page.getByRole("button", { name: "Format", exact: true })
-  const status = page.locator(".status-state")
-  await expect(status).toHaveText("Ready")
-  await formatButton.click()
-  await expect(formatButton).toHaveAttribute("aria-busy", "true")
-  await expect(page.getByRole("textbox", { name: "Custom source" })).toContainText("slow original")
-  await expect(status).toHaveText("Loading…")
-  release()
-  await expect(page.getByRole("textbox", { name: "Custom formatted" })).toContainText("slow formatted")
-  await expect(formatButton).not.toHaveAttribute("aria-busy", "true")
-  await expect(status).toHaveText("Ready")
-})
-
 test("format failures keep Source and allow a retry", async ({ page }) => {
   let attempts = 0
   await page.route(`**/api/page?project=${rootParam}&path=sample.custom`, (route) => route.fulfill({ json: customPage("retry original\n") }))

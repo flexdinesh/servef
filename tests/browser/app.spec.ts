@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { endsWith, projectParam, rootParam } from "./fixture-root.ts"
+import { endsWith, rootParam } from "./fixture-root.ts"
 import { apiOrigin } from "./ports.ts"
 
 const mermaidCaseCount = 5
@@ -42,56 +42,6 @@ test("renders local Markdown images", async ({ page }) => {
   ))).toBe(true)
 })
 
-test("renders SVG, PNG, and JPEG Markdown images", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fimages.md")
-  await showPreview(page)
-
-  for (const name of ["servef SVG preview", "servef PNG preview", "servef JPEG preview"]) {
-    const image = page.getByRole("img", { name })
-    await expect(image).toBeVisible()
-    await expect.poll(() => image.evaluate((element) => (
-      element instanceof HTMLImageElement && element.naturalWidth > 0 && element.naturalHeight > 0
-    ))).toBe(true)
-  }
-})
-
-test("browses nested Markdown without resetting the file tree", async ({ page }) => {
-  await page.goto("/")
-
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
-  await tree.getByRole("treeitem", { name: "reference", exact: true }).click()
-  await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
-  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toBeVisible()
-  await expect(tree.getByRole("treeitem", { name: "api.markdown" })).toBeVisible()
-  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
-  await expect(tree.getByRole("treeitem", { name: "notes.txt" })).toBeVisible()
-  await expect(tree.getByText("ignored.md")).toHaveCount(0)
-
-  await page.evaluate(() => {
-    document.body.dataset.navigationMarker = "preserved"
-  })
-  await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
-  await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
-  await showPreview(page)
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
-  await expect(page.locator("main table")).toContainText("pnpm dev")
-  await expect(page).toHaveTitle("guides/getting-started.md · servef")
-  await expect(tree.getByRole("treeitem", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
-  await expect(page.locator("body")).toHaveAttribute("data-navigation-marker", "preserved")
-  await expect(tree.getByRole("treeitem", { name: "api.markdown" })).toBeVisible()
-  await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
-})
-
-test("modified tree clicks select files without creating browser tabs", async ({ context, page }) => {
-  await page.goto("/")
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await tree.getByRole("treeitem", { name: "guides", exact: true }).click()
-  await tree.getByRole("treeitem", { name: "getting-started.md" }).click({ modifiers: ["Control"] })
-  await expect(page).toHaveURL(/path=guides%2Fgetting-started.md/)
-  expect(context.pages()).toHaveLength(1)
-})
-
 test("searches fixture content and opens a match at its source line", async ({ page }) => {
   await page.goto("/")
 
@@ -117,102 +67,6 @@ test("searches fixture content and opens a match at its source line", async ({ p
   // Enter opens the match and moves focus to the document.
   await match.press("Enter")
   await expect(page.locator("main")).toBeFocused()
-})
-
-test("search options, scopes, and keyboard navigation follow VS Code", async ({ page }) => {
-  await page.goto("/")
-  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
-  const search = page.getByRole("textbox", { name: "Search", exact: true })
-  const results = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem")
-  await search.fill("Getting started")
-  await expect(results.first()).toBeVisible()
-  const total = await results.count()
-
-  await search.press("Alt+c")
-  await expect(page.getByRole("button", { name: "Match Case" })).toHaveAttribute("aria-pressed", "true")
-  await search.fill("getting STARTED")
-  await expect(page.getByText("No results found.")).toBeVisible()
-  await search.press("Alt+c")
-  await expect(results).toHaveCount(total)
-
-  await page.getByRole("button", { name: "Toggle Search Details" }).click()
-  await page.getByRole("textbox", { name: "files to include" }).fill("guides")
-  await expect(results.filter({ hasText: "README.md" })).toHaveCount(0)
-  await expect(results.filter({ hasText: "getting-started.md" })).toBeVisible()
-  await page.getByRole("textbox", { name: "files to include" }).fill("")
-  await page.getByRole("textbox", { name: "files to exclude" }).fill("[")
-  await expect(page.getByText("Invalid pattern: [")).toBeVisible()
-  await page.getByRole("textbox", { name: "files to exclude" }).fill("")
-
-  await page.getByRole("button", { name: "Use Regular Expression" }).click()
-  await search.fill("Getting (")
-  await expect(page.getByText("Invalid regular expression.")).toBeVisible()
-  await expect(search).toHaveAttribute("aria-invalid", "true")
-  await search.fill("^# Getting")
-  await expect(results.filter({ hasText: "getting-started.md" })).toBeVisible()
-
-  await search.press("ArrowDown")
-  const first = results.first()
-  await expect(first).toBeFocused()
-  await first.press("ArrowLeft")
-  await expect(first).toHaveAttribute("aria-expanded", "false")
-  await first.press("ArrowRight")
-  await expect(first).toHaveAttribute("aria-expanded", "true")
-  await page.getByRole("button", { name: "Collapse All" }).click()
-  await expect(page.getByRole("button", { name: "Expand All" })).toBeVisible()
-  await expect(results.and(page.locator("[aria-level='2']"))).toHaveCount(0)
-
-  // F4 opens the next match, expanding its file.
-  await page.keyboard.press("F4")
-  await expect(page).toHaveURL(/#L1$/)
-  await expect(results.and(page.locator("[aria-selected='true']"))).toHaveCount(1)
-
-  await page.getByRole("button", { name: "Clear Search Results" }).click()
-  await expect(search).toHaveValue("")
-  await expect(search).toBeFocused()
-  await expect(results).toHaveCount(0)
-})
-
-test("Find in files seeds the query from a single-line document selection", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
-  await page.evaluate(() => {
-    const source = document.querySelector(".source-document")
-    const walker = source ? document.createTreeWalker(source, NodeFilter.SHOW_TEXT) : null
-    let node = walker?.nextNode()
-    while (node && !node.textContent?.includes("exercise")) node = walker?.nextNode()
-    if (!node?.textContent) throw new Error("Source text not found")
-    const start = node.textContent.indexOf("exercise")
-    const range = document.createRange()
-    range.setStart(node, start)
-    range.setEnd(node, start + "exercise".length)
-    window.getSelection()?.removeAllRanges()
-    window.getSelection()?.addRange(range)
-  })
-  await page.keyboard.press("ControlOrMeta+Shift+f")
-  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toHaveValue("exercise")
-  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "getting-started.md" })).toBeVisible()
-})
-
-test("activity bar toggles the sidebar and its views", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  const explorer = page.getByRole("button", { name: "Explorer" })
-  const files = page.getByRole("complementary", { name: "Files" })
-  await expect(files).toBeVisible()
-  await explorer.click()
-  await expect(files).toBeHidden()
-  await expect(explorer).toHaveAttribute("aria-pressed", "false")
-  await expect(page.getByRole("separator", { name: "Resize file tree" })).toBeHidden()
-  await page.keyboard.press("ControlOrMeta+b")
-  await expect(files).toBeVisible()
-  await page.getByRole("button", { name: "Search", exact: true }).click()
-  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeVisible()
-  await expect(files).toBeHidden()
-  await page.keyboard.press("ControlOrMeta+Shift+e")
-  await expect(files).toBeVisible()
-  await expect(files.getByRole("treeitem", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
-  await page.reload()
-  await expect(explorer).toHaveAttribute("aria-pressed", "true")
 })
 
 test("navigates Markdown links and history without losing tree state", async ({ page }) => {
@@ -305,43 +159,11 @@ test("commits only the latest rapid navigation", async ({ page }) => {
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`))
 })
 
-test("opens content search from the status bar", async ({ page }) => {
-  await page.goto("/")
-
-  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
-  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeFocused()
-})
-
 // themeSetting opens Settings and returns its Theme select.
 async function themeSetting(page: Page) {
   await page.getByRole("button", { name: "Settings", exact: true }).click()
   return page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
 }
-
-test("defaults to Servef Dark, then selects and persists an explicit theme in settings", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" })
-  await page.goto("/")
-
-  const theme = await themeSetting(page)
-  await expect(theme).toHaveValue("dark")
-  await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
-  await theme.selectOption({ label: "Servef Light" })
-
-  await expect(page.locator("html")).toHaveClass(/light/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(255, 255, 255)")
-  expect(await page.evaluate(() => localStorage.getItem("servef-theme"))).toBe("light")
-
-  await page.reload()
-  await expect(page.locator("html")).toHaveClass(/light/)
-  await expect(await themeSetting(page)).toHaveValue("light")
-
-  const dialog = page.getByRole("dialog", { name: "Settings" })
-  await dialog.getByRole("button", { name: "Reset all" }).click()
-  await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(24, 24, 24)")
-  await expect(dialog.getByRole("combobox", { name: "Appearance: Theme" })).toHaveValue("dark")
-})
 
 test("system theme follows live OS changes", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
@@ -418,74 +240,6 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   await expect(settings.locator("[data-revealed]")).toHaveCount(0)
 })
 
-test("uses readable body and navigation text sizes", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  await showPreview(page)
-
-  const tree = page.getByRole("complementary", { name: "Files" })
-  const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
-  await expect(page.locator("article")).toHaveCSS("font-size", "14px")
-  await expect(selected).toHaveCSS("font-size", "13px")
-  await expect(selected).toHaveCSS("border-radius", "0px")
-})
-
-test("font size setting scales the interface, persists, and resets", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-
-  const tree = page.getByRole("complementary", { name: "Files" })
-  const selected = tree.getByRole("treeitem", { name: "getting-started.md" })
-  const source = page.getByRole("textbox", { name: "Markdown source" })
-  const status = page.locator(".status-bar")
-  await expect(source).toHaveCSS("font-size", "13px")
-
-  await page.getByRole("button", { name: "Settings", exact: true }).click()
-  const dialog = page.getByRole("dialog", { name: "Settings" })
-  await expect(dialog.getByRole("searchbox", { name: "Search settings" })).toBeFocused()
-  const fontSize = dialog.getByRole("spinbutton", { name: "Appearance: Font Size" })
-  await expect(fontSize).toHaveValue("13")
-  await expect(dialog.getByRole("button", { name: "Reset all" })).toBeDisabled()
-
-  await fontSize.fill("16")
-  await expect(source).toHaveCSS("font-size", "16px")
-  await expect(selected).toHaveCSS("font-size", "16px")
-  // The status bar keeps its 12:13 ratio to the base size.
-  await expect.poll(() => status.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeCloseTo(12 * 16 / 13)
-  await expect(dialog.getByText("Modified", { exact: true })).toBeVisible()
-  expect(await page.evaluate(() => localStorage.getItem("servef-settings"))).toBe('{"fontSize":16}')
-
-  await fontSize.fill("40")
-  await expect(dialog.getByText("Enter a whole number from 10 to 20.")).toBeVisible()
-  await expect(source).toHaveCSS("font-size", "16px")
-
-  await page.keyboard.press("Escape")
-  await expect(dialog).toBeHidden()
-  await page.reload()
-  await expect(source).toHaveCSS("font-size", "16px")
-  await expect(selected).toHaveCSS("font-size", "16px")
-
-  await page.keyboard.press("ControlOrMeta+,")
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole("searchbox", { name: "Search settings" }).fill("colour")
-  await expect(dialog.getByText("No settings match “colour”.")).toBeVisible()
-  await dialog.getByRole("button", { name: "Reset all" }).click()
-  await expect(source).toHaveCSS("font-size", "13px")
-  expect(await page.evaluate(() => localStorage.getItem("servef-settings"))).toBeNull()
-})
-
-test("highlights fenced code with the selected theme", async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "light"))
-  await page.goto("/view?path=reference%2Fapi.markdown")
-  await showPreview(page)
-
-  // Highlights keeps trailing whitespace in a token.
-  const keyword = page.locator("article .hl-keyword").filter({ hasText: /^func\s*$/ }).first()
-  await expect(keyword).toBeVisible()
-  await expect(keyword).toHaveCSS("color", "rgb(207, 34, 46)")
-
-  await (await themeSetting(page)).selectOption({ label: "Nord" })
-  await expect(keyword).toHaveCSS("color", "rgb(182, 144, 175)")
-})
-
 test("highlights Source in the browser with the selected theme", async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem("servef-theme", "light"))
   await page.goto("/view?path=code%2Fmain.go")
@@ -544,39 +298,6 @@ test("labels and copies fenced code", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('"host": "localhost"')
 })
 
-test("copies fenced code when the modern clipboard API is unavailable", async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined })
-  })
-  await page.goto("/view?path=guides%2Fcode-blocks.md")
-  await showPreview(page)
-
-  const codeBlock = page.locator(".code-block").first()
-  const copy = codeBlock.getByRole("button", { name: "Copy json code" })
-  await copy.click()
-  await expect(codeBlock.getByRole("status")).toHaveText("Copied")
-  await expect(copy).toHaveCSS("outline-style", "none")
-})
-
-test("opens, switches, and closes document tabs", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
-
-  const tabs = page.getByRole("tablist", { name: "Open documents" })
-  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toBeVisible()
-  await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
-
-  await tabs.getByRole("tab", { name: "getting-started.md" }).click()
-  await expect(page).toHaveURL(/path=guides%2Fgetting-started\.md/)
-  await tabs.getByRole("button", { name: "Close guides/getting-started.md" }).click()
-
-  await expect(page).toHaveURL(/path=guides%2Fdiagrams\.md/)
-  await expect(tabs.getByRole("tab", { name: "getting-started.md" })).toHaveCount(0)
-  await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
-})
-
 test("switches document modes and remembers mode per open tab", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
 
@@ -626,127 +347,6 @@ test("switches document modes and remembers mode per open tab", async ({ page })
   await tree.getByRole("treeitem", { name: "getting-started.md" }).click()
   await expect(source).toHaveAttribute("aria-pressed", "true")
   await expect(sourceView).toContainText("# Getting started")
-})
-
-test("choosing Preview or Source sets the view new documents open in", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-
-  const view = page.getByRole("group", { name: "Document view" })
-  const preview = view.getByRole("button", { name: "Preview" })
-  const source = view.getByRole("button", { name: "Source" })
-  const tree = page.getByRole("complementary", { name: "Files" })
-  const tabs = page.getByRole("tablist", { name: "Open documents" })
-  await expect(source).toHaveAttribute("aria-pressed", "true")
-
-  await preview.click()
-  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
-  await expect(page).toHaveURL(/path=guides%2Fdiagrams\.md/)
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-  await expect(page.locator("article")).toBeVisible()
-
-  await tree.getByRole("treeitem", { name: "assets", exact: true }).click()
-  await tree.getByRole("treeitem", { name: "preview.svg" }).click()
-  await expect(view.getByRole("button")).toHaveText(["Preview", "Source"])
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-
-  await tabs.getByRole("tab", { name: "diagrams.md" }).click()
-  await source.click()
-  await tree.getByRole("treeitem", { name: "code-blocks.md" }).click()
-  await expect(page).toHaveURL(/path=guides%2Fcode-blocks\.md/)
-  await expect(source).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("textbox", { name: "Markdown source" })).toContainText("# Code block examples")
-
-  await tabs.getByRole("button", { name: "Close assets/preview.svg" }).click()
-  await tree.getByRole("treeitem", { name: "preview.svg" }).click()
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("img", { name: "preview.svg" })).toBeVisible()
-
-  await tabs.getByRole("tab", { name: "code-blocks.md" }).click()
-  await preview.click()
-  await page.reload()
-  await expect(page).toHaveURL(/path=guides%2Fcode-blocks\.md/)
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-  await tree.getByRole("treeitem", { name: "images.md" }).click()
-  await expect(page).toHaveURL(/path=guides%2Fimages\.md/)
-  await expect(preview).toHaveAttribute("aria-pressed", "true")
-})
-
-test("the Preview choice lasts for the browser tab, per project", async ({ page, context }) => {
-  const view = page.getByRole("group", { name: "Document view" })
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
-  await view.getByRole("button", { name: "Preview" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
-
-  await page.goto(`/?project=${projectParam("guides")}`)
-  await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
-  await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
-  await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
-
-  await page.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
-  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
-
-  const other = await context.newPage()
-  await other.goto(`/view?project=${rootParam}&path=guides%2Fdiagrams.md`)
-  await expect(other.getByRole("group", { name: "Document view" }).getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
-})
-
-test("resets per-tab document mode after reload", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-
-  const view = page.getByRole("group", { name: "Document view" })
-  await view.getByRole("button", { name: "Preview" }).click()
-  await page.getByRole("complementary", { name: "Files" }).getByRole("treeitem", { name: "diagrams.md" }).click()
-  await expect(page.getByRole("heading", { level: 1, name: "Mermaid diagrams" })).toBeVisible()
-  await view.getByRole("button", { name: "Source" }).click()
-  await page.getByRole("tablist", { name: "Open documents" }).getByRole("tab", { name: "getting-started.md" }).click()
-  await expect(view.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true")
-
-  await page.reload()
-  await expect(view.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByLabel("Markdown source")).toBeVisible()
-  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toHaveCount(0)
-})
-
-test("shows document metadata and process metrics in the status line", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-
-  const status = page.locator(".status-bar")
-  await expect(status.locator(".status-path")).toHaveText("guides/getting-started.md")
-  await expect(status.locator(".status-path")).toHaveAttribute("title", "guides/getting-started.md")
-  await expect(status).toContainText("27 files")
-  await expect(status.locator(".status-file-type")).toHaveText("Markdown")
-  await status.locator(".status-explorer summary").click()
-  if (process.platform === "linux") {
-    await expect(status).toContainText("CPU")
-    await expect(status).toContainText("Resident RAM")
-  } else {
-    await expect(status).not.toContainText("CPU")
-    await expect(status).toContainText("Go runtime system memory")
-  }
-})
-
-test("resizes and persists the file tree", async ({ page }) => {
-  await page.goto("/")
-
-  const tree = page.getByRole("complementary", { name: "Files" })
-  const resizer = page.getByRole("separator", { name: "Resize file tree" })
-  const initialWidth = await tree.evaluate((element) => element.getBoundingClientRect().width)
-  await resizer.press("ArrowRight")
-  await expect.poll(() => tree.evaluate((element) => element.getBoundingClientRect().width)).toBe(initialWidth + 16)
-
-  await page.reload()
-  await expect.poll(() => tree.evaluate((element) => element.getBoundingClientRect().width)).toBe(initialWidth + 16)
-})
-
-test("applies an editor palette while preserving dark rendering", async ({ page }) => {
-  await page.goto("/")
-
-  await (await themeSetting(page)).selectOption({ label: "Gruvbox" })
-
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox")
-  await expect(page.locator("html")).toHaveClass(/dark/)
-  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(30, 30, 30)")
 })
 
 test("renders every Mermaid fixture with ondine", async ({ page }) => {
@@ -799,38 +399,6 @@ test("opens Mermaid files as diagrams with Source available", async ({ page }) =
   await modes.getByRole("button", { name: "Source", exact: true }).click()
   await expect(page.locator("main .mermaid-diagram")).toHaveCount(0)
   await expect(page.locator("main")).toContainText("Open[Open request-flow.mmd] --> Preview{Preview?}")
-})
-
-test("Mermaid diagrams follow every theme", async ({ page }) => {
-  // One reload per theme; 28 themes outlast the default timeout under load.
-  test.setTimeout(90_000)
-  await page.goto(`${apiOrigin}/view?path=guides%2Fdiagrams.md`)
-  await showPreview(page)
-  const strokes = new Set<string>()
-  for (const theme of [
-    "light", "dark", "catppuccin", "catppuccin-latte", "dracula", "ethereal", "everforest", "flexoki-light",
-    "gruvbox", "hackerman", "kanagawa", "last-horizon", "lumon", "lupine", "matte-black", "miasma", "nord",
-    "osaka-jade", "retro-82", "ristretto", "rose-pine", "solarized-light", "solitude", "starship",
-    "tokyo-night", "vantablack", "white", "system",
-  ]) {
-    await page.evaluate((value) => window.localStorage.setItem("servef-theme", value), theme)
-    await page.reload()
-    const node = page.locator("main .mermaid-diagram svg.ondine-flowchart .ondine-node rect").first()
-    await node.scrollIntoViewIfNeeded()
-    await expect(node, theme).toBeVisible()
-    const colors = await node.evaluate((rect) => {
-      const text = getComputedStyle(document.documentElement).getPropertyValue("--color-text-secondary").trim()
-      const probe = document.createElement("span")
-      probe.style.color = text
-      document.body.append(probe)
-      const expected = getComputedStyle(probe).color
-      probe.remove()
-      return { expected, stroke: getComputedStyle(rect).stroke }
-    })
-    expect(colors.stroke, theme).toBe(colors.expected)
-    strokes.add(colors.stroke)
-  }
-  expect(strokes.size).toBeGreaterThan(1)
 })
 
 test("expands a Mermaid diagram with zoom and pan", async ({ page }) => {

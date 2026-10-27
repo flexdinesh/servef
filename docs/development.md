@@ -20,7 +20,7 @@ raise `jdx/mise-action` `version` in `.github/workflows/` with it.
 
 ## Install from edge
 
-Install the latest `main` that passed CI:
+Install the latest `main` with embedded frontend assets:
 
 ```sh
 go install github.com/flexdinesh/servef@edge
@@ -29,7 +29,7 @@ go install github.com/flexdinesh/servef@edge
 The Go install includes the embedded frontend; Node.js and pnpm are not required.
 
 `main` does not track `internal/web/dist/`, so `go install ...@main` fails.
-After CI passes on `main`, CI force-pushes `edge`: that `main` commit plus the
+After the frontend build on `main`, CI force-pushes `edge`: that `main` commit plus the
 built frontend. `@latest` selects the latest stable version tag. Go module
 proxies may briefly cache an older branch revision. To bypass the proxy for
 this module:
@@ -61,35 +61,58 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Type-check TypeScript | `mise run typecheck` |
 | Lint (oxlint: React Hooks, UI primitives; stylelint: design tokens) | `mise run lint` |
 | Check Go formatting and module tidiness | `mise run fmt:check`, `mise run tidy:check` |
-| Run every check CI runs | `mise run check` |
+| Run non-browser checks and the docs build | `mise run check` |
 | Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
 | Run browser tests | `mise run test:browser` |
-| Run browser tests on other ports | `PORT=18090 mise run test:browser` |
+| Run browser tests on explicit ports | `PORT=18090 SERVEF_BROWSER_WEB_PORT=15183 mise run test:browser` |
 | Run pre-push checks | `mise run check:push` |
+| Run full checks, including race tests and docs build | `mise run check:full` |
 
 `mise run check` builds the embedded frontend once, then runs Go formatting,
-tidiness, vet, tests, and build, mise config validation, web and release tests,
+tidiness, vet, tests, mise config validation, web and tooling tests,
 typecheck, lint, and the docs build in parallel. `build:web` declares its
 inputs, so mise skips it when none changed; `mise run build:web --force`
 rebuilds anyway.
 
 `mise run test:browser` builds the embedded frontend first, since some specs load
-the Go-served UI. Browser tests start API servers on `PORT` (default `18080`)
-and the next two ports, plus the Vite server on `15173`. Each run builds its
-Source Control git fixture in its own temporary folder.
+the Go-served UI. The runner compiles one Go binary, starts three API servers
+and Vite on OS-assigned ports, and runs Chromium with two workers. Each run
+owns its fixtures, cache, and binary in a temporary directory and cleans them
+up on exit. `PORT` selects the main API port, with git and live-update servers
+on `PORT+2` and `PORT+3`; `SERVEF_BROWSER_WEB_PORT` selects Vite's port. Unset
+or zero means automatic. `mise run test:browser -- --workers=1` reduces
+Chromium concurrency further.
 
-CI runs `mise run check` only. Browser tests run locally: outside CI, `pnpm install` points
-Git at `.githooks/`, whose `pre-push` hook runs `mise run check:push`: the
-same checks with race-enabled Go tests, then browser tests (decisions 0032,
-0038). Race tests need a C compiler. Skip the hook once with
-`git push --no-verify`.
+Checks run locally. Outside CI, `pnpm install` points Git at `.githooks/`, whose
+`pre-push` hook runs `mise run check:push`: formatting, module tidiness, mise
+validation, vet, ordinary Go tests, web/tooling tests, typechecks, and lint,
+then critical browser tests. Go tests already compile every package, so no
+duplicate Go build runs. Race tests and the docs production build move to
+`mise run check:full`; race tests need a C compiler. CI only publishes embedded
+assets on `edge`; release builds packages and smoke-tests the shipped binary.
+Skip the hook once with `git push --no-verify`.
+
+On Linux and macOS, `check:push` and `check:full` hold an OS-backed lock in
+`git rev-parse --git-common-dir` for the complete run. All linked worktrees
+wait on the same lock; independent clones and dev servers do not. The waiting
+message means another worktree is checking. Cancellation/exit releases the
+lock after its inheriting check processes exit; the empty lock file stays and
+must not be deleted. This is mutual exclusion, not a FIFO queue. Set
+`GOMAXPROCS` or `MISE_JOBS` to override their conservative default of two;
+Node test files and Chromium also default to two concurrent workers.
+
+Direct individual test commands do not acquire the shared lock. Prefer the
+queued commands while other agents are checking. Browser coverage decisions
+and intentionally omitted cases are recorded in [the test audit](browser-test-audit.md).
 
 On Linux with unprivileged user namespaces, `mise run test:browser` runs Playwright,
 its servers, and Chromium in a private loopback-only network namespace. Host
 interface changes, such as Docker creating container links, otherwise make
 Chromium abort in-flight requests with `ERR_NETWORK_CHANGED` and leave pages
 blank. The namespace also keeps test ports from colliding with host servers.
-Elsewhere it runs Playwright directly; `pnpm exec playwright test` always does.
+Elsewhere the runner uses ordinary networking with the same automatic ports.
+Run browser tests through `mise run test:browser`; direct Playwright execution
+does not start servers (`pnpm exec playwright test --list` still lists cases).
 
 `mise run install` rebuilds the embedded frontend when needed and installs the
 current checkout with `go install`.
