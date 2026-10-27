@@ -127,7 +127,9 @@
   --delay-progress: 150ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Stacking for non-top-layer floating UI. */
+  /* Stacking for non-top-layer floating UI; behind paints a decoration under
+     its own element's content. */
+  --z-behind: -1;
   --z-raised: 1;
   --z-sticky: 5;
   --z-popover: 20;
