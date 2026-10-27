@@ -109,6 +109,28 @@ reviews stay fixed. On phones, tap a commit to show its diff button,
 long-press a commit and tap another to select a range, and use the Files
 button to jump between a review's files.
 
+## Live updates
+
+servef follows changes on disk in the project each tab shows. Save a file in
+your editor, or let an agent write one, and the Explorer, the open document,
+Source Control, and an open Search pick it up within a second or two. The
+document keeps its scroll, selection, and view; a deleted file shows that it
+is unavailable. Checkouts, commits, and branch switches update Source Control
+too.
+
+The status bar shows how the project is followed:
+
+- **Live**: servef watches the project's folders for changes.
+- **Polling**: the project is too large to watch (more than 4096 folders, or
+  8192 files and folders on macOS), or the system's watch limit is reached;
+  servef checks every few seconds instead.
+- **Off**: servef already follows 8 projects in other tabs, or the connection
+  dropped; the project rereads when you return to its tab.
+
+Only visible tabs follow their project: a background tab catches up when you
+return to it. Folders `--exclude` skips and those below `--depth` are not
+watched.
+
 ## Settings and commands
 
 - Choose a theme (Servef Dark by default; Auto, Servef Light, Dracula, Solarized Light, and

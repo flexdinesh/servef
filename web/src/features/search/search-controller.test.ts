@@ -285,6 +285,40 @@ test("retry fetches again after a transient document failure", async () => {
   assert.equal(harness.statuses.at(-1)?.kind, "idle")
 })
 
+test("changed files reread a shown search now and rerun its query", async () => {
+  const harness = await readyHarness()
+  harness.handlers().onInput(query("guide"))
+  harness.handlers().onStale(true)
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 2)
+  const replacement = harness.workers.at(-1)
+  assert.ok(replacement && replacement !== harness.worker)
+  replacement.emit({ type: "ready" })
+  nextTimer(harness.timers)
+  assert.equal(lastSearchRequest(replacement).query.pattern, "guide")
+})
+
+test("changed files reread a hidden search only when it opens again", async () => {
+  const harness = await readyHarness()
+  harness.handlers().onStale(false)
+  harness.handlers().onStale(false)
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 1)
+  harness.controller.open()
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 2)
+  harness.controller.open()
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 2, "one reread clears the staleness")
+})
+
+test("changed files do not load a search never opened", async () => {
+  const harness = setup()
+  harness.handlers().onStale(true)
+  await flushPromises()
+  assert.equal(harness.fetchCount(), 0)
+})
+
 test("refresh fetches documents again and reruns the current query", async () => {
   const harness = await readyHarness()
   harness.handlers().onInput(query("guide"))

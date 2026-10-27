@@ -86,6 +86,9 @@ import { useImageViewer } from "./features/documents/use-image-viewer.ts"
 import { usePreviewPreference } from "./features/documents/use-preview-preference.ts"
 import { useProjectMemory } from "./workspace/use-project-memory.ts"
 import { useSearchSession } from "./features/search/use-search-session.ts"
+import type { LiveChange } from "./api/events-contract.ts"
+import { liveTargets } from "./features/live-updates/live-updates.ts"
+import { useLiveUpdates } from "./features/live-updates/use-live-updates.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
 import { Narration } from "./features/walkthrough/Narration.tsx"
 import { WalkthroughsView } from "./features/walkthrough/WalkthroughsView.tsx"
@@ -271,7 +274,7 @@ export function App({ project }: AppProps) {
     if (needsFormat) requestFormat(page.selected, page.source, page.at)
   }, [needsFormat, page.at, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
-    forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError,
+    forgetDocumentScroll, resetDocumentScroll, reread } = useDocumentNavigation(project, page, isLoading, loadError,
     reviewCompare ? compareKey(reviewCompare) : "")
 
   // Walkthrough steps open ordinary routes with wt and step added.
@@ -438,6 +441,24 @@ export function App({ project }: AppProps) {
     void navigate({ to: "/view", search: { project, path }, hash: lineAnchor({ start: match.line, end: match.line }) })
   }, [navigate, prepareDocumentNavigation, project])
   const search = useSearchSession({ documentPane: main, openMatch: openSearchMatch, project, registerOpen: registerSearch, reveal: revealSearch })
+  // Live updates reread what each change touches (decision 0050).
+  const liveDocument = routedPage?.hasFile && !routedPage.at ? routedPage.selected : ""
+  const searchShown = !sidebar.hidden && sidebar.view === "search"
+  const { refresh: refreshChanges } = changes
+  const { refresh: refreshCommits } = commits
+  const { refresh: refreshStack } = stack
+  const { markStale: markSearchStale } = search
+  const applyLiveChange = useCallback((change: LiveChange) => {
+    const targets = liveTargets(change, liveDocument)
+    if (targets.page) reread()
+    if (targets.changes) refreshChanges()
+    if (targets.history) {
+      refreshCommits()
+      refreshStack()
+    }
+    if (targets.search) markSearchStale(searchShown)
+  }, [liveDocument, markSearchStale, refreshChanges, refreshCommits, refreshStack, reread, searchShown])
+  const liveStatus = useLiveUpdates(project, applyLiveChange)
   const { settings } = useSettings()
   const languageServers = settings.languageServers === "on"
   // Snapshots do not navigate: language servers see the working tree.
@@ -661,7 +682,7 @@ export function App({ project }: AppProps) {
           )}
         </section>
       </div>
-      <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page}
+      <StatusBar isLoading={isLoading || formatSlow} error={loadError || page.error} page={page} live={liveStatus}
         diff={reviewCompare ? reviewStatusBar(reviewStatus, currentFile, reviewData) : undefined}
         detail={showImage && image.status === "ready" && image.width > 0
           ? `${image.width} × ${image.height} · ${image.percent}%`

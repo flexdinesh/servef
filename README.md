@@ -9,6 +9,7 @@ else.
 - Rendered Markdown, image previews, and highlighted, read-only source
 - Format JSON, YAML, HTML, CSS, and JavaScript on demand; files stay unchanged
 - Serve several directories; switch repositories and worktrees
+- Live updates: the tree, open document, Source Control, and Search follow changes on disk
 - VS Code-style Explorer, Search, Source Control, tabs, and command palette
 - Review uncommitted work, commits, a range of commits, or a branch stack layer by layer in one stacked diff tab
 - Go to definition and find references through installed language servers
