@@ -56,6 +56,8 @@
   --trees-focus-ring-offset-override: -1px;
   --trees-selected-focused-border-color-override: var(--color-focus);
   --trees-search-bg-override: var(--color-surface);
+  --trees-scrollbar-thumb-override: var(--color-scrollbar-thumb);
+  --trees-scrollbar-gutter-override: var(--scrollbar-size);
   --trees-search-fg-override: var(--color-text-primary);
   --trees-status-modified-override: var(--color-warning);
   --trees-status-added-override: var(--color-success);
@@ -83,6 +85,7 @@ aside .muted {
   flex: none;
   max-height: 30%;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: var(--space-3);
   color: var(--color-text-secondary);
   font-size: var(--text-xs);

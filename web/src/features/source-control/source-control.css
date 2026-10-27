@@ -94,6 +94,7 @@
 
 .scm-panes:not([data-mobile]) .scm-pane-body {
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 /* A sash overlaps the border above an open pane; hover and focus reveal it. */
@@ -202,6 +203,7 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding-bottom: var(--space-2);
 }
 
@@ -431,6 +433,7 @@
 .base-picker-list {
   max-height: 18rem;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .base-picker-option {

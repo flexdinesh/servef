@@ -269,6 +269,8 @@ Content palette (command palette, project picker, navigation results; `DialogShe
 
 Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Prose blocks use 12px margins; H1/H2 start with 32px above, H3/H4 with 24px. Wide code, tables, and diagrams scroll within their bounds.
 
+Scrollbars (decision 0055): 10px (`--scrollbar-size`), no track or arrows, a square thumb inset 2px in translucent ink (`--color-scrollbar-thumb`, darker hovered and dragged), shown only while the pointer is over its scroll area. The document pane and sidebar, palette, and Settings lists reserve the gutter (`scrollbar-gutter: stable`) so content never shifts as overflow comes and goes; the document pane's end padding gives it back. Pierre trees and diffs take the same thumb.
+
 ## Elevation & Depth
 
 Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
