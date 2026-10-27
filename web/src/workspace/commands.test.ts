@@ -19,9 +19,10 @@ test("Open Settings and Color Theme come first, then every setting opens Setting
     ["Navigation", "Find All References", { kind: "find-references" }],
     ["Walkthrough", "Next Step", { kind: "walkthrough-step", direction: 1 }],
     ["Walkthrough", "Previous Step", { kind: "walkthrough-step", direction: -1 }],
+    ["Walkthrough", "Present", { kind: "walkthrough-present" }],
     ["Walkthrough", "Close Walkthrough", { kind: "walkthrough-exit" }],
   ])
-  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12", "Ctrl+Right", "Ctrl+Left", undefined])
+  assert.deepEqual(commands.slice(5).map((command) => command.shortcut), ["F12", "Shift+F12", "Ctrl+Right", "Ctrl+Left", undefined, undefined])
 })
 
 test("an empty query lists every command in order", () => {

@@ -1,5 +1,5 @@
 import {
-  ArrowLeftIcon, BookOpenIcon, FileClockIcon, FileCodeIcon, GitCompareArrowsIcon, RefreshCwIcon, RouteIcon, StickyNoteIcon,
+  ArrowLeftIcon, BookOpenIcon, FileClockIcon, FileCodeIcon, GitCompareArrowsIcon, PresentationIcon, RefreshCwIcon, RouteIcon, StickyNoteIcon,
   Trash2Icon, XIcon,
 } from "lucide-react"
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
@@ -19,6 +19,8 @@ interface WalkthroughsViewProps {
   context: CompareContext
   mobile: boolean
   onDismiss(): void
+  // onPresent follows the walkthrough with the workspace chrome hidden.
+  onPresent(): void
 }
 
 function plural(count: number, noun: string): string {
@@ -61,7 +63,7 @@ function useRovingRows(count: number, current: number, activate: (index: number)
 // WalkthroughsView is the Walkthroughs activity (decision 0047): the
 // project's walkthroughs, newest first, then one walkthrough's steps.
 // Choosing a step opens its file or review with the narration in place.
-export function WalkthroughsView({ context, mobile, onDismiss, session }: WalkthroughsViewProps) {
+export function WalkthroughsView({ context, mobile, onDismiss, onPresent, session }: WalkthroughsViewProps) {
   const close = mobile ? <IconButton label="Close walkthroughs" icon={<XIcon aria-hidden="true" />} onClick={onDismiss} /> : null
   if (!session.selectedId) {
     return (
@@ -78,6 +80,12 @@ export function WalkthroughsView({ context, mobile, onDismiss, session }: Walkth
     <div className="walkthroughs-view">
       <ViewHeader className="explorer-header sidebar-header" title="Walkthroughs" actions={<>
         <IconButton label="All Walkthroughs" icon={<ArrowLeftIcon aria-hidden="true" />} onClick={session.close} />
+        <IconButton label="Present" icon={<PresentationIcon aria-hidden="true" />}
+          disabledReason={session.walkthrough ? undefined : "Waiting for the walkthrough"}
+          onClick={() => {
+            onPresent()
+            if (mobile) onDismiss()
+          }} />
         {close}
       </>} />
       <WalkthroughDetailView session={session} context={context} onOpened={mobile ? onDismiss : undefined} />
