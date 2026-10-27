@@ -16,7 +16,7 @@ import { CommitsPane } from "./CommitsPane.tsx"
 import { workingCompare, type Compare } from "./compare.ts"
 import type { CollapseRequest } from "./FilesTree.tsx"
 import { Pane, PaneSash } from "./Pane.tsx"
-import { paneIds, paneOpen, type PaneId } from "./source-control-layout.ts"
+import { paneIds, paneOpen, paneShares, type PaneId } from "./source-control-layout.ts"
 import { refChips } from "./source-control-panes.ts"
 import { UncommittedPane } from "./UncommittedPane.tsx"
 import type { BranchStack } from "./use-branch-stack.ts"
@@ -73,6 +73,7 @@ export function SourceControlView({
     branches: stack.result ? stack.result.layers.length === 0 : null,
   }
   const open = paneIds.filter((id) => paneOpen(layout.collapsed[id], empty[id]))
+  const shares = paneShares(layout.weights, open)
   const refreshAll = () => {
     changes.refresh()
     commits.refresh()
@@ -167,7 +168,7 @@ export function SourceControlView({
                     value={layout.weights[above] / (layout.weights[above] + layout.weights[id])}
                     onResize={(delta) => layout.resizePanes(open, above, id, delta)} onReset={layout.resetPanes} />
                 )}
-                <Pane title={paneLabels[id]} open={isOpen} weight={layout.weights[id]} mobile={mobile}
+                <Pane title={paneLabels[id]} open={isOpen} weight={shares[id] ?? 0} mobile={mobile}
                   note={pane.note} actions={pane.actions} onOpenChange={(next) => layout.setPaneCollapsed(id, !next)}>
                   {pane.body}
                 </Pane>
