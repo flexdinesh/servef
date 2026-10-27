@@ -68,6 +68,7 @@
     }
   ],
   "selected": "navigation/greet.go",
+  "at": "",
   "content": "",
   "source": "// Package navigation is a code navigation sample: Cmd/Ctrl+click Format.\npackage navigation\n\n// Greet welcomes someone by name.\nfunc Greet(name string) string {\n\treturn Format(\"hello\", name)\n}\n",
   "fileSize": 194,

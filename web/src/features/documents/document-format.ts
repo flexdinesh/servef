@@ -26,9 +26,11 @@ function formatError(failure: RequestFailure): string {
   }
 }
 
-export async function fetchFormat(project: string, path: string, signal: AbortSignal): Promise<FormatState> {
+// fetchFormat formats a working-tree document, or with at a snapshot.
+export async function fetchFormat(project: string, path: string, at: string, signal: AbortSignal): Promise<FormatState> {
   try {
-    const payload = await fetchJSON(projectUrl("/api/format", project, path), { signal }, isFormatResult, formatError)
+    const url = projectUrl("/api/format", project, path) + (at ? `&at=${at}` : "")
+    const payload = await fetchJSON(url, { signal }, isFormatResult, formatError)
     return { kind: "ready", text: payload.formatted }
   } catch (error: unknown) {
     if (error instanceof RequestError) return { kind: "error", message: error.message }

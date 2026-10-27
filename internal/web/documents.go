@@ -12,6 +12,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/git"
 	"github.com/flexdinesh/servef/internal/projects"
 )
 
@@ -20,14 +21,17 @@ type pageData struct {
 	Project string   `json:"project"`
 	// ProjectUnavailable reports that the project itself could not be
 	// resolved, as opposed to a file within it.
-	ProjectUnavailable  bool           `json:"projectUnavailable"`
-	RootName            string         `json:"rootName"`
-	Repository          string         `json:"repository"`
-	ProjectKind         projects.Kind  `json:"projectKind"`
-	Branch              string         `json:"branch"`
-	Worktrees           int            `json:"worktrees"`
-	Tree                []treeNode     `json:"tree"`
-	Selected            string         `json:"selected"`
+	ProjectUnavailable bool          `json:"projectUnavailable"`
+	RootName           string        `json:"rootName"`
+	Repository         string        `json:"repository"`
+	ProjectKind        projects.Kind `json:"projectKind"`
+	Branch             string        `json:"branch"`
+	Worktrees          int           `json:"worktrees"`
+	Tree               []treeNode    `json:"tree"`
+	Selected           string        `json:"selected"`
+	// At is the full commit hash the selected document was read from, or
+	// empty for the working tree.
+	At                  string         `json:"at"`
 	Content             string         `json:"content"`
 	Source              string         `json:"source"`
 	FileSize            int64          `json:"fileSize"`
@@ -134,6 +138,54 @@ func readText(r io.Reader, limit int64) (text []byte, binary bool, err error) {
 	return append(prefix, rest...), false, nil
 }
 
+// readCommitDocument reads name from the commit at, a full hash, under the
+// same limits as readIndexed. It returns the status and message for a
+// failure.
+func (a *App) readCommitDocument(root, at, name string, fileType document.Type, limit int64) (indexedFile, int, string) {
+	hash, ok := git.ParseHash(at)
+	if !ok {
+		return indexedFile{}, http.StatusBadRequest, invalidCommitMessage
+	}
+	repo, err := git.Open(root)
+	if errors.Is(err, git.ErrNotRepository) {
+		return indexedFile{}, http.StatusNotFound, commitUnavailableMessage
+	}
+	if err != nil {
+		return indexedFile{}, http.StatusInternalServerError, "Couldn't read git history: " + err.Error()
+	}
+	defer func() { _ = repo.Close() }()
+	blob, err := repo.CommitBlob(hash, name)
+	if errors.Is(err, git.ErrUnavailable) {
+		return indexedFile{}, http.StatusNotFound, commitFileUnavailableMessage
+	}
+	if err != nil {
+		return indexedFile{}, http.StatusInternalServerError, fmt.Sprintf("Could not read %s: %v", name, err)
+	}
+	file := indexedFile{size: blob.Size}
+	if limit >= 0 && file.size > limit {
+		file.tooLarge = true
+		return file, http.StatusOK, ""
+	}
+	if !fileType.HasTextSource() {
+		file.binary = true
+		return file, http.StatusOK, ""
+	}
+	reader, err := blob.Open()
+	if err != nil {
+		return indexedFile{}, http.StatusInternalServerError, fmt.Sprintf("Could not read %s: %v", name, err)
+	}
+	defer func() { _ = reader.Close() }()
+	text, binary, err := readText(reader, limit)
+	if err != nil {
+		return indexedFile{}, http.StatusInternalServerError, fmt.Sprintf("Could not read %s: %v", name, err)
+	}
+	file.binary = binary
+	if !binary {
+		file.source = text
+	}
+	return file, http.StatusOK, ""
+}
+
 func (a *App) serveImage(w http.ResponseWriter, projectID, name string) {
 	contentType, ok := a.config.Types.MediaType(name)
 	if !ok {
@@ -206,32 +258,46 @@ func (a *App) serveSearchDocuments(w http.ResponseWriter, projectID string) {
 }
 
 // serveFormat returns the on-demand formatted view of a formattable file.
-func (a *App) serveFormat(w http.ResponseWriter, projectID, name string) {
+func (a *App) serveFormat(w http.ResponseWriter, projectID, name, at string) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
 		return
 	}
-	index, err := a.scan(project.root)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-	resolved, err := index.Resolve(name)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "That file is unavailable."})
-		return
-	}
 	family := a.config.Types.Lookup(name)
 	fileType := family.Type()
-	if !fileType.Formattable {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: fileType.Label + " files cannot be formatted."})
-		return
-	}
-	file, err := a.readIndexed(resolved, fileType, document.PreviewLimit)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
+	var file indexedFile
+	if at != "" {
+		if !fileType.Formattable {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fileType.Label + " files cannot be formatted."})
+			return
+		}
+		var message string
+		file, status, message = a.readCommitDocument(project.root, at, name, fileType, document.PreviewLimit)
+		if status != http.StatusOK {
+			writeJSON(w, status, errorResponse{Error: message})
+			return
+		}
+	} else {
+		index, err := a.scan(project.root)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		resolved, err := index.Resolve(name)
+		if err != nil {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "That file is unavailable."})
+			return
+		}
+		if !fileType.Formattable {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fileType.Label + " files cannot be formatted."})
+			return
+		}
+		file, err = a.readIndexed(resolved, fileType, document.PreviewLimit)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
 	}
 	if file.tooLarge {
 		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{Error: "File is too large to format."})
@@ -284,12 +350,14 @@ func (a *App) serveRaw(w http.ResponseWriter, projectID, name string) {
 	_, _ = io.Copy(w, file)
 }
 
-func (a *App) servePageData(w http.ResponseWriter, projectID, selected string, required bool) {
-	data, status := a.page(projectID, selected, required)
+func (a *App) servePageData(w http.ResponseWriter, projectID, selected, at string, required bool) {
+	data, status := a.page(projectID, selected, at, required)
 	writeJSON(w, status, data)
 }
 
-func (a *App) page(projectID, selected string, required bool) (pageData, int) {
+// page reads a project's tree and, when selected is set, that document: from
+// the working tree, or with at (a full commit hash) from that commit.
+func (a *App) page(projectID, selected, at string, required bool) (pageData, int) {
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		return pageData{
@@ -335,31 +403,48 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 		Warnings:         warningStrings(index.Warnings),
 		FilenamePatterns: a.config.Filenames.Patterns(),
 	}
-	data.Tree = a.makeTree(index.Tree.Children, selected)
-	if required && selected == "" {
+	// A commit document selects no working-tree file.
+	treeSelected := selected
+	if at != "" {
+		treeSelected = ""
+	}
+	data.Tree = a.makeTree(index.Tree.Children, treeSelected)
+	if (required || at != "") && selected == "" {
 		data.Error = "No file was selected."
 		return data, http.StatusBadRequest
 	}
 
 	if selected != "" {
-		resolved, err := index.Resolve(selected)
-		if err != nil {
-			status := http.StatusNotFound
-			if errors.Is(err, files.ErrPathEscape) {
-				status = http.StatusBadRequest
-			}
-			data.Error = "That file is unavailable. Refresh the index and choose another file."
-			return data, status
-		}
 		family := a.config.Types.Lookup(selected)
 		fileType := family.Type()
-		file, err := a.readIndexed(resolved, fileType, document.DisplayReadLimit(fileType))
-		if err != nil {
-			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
-			return data, http.StatusInternalServerError
+		var file indexedFile
+		if at != "" {
+			// A commit document is read from git, repository-scoped as
+			// history is; it has no preview content and no code navigation.
+			data.At = at
+			var status int
+			file, status, data.Error = a.readCommitDocument(project.root, at, selected, fileType, document.DisplayReadLimit(fileType))
+			if status != http.StatusOK {
+				return data, status
+			}
+		} else {
+			resolved, err := index.Resolve(selected)
+			if err != nil {
+				status := http.StatusNotFound
+				if errors.Is(err, files.ErrPathEscape) {
+					status = http.StatusBadRequest
+				}
+				data.Error = "That file is unavailable. Refresh the index and choose another file."
+				return data, status
+			}
+			file, err = a.readIndexed(resolved, fileType, document.DisplayReadLimit(fileType))
+			if err != nil {
+				data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
+				return data, http.StatusInternalServerError
+			}
+			_, data.NavigationSupported = a.servers.ServerFor(fileType.ID)
 		}
 		data.DocumentType = &fileType
-		_, data.NavigationSupported = a.servers.ServerFor(fileType.ID)
 		data.FileSize = file.size
 		data.HasFile = true
 		data.Binary = file.binary
@@ -372,9 +457,10 @@ func (a *App) page(projectID, selected string, required bool) (pageData, int) {
 			return data, http.StatusOK
 		}
 		data.Source = string(file.source)
-		if file.size > document.PreviewLimit {
+		if file.size > document.PreviewLimit || at != "" {
 			return data, http.StatusOK
 		}
+		var err error
 		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id, Supports: a.config.Filenames.Match})
 		if err != nil {
 			data.PreviewError = err.Error()

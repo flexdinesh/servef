@@ -203,6 +203,12 @@ export function mockFixtureName(method: string, rawURL: string): MockFixture | u
     case "/page": {
       const path = url.searchParams.get("path")
       if (path === null) return { name: "page-index.json", status: 200 }
+      // One snapshot: navigation/greet.go at the mock commit.
+      if (url.searchParams.has("at")) {
+        return path === "navigation/greet.go" && url.searchParams.get("at") === mockCommit
+          ? { name: "page-commit.json", status: 200 }
+          : { name: "page-missing.json", status: 404 }
+      }
       const page = mockPages.get(path)
       return page ? { name: page, status: 200 } : { name: "page-missing.json", status: 404 }
     }

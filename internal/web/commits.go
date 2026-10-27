@@ -24,7 +24,10 @@ const (
 
 	commitUnavailableMessage = "That commit is unavailable."
 	invalidCommitMessage     = "That commit hash is invalid."
-	unknownBaseMessage       = "That base branch doesn't exist."
+	// commitFileUnavailableMessage reports an unknown commit, or a path the
+	// commit does not have.
+	commitFileUnavailableMessage = "That file is unavailable at that commit."
+	unknownBaseMessage           = "That base branch doesn't exist."
 	// unknownBaseCode marks a 400 for a base branch /api/refs does not list.
 	unknownBaseCode    = "unknownBase"
 	unknownHeadMessage = "That head branch doesn't exist."

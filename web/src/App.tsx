@@ -57,7 +57,7 @@ import { useSourceControlLayout } from "./features/source-control/use-source-con
 import { filePaths } from "./api/page-data.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
 import {
-  documentTab, includesTab, reviewTab, tabName, tabSearch, type WorkspaceTab,
+  documentKey, documentTab, includesTab, reviewTab, tabName, tabSearch, type WorkspaceTab,
 } from "./workspace/workspace-tabs.ts"
 import { SettingsDialog, type OpenSettings } from "./settings/SettingsDialog.tsx"
 import { ColorThemePicker } from "./workspace/ColorThemePicker.tsx"
@@ -87,10 +87,11 @@ import { useProjectMemory } from "./workspace/use-project-memory.ts"
 import { useSearchSession } from "./features/search/use-search-session.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
 
-// routeTab is the tab a route shows: a review, or a document, else none.
-function routeTab(review: WorkspaceTab | null, documentPath: string): WorkspaceTab | null {
+// routeTab is the tab a route shows: a review, or a document (a snapshot
+// with at), else none.
+function routeTab(review: WorkspaceTab | null, documentPath: string, at: string): WorkspaceTab | null {
   if (review) return review
-  return documentPath ? documentTab(documentPath) : null
+  return documentPath ? documentTab(documentPath, at) : null
 }
 
 // reviewStatusBar describes the review's file in view, or the one holding
@@ -213,9 +214,13 @@ export function App({ project }: AppProps) {
   const loadError = result?.kind === "failure" ? result.message : ""
   const routedPage = result?.kind === "page" ? result.page : null
   const routedDocument = routedPage?.hasFile ? routedPage.selected : ""
-  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument), [reviewRoute, routedDocument])
+  const routedAt = routedPage?.hasFile ? routedPage.at : ""
+  const routedTab = useMemo(() => routeTab(reviewRoute, routedDocument, routedAt), [reviewRoute, routedAt, routedDocument])
   const activeDocument = page.hasFile ? page.selected : ""
-  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument), [activeDocument, reviewRoute])
+  const activeAt = page.hasFile ? page.at : ""
+  const activeTab = useMemo(() => routeTab(reviewRoute, activeDocument, activeAt), [activeAt, activeDocument, reviewRoute])
+  // pageKey keys the document's mode, format, and scroll.
+  const pageKey = documentKey(page.selected, page.at)
   const workspace = useDocumentWorkspace(routedTab)
   const { setDocumentMode } = workspace
   const previewPreference = usePreviewPreference(project)
@@ -230,11 +235,11 @@ export function App({ project }: AppProps) {
     restore: workspace.restore,
     openRemembered,
   })
-  const showSourceAfterFormatFailure = useCallback((path: string) => setDocumentMode(path, "source"), [setDocumentMode])
+  const showSourceAfterFormatFailure = useCallback((key: string) => setDocumentMode(key, "source"), [setDocumentMode])
   const { get: formatResult, request: requestFormat } = useDocumentFormats(project, showSourceAfterFormatFailure)
   // A line anchor (#L12) opens Source unless the tab already chose a view.
-  const documentMode = resolveDocumentMode(page, workspace.modes.get(page.selected) ?? (lineRange ? "source" : previewPreference.preferredMode))
-  const formatState = formatResult(page.selected, page.source)
+  const documentMode = resolveDocumentMode(page, workspace.modes.get(pageKey) ?? (lineRange ? "source" : previewPreference.preferredMode))
+  const formatState = formatResult(page.selected, page.source, page.at)
   const view = documentView(page, documentMode, formatState)
   const formatPending = view.kind === "source" && view.formatPending
   const formatSlow = useDelayedFlag(formatPending, 150)
@@ -242,8 +247,8 @@ export function App({ project }: AppProps) {
   const showImage = view.kind === "image" && !loadError && !page.error
   const needsFormat = documentMode === "format" && formatState === undefined
   useEffect(() => {
-    if (needsFormat) requestFormat(page.selected, page.source)
-  }, [needsFormat, page.selected, page.source, requestFormat])
+    if (needsFormat) requestFormat(page.selected, page.source, page.at)
+  }, [needsFormat, page.at, page.selected, page.source, requestFormat])
   const { main, prepareDocumentNavigation, navigateToDocument, navigateToHref,
     forgetDocumentScroll, resetDocumentScroll } = useDocumentNavigation(project, page, isLoading, loadError,
     reviewCompare ? compareKey(reviewCompare) : "")
@@ -309,14 +314,15 @@ export function App({ project }: AppProps) {
   const nameTab = useCallback((tab: WorkspaceTab) => tabName(tab, compareContext), [compareContext])
   const gitStatus = useMemo(() => (changes.result?.files ?? []).map((file) => ({ path: file.path, status: file.status })), [changes.result])
   const selectTab = useCallback((tab: WorkspaceTab) => {
-    if (tab.kind === "document") navigateToDocument(tab.path)
+    if (tab.kind === "document") navigateToDocument(tab.path, tab.at)
     else openReview(tab.compare, true)
   }, [navigateToDocument, openReview])
 
   const selectLines = useCallback((range: LineRange | null) => {
     if (!page.selected) return
-    void navigate({ to: "/view", search: { project, path: page.selected }, hash: range ? lineAnchor(range) : "", replace: true })
-  }, [navigate, page.selected, project])
+    const search = page.at ? { project, path: page.selected, at: page.at } : { project, path: page.selected }
+    void navigate({ to: "/view", search, hash: range ? lineAnchor(range) : "", replace: true })
+  }, [navigate, page.at, page.selected, project])
   const showSource = view.kind === "source" && !loadError && !page.error
 
   // The name last clicked in Source, per file, for F12 and the palette.
@@ -336,7 +342,8 @@ export function App({ project }: AppProps) {
   const search = useSearchSession({ documentPane: main, openMatch: openSearchMatch, project, registerOpen: registerSearch, reveal: revealSearch })
   const { settings } = useSettings()
   const languageServers = settings.languageServers === "on"
-  const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary, languageServers)
+  // Snapshots do not navigate: language servers see the working tree.
+  const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary && !page.at, languageServers)
   const codeNavigation = useCodeNavigation(project, languageServers, openLocation, navigationStatus.refresh)
   const { request: requestNavigation, explain: explainNavigation, close: closeNavigation } = codeNavigation
   const openNavigationResult = useCallback((location: NavigationLocation) => {
@@ -374,12 +381,12 @@ export function App({ project }: AppProps) {
 
   function changeDocumentMode(mode: DocumentMode) {
     if (!page.hasFile || !page.selected || mode === documentMode) return
-    if (mode === "format") requestFormat(page.selected, page.source)
+    if (mode === "format") requestFormat(page.selected, page.source, page.at)
     // Line numbers address the original source only.
     if (mode !== "source" && lineRange) selectLines(null)
-    setDocumentMode(page.selected, mode)
+    setDocumentMode(pageKey, mode)
     previewPreference.choose(mode)
-    resetDocumentScroll(page.selected)
+    resetDocumentScroll(pageKey)
   }
 
   function closeTab(tab: WorkspaceTab) {
@@ -389,7 +396,7 @@ export function App({ project }: AppProps) {
   function closeTabs(tabs: readonly WorkspaceTab[]) {
     const closed = workspace.closeTabs(tabs, activeTab)
     if (!closed) return
-    for (const tab of closed.tabs) if (tab.kind === "document") forgetDocumentScroll(tab.path)
+    for (const tab of closed.tabs) if (tab.kind === "document") forgetDocumentScroll(documentKey(tab.path, tab.at))
     if (!activeTab || !includesTab(closed.tabs, activeTab)) return
     if (closed.replacement) {
       selectTab(closed.replacement)

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 
 import type { DocumentMode } from "../features/documents/DocumentModeToggle.tsx"
-import { includesTab, sameTab, type WorkspaceTab } from "./workspace-tabs.ts"
+import { documentKey, includesTab, sameTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 interface DocumentWorkspace {
   tabs: WorkspaceTab[]
+  // modes are keyed by documentKey.
   modes: ReadonlyMap<string, DocumentMode>
 }
 
@@ -21,11 +22,11 @@ export function useDocumentWorkspace(active: WorkspaceTab | null) {
       : { ...current, tabs: [...current.tabs, active] })
   }, [active])
 
-  const setDocumentMode = useCallback((path: string, mode: DocumentMode) => {
+  const setDocumentMode = useCallback((key: string, mode: DocumentMode) => {
     setWorkspace((current) => {
-      if (current.modes.get(path) === mode) return current
+      if (current.modes.get(key) === mode) return current
       const modes = new Map(current.modes)
-      modes.set(path, mode)
+      modes.set(key, mode)
       return { ...current, modes }
     })
   }, [])
@@ -49,7 +50,7 @@ export function useDocumentWorkspace(active: WorkspaceTab | null) {
     setWorkspace((current) => {
       const modes = new Map(current.modes)
       // Modes belong to documents; a document's mode outlives its diff tab.
-      for (const tab of closed) if (tab.kind === "document") modes.delete(tab.path)
+      for (const tab of closed) if (tab.kind === "document") modes.delete(documentKey(tab.path, tab.at))
       return { tabs: current.tabs.filter((tab) => !includesTab(closed, tab)), modes }
     })
     return { tabs: closed, replacement: replacement ?? null }

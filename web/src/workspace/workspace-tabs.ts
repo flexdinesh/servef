@@ -2,21 +2,43 @@ import {
   compareKey, compareName, compareSearch, parseStoredCompare, storedCompare,
   type Compare, type CompareContext, type StoredCompare,
 } from "../features/source-control/compare.ts"
+import { isCommitHash, shortHash } from "../lib/commit-hash.ts"
+import { isRecord } from "../api/http.ts"
 
-// Open tabs are documents of a project-relative path, or review tabs of one
+// Open tabs are documents of a project-relative path, read from the working
+// tree or, with at, from a commit (a snapshot), or review tabs of one
 // compare: uncommitted changes, the branch, a commit, or a commit range
 // (decision 0035). Pure helpers; components and memory share them.
 
 export type WorkspaceTab =
-  | { kind: "document"; path: string }
+  | { kind: "document"; path: string; at?: string }
   | { kind: "review"; compare: Compare }
 
-// StoredTab is a remembered tab: a plain path for a document, as earlier
-// versions stored it, or a stored compare.
-export type StoredTab = string | StoredCompare
+// StoredSnapshot is a remembered commit document.
+export interface StoredSnapshot {
+  path: string
+  at: string
+}
 
-export function documentTab(path: string): WorkspaceTab {
-  return { kind: "document", path }
+// StoredTab is a remembered tab: a plain path for a document, as earlier
+// versions stored it, a stored snapshot, or a stored compare.
+export type StoredTab = string | StoredSnapshot | StoredCompare
+
+// documentTab is a working-tree document, or with at (a full commit hash)
+// that commit's version of it.
+export function documentTab(path: string, at = ""): WorkspaceTab {
+  return at ? { kind: "document", path, at } : { kind: "document", path }
+}
+
+// routeAt is a route's snapshot commit: a full hash, and only with a path.
+export function routeAt(path: unknown, at: unknown): string | undefined {
+  return typeof path === "string" && isCommitHash(at) ? at : undefined
+}
+
+// documentKey identifies a document's modes, formats, and scroll: its path,
+// or a snapshot's commit and path.
+export function documentKey(path: string, at = ""): string {
+  return at ? `${at}:${path}` : path
 }
 
 export function reviewTab(compare: Compare): WorkspaceTab {
@@ -25,7 +47,7 @@ export function reviewTab(compare: Compare): WorkspaceTab {
 
 // tabKey identifies a tab uniquely across kinds.
 export function tabKey(tab: WorkspaceTab): string {
-  return tab.kind === "review" ? `review:${compareKey(tab.compare)}` : `document:${tab.path}`
+  return tab.kind === "review" ? `review:${compareKey(tab.compare)}` : `document:${documentKey(tab.path, tab.at)}`
 }
 
 export function sameTab(left: WorkspaceTab | null, right: WorkspaceTab | null): boolean {
@@ -49,23 +71,33 @@ export interface TabName {
 // tabName names a tab as VS Code does: documents by file name, reviews by
 // what they compare.
 export function tabName(tab: WorkspaceTab, context: CompareContext): TabName {
-  if (tab.kind === "document") return { label: fileName(tab.path), title: tab.path }
+  if (tab.kind === "document") {
+    return tab.at
+      ? { label: `${fileName(tab.path)} @ ${shortHash(tab.at)}`, title: `${tab.path} at ${tab.at}` }
+      : { label: fileName(tab.path), title: tab.path }
+  }
   return compareName(tab.compare, context)
 }
 
 export function storedTab(tab: WorkspaceTab): StoredTab {
-  return tab.kind === "review" ? storedCompare(tab.compare) : tab.path
+  if (tab.kind === "review") return storedCompare(tab.compare)
+  return tab.at ? { path: tab.path, at: tab.at } : tab.path
 }
 
 // parseStoredTab accepts document paths, stored compares, and the per-file
 // diff entries earlier versions stored, which reopen as their review.
 export function parseStoredTab(value: unknown): WorkspaceTab | null {
   if (typeof value === "string") return value ? documentTab(value) : null
+  // A snapshot has at; earlier per-file commit diffs stored commit instead.
+  if (isRecord(value) && "at" in value) {
+    return typeof value.path === "string" && value.path && isCommitHash(value.at) ? documentTab(value.path, value.at) : null
+  }
   const compare = parseStoredCompare(value)
   return compare ? reviewTab(compare) : null
 }
 
 // tabSearch is the /view search that opens tab.
 export function tabSearch(project: string, tab: WorkspaceTab) {
-  return tab.kind === "review" ? { project, ...compareSearch(tab.compare) } : { project, path: tab.path }
+  if (tab.kind === "review") return { project, ...compareSearch(tab.compare) }
+  return tab.at ? { project, path: tab.path, at: tab.at } : { project, path: tab.path }
 }

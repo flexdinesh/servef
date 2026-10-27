@@ -7,7 +7,7 @@ function documentPage(selected: string, documentType: Record<string, unknown>, o
   return {
     content: "", source: "", highlightDisabled: false, empty: false, error: "", fileCount: 1, fileSize: 0, hasFile: true,
     roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected, warnings: [], previewError: "", filenamePatterns: ["*"], documentType,
-    navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
+    navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false, at: "",
     tree: [{ name, path: selected, fileType: String(documentType.id), isDir: false, open: false, selected: true, children: [] }],
     ...overrides,
   }

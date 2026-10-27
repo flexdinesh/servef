@@ -14,6 +14,7 @@ import { defaultProject, fetchDirectories, fetchProjects, landingProject, reques
 import { readMemory } from "./workspace/workspace-memory.ts"
 import { compareSearch, legacyCompare, reviewFragment, routeCompare } from "./features/source-control/compare.ts"
 import { isCommitHash } from "./lib/commit-hash.ts"
+import { routeAt } from "./workspace/workspace-tabs.ts"
 
 interface PageSearch {
   [key: string]: unknown
@@ -28,6 +29,8 @@ interface PageSearch {
   commit?: string
   from?: string
   to?: string
+  // With a path, at=<hash> opens that commit's version of the file.
+  at?: string
   // With a path, diff=1, commit=, branch=1, and from=&to= are per-file diff
   // routes from before review tabs; they redirect to the review.
   diff?: 1
@@ -38,6 +41,7 @@ function validateSearch(search: Record<string, unknown>): PageSearch {
   return {
     ...search,
     path: typeof search.path === "string" ? search.path : undefined,
+    at: routeAt(search.path, search.at),
     project: typeof search.project === "string" && search.project !== "" ? search.project : undefined,
     review: search.review === "working" || search.review === "branch" ? search.review : undefined,
     base: typeof search.base === "string" && search.base !== "" ? search.base : undefined,
@@ -127,12 +131,13 @@ const viewRoute = createRoute({
   // A review tab loads only the tree; its pane reads /api/diff per file.
   loaderDeps: ({ search }) => {
     const diff = routeCompare(search) !== null
-    return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", diff }
+    return { project: search.project ?? "", selected: diff ? "" : search.path ?? "", at: diff ? "" : search.at ?? "", diff }
   },
   loader: ({ abortController, deps }) => loadPage({
     pathname: deps.diff ? "/" : "/view",
     project: deps.project,
     selected: deps.selected,
+    at: deps.at,
     signal: abortController.signal,
   }),
 })

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
 import { parseLineAnchor } from "../../lib/line-selection.ts"
 import type { PageData } from "../../api/page-data.ts"
+import { documentKey } from "../../workspace/workspace-tabs.ts"
 
 // revealLine scrolls a line anchor into view near the top third, unless visible.
 function revealLine(pane: HTMLElement, line: Element) {
@@ -14,6 +15,7 @@ function revealLine(pane: HTMLElement, line: Element) {
 
 // review is the open review tab's key, "" for documents; reviews remember
 // their scroll like documents, and their file fragments scroll themselves.
+// Documents remember scroll by documentKey, so a snapshot keeps its own.
 export function useDocumentNavigation(project: string, page: PageData, isLoading: boolean, loadError: string, review = "") {
   const navigate = useNavigate()
   const router = useRouter()
@@ -23,7 +25,7 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
   const displayedPath = useRef("")
   const documentPositions = useRef(new Map<string, number>())
   const historyPositions = useRef(new Map<string, { path: string; top: number }>())
-  const selected = review ? `\n${review}` : page.hasFile && !page.error && !loadError ? page.selected : ""
+  const selected = review ? `\n${review}` : page.hasFile && !page.error && !loadError ? documentKey(page.selected, page.at) : ""
 
   useLayoutEffect(() => { displayedPath.current = selected }, [selected])
 
@@ -67,9 +69,9 @@ export function useDocumentNavigation(project: string, page: PageData, isLoading
 
   const prepareDocumentNavigation = useCallback(() => { focusDocument.current = true }, [])
 
-  const navigateToDocument = useCallback((path: string) => {
+  const navigateToDocument = useCallback((path: string, at = "") => {
     prepareDocumentNavigation()
-    void navigate({ to: "/view", search: { project, path }, hash: "" })
+    void navigate({ to: "/view", search: at ? { project, path, at } : { project, path }, hash: "" })
   }, [navigate, prepareDocumentNavigation, project])
 
   const navigateToHref = useCallback((href: string) => {

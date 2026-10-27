@@ -12,7 +12,7 @@ const emptyPage: PageData = {
   projectUnavailable: false,
   filenamePatterns: ["*"], documentType: null, navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false,
   highlightDisabled: false, previewError: "", content: "", empty: false, error: "", fileCount: 0, fileSize: 0,
-  hasFile: false, rootName: "", repository: "", projectKind: "folder", worktrees: 0, selected: "", source: "", tree: [], warnings: [],
+  hasFile: false, rootName: "", repository: "", projectKind: "folder", worktrees: 0, selected: "", at: "", source: "", tree: [], warnings: [],
 }
 
 function fileType(overrides: Partial<FileType>): FileType {
@@ -42,6 +42,16 @@ test("declared capabilities select toolbar modes", () => {
   assert.deepEqual(documentModes(emptyPage), [])
   assert.deepEqual(documentModes(page(markdown, { tooLarge: true, previewDisabled: true })), [])
   assert.deepEqual(documentModes(page(json, { tooLarge: true, previewDisabled: true })), [])
+})
+
+test("snapshots offer Source and Format, never Preview", () => {
+  const at = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
+  assert.deepEqual(documentModes(page(markdown, { at })), ["source"])
+  assert.deepEqual(documentModes(page(json, { at })), ["source", "format"])
+  assert.deepEqual(documentModes(page(svg, { at })), ["source"])
+  assert.deepEqual(documentModes(page(raster, { at, binary: true })), [])
+  assert.equal(resolveDocumentMode(page(markdown, { at }), "preview"), "source")
+  assert.equal(resolveDocumentMode(page(svg, { at }), undefined), "source")
 })
 
 test("modes resolve from request, then default, and respect large-file limits", () => {
