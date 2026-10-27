@@ -154,6 +154,9 @@ func (a *App) newRoutes() *http.ServeMux {
 		a.serveDeleteWalkthrough(w, r, query.Get("project"), query.Get("id"))
 	})
 
+	// Live updates (decision 0050).
+	mux.HandleFunc("GET /api/events", a.serveEvents)
+
 	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveMetrics(w) })
 	return mux
 }

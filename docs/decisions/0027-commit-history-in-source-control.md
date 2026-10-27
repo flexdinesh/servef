@@ -1,6 +1,6 @@
 # 0027: Commit history in Source Control
 
-- Status: Accepted; branch and commit-range diffs added by [0030](0030-branch-and-range-diffs.md); Commits tree and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md)
+- Status: Accepted; branch and commit-range diffs added by [0030](0030-branch-and-range-diffs.md); Commits tree and diff tabs superseded by [0035](0035-compare-list-and-review-tab.md); "No polling" refresh superseded by [0050](0050-live-updates.md)
 - Date: 2026-10-22
 - Extends: [0024](0024-source-control-view-and-working-tree-diffs.md)
 

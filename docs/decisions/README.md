@@ -29,10 +29,10 @@ rewriting history; update `Status` on the old record.
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
-| [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035 |
+| [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050 |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
-| [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030; UI superseded by 0035 |
+| [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030; UI superseded by 0035; no-polling refresh by 0050 |
 | [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | No-scroll consequence superseded by 0034; routes by 0035 |
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
 | [0030](0030-branch-and-range-diffs.md) | Branch and commit-range diffs | UI superseded by 0035; head branches by 0040 |
@@ -55,3 +55,4 @@ rewriting history; update `Status` on the old record.
 | [0047](0047-walkthroughs.md) | Walkthroughs | Accepted |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted |
+| [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted |

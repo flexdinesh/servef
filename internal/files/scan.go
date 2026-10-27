@@ -96,15 +96,7 @@ func Scan(root string, maxDepth int, excluded []string, accepts func(string) boo
 	}
 	index.Tree = Entry{Name: filepath.Base(canonicalRoot), IsDir: true}
 
-	excludedNames := make(map[string]struct{}, len(excluded))
-	for _, name := range excluded {
-		name = filepath.Base(filepath.Clean(name))
-		if name != "." && name != string(filepath.Separator) && name != "" {
-			excludedNames[name] = struct{}{}
-		}
-	}
-
-	if err := index.scanDirectory(&index.Tree, 0, maxDepth, excludedNames, NewIgnoreRules(canonicalRoot), false); err != nil {
+	if err := index.scanDirectory(&index.Tree, 0, maxDepth, excludedNameSet(excluded), NewIgnoreRules(canonicalRoot), false); err != nil {
 		return nil, fmt.Errorf("read scan root: %w", err)
 	}
 	return index, nil
