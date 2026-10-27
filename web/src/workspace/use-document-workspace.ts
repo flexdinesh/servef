@@ -41,6 +41,18 @@ export function useDocumentWorkspace(active: WorkspaceTab | null) {
     })
   }, [])
 
+  // replaceTab puts next where tab stands, as when a review changes scope
+  // (decision 0051); next already open elsewhere just drops tab.
+  const replaceTab = useCallback((tab: WorkspaceTab, next: WorkspaceTab) => {
+    setWorkspace((current) => {
+      if (!includesTab(current.tabs, tab) || sameTab(tab, next)) return current
+      const tabs = includesTab(current.tabs, next)
+        ? current.tabs.filter((other) => !sameTab(other, tab))
+        : current.tabs.map((other) => sameTab(other, tab) ? next : other)
+      return { ...current, tabs }
+    })
+  }, [])
+
   function closeTabs(closing: readonly WorkspaceTab[], activeTab: WorkspaceTab | null) {
     const closed = workspace.tabs.filter((tab) => includesTab(closing, tab))
     if (closed.length === 0) return null
@@ -56,5 +68,5 @@ export function useDocumentWorkspace(active: WorkspaceTab | null) {
     return { tabs: closed, replacement: replacement ?? null }
   }
 
-  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeTabs, restore }
+  return { tabs: workspace.tabs, modes: workspace.modes, setDocumentMode, closeTabs, replaceTab, restore }
 }

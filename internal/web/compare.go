@@ -129,7 +129,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 	switch compare {
 	case "working":
 	case "branch":
-		allowed["base"], allowed["head"] = true, true
+		allowed["base"], allowed["head"], allowed["uncommitted"] = true, true, true
 	case "commit":
 		allowed["commit"] = true
 	case "range":
@@ -138,11 +138,16 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Compare must be working, branch, commit, or range."})
 		return
 	}
-	for _, name := range []string{"base", "head", "commit", "from", "to"} {
+	for _, name := range []string{"base", "head", "uncommitted", "commit", "from", "to"} {
 		if query.Has(name) && !allowed[name] {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("%s%s doesn't apply to a %s compare.", strings.ToUpper(name[:1]), name[1:], compare)})
 			return
 		}
+	}
+	uncommitted, invalid := uncommittedQuery(query)
+	if invalid != "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: invalid})
+		return
 	}
 	var hashes []git.Hash
 	for _, name := range []string{"commit", "from", "to"} {
@@ -158,7 +163,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 	}
 
 	failure := "Couldn't read git history: "
-	if compare == "working" {
+	if compare == "working" || uncommitted {
 		failure = "Couldn't read git status: "
 	}
 	repo, err := git.Open(project.root)
@@ -178,7 +183,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	sides, err := a.compareSides(ctx, repo, project.root, compare, query.Get("base"), query.Get("head"), hashes)
+	sides, err := a.compareSides(ctx, repo, project.root, compare, query.Get("base"), query.Get("head"), uncommitted, hashes)
 	switch {
 	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
@@ -199,27 +204,21 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 
 // compareSides lists a compare's changes as its list endpoint does and
 // says where each change's sides are read from.
-func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, compare, base, head string, hashes []git.Hash) (compareSides, error) {
-	switch compare {
-	case "working":
+func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, compare, base, head string, uncommitted bool, hashes []git.Hash) (compareSides, error) {
+	switch {
+	case compare == "working":
 		changes, err := repo.Status(ctx, git.StatusOptions{Limit: changesLimit})
 		if err != nil {
 			return compareSides{}, err
 		}
-		entries, err := repo.Entries(changes.Files)
+		return a.worktreeSides(repo, root, changes.Files, repo.HeadBlob)
+	case compare == "branch" && uncommitted:
+		compared, changes, err := repo.BranchWorkingFiles(ctx, base, git.StatusOptions{Limit: changesLimit})
 		if err != nil {
 			return compareSides{}, err
 		}
-		byPath := make(map[string]git.Entry, len(entries))
-		for _, entry := range entries {
-			byPath[entry.Path] = entry
-		}
-		return compareSides{
-			changes:  changes.Files,
-			original: blobSide(repo.HeadBlob, true),
-			modified: func(change git.Change) (statsSide, error) { return a.worktreeStatsSide(root, byPath[change.Path]) },
-		}, nil
-	case "branch":
+		return a.worktreeSides(repo, root, changes.Files, func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Reference, name) })
+	case compare == "branch":
 		compared, changes, err := repo.BranchFiles(ctx, base, head, commitFilesLimit)
 		if err != nil {
 			return compareSides{}, err
@@ -229,7 +228,7 @@ func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, comp
 			original: blobSide(func(name string) (git.Blob, error) { return repo.CommitBlob(compared.MergeBase, name) }, true),
 			modified: blobSide(func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Head, name) }, false),
 		}, nil
-	case "commit":
+	case compare == "commit":
 		hash := hashes[0]
 		changes, err := repo.CommitFiles(ctx, hash, commitFilesLimit)
 		if err != nil {
@@ -252,6 +251,24 @@ func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, comp
 			modified: blobSide(func(name string) (git.Blob, error) { return repo.CommitBlob(to, name) }, false),
 		}, nil
 	}
+}
+
+// worktreeSides reads changes listed against the worktree: original sides
+// through blob, modified sides from the worktree.
+func (a *App) worktreeSides(repo *git.Repository, root string, changes []git.Change, blob func(name string) (git.Blob, error)) (compareSides, error) {
+	entries, err := repo.Entries(changes)
+	if err != nil {
+		return compareSides{}, err
+	}
+	byPath := make(map[string]git.Entry, len(entries))
+	for _, entry := range entries {
+		byPath[entry.Path] = entry
+	}
+	return compareSides{
+		changes:  changes,
+		original: blobSide(blob, true),
+		modified: func(change git.Change) (statsSide, error) { return a.worktreeStatsSide(root, byPath[change.Path]) },
+	}, nil
 }
 
 // blobSide reads a change's side from git objects: the original side at a

@@ -1,4 +1,4 @@
-import { isChangeStatus, type ChangeStatus } from "./changes-contract.ts"
+import { isChangedFile, isChangeStatus, type ChangedFile, type ChangeStatus } from "./changes-contract.ts"
 import { isRecord } from "./http.ts"
 import { isCommitHash } from "../lib/commit-hash.ts"
 
@@ -50,7 +50,8 @@ export interface CommitFilesResponse {
 }
 
 // BranchFilesResponse lists the net changes from the merge-base with base to
-// head.
+// head, or with uncommitted=1 to the working tree, whose files may be
+// untracked.
 export interface BranchFilesResponse {
   repository: boolean
   branch: string
@@ -61,8 +62,11 @@ export interface BranchFilesResponse {
   // head is "" when HEAD is unborn.
   head: string
   ahead: number
-  files: CommitFile[]
+  files: ChangedFile[]
   truncated: boolean
+  // warnings are folders the untracked walk could not read; only a compare
+  // with uncommitted changes walks (decision 0051).
+  warnings: string[]
 }
 
 // RangeFilesResponse lists the net changes from from's first parent to to.
@@ -140,8 +144,10 @@ export function isBranchFilesResponse(value: unknown): value is BranchFilesRespo
     && Number.isInteger(value.ahead)
     && value.ahead >= 0
     && Array.isArray(value.files)
-    && value.files.every(isCommitFile)
+    && value.files.every(isChangedFile)
     && typeof value.truncated === "boolean"
+    && Array.isArray(value.warnings)
+    && value.warnings.every((warning) => typeof warning === "string")
 }
 
 export function isRangeFilesResponse(value: unknown): value is RangeFilesResponse {

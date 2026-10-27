@@ -44,3 +44,15 @@ test("created files appear in the tree and Source Control", async ({ page }) => 
   const uncommitted = page.getByRole("region", { name: "Source Control" }).getByRole("region", { name: "Uncommitted", exact: true })
   await expect(uncommitted.getByRole("option", { name: /^fresh\.md, / })).toBeVisible()
 })
+
+test("a branch review with uncommitted changes lists files created on disk", async ({ page }) => {
+  // With nothing ahead of main, the branch's merge base is HEAD (decision 0051).
+  writeFileSync(path.join(liveFixtureRoot, "scoped.md"), "# Scoped\n")
+  await page.goto(`${liveApiOrigin}/view?project=${project}&review=branch&uncommitted=1`)
+  await expect(liveIndicator(page)).toHaveAttribute("data-mode", "watching")
+  const main = page.getByRole("main")
+  await expect(main.getByRole("region", { name: "scoped.md", exact: true })).toBeVisible()
+
+  writeFileSync(path.join(liveFixtureRoot, "later.md"), "# Later\n")
+  await expect(main.getByRole("region", { name: "later.md", exact: true })).toBeVisible()
+})

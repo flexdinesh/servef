@@ -1063,6 +1063,63 @@ test("HEAD's branch review follows HEAD and survives reloads", async ({ page }) 
   await expect(diffLines(page, "change-addition", "docs/history.md").filter({ hasText: "Written on the feature branch." })).toBeVisible()
 })
 
+test("HEAD's branch review adds uncommitted changes in place and marks their files", async ({ page }) => {
+  await openReview(page, "review=branch#f=clean.md")
+  const branchTab = page.getByRole("tab", { name: "vs main", exact: true })
+  await expect(branchTab).toHaveAttribute("aria-selected", "true")
+  const scope = page.getByRole("main").getByRole("group", { name: "Changes to include" })
+  const committed = scope.getByRole("button", { name: "Committed", exact: true })
+  const uncommitted = scope.getByRole("button", { name: `Include uncommitted changes, ${gitFixtureChanges} files` })
+  await expect(committed).toHaveAttribute("aria-pressed", "true")
+  await expect(uncommitted).toHaveAttribute("aria-pressed", "false")
+  await expect(reviewFile(page, "docs/history.md")).toBeVisible()
+  await expect(reviewFile(page, "README.md")).toHaveCount(0)
+  await expect(page.getByRole("main").getByRole("img", { name: "Has uncommitted changes" })).toHaveCount(0)
+
+  // The tab switches in place and keeps the file in view.
+  await uncommitted.click()
+  const combinedTab = page.getByRole("tab", { name: "vs main + uncommitted", exact: true })
+  await expect(combinedTab).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab")).toHaveCount(1)
+  expect(reviewSearch(page)).toEqual({ review: "branch", uncommitted: "1" })
+  await expect(page).toHaveURL(/#f=clean\.md$/)
+  await expect(uncommitted).toHaveAttribute("aria-pressed", "true")
+
+  // Committed and uncommitted changes read from the merge base to the
+  // working tree; only files with uncommitted edits carry the dot.
+  await expect(reviewFile(page, "docs/history.md")).toBeVisible()
+  await expect(reviewFile(page, "docs/index.md")).toBeVisible()
+  await expect(reviewFile(page, "untracked.txt")).toBeVisible()
+  await expect(reviewFile(page, "README.md").getByRole("img", { name: "Has uncommitted changes" })).toBeVisible()
+  await expect(reviewFile(page, "clean.md").getByRole("img", { name: "Has uncommitted changes" })).toHaveCount(0)
+  await expect(diffLines(page, "change-addition", "clean.md").filter({ hasText: "Edited on the feature branch." })).toBeVisible()
+  await expect(rail(page).locator('[data-item-path="README.md"] [title^="Has uncommitted changes"]')).toBeVisible()
+  await expect(rail(page).locator('[data-item-path="clean.md"] [title^="Has uncommitted changes"]')).toHaveCount(0)
+  await reviewFile(page, "README.md").scrollIntoViewIfNeeded()
+  await expect(diffLines(page, "change-addition", "README.md").filter({ hasText: "Two, changed" })).toBeVisible()
+
+  // The scope survives a reload, and switching back restores the tab.
+  await page.reload()
+  await expect(combinedTab).toHaveAttribute("aria-selected", "true")
+  await committed.click()
+  await expect(branchTab).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByRole("tab")).toHaveCount(1)
+  expect(reviewSearch(page)).toEqual({ review: "branch" })
+  await expect(reviewFile(page, "README.md")).toHaveCount(0)
+})
+
+test("a clean checkout's branch review keeps + Uncommitted, disabled with its reason", async ({ page }) => {
+  await page.goto(`${gitApiOrigin}/view?project=${baseProject}&review=branch`)
+  const scope = page.getByRole("main").getByRole("group", { name: "Changes to include" })
+  const uncommitted = scope.getByRole("button", { name: "Include uncommitted changes", exact: true })
+  await expect(uncommitted).toHaveAttribute("aria-disabled", "true")
+  await expect(uncommitted).toHaveAttribute("title", "No uncommitted changes")
+  // aria-disabled keeps it focusable; a click does nothing.
+  await uncommitted.dispatchEvent("click")
+  await expect(scope.getByRole("button", { name: "Committed", exact: true })).toHaveAttribute("aria-pressed", "true")
+  expect(reviewSearch(page)).toEqual({ review: "branch" })
+})
+
 test("the base picker changes the stack's base and is remembered", async ({ page }) => {
   await openSourceControl(page)
   const branches = pane(page, "Branches")

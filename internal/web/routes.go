@@ -115,7 +115,7 @@ func (a *App) newRoutes() *http.ServeMux {
 		a.serveCommitFiles(w, r, query.Get("project"), query.Get("commit"))
 	})
 	api("/api/branch-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveBranchFiles(w, r, query.Get("project"), query.Get("base"), query.Get("head"))
+		a.serveBranchFiles(w, r, query.Get("project"), query)
 	})
 	api("/api/branch-stack", func(w http.ResponseWriter, r *http.Request, query url.Values) {
 		a.serveBranchStack(w, r, query.Get("project"), query.Get("base"))

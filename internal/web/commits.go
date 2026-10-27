@@ -36,6 +36,21 @@ const (
 	unknownHeadCode = "unknownHead"
 )
 
+// uncommittedQuery reads uncommitted=1, which adds the working tree to
+// HEAD's branch compare (decision 0051). It returns a message for invalid
+// input: another value, or a head branch, whose worktree is not checked out.
+func uncommittedQuery(query url.Values) (bool, string) {
+	switch {
+	case !query.Has("uncommitted"):
+		return false, ""
+	case query.Get("uncommitted") != "1":
+		return false, "Uncommitted must be 1."
+	case query.Get("head") != "":
+		return false, "Uncommitted applies to HEAD's branch only."
+	}
+	return true, ""
+}
+
 // writeUnknownBase writes the failure for a base branch the repository does
 // not list and reports whether err was one.
 func writeUnknownBase(w http.ResponseWriter, err error) bool {
@@ -233,10 +248,18 @@ func (a *App) serveDiffs(w http.ResponseWriter, r *http.Request, projectID strin
 		writeDiffQueryError(w, "Base applies to branch diffs only.")
 	case query.Has("head") && !branch:
 		writeDiffQueryError(w, "Head applies to branch diffs only.")
+	case query.Has("uncommitted") && !branch:
+		writeDiffQueryError(w, "Uncommitted applies to branch diffs only.")
 	case commit:
 		a.serveCommitDiff(w, r, projectID, query.Get("commit"), name, oldPath)
 	case branch && query.Get("branch") != "1":
 		writeDiffQueryError(w, "Branch must be 1.")
+	case branch && query.Has("uncommitted"):
+		if _, message := uncommittedQuery(query); message != "" {
+			writeDiffQueryError(w, message)
+			return
+		}
+		a.serveBranchWorkingDiff(w, r, projectID, query.Get("base"), name, oldPath)
 	case branch:
 		a.serveBranchDiff(w, r, projectID, query.Get("base"), query.Get("head"), name, oldPath)
 	case ranged && (!query.Has("from") || !query.Has("to")):
@@ -261,6 +284,9 @@ type branchFilesResponse struct {
 	Ahead      int          `json:"ahead"`
 	Files      []git.Change `json:"files"`
 	Truncated  bool         `json:"truncated"`
+	// Warnings are directories the untracked walk could not read; only a
+	// compare with uncommitted changes walks.
+	Warnings []string `json:"warnings"`
 }
 
 type rangeFilesResponse struct {
@@ -272,14 +298,21 @@ type rangeFilesResponse struct {
 
 // serveBranchFiles lists the branch's net changes: the merge base with the
 // base branch, base or else the default, against the head branch, or else
-// HEAD. It is read live, never pinned.
-func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID, base, head string) {
+// HEAD; with uncommitted=1, HEAD's against the working tree. It is read
+// live, never pinned.
+func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID string, query url.Values) {
+	base, head := query.Get("base"), query.Get("head")
+	uncommitted, invalid := uncommittedQuery(query)
+	if invalid != "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: invalid})
+		return
+	}
 	project, status, message := a.project(projectID)
 	if status != http.StatusOK {
 		writeJSON(w, status, errorResponse{Error: message})
 		return
 	}
-	response := branchFilesResponse{Files: []git.Change{}}
+	response := branchFilesResponse{Files: []git.Change{}, Warnings: []string{}}
 	repo, err := git.Open(project.root)
 	if errors.Is(err, git.ErrNotRepository) {
 		writeJSON(w, http.StatusOK, response)
@@ -293,7 +326,18 @@ func (a *App) serveBranchFiles(w http.ResponseWriter, r *http.Request, projectID
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	compared, changes, err := repo.BranchFiles(ctx, base, head, commitFilesLimit)
+	var compared git.BranchRange
+	var changes git.CommitChanges
+	if uncommitted {
+		var working git.BranchWorking
+		var listed git.Changes
+		working, listed, err = repo.BranchWorkingFiles(ctx, base, git.StatusOptions{Limit: changesLimit})
+		compared = working.BranchRange
+		changes = git.CommitChanges{Files: listed.Files, Truncated: listed.Truncated}
+		response.Warnings = warningStrings(listed.Warnings)
+	} else {
+		compared, changes, err = repo.BranchFiles(ctx, base, head, commitFilesLimit)
+	}
 	switch {
 	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
@@ -540,6 +584,52 @@ func (a *App) serveBranchDiff(w http.ResponseWriter, r *http.Request, projectID,
 	a.writeHistoryDiff(w, change,
 		historySide{"the merge base " + compared.MergeBase.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(compared.MergeBase, name) }},
 		historySide{compared.Head.String()[:7], func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Head, name) }})
+}
+
+// serveBranchWorkingDiff pairs Reference, the merge base when HEAD is ahead
+// of base, or else the default base branch (Original), with the worktree
+// (Modified) for one change of HEAD's branch with uncommitted changes,
+// resolved again on every request. A path outside its changes is
+// unchanged, as in the branch diff.
+func (a *App) serveBranchWorkingDiff(w http.ResponseWriter, r *http.Request, projectID, base, name, oldPath string) {
+	project, status, message := a.project(projectID)
+	if status != http.StatusOK {
+		writeJSON(w, status, errorResponse{Error: message})
+		return
+	}
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "No file was selected."})
+		return
+	}
+	repo, err := git.Open(project.root)
+	if errors.Is(err, git.ErrNotRepository) {
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: changeUnavailableMessage})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git status: " + err.Error()})
+		return
+	}
+	defer func() { _ = repo.Close() }()
+
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	compared, entry, err := repo.BranchWorkingLookup(ctx, base, name, oldPath)
+	switch {
+	case writeUnknownBase(w, err):
+		return
+	case errors.Is(err, git.ErrUnchanged), errors.Is(err, git.ErrUnavailable):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: fmt.Sprintf("No changes to %s on this branch.", name), Code: unchangedCode})
+		return
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Couldn't read git status: " + err.Error()})
+		return
+	}
+	label := "the last commit"
+	if compared.Reference != compared.Head {
+		label = "the merge base " + compared.Reference.String()[:7]
+	}
+	a.writeWorktreeDiff(w, project.root, entry, label, func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Reference, name) })
 }
 
 // writeLookupError writes a failed history lookup and reports whether err

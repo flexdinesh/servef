@@ -1,0 +1,41 @@
+{
+  "repository": true,
+  "branch": "feature/commit-history",
+  "base": "main",
+  "mergeBase": "50b13ed0a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "head": "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b",
+  "ahead": 2,
+  "files": [
+    {
+      "path": "assets/sample.bin",
+      "status": "modified"
+    },
+    {
+      "path": "code/app.js",
+      "status": "added"
+    },
+    {
+      "path": "code/main.go",
+      "status": "modified"
+    },
+    {
+      "path": "config/servef.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "guides/getting-started.md",
+      "oldPath": "guides/intro.md",
+      "status": "renamed"
+    },
+    {
+      "path": "guides/new-guide.md",
+      "status": "untracked"
+    },
+    {
+      "path": "notes.txt",
+      "status": "modified"
+    }
+  ],
+  "truncated": false,
+  "warnings": []
+}

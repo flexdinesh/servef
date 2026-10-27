@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { rangeCount, type Compare } from "./compare.ts"
 import { compareFileList, type CompareDetails, type FileList } from "./compare-files.ts"
@@ -25,7 +25,7 @@ export function useCompareData(project: string, compare: Compare | null, changes
   const list = useMemo((): FileList | null => compare && compareFileList(compare, {
     working: changes.result,
     workingError: changes.error,
-    branch: (base, head) => branchList(branches.get(branchKey(base, head))),
+    branch: (base, head, uncommitted) => branchList(branches.get(branchKey(base, head, uncommitted))),
     commit: (hash) => files.get(hash),
     range: (from, to) => rangeFiles.get(rangeKey(from, to)),
   }), [branches, changes.error, changes.result, compare, files, rangeFiles])
@@ -34,29 +34,48 @@ export function useCompareData(project: string, compare: Compare | null, changes
   const missing = compare !== null && list?.kind === "loading"
   const branchBase = compare?.kind === "branch" ? compare.base : null
   const branchHead = compare?.kind === "branch" ? compare.head : ""
-  const branchId = branchBase !== null ? branchKey(branchBase, branchHead) : null
+  const branchWorking = compare?.kind === "branch" && compare.uncommitted
+  const branchId = branchBase !== null ? branchKey(branchBase, branchHead, branchWorking) : null
   const branchKnown = branchId !== null && branches.has(branchId)
   const commitHash = compare?.kind === "commit" ? compare.hash : ""
   const rangeFrom = compare?.kind === "range" ? compare.from : ""
   const rangeTo = compare?.kind === "range" ? compare.to : ""
+  // workingListed names the branch-with-working-tree list read last and the
+  // status read it followed.
+  const workingListed = useRef({ id: "", read: -1 })
+  const workingRead = changes.read
   useEffect(() => {
     if (!missing) return
-    if (branchBase !== null && !branchKnown) loadBranch(branchBase, branchHead)
+    if (branchBase !== null && !branchKnown) {
+      loadBranch(branchBase, branchHead, false, branchWorking)
+      if (branchWorking && branchId !== null) workingListed.current = { id: branchId, read: workingRead }
+    }
     if (commitHash) loadFiles(commitHash)
     if (rangeFrom && rangeTo) loadRangeFiles(rangeFrom, rangeTo)
-  }, [branchBase, branchHead, branchKnown, commitHash, loadBranch, loadFiles, loadRangeFiles, missing, rangeFrom, rangeTo])
+  }, [branchBase, branchHead, branchId, branchKnown, branchWorking, commitHash, loadBranch, loadFiles, loadRangeFiles, missing, rangeFrom, rangeTo, workingRead])
 
+  // A branch with the working tree rereads its list with every status read,
+  // so files the working tree adds or restores join or leave it.
+  useEffect(() => {
+    if (branchBase === null || !branchWorking || !branchKnown || branchId === null) return
+    const listed = workingListed.current
+    if (listed.id === branchId && listed.read === workingRead) return
+    workingListed.current = { id: branchId, read: workingRead }
+    loadBranch(branchBase, branchHead, true, true)
+  }, [branchBase, branchHead, branchId, branchKnown, branchWorking, loadBranch, workingRead])
+
+  // A branch with the working tree also moves with every status read.
   const branchState = branchId !== null ? branches.get(branchId) : undefined
   const version = !compare || list?.kind !== "ready" ? null
     : compare.kind === "working" ? `read:${changes.read}`
-    : compare.kind === "branch" ? `${branchState?.result?.head ?? ""}:${branchState?.result?.mergeBase ?? ""}`
+    : compare.kind === "branch" ? `${branchState?.result?.head ?? ""}:${branchState?.result?.mergeBase ?? ""}${compare.uncommitted ? `:read:${changes.read}` : ""}`
     : ""
   const stats = useCompareStats(project, compare, version)
 
   const retry = useCallback(() => {
     if (!compare) return
     if (compare.kind === "working") changes.refresh()
-    else if (compare.kind === "branch") loadBranch(compare.base, compare.head, true)
+    else if (compare.kind === "branch") loadBranch(compare.base, compare.head, true, compare.uncommitted)
     else if (compare.kind === "commit") loadFiles(compare.hash, true)
     else loadRangeFiles(compare.from, compare.to, true)
   }, [changes, compare, loadBranch, loadFiles, loadRangeFiles])

@@ -24,5 +24,6 @@
       "status": "renamed"
     }
   ],
-  "truncated": false
+  "truncated": false,
+  "warnings": []
 }

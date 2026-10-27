@@ -20,6 +20,7 @@ function statsUrl(project: string, compare: Compare): string {
   const params = new URLSearchParams({ project, compare: compare.kind })
   if (compare.kind === "branch" && compare.base) params.set("base", compare.base)
   if (compare.kind === "branch" && compare.head) params.set("head", compare.head)
+  if (compare.kind === "branch" && compare.uncommitted) params.set("uncommitted", "1")
   if (compare.kind === "commit") params.set("commit", compare.hash)
   if (compare.kind === "range") {
     params.set("from", compare.from)

@@ -358,7 +358,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 
 	result, ok := c.compares[compare]
 	if !ok {
-		sides, err := c.app.compareSides(c.ctx, repo, c.root, compare.Kind, compare.Base, compare.Head, hashes)
+		sides, err := c.app.compareSides(c.ctx, repo, c.root, compare.Kind, compare.Base, compare.Head, false, hashes)
 		switch {
 		case errors.Is(err, git.ErrUnknownBase):
 			result.problem = &walkthrough.Problem{Field: ".compare.base", Message: "is not a branch servef lists"}

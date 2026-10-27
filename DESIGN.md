@@ -573,7 +573,12 @@ choosing a file jumps there and closes the sheet.
 
 The tab body opens on a header (16px inset): the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
-“12 files”, `+120 −30` (in the status hues), and “3 of 12 viewed”. Files follow on a recessed
+“12 files”, `+120 −30` (in the status hues), and “3 of 12 viewed”. HEAD's
+branch review adds a small `SegmentedControl` above the totals, “Committed” |
+“+ Uncommitted 8” (muted tabular count), whose second item is `aria-disabled`
+with “No uncommitted changes” on a clean checkout; while it is pressed, files
+with uncommitted edits carry a 6px `accent` dot before the status letter
+(decision 0051). Files follow on a recessed
 `workspace-chrome` gutter (8px inset, 12px between files, 32px below the last),
 each an island: a `surface` section with `--radius-island` corners and the
 `island-border` hairline (Servef Light only), as the workspace islands sit on

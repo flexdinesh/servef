@@ -98,6 +98,14 @@ back to one commit, and Cmd/Ctrl+C copies a commit's hash. On a branch, one
 button reviews just that branch's own commits against the branch below it,
 the other everything since the base.
 
+Your checked-out branch's review against the base can also include your
+uncommitted work. Its header switches between **Committed**, the commits only,
+as a pull request shows them, and **+ Uncommitted**, everything from the
+merge-base to your working tree. The tab switches in place, keeps the file in
+view, and reads `vs main + uncommitted`; files with uncommitted edits carry a
+dot. The review opens on Committed; with nothing uncommitted, + Uncommitted
+stays disabled.
+
 A review opens in one tab: every file's diff stacked under a sticky header,
 loaded as you scroll, with split or unified view, wrap, ignore whitespace,
 word or character inline changes, expand unchanged, and Expand/Collapse All

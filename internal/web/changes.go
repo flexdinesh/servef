@@ -125,24 +125,33 @@ func (a *App) serveDiff(w http.ResponseWriter, r *http.Request, projectID, name,
 		return
 	}
 
-	fileType := a.config.Types.Lookup(name).Type()
+	a.writeWorktreeDiff(w, project.root, entry, "the last commit", repo.HeadBlob)
+}
+
+// writeWorktreeDiff reads a validated change's sides under the 0004 limits:
+// Original through blob, from the rename's old path when there is one, and
+// Modified from the worktree. label names Original's commit in errors.
+func (a *App) writeWorktreeDiff(w http.ResponseWriter, root string, entry git.Entry, label string, blob func(name string) (git.Blob, error)) {
+	fileType := a.config.Types.Lookup(entry.Path).Type()
 	response := diffResponse{Path: entry.Path, OldPath: entry.OldPath, Status: entry.Status, DocumentType: fileType}
+	var err error
 	if entry.Status != git.Added && entry.Status != git.Untracked {
 		original := entry.Path
 		if entry.OldPath != "" {
 			original = entry.OldPath
 		}
-		blob, err := repo.HeadBlob(original)
+		var side git.Blob
+		side, err = blob(original)
 		if err == nil {
-			response.Original, err = readDiffSide(blob.Size, blob.Open, fileType)
+			response.Original, err = readDiffSide(side.Size, side.Open, fileType)
 		}
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from the last commit: %v", original, err)})
+			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s from %s: %v", original, label, err)})
 			return
 		}
 	}
 	if entry.Status != git.Deleted {
-		response.Modified, err = a.readWorktreeSide(project.root, entry, fileType)
+		response.Modified, err = a.readWorktreeSide(root, entry, fileType)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("Could not read %s: %v", entry.Path, err)})
 			return

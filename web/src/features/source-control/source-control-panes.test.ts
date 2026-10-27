@@ -45,14 +45,14 @@ test("stack layers name their commits, current first", () => {
 test("stack rows diff each layer against the one below, and everything against the base", () => {
   const rows = stackRows(stack([layer("feat-c", c, "feat-b"), layer("feat-b", b, "feat-a", true), layer("feat-a", a, "main")]), "")
   assert.deepEqual(rows.map((row) => row.layerDiff), [
-    { kind: "branch", base: "feat-b", head: "feat-c" },
-    { kind: "branch", base: "feat-a", head: "" },
+    { kind: "branch", base: "feat-b", head: "feat-c", uncommitted: false },
+    { kind: "branch", base: "feat-a", head: "", uncommitted: false },
     null,
   ])
   assert.deepEqual(rows.map((row) => row.baseDiff), [
-    { kind: "branch", base: "", head: "feat-c" },
-    { kind: "branch", base: "", head: "" },
-    { kind: "branch", base: "", head: "feat-a" },
+    { kind: "branch", base: "", head: "feat-c", uncommitted: false },
+    { kind: "branch", base: "", head: "", uncommitted: false },
+    { kind: "branch", base: "", head: "feat-a", uncommitted: false },
   ])
   assert.deepEqual(stackRows(null, ""), [])
 })

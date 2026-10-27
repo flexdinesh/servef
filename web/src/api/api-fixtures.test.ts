@@ -195,6 +195,14 @@ test("commit history fixtures satisfy runtime contracts", async () => {
   assert.equal(branchFiles.base, branch.base)
   assert.equal(branchFiles.ahead, branch.ahead)
   assert.notEqual(branchFiles.mergeBase, "")
+  // With uncommitted changes the branch lists the working tree's files too,
+  // untracked ones included.
+  const branchWorking = await fixture("branch-files-uncommitted.json")
+  assert.ok(isBranchFilesResponse(branchWorking))
+  assert.equal(branchWorking.head, branch.head)
+  assert.ok(branchWorking.files.some((file) => file.status === "untracked"))
+  for (const file of branchFiles.files) assert.ok(branchWorking.files.some((other) => other.path === file.path))
+  assert.equal(isBranchFilesResponse({ ...branchWorking, warnings: undefined }), false)
   const rangeFiles = await fixture("range-files.json")
   assert.ok(isRangeFilesResponse(rangeFiles))
   assert.equal(rangeFiles.to, branch.head)

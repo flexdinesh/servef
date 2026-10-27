@@ -26,8 +26,9 @@ export type FileList =
 export interface FileListSources {
   working: { files: readonly CompareFile[]; truncated: boolean } | null
   workingError: string
-  // branch returns head's list against base, if read.
-  branch(base: string, head: string): FileList | undefined
+  // branch returns head's list against base, if read; uncommitted is HEAD's
+  // with the working tree.
+  branch(base: string, head: string, uncommitted: boolean): FileList | undefined
   commit(hash: string): FileList | undefined
   range(from: string, to: string): FileList | undefined
 }
@@ -39,10 +40,22 @@ export function compareFileList(compare: Compare, sources: FileListSources): Fil
     if (sources.working) return { kind: "ready", files: sources.working.files, truncated: sources.working.truncated }
     return sources.workingError ? { kind: "error", message: sources.workingError } : { kind: "loading" }
   }
-  const list = compare.kind === "branch" ? sources.branch(compare.base, compare.head)
+  const list = compare.kind === "branch" ? sources.branch(compare.base, compare.head, compare.uncommitted)
     : compare.kind === "commit" ? sources.commit(compare.hash)
     : sources.range(compare.from, compare.to)
   return list ?? { kind: "loading" }
+}
+
+// uncommittedPaths are the paths, and renames' old paths, the working tree
+// changes; a branch review with uncommitted changes marks its files in them
+// (decision 0051).
+export function uncommittedPaths(files: readonly CompareFile[]): ReadonlySet<string> {
+  const paths = new Set<string>()
+  for (const file of files) {
+    paths.add(file.path)
+    if (file.oldPath) paths.add(file.oldPath)
+  }
+  return paths
 }
 
 // ancestorDirectories lists the folders holding paths, with a trailing slash
