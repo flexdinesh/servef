@@ -4,7 +4,7 @@ import path from "node:path"
 
 import { expect, test } from "@playwright/test"
 
-import { gitFixtureRoot } from "./git-fixture.ts"
+import { gitFixtureBaseWorktree, gitFixtureRoot } from "./git-fixture.ts"
 import { gitApiOrigin } from "./ports.ts"
 
 // The fixture repository is built by the git server's webServer command.
@@ -119,4 +119,27 @@ test("present mode hides the chrome until Escape, and phones step from a bar", a
   } finally {
     await request.delete(`${gitApiOrigin}/api/walkthroughs?project=${encodeURIComponent(gitFixtureRoot)}&id=${id}`)
   }
+})
+
+test("the view copies instructions that tell an agent where to publish", async ({ page }) => {
+  // The base worktree has no walkthroughs, so the list shows its empty state.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto(`${gitApiOrigin}/?project=${encodeURIComponent(gitFixtureBaseWorktree)}`)
+  await page.getByRole("navigation", { name: "Views" }).getByRole("button", { name: /^Walkthroughs/ }).click()
+  const view = page.locator(".walkthroughs-view")
+  await expect(view).toContainText("No walkthroughs for this project yet.")
+
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText())
+  await view.getByRole("button", { name: "Copy agent instructions", exact: true }).click()
+  await expect(view.getByRole("button", { name: "Copied", exact: true })).toBeVisible()
+  const copied = await clipboard()
+  expect(copied).toContain(`Project: ${gitFixtureBaseWorktree}\n`)
+  expect(copied).toContain(`POST ${gitApiOrigin}/api/walkthroughs`)
+  expect(copied.endsWith("Walk me through: ")).toBe(true)
+
+  await page.evaluate(() => navigator.clipboard.writeText(""))
+  const header = view.getByRole("button", { name: "Copy Agent Instructions", exact: true })
+  await header.click()
+  await expect(header).toHaveAttribute("data-status", "copied")
+  await expect.poll(clipboard).toBe(copied)
 })

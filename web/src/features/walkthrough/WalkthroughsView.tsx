@@ -1,5 +1,5 @@
 import {
-  ArrowLeftIcon, BookOpenIcon, FileClockIcon, FileCodeIcon, GitCompareArrowsIcon, PresentationIcon, RefreshCwIcon, RouteIcon, StickyNoteIcon,
+  ArrowLeftIcon, BookOpenIcon, CheckIcon, CopyIcon, FileClockIcon, FileCodeIcon, GitCompareArrowsIcon, PresentationIcon, RefreshCwIcon, RouteIcon, StickyNoteIcon,
   Trash2Icon, XIcon,
 } from "lucide-react"
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
@@ -10,11 +10,15 @@ import { ListRow } from "../../components/ui/list-row.tsx"
 import { Notice, StatusMessage } from "../../components/ui/notice.tsx"
 import { ViewHeader } from "../../components/ui/view-header.tsx"
 import type { Walkthrough, WalkthroughStep } from "../../api/walkthrough-contract.ts"
+import { useClipboardCopy } from "../../lib/clipboard.ts"
 import { commitAge, commitDate, type CompareContext } from "../source-control/compare.ts"
+import { agentInstructions } from "./agent-instructions.ts"
 import type { WalkthroughSession } from "./use-walkthrough-session.ts"
 import { stepLabel, stepTarget, type StepPosition } from "./walkthrough-steps.ts"
 
 interface WalkthroughsViewProps {
+  // project is the absolute path the copied agent instructions publish to.
+  project: string
   session: WalkthroughSession
   context: CompareContext
   mobile: boolean
@@ -63,16 +67,18 @@ function useRovingRows(count: number, current: number, activate: (index: number)
 // WalkthroughsView is the Walkthroughs activity (decision 0047): the
 // project's walkthroughs, newest first, then one walkthrough's steps.
 // Choosing a step opens its file or review with the narration in place.
-export function WalkthroughsView({ context, mobile, onDismiss, onPresent, session }: WalkthroughsViewProps) {
+export function WalkthroughsView({ context, mobile, onDismiss, onPresent, project, session }: WalkthroughsViewProps) {
+  const copy = <CopyInstructions project={project} />
   const close = mobile ? <IconButton label="Close walkthroughs" icon={<XIcon aria-hidden="true" />} onClick={onDismiss} /> : null
   if (!session.selectedId) {
     return (
       <div className="walkthroughs-view">
         <ViewHeader className="explorer-header sidebar-header" title="Walkthroughs" actions={<>
           <IconButton label="Refresh" icon={<RefreshCwIcon aria-hidden="true" />} onClick={session.list.refresh} />
+          {copy}
           {close}
         </>} />
-        <WalkthroughList session={session} onOpened={mobile ? onDismiss : undefined} />
+        <WalkthroughList session={session} project={project} onOpened={mobile ? onDismiss : undefined} />
       </div>
     )
   }
@@ -86,6 +92,7 @@ export function WalkthroughsView({ context, mobile, onDismiss, onPresent, sessio
             onPresent()
             if (mobile) onDismiss()
           }} />
+        {copy}
         {close}
       </>} />
       <WalkthroughDetailView session={session} context={context} onOpened={mobile ? onDismiss : undefined} />
@@ -93,7 +100,33 @@ export function WalkthroughsView({ context, mobile, onDismiss, onPresent, sessio
   )
 }
 
-function WalkthroughList({ session, onOpened }: { session: WalkthroughSession; onOpened: (() => void) | undefined }) {
+// CopyInstructions copies the prompt that teaches an agent to prepare and
+// publish a walkthrough to this servef (decision 0049): an icon in the view
+// header, or a labeled button in the empty list.
+function CopyInstructions({ project, labeled = false }: { project: string; labeled?: boolean }) {
+  const { status, copy } = useClipboardCopy()
+  const onClick = () => { void copy(agentInstructions(window.location.origin, project)) }
+  const icon = status === "copied" ? <CheckIcon aria-hidden="true" /> : status === "failed" ? <XIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />
+  return (
+    <>
+      {labeled
+        ? <Button variant="outline" data-status={status} onClick={onClick}>
+          {icon}{status === "copied" ? "Copied" : status === "failed" ? "Copy failed" : "Copy agent instructions"}
+        </Button>
+        : <IconButton label="Copy Agent Instructions" title={status === "failed" ? "Copy failed" : undefined}
+          tone={status === "copied" ? "success" : status === "failed" ? "destructive" : "default"} data-status={status} icon={icon} onClick={onClick} />}
+      <span className="visually-hidden" role="status">{status === "copied" ? "Agent instructions copied" : status === "failed" ? "Copy failed" : ""}</span>
+    </>
+  )
+}
+
+interface ListProps {
+  session: WalkthroughSession
+  project: string
+  onOpened: (() => void) | undefined
+}
+
+function WalkthroughList({ session, project, onOpened }: ListProps) {
   const { error, refresh, result } = session.list
   const entries = useMemo(() => result ?? [], [result])
   const now = useMemo(() => result ? Date.now() : 0, [result])
@@ -117,7 +150,8 @@ function WalkthroughList({ session, onOpened }: { session: WalkthroughSession; o
     return (
       <div className="walkthroughs-message">
         <StatusMessage>No walkthroughs for this project yet.</StatusMessage>
-        <StatusMessage>Ask an agent to explain a change or a feature as a walkthrough. Agents publish to <code>POST /api/walkthroughs</code>; the format is at <code>/api/walkthrough-schema</code>.</StatusMessage>
+        <StatusMessage>Ask an agent to explain a change or feature as a walkthrough. Paste these instructions into it first.</StatusMessage>
+        <CopyInstructions project={project} labeled />
       </div>
     )
   }

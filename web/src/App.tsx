@@ -571,7 +571,7 @@ export function App({ project }: AppProps) {
           search={<SearchView mobile={sidebar.mobile} onDismiss={sidebar.dismiss}
             onLeave={() => main.current?.focus({ preventScroll: true })} session={search} />}
           unseenWalkthroughs={walkthroughs.unseen}
-          walkthroughs={<WalkthroughsView session={walkthroughs} context={compareContext} mobile={sidebar.mobile} onPresent={present}
+          walkthroughs={<WalkthroughsView project={project} session={walkthroughs} context={compareContext} mobile={sidebar.mobile} onPresent={present}
             onDismiss={sidebar.dismiss} />}
           sourceControl={<SourceControlView changes={changes} commits={commits} stack={stack} layout={sourceControlLayout} refs={refs}
             working={workingData} workingPath={reviewCompare?.kind === "working" ? currentFile : ""}
