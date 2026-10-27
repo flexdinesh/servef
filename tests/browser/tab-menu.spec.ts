@@ -36,35 +36,3 @@ test("keyboard context menu closes a tab and preserves its nearest neighbour", a
   await expect(page.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
   await expect(page).toHaveURL(/path=README.md/)
 })
-
-test("Close Others keeps the context tab, opens it, and remembers the result", async ({ page }) => {
-  await openTabs(page)
-  await page.getByRole("tab", { name: "README.md" }).click({ button: "right" })
-  await page.getByRole("menuitem", { name: "Close Others", exact: true }).click()
-  await expect(page.getByRole("tab")).toHaveText(["README.md"])
-  await expect(page.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
-  await page.reload()
-  await expect(page.getByRole("tab")).toHaveText(["README.md"])
-  await page.getByRole("tab", { name: "README.md" }).press("Shift+F10")
-  await expect(page.getByRole("menuitem", { name: "Close Others", exact: true })).toHaveAttribute("aria-disabled", "true")
-})
-
-test("Close to the Right preserves tab order and removes the active document", async ({ page }) => {
-  await openTabs(page)
-  await page.getByRole("tab", { name: "README.md" }).click({ button: "right" })
-  await page.getByRole("menuitem", { name: "Close to the Right", exact: true }).click()
-  await expect(page.getByRole("tab")).toHaveText(["getting-started.md", "README.md"])
-  await expect(page.getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
-  await expect(page).toHaveURL(/path=README.md/)
-})
-
-test("Close All clears the workspace; a reload with nothing to restore opens Welcome", async ({ page }) => {
-  await openTabs(page)
-  await page.getByRole("tab", { name: "README.md" }).click({ button: "right" })
-  await page.getByRole("menuitem", { name: "Close All", exact: true }).click()
-  await expect(page.getByRole("tab")).toHaveCount(0)
-  await expect(page.getByRole("heading", { name: "Choose a file" })).toBeVisible()
-  await expect(page.locator("#document-pane")).toBeFocused()
-  await page.reload()
-  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
-})

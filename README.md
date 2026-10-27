@@ -41,7 +41,7 @@ Specific stable version:
 go install github.com/flexdinesh/servef@v0.1.3
 ```
 
-Latest `main` that passed CI:
+Latest `main` with embedded frontend assets:
 
 ```sh
 go install github.com/flexdinesh/servef@edge

@@ -95,7 +95,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
 	command.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
 	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
-	command.Flags().IntVar(&opts.port, "port", 0, "port; defaults to the first free port from 7971 to 7980")
+	command.Flags().IntVar(&opts.port, "port", 0, "port (0 asks the OS); defaults to the first free port from 7971 to 7980")
 	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
 	command.Flags().StringArrayVar(&opts.exclusions, "exclude", nil, "add a directory name to exclude (repeatable)")
 	return command

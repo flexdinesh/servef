@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os/exec"
 	"reflect"
 	"sort"
@@ -430,19 +429,13 @@ func TestResolveCommitExpandsUniqueAbbreviations(t *testing.T) {
 
 func TestResolveCommitRejectsAmbiguousAbbreviations(t *testing.T) {
 	f := newFixture(t)
-	// Two commits sharing a first digit are both named by it once at least
-	// four digits are required, so look for a shared four-digit prefix.
-	seen := map[string]plumbing.Hash{}
-	var shared string
-	for i := 0; shared == "" && i < 200_000; i++ {
-		hash := f.empty(fmt.Sprintf("commit %d", i), 1700000000+int64(i))
-		if _, ok := seen[hash.String()[:4]]; ok {
-			shared = hash.String()[:4]
-		}
-		seen[hash.String()[:4]] = hash
-	}
-	if shared == "" {
-		t.Skip("no shared prefix found")
+	// These two commits share a four-digit prefix without searching for a
+	// collision and writing hundreds of unnecessary objects on every run.
+	first := f.empty("commit 112", 1700000112)
+	second := f.empty("commit 176", 1700000176)
+	shared := first.String()[:4]
+	if first == second || shared != second.String()[:4] {
+		t.Fatalf("fixture commits %s and %s must differ but share a four-digit prefix", first, second)
 	}
 	if _, err := f.open().ResolveCommit(shared); !errors.Is(err, ErrAmbiguousCommit) {
 		t.Fatalf("ResolveCommit(%q) error = %v, want ErrAmbiguousCommit", shared, err)

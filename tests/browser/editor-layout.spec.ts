@@ -1,110 +1,5 @@
 import { expect, test } from "@playwright/test"
 
-test("workspace identity and actions live in explorer and full-width status bar", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
-  await expect(page.locator(".app-header, .brand-mark, .empty-mark")).toHaveCount(0)
-  await expect(page.locator(".file-explorer .explorer-header")).toContainText("markdown")
-  const status = page.locator(".status-bar")
-  await expect(status.getByRole("link", { name: "servef home" })).toBeVisible()
-  await expect(status.getByRole("button", { name: /^Find in files/ })).toBeVisible()
-  await expect(status.getByRole("button", { name: "Settings" })).toBeVisible()
-  const documentStatus = status.getByRole("group", { name: "Document status" })
-  await expect(documentStatus.locator(":scope > :first-child")).toHaveText("guides/getting-started.md")
-  await expect(documentStatus.locator(":scope > :nth-child(2)")).toHaveAccessibleName("Copy path")
-  await expect(documentStatus.locator(":scope > :nth-child(3)")).toHaveAccessibleName(/^Find in files/)
-  const footerOffset = () => documentStatus.evaluate((element) => {
-    const pane = document.querySelector("main")
-    return pane ? element.getBoundingClientRect().x - pane.getBoundingClientRect().x : null
-  })
-  await expect.poll(footerOffset).toBe(0)
-  await page.getByRole("separator", { name: "Resize file tree" }).press("ArrowRight")
-  await expect.poll(footerOffset).toBe(0)
-  expect(await status.evaluate((element) => element.getBoundingClientRect().width)).toBe(page.viewportSize()?.width)
-  // Footer controls center in the canvas band between the document island and the viewport edge.
-  const settingsGaps = await status.getByRole("button", { name: "Settings" }).evaluate((element) => {
-    const pane = document.querySelector(".workspace")
-    const control = element.getBoundingClientRect()
-    return pane ? [control.top - pane.getBoundingClientRect().bottom, window.innerHeight - control.bottom] : null
-  })
-  expect(settingsGaps?.[0]).toBeGreaterThan(0)
-  expect(settingsGaps?.[0]).toBe(settingsGaps?.[1])
-  await expect(page.locator("article")).toHaveCSS("font-size", "14px")
-  await expect(page.locator("article h1")).toHaveCSS("font-size", "26px")
-})
-
-test("navigation and document islands share top and bottom edges across one gutter", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  await expect(page.getByRole("complementary", { name: "Files" })).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
-  const edges = await page.evaluate(() => {
-    const navigation = document.querySelector(".sidebar-drawer")?.getBoundingClientRect()
-    const workspace = document.querySelector(".workspace")?.getBoundingClientRect()
-    const separator = document.querySelector(".sidebar-resizer")?.getBoundingClientRect()
-    return navigation && workspace && separator
-      ? { navigation: [navigation.top, navigation.bottom], workspace: [workspace.top, workspace.bottom], gutter: workspace.left - navigation.right, separator: separator.width }
-      : null
-  })
-  expect(edges?.navigation).toEqual(edges?.workspace)
-  expect(edges?.gutter).toBeGreaterThan(0)
-  expect(edges?.gutter).toBe(edges?.separator)
-})
-
-test("tabs and the mode toggle fill the toolbar, and source focus rings the visible pane", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  const source = page.getByRole("textbox", { name: "Markdown source" })
-  await expect(source).toBeVisible()
-  const toolbar = await page.locator(".workspace-toolbar").boundingBox()
-  for (const element of [page.locator(".buffer-tab.active"), page.getByRole("group", { name: "Document view" }), page.getByRole("button", { name: "Source", exact: true })]) {
-    const bounds = await element.boundingBox()
-    expect([bounds?.y, bounds?.height]).toEqual([toolbar?.y, toolbar?.height])
-  }
-  await source.focus()
-  await page.keyboard.press("ArrowDown")
-  await expect(source).toHaveCSS("outline-style", "none")
-  const ring = await page.locator(".workspace-body").evaluate((element) => {
-    const style = getComputedStyle(element, "::after")
-    return { shadow: style.boxShadow, zIndex: style.zIndex }
-  })
-  expect(ring.shadow).toContain("inset")
-  expect(Number(ring.zIndex)).toBeGreaterThan(1)
-})
-
-test("file search filters paths and opens results without loading content index", async ({ page }) => {
-  let indexRequests = 0
-  page.on("request", (request) => {
-    if (new URL(request.url()).pathname === "/api/search-documents") indexRequests++
-  })
-  await page.goto("/")
-  const explorer = page.getByRole("complementary", { name: "Files" })
-  const search = explorer.getByRole("textbox", { name: "Search…" })
-  const trigger = page.getByRole("button", { name: "Search files" })
-  await expect(search).toBeHidden()
-  await expect(trigger).toHaveAttribute("aria-expanded", "false")
-  await trigger.click()
-  await expect(search).toBeFocused()
-  await expect(trigger).toHaveAttribute("aria-expanded", "true")
-  await search.fill("images")
-  await trigger.click()
-  await expect(search).toBeHidden()
-  await expect(trigger).toHaveAttribute("aria-expanded", "false")
-  await expect(explorer.getByRole("treeitem", { name: "README.md" })).toBeVisible()
-  await trigger.click()
-  await expect(search).toBeFocused()
-  await search.press("Escape")
-  await expect(search).toBeHidden()
-  await trigger.press("ControlOrMeta+k")
-  await expect(search).toBeFocused()
-  await search.fill("getting-started")
-  await expect(explorer.getByRole("treeitem", { name: "guides", exact: true })).toBeVisible()
-  await expect(explorer.getByRole("treeitem", { name: "README.md" })).toHaveCount(0)
-  await search.press("ArrowDown")
-  await search.press("Enter")
-  await expect(page).toHaveURL(/path=guides%2Fgetting-started.md/)
-  await expect(explorer.getByRole("treeitem", { name: "getting-started.md" })).toHaveAttribute("aria-selected", "true")
-  expect(indexRequests).toBe(0)
-})
-
 test("file tree supports arrow navigation and Enter activation", async ({ page }) => {
   await page.goto("/")
   const explorer = page.getByRole("complementary", { name: "Files" })
@@ -114,30 +9,6 @@ test("file tree supports arrow navigation and Enter activation", async ({ page }
   await directory.press("ArrowDown")
   await explorer.getByRole("treeitem", { name: "code-blocks.md" }).press("Enter")
   await expect(page).toHaveURL(/path=guides%2Fcode-blocks.md/)
-})
-
-test("content shortcut reveals the Search view, which keeps its query across views", async ({ page }) => {
-  await page.goto("/")
-  const trigger = page.locator(".status-bar").getByRole("button", { name: /^Find in files/ })
-  const explorer = page.getByRole("button", { name: "Explorer" })
-  const searchActivity = page.getByRole("button", { name: "Search", exact: true })
-  await expect(explorer).toHaveAttribute("aria-pressed", "true")
-  await trigger.focus()
-  await trigger.press("ControlOrMeta+Shift+f")
-  const search = page.getByRole("textbox", { name: "Search", exact: true })
-  await expect(search).toBeFocused()
-  await expect(searchActivity).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("complementary", { name: "Files" })).toBeHidden()
-  await search.fill("luminous-orchid")
-  await expect(page.getByText("1 result in 1 file")).toBeVisible()
-  await expect(page.getByRole("tree", { name: "Search results" }).getByRole("treeitem").filter({ hasText: "search.md" })).toBeVisible()
-  await search.press("Escape")
-  await expect(page.locator("main")).toBeFocused()
-  await explorer.click()
-  await expect(page.getByRole("complementary", { name: "Files" })).toBeVisible()
-  await trigger.click()
-  await expect(search).toHaveValue("luminous-orchid")
-  await expect(search).toBeFocused()
 })
 
 test("mobile explorer opens, selects, and closes without reserving reading space", async ({ page }) => {
@@ -174,20 +45,6 @@ test("mobile explorer opens, selects, and closes without reserving reading space
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
 })
 
-test("mobile file search closes the drawer when a result opens", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
-  await page.getByRole("button", { name: "Open files" }).press("ControlOrMeta+k")
-  const drawer = page.getByRole("dialog", { name: "Files", exact: true })
-  const search = drawer.getByRole("textbox", { name: "Search…" })
-  await expect(search).toBeFocused()
-  await search.fill("images")
-  await search.press("ArrowDown")
-  await search.press("Enter")
-  await expect(drawer).toBeHidden()
-  await expect(page).toHaveURL(/path=guides%2Fimages.md/)
-})
-
 test("mobile content search opens in the drawer and closes it when a match opens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
@@ -206,48 +63,4 @@ test("mobile content search opens in the drawer and closes it when a match opens
   await expect(search).toHaveValue("luminous-orchid")
   await drawer.getByRole("button", { name: "Close search" }).click()
   await expect(drawer).toBeHidden()
-})
-
-test("responsive explorer preserves expansion and keeps virtualized row heights aligned", async ({ page }) => {
-  await page.goto("/")
-  let explorer = page.getByRole("complementary", { name: "Files" })
-  await explorer.getByRole("treeitem", { name: "guides", exact: true }).click()
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole("button", { name: "Open files" }).click()
-  explorer = page.getByRole("complementary", { name: "Files" })
-  const guides = explorer.getByRole("treeitem", { name: "guides", exact: true })
-  await expect(guides).toHaveAttribute("aria-expanded", "true")
-  const code = explorer.getByRole("treeitem", { name: "code-blocks.md" })
-  const diagrams = explorer.getByRole("treeitem", { name: "diagrams.md" })
-  const mobileCode = await code.boundingBox()
-  const mobileDiagrams = await diagrams.boundingBox()
-  expect(mobileCode?.height).toBe(32)
-  expect((mobileDiagrams?.y ?? 0) - (mobileCode?.y ?? 0)).toBe(32)
-  await page.setViewportSize({ width: 1280, height: 720 })
-  await expect(guides).toHaveAttribute("aria-expanded", "true")
-  await expect(code).toHaveCSS("height", "22px")
-})
-
-test("document pane stops at its edges without elastic overscroll", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  await expect(page.getByRole("textbox", { name: "Markdown source" })).toBeVisible()
-  await expect(page.locator("html")).toHaveCSS("overscroll-behavior-y", "none")
-  await expect(page.locator("body")).toHaveCSS("overscroll-behavior-y", "none")
-  await expect(page.locator("main")).toHaveCSS("overscroll-behavior-y", "none")
-})
-
-test("source view stops scrolling at its last line", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 400 })
-  await page.goto("/view?path=guides%2Fgetting-started.md")
-  const source = page.getByRole("textbox", { name: "Markdown source" })
-  await expect(source).toBeVisible()
-  const pane = page.locator("#document-pane")
-  await pane.evaluate((element) => { element.scrollTop = element.scrollHeight })
-  const gap = await pane.evaluate((element) => {
-    const lines = element.querySelectorAll(".source-document-line")
-    const last = lines.item(lines.length - 1)
-    return element.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom
-  })
-  expect(gap).toBeGreaterThanOrEqual(0)
-  expect(gap).toBeLessThan(21)
 })

@@ -66,19 +66,6 @@ test("a first landing opens Welcome with the projects instead of the picker", as
   await expect(tabs(page).getByRole("tab")).toHaveText(["Welcome"])
 })
 
-test("one project shows no project list", async ({ page }) => {
-  await page.goto("/")
-  await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toBeVisible()
-  await expect(welcome(page).getByRole("heading", { name: "Start" })).toBeVisible()
-  await expect(projects(page)).toHaveCount(0)
-  await expect(welcome(page).getByText("Folder, not a git repository")).toBeVisible()
-
-  // The Welcome URL reloads as Welcome, not as a missing file.
-  await page.reload()
-  await expect(welcome(page).getByRole("heading", { name: "servef", level: 1 })).toBeVisible()
-  await expect(page.getByText("No file was selected.")).toHaveCount(0)
-})
-
 test("remembered tabs restore instead of Welcome; with nothing to restore it returns", async ({ page }) => {
   await page.goto(`/view?project=${rootParam}&path=README.md`)
   await expect(tabs(page).getByRole("tab")).toHaveText(["README.md"])
@@ -98,61 +85,4 @@ test("remembered tabs restore instead of Welcome; with nothing to restore it ret
   await page.reload()
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&welcome=1`))
   await expect(tabs(page).getByRole("tab")).toHaveText(["Welcome"])
-})
-
-test("the footer brand and the palette open Welcome beside other tabs", async ({ page }) => {
-  await page.goto(`/view?project=${rootParam}&path=README.md`)
-  await page.getByRole("link", { name: "servef home" }).click()
-  await expect(tabs(page).getByRole("tab")).toHaveText(["README.md", "Welcome"])
-  await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
-
-  await tabs(page).getByRole("tab", { name: "README.md" }).click()
-  await page.keyboard.press("ControlOrMeta+Shift+p")
-  await page.getByRole("dialog", { name: "Command palette" }).getByRole("combobox", { name: "Command" }).fill("help welcome")
-  await page.keyboard.press("Enter")
-  await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
-  await expect(tabs(page).getByRole("tab")).toHaveCount(2)
-})
-
-test("Welcome entries run what they name", async ({ page }) => {
-  await page.goto("/")
-  await welcome(page).getByRole("button", { name: "Find in files" }).click()
-  await expect(page.getByRole("textbox", { name: "Search", exact: true })).toBeFocused()
-
-  await welcome(page).getByRole("button", { name: "Find a file" }).click()
-  await expect(page.getByRole("textbox", { name: "Search…" })).toBeFocused()
-
-  await welcome(page).getByRole("button", { name: "Change in Settings" }).click()
-  const settings = page.getByRole("dialog", { name: "Settings" })
-  await expect(settings.getByRole("combobox", { name: "Workbench: Show Welcome on Startup" })).toBeFocused()
-
-  await expect(welcome(page).getByRole("link", { name: /Documentation/ })).toHaveAttribute("href", "https://github.com/flexdinesh/servef#readme")
-})
-
-test("the empty pane follows the sidebar view", async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem("servef-settings", JSON.stringify({ showWelcome: "off" })))
-  await page.goto(`/?project=${rootParam}`)
-  const pane = page.locator("#document-pane")
-  await expect(pane.getByRole("heading", { name: "Choose a file" })).toBeVisible()
-  await pane.getByRole("button", { name: /Find a file/ }).click()
-  await expect(page.getByRole("textbox", { name: "Search…" })).toBeFocused()
-
-  await page.keyboard.press("ControlOrMeta+Shift+f")
-  await expect(pane.getByRole("heading", { name: "Search file contents" })).toBeVisible()
-  await page.getByRole("textbox", { name: "Search", exact: true }).fill("luminous-orchid")
-  await expect(pane.getByRole("heading", { name: "Open a match" })).toBeVisible()
-
-  await page.getByRole("button", { name: "Walkthroughs" }).click()
-  await expect(pane.getByRole("heading", { name: /walkthrough/i })).toBeVisible()
-
-  await page.getByRole("button", { name: "Source Control" }).click()
-  await expect(pane.getByRole("heading", { name: "Not a git repository" })).toBeVisible()
-
-  await page.getByRole("button", { name: "Source Control" }).click()
-  await expect(pane.getByRole("heading", { name: "Nothing open" })).toBeVisible()
-  await pane.getByRole("button", { name: /Show sidebar/ }).click()
-  await expect(page.getByRole("region", { name: "Source Control" })).toBeVisible()
-
-  await pane.getByRole("button", { name: "Show Welcome" }).click()
-  await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
 })

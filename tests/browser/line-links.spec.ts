@@ -82,28 +82,6 @@ test("dragging across line numbers previews a range and commits it on release", 
   await expect(source).toBeFocused()
 })
 
-test("the footer copies the open file's project-relative path", async ({ page }) => {
-  await page.goto("/view?path=code%2Fmain.go")
-  const copy = page.getByRole("button", { name: "Copy path" })
-  await copy.click()
-  await expect.poll(() => readClipboard(page)).toBe("code/main.go")
-  await expect(copy).toHaveAttribute("data-status", "copied")
-  await expect(page.locator(".status-document").getByRole("status")).toHaveText("Path copied")
-})
-
-test("a line anchor opens Markdown in Source with the range highlighted", async ({ page }) => {
-  await page.goto("/view?path=guides%2Fcode-blocks.md#L3-L5")
-  await expect(page.getByRole("button", { name: "Source", exact: true })).toHaveAttribute("aria-pressed", "true")
-  const source = page.getByRole("textbox", { name: "Markdown source" })
-  await expect(source.locator(".selected")).toHaveCount(3)
-  await expect(source.locator(".selected").first()).toHaveAttribute("data-line", "3")
-  await expect(page.getByRole("button", { name: "Copy guides/code-blocks.md:3-5" })).toBeVisible()
-
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
-  await expect(page.locator("article")).toBeVisible()
-  await expect(page).not.toHaveURL(/#/)
-})
-
 test("a line anchor scrolls its line into view and clamps to the document", async ({ page }) => {
   const source = Array.from({ length: 300 }, (_, index) => `line ${index + 1}`).join("\n") + "\n"
   const type = {

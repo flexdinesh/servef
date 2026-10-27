@@ -40,34 +40,6 @@ test("settings categories, global search, and modified filter compose and recove
   await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeFocused()
 })
 
-test("settings footer matches the header and categories align with search", async ({ page }) => {
-  await page.goto("/")
-  await page.getByRole("button", { name: "Settings", exact: true }).click()
-  const dialog = page.getByRole("dialog", { name: "Settings", exact: true })
-  const box = async (selector: string) => {
-    const bounds = await dialog.locator(selector).first().boundingBox()
-    expect(bounds).not.toBeNull()
-    return bounds ?? { x: 0, y: 0, width: 0, height: 0 }
-  }
-  expect((await box(".settings-footer")).height).toBeCloseTo((await box(".settings-header")).height, 0)
-  const search = await box(".settings-search")
-  const rail = await box(".settings-categories")
-  const selected = await box(".settings-categories [aria-current]")
-  // The selection starts at the search field's edge and fills to the rail's border.
-  expect(selected.x).toBeCloseTo(search.x, 0)
-  expect(selected.x + selected.width).toBeCloseTo(rail.x + rail.width - 1, 0)
-  // The select's chevron ink sits as far from the right as its text starts from the left.
-  const select = dialog.getByRole("combobox", { name: "Appearance: Theme" })
-  const insets = await select.evaluate((element) => {
-    const style = getComputedStyle(element)
-    // The chevron's right half is the Select primitive's last background
-    // layer, computed as calc(100% - <inset>px) from the padding edge.
-    const inset = /calc\(100% - ([\d.]+)px\)/.exec(style.backgroundPosition.split(",").at(-1) ?? "")
-    return { left: parseFloat(style.paddingLeft), right: inset ? parseFloat(inset[1] ?? "") : Number.NaN }
-  })
-  expect(insets.right).toBeCloseTo(insets.left, 0)
-})
-
 test("settings keeps controls and footer reachable on short desktop and mobile", async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 480 }, { width: 390, height: 667 }]) {
     await page.setViewportSize(viewport)

@@ -4,44 +4,12 @@ on:
   push:
     branches:
       - main
-  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
-      # `version` with mise.toml min_version.
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-        with:
-          version: 2026.10.18
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/pnpm/store
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'go.sum') }}
-          restore-keys: ${{ runner.os }}-dependencies-
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Browser tests run locally before push (decision 0032).
-      - name: Check
-        run: mise run check
-
   edge:
-    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

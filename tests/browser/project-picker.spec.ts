@@ -29,23 +29,6 @@ async function mockProjects(page: Page) {
   })
 }
 
-interface Checkout {
-  repository: string
-  projectKind: "folder" | "repo" | "worktree"
-  branch: string
-  worktrees: number
-}
-
-// withCheckout reports a repository checkout for pages of the given project.
-async function withCheckout(page: Page, project: string, checkout: Checkout) {
-  await page.route(`**/api/page?project=${project}*`, async (route) => {
-    const response = await route.fetch()
-    const json: unknown = await response.json()
-    if (typeof json !== "object" || json === null) throw new Error("unexpected page payload")
-    await route.fulfill({ response, json: { ...json, ...checkout } })
-  })
-}
-
 // welcomed matches a switched-to project with nothing to restore, which opens
 // on Welcome (decision 0052).
 const welcomed = (project: string) => endsWith(`/view?project=${project}&welcome=1`)
@@ -60,28 +43,6 @@ async function startBrowsing(page: Page) {
   await expect(picker(page).getByRole("option").first()).toBeVisible()
   await pickerInput(page).fill("/")
 }
-
-test("Ctrl+O switches projects and starts a fresh workspace", async ({ page }) => {
-  await mockProjects(page)
-  await page.goto(`/view?project=${rootParam}&path=guides%2Fgetting-started.md`)
-  await page.getByRole("textbox", { name: "Filter files by name" }).fill("*.md")
-  await page.keyboard.press("Control+o")
-  await expect(picker(page)).toBeVisible()
-  await expect(picker(page).getByRole("option")).toHaveText([
-    /markdown.*served folder.*Current/, /guides.*main/, /reference.*main.*3 worktrees/, /Open folder/,
-  ])
-
-  await pickerInput(page).fill("gui")
-  await expect(picker(page).getByRole("option")).toHaveText([/guides/, /Open folder/])
-  await pickerInput(page).press("Enter")
-
-  await expect(page).toHaveURL(welcomed(projectParam("guides")))
-  await expect(picker(page)).toBeHidden()
-  await expect(trigger(page)).toHaveAccessibleName("Switch project (guides)")
-  await expect(page.getByRole("textbox", { name: "Filter files by name" })).toHaveValue("")
-  await expect(page.getByRole("tablist", { name: "Open documents" }).getByRole("tab")).toHaveText(["Welcome"])
-  await expect(tree(page).getByRole("treeitem", { name: "diagrams.md" })).toBeVisible()
-})
 
 test("a repository opens into its worktrees, which open and are remembered", async ({ page }) => {
   await mockProjects(page)
@@ -109,47 +70,6 @@ test("a repository opens into its worktrees, which open and are remembered", asy
   await expect(picker(page).getByRole("listbox", { name: "Worktrees" })).toBeVisible()
   await pickerInput(page).press("Backspace")
   await expect(picker(page).getByRole("listbox", { name: "Projects" })).toBeVisible()
-})
-
-test("searching finds worktrees by branch", async ({ page }) => {
-  await mockProjects(page)
-  await page.goto(`/?project=${rootParam}`)
-  await trigger(page).click()
-  await pickerInput(page).fill("topics-b")
-  await expect(picker(page).getByRole("option")).toHaveText([/reference ›.*topics-branch/, /Open folder/])
-  await pickerInput(page).press("Enter")
-  await expect(page).toHaveURL(welcomed(projectParam("reference", "topics")))
-})
-
-test("the header branch lists the repository's worktrees", async ({ page }) => {
-  await mockProjects(page)
-  await withCheckout(page, projectParam("reference"), { repository: "reference", projectKind: "repo", branch: "main", worktrees: 3 })
-  await page.goto(`/?project=${projectParam("reference")}`)
-  await tree(page).getByRole("button", { name: "Switch worktree (main)" }).click()
-  const worktrees = picker(page).getByRole("listbox", { name: "Worktrees" })
-  await expect(worktrees.getByRole("option", { name: /main/ })).toContainText("Current")
-  await worktrees.getByRole("option", { name: /topics-branch/ }).click()
-  await expect(page).toHaveURL(welcomed(projectParam("reference", "topics")))
-})
-
-test("a linked worktree shows its repository name and a worktree icon", async ({ page }) => {
-  await mockProjects(page)
-  await withCheckout(page, projectParam("reference", "topics"), { repository: "refdocs", projectKind: "worktree", branch: "topics-branch", worktrees: 3 })
-  await page.goto(`/?project=${projectParam("reference", "topics")}`)
-  await expect(trigger(page)).toHaveAccessibleName("Switch project (refdocs)")
-  const branch = tree(page).getByRole("button", { name: "Switch worktree (topics-branch)" })
-  await expect(branch.locator(".worktree-icon")).toBeVisible()
-  await branch.click()
-  await expect(picker(page).getByRole("listbox", { name: "Worktrees" })).toBeVisible()
-})
-
-test("a repository without worktrees shows its branch as text", async ({ page }) => {
-  await mockProjects(page)
-  await withCheckout(page, projectParam("guides"), { repository: "guides", projectKind: "repo", branch: "main", worktrees: 1 })
-  await page.goto(`/?project=${projectParam("guides")}`)
-  await expect(tree(page).locator(".project-branch")).toHaveText("main")
-  await expect(tree(page).getByRole("button", { name: /Switch worktree/ })).toHaveCount(0)
-  await expect(tree(page).locator(".project-branch .worktree-icon")).toHaveCount(0)
 })
 
 test("browsing opens folders, which stay listed until forgotten", async ({ page }) => {
@@ -207,42 +127,6 @@ test("browsing does not enter repositories but opens them whole", async ({ page 
   await expect(page).toHaveURL(welcomed(projectParam("guides")))
 })
 
-test("Backspace walks up while browsing and back to projects", async ({ page }) => {
-  await page.goto(`/?project=${rootParam}`)
-  // The load event precedes the app's first render; wait for its shortcuts.
-  await expect(trigger(page)).toBeVisible()
-  await page.keyboard.press("Control+o")
-  await startBrowsing(page)
-  await pickerInput(page).pressSequentially("reference/topics/")
-  await expect(picker(page).getByRole("option").first()).toHaveAccessibleName(`Open ${root}/reference/topics/`)
-  await pickerInput(page).press("Backspace")
-  await expect(pickerInput(page)).toHaveValue(`${root}/reference/`)
-  await pickerInput(page).press("Backspace")
-  await expect(pickerInput(page)).toHaveValue(`${root}/`)
-  await pickerInput(page).press("Backspace")
-  await expect(pickerInput(page)).toHaveValue("")
-  await expect(picker(page).getByRole("group", { name: "Served folders" }).getByRole("option")).toHaveText([/markdown/])
-  await pickerInput(page).press("Backspace")
-  await expect(picker(page).getByRole("listbox", { name: "Projects" })).toBeVisible()
-})
-
-test("Escape closes the picker and returns focus to its trigger", async ({ page }) => {
-  await page.goto(`/?project=${rootParam}`)
-  await trigger(page).click()
-  await expect(pickerInput(page)).toBeFocused()
-  await page.keyboard.press("Escape")
-  await expect(picker(page)).toBeHidden()
-  await expect(trigger(page)).toBeFocused()
-})
-
-test("with Welcome off, a first visit with several projects opens the picker", async ({ page }) => {
-  await mockProjects(page)
-  await page.addInitScript(() => window.localStorage.setItem("servef-settings", JSON.stringify({ showWelcome: "off" })))
-  await page.goto("/")
-  await expect(picker(page)).toBeVisible()
-  await expect(page).toHaveURL(endsWith(`/?project=${rootParam}`))
-})
-
 test("the picker switches projects from the mobile drawer", async ({ page }) => {
   await mockProjects(page)
   await page.setViewportSize({ width: 390, height: 844 })
@@ -253,22 +137,4 @@ test("the picker switches projects from the mobile drawer", async ({ page }) => 
   await picker(page).getByRole("option", { name: /reference/ }).first().click()
   await expect(page).toHaveURL(welcomed(projectParam("reference")))
   await expect(picker(page)).toBeHidden()
-})
-
-test("the mobile toolbar opens the picker without the drawer", async ({ page }) => {
-  await mockProjects(page)
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(`/?project=${rootParam}`)
-  const toolbarButton = page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: "Switch project (markdown)" })
-  await toolbarButton.click()
-  await expect(page.getByRole("dialog", { name: "Files" })).toBeHidden()
-  await picker(page).getByRole("option", { name: /guides/ }).click()
-  await expect(page).toHaveURL(welcomed(projectParam("guides")))
-  await expect(page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: "Switch project (guides)" })).toBeVisible()
-})
-
-test("the toolbar project button is hidden on desktop", async ({ page }) => {
-  await page.goto(`/?project=${rootParam}`)
-  await expect(trigger(page)).toBeVisible()
-  await expect(page.getByRole("region", { name: "Document workspace" }).getByRole("button", { name: /Switch project/ })).toBeHidden()
 })

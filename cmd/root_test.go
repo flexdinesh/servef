@@ -1,14 +1,18 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -253,6 +257,80 @@ func TestRunReportsOccupiedExplicitPort(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "listen on 127.0.0.1 port") {
 		t.Fatalf("run() error = %v", err)
 	}
+}
+
+func TestEphemeralServersStayIndependent(t *testing.T) {
+	disableColor(t)
+	controlDir := t.TempDir()
+	start := func(content string) (string, string, func()) {
+		t.Helper()
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		reader, writer := io.Pipe()
+		urls := make(chan string, 1)
+		go func() {
+			defer reader.Close()
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				if url, ok := strings.CutPrefix(scanner.Text(), "  url:  "); ok {
+					urls <- url
+				}
+			}
+		}()
+		done := make(chan error, 1)
+		go func() {
+			err := run(ctx, options{paths: []string{root}, depth: 5, host: "127.0.0.1", port: 0, portSet: true, noOpen: true, controlDir: controlDir}, strings.NewReader(""), writer, io.Discard)
+			writer.Close()
+			done <- err
+		}()
+		var once sync.Once
+		stop := func() {
+			once.Do(func() {
+				cancel()
+				select {
+				case err := <-done:
+					if err != nil {
+						t.Error(err)
+					}
+				case <-time.After(10 * time.Second):
+					t.Error("server did not stop")
+				}
+			})
+		}
+		t.Cleanup(stop)
+		select {
+		case address := <-urls:
+			return address, root, stop
+		case <-time.After(10 * time.Second):
+			t.Fatal("server did not start")
+			return "", root, stop
+		}
+	}
+	read := func(address, root, want string) {
+		t.Helper()
+		client := http.Client{Timeout: 2 * time.Second}
+		response, err := client.Get(address + "api/page?path=README.md&project=" + url.QueryEscape(root))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil || response.StatusCode != http.StatusOK || !bytes.Contains(body, []byte(want)) {
+			t.Fatalf("page = %s, status %d, error %v; want %q", body, response.StatusCode, err, want)
+		}
+	}
+	first, firstRoot, stopFirst := start("first worktree")
+	second, secondRoot, _ := start("second worktree")
+	if first == second {
+		t.Fatal("servers share a port")
+	}
+	read(first, firstRoot, "first worktree")
+	read(second, secondRoot, "second worktree")
+	stopFirst()
+	read(second, secondRoot, "second worktree")
 }
 
 func disableColor(t *testing.T) {

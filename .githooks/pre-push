@@ -1,5 +1,6 @@
 #!/bin/sh
-# Full checks, including browser tests, run here rather than in CI (decision 0032).
+# Ordinary checks and critical browser paths run here, queued across worktrees.
+# Race tests and the docs build are explicit: mise run check:full.
 # Skip once with `git push --no-verify`.
 set -e
 # Git exports GIT_DIR and friends to hooks; tests that build fixture

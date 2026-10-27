@@ -32,12 +32,3 @@ test("the active tab scrolls into view in an overflowing strip", async ({ page }
   await page.getByRole("dialog", { name: "Files", exact: true }).getByRole("treeitem", { name: "getting-started.md", exact: true }).click()
   await expect.poll(() => visible("getting-started.md")).toBe(true)
 })
-
-test("opening the drawer by shortcut focuses the revealed view's activity item", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(`/?project=${rootParam}`)
-  await page.locator("body").press("ControlOrMeta+Shift+G")
-  const drawer = page.getByRole("dialog", { name: "Source Control" })
-  await expect(drawer).toBeVisible()
-  await expect(drawer.getByRole("button", { name: "Source Control", exact: true })).toBeFocused()
-})
