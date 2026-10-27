@@ -54,3 +54,4 @@ rewriting history; update `Status` on the old record.
 | [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
 | [0047](0047-walkthroughs.md) | Walkthroughs | Accepted |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
+| [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted |

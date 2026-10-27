@@ -39,6 +39,12 @@ They are per machine and are not shared through git.
 
 ## Writing walkthroughs (for agents)
 
+The quickest start: choose **Copy agent instructions** (the copy icon in the
+Walkthroughs header, or the button in an empty list), paste it into your agent,
+and finish the last line, “Walk me through: ”, with what to explain. The
+instructions carry this servef's address, your project's path, the format, and
+the endpoint.
+
 Agents publish with `POST /api/walkthroughs` on the running servef:
 
 ```sh
