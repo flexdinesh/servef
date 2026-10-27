@@ -1370,6 +1370,20 @@ test("Collapse All Files and Expand All Files toggle every review diff", async (
   await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
 })
 
+test("rail line stats stay whole at the rail's narrowest; names truncate instead", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await commitRow(page, "Initial").dblclick()
+  await expect(railFile(page, "large.txt")).toBeVisible()
+  const separator = rail(page).getByRole("separator", { name: "Resize review files" })
+  await separator.focus()
+  for (let step = 0; step < 4; step += 1) await page.keyboard.press("ArrowRight")
+  await expect(separator).toHaveAttribute("aria-valuenow", "12")
+  const stats = rail(page).locator('[data-item-path="large.txt"] [data-item-section="decoration"]')
+  await expect(stats).toHaveText("+24,000 −0")
+  expect(await stats.evaluate((lane) => lane.scrollWidth <= lane.clientWidth)).toBe(true)
+})
+
 test("the review header and rail are islands one gutter in from the tab strip", async ({ page }) => {
   await openReview(page, "review=branch")
   await expect(railFile(page, "clean.md")).toBeVisible()

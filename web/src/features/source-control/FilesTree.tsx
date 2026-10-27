@@ -5,13 +5,15 @@ import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent } fro
 import type { FileStats } from "../../api/compare-stats-contract.ts"
 import { treeCSS } from "../../lib/tree-css.ts"
 import { ancestorDirectories, type CompareFile } from "./compare-files.ts"
-import { statsLabel } from "./use-compare-stats.ts"
+import { fileDecoration } from "./files-tree-decoration.ts"
 
 // Every Source Control folder holds changes, so folder dots add no signal;
-// deleted files read as removed.
+// deleted files read as removed. Line stats keep their width, so long names
+// truncate instead, and their figures align down the tree.
 const changesTreeCSS = `${treeCSS}
 [data-item-contains-git-change="true"] > [data-item-section="git"] { visibility: hidden; }
-[data-item-git-status="deleted"] > [data-item-section="content"] { text-decoration: line-through; }`
+[data-item-git-status="deleted"] > [data-item-section="content"] { text-decoration: line-through; }
+[data-item-section="decoration"] { flex: none; font-variant-numeric: tabular-nums; }`
 
 // CollapseRequest asks the tree to open or close every folder; id makes a
 // repeat request distinct.
@@ -62,25 +64,10 @@ export function FilesTree({ activePath, collapseRequest, files, itemHeight, labe
     gitStatus,
     renderRowDecoration({ item }) {
       if (item.kind !== "file") return null
-      const oldPath = current.current.byPath.get(item.path)?.oldPath
-      const lines = statsLabel(current.current.stats?.get(item.path))
-      // Pierre truncates decorations from the start, so line stats win the
-      // room; the R badge says "renamed" and the title says from where.
-      const text = lines || (oldPath ? `from ${oldPath}` : "")
-      const title = [oldPath ? `Renamed from ${oldPath}` : "", lines ? `${lines} lines` : ""].filter(Boolean).join(", ")
-      // Pierre decorations are text or an icon, never both, and its CSS is
-      // fixed, so the uncommitted dot is an accent-colored text part.
-      if (current.current.marked?.has(item.path)) {
-        // A no-break space, as Pierre's decoration collapses a plain one.
-        const dot = "●"
-        return {
-          text: text ? `${dot} ${text}` : dot,
-          title: ["Has uncommitted changes", title].filter(Boolean).join(", "),
-          parts: [{ text: dot, color: "var(--color-accent)" }, ...(text ? [{ text: ` ${text}` }] : [])],
-        }
-      }
-      if (!text) return null
-      return { text, title }
+      // Line stats win the room; the R badge says "renamed" and the title
+      // says from where.
+      const { byPath, marked, stats } = current.current
+      return fileDecoration(stats?.get(item.path), byPath.get(item.path)?.oldPath, marked?.has(item.path) ?? false)
     },
     onSelectionChange(selected) {
       if (syncing.current) return

@@ -535,7 +535,9 @@ Explorer's rows, icons, and keyboard. Each file shows a right-aligned status
 letter: M (modified) `warning`, A (added) and U (untracked) `success`, D
 (deleted) `destructive`, R (renamed) `accent`; letters pair with names and
 titles, never color alone. Deleted names strike through. Line stats (`+12
-−3`, “binary”, “large”) decorate files; renamed files without stats show a
+−3` in the status hues, a zero keeping the row's ink; “binary”, “large”)
+decorate files in tabular figures and keep their width, so long names truncate
+in the middle instead; renamed files without stats show a
 muted “from <old path>”, and the title says “Renamed from <old path>”. Click
 or Space opens the file in the review and keeps focus; Enter and double-click
 move focus to it. The file in view is selected. States: “Loading files…”,
