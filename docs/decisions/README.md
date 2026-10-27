@@ -52,3 +52,4 @@ rewriting history; update `Status` on the old record.
 | [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Servef Light values amended by 0046 |
 | [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
 | [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
+| [0047](0047-walkthroughs.md) | Walkthroughs | Accepted |

@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 	"reflect"
 	"sort"
@@ -401,6 +402,50 @@ func TestParseHashAcceptsFullLowercaseHashesOnly(t *testing.T) {
 		if _, ok := ParseHash(value); ok {
 			t.Errorf("ParseHash(%q) ok", value)
 		}
+	}
+}
+
+func TestResolveCommitExpandsUniqueAbbreviations(t *testing.T) {
+	f := newFixture(t)
+	first := f.empty("first", 1700000000)
+	second := f.empty("second", 1700000100, first)
+	blob := f.object(plumbing.BlobObject, []byte("not a commit"))
+	repo := f.open()
+
+	for _, value := range []string{first.String(), first.String()[:7], first.String()[:4], first.String()[:11]} {
+		hash, err := repo.ResolveCommit(value)
+		if err != nil || hash.String() != first.String() {
+			t.Errorf("ResolveCommit(%q) = %s, %v; want %s", value, hash, err, first)
+		}
+	}
+	if hash, err := repo.ResolveCommit(second.String()[:9]); err != nil || hash.String() != second.String() {
+		t.Errorf("ResolveCommit(second) = %s, %v", hash, err)
+	}
+	for _, value := range []string{"", "abc", "zzzzzzz", strings.ToUpper(first.String()[:7]), blob.String()[:8], strings.Repeat("0", 40)} {
+		if _, err := repo.ResolveCommit(value); !errors.Is(err, ErrUnavailable) {
+			t.Errorf("ResolveCommit(%q) error = %v, want ErrUnavailable", value, err)
+		}
+	}
+}
+
+func TestResolveCommitRejectsAmbiguousAbbreviations(t *testing.T) {
+	f := newFixture(t)
+	// Two commits sharing a first digit are both named by it once at least
+	// four digits are required, so look for a shared four-digit prefix.
+	seen := map[string]plumbing.Hash{}
+	var shared string
+	for i := 0; shared == "" && i < 200_000; i++ {
+		hash := f.empty(fmt.Sprintf("commit %d", i), 1700000000+int64(i))
+		if _, ok := seen[hash.String()[:4]]; ok {
+			shared = hash.String()[:4]
+		}
+		seen[hash.String()[:4]] = hash
+	}
+	if shared == "" {
+		t.Skip("no shared prefix found")
+	}
+	if _, err := f.open().ResolveCommit(shared); !errors.Is(err, ErrAmbiguousCommit) {
+		t.Fatalf("ResolveCommit(%q) error = %v, want ErrAmbiguousCommit", shared, err)
 	}
 }
 

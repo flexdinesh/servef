@@ -12,6 +12,7 @@ import (
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
+	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
 // Config controls project discovery and the live file scan performed for each
@@ -29,6 +30,12 @@ type Config struct {
 	// uses the built-in servers for Types' text families. The App
 	// closes it.
 	LanguageServers *lsp.Manager
+	// WalkthroughDirectory stores published walkthroughs; empty uses
+	// walkthrough.DefaultDirectory.
+	WalkthroughDirectory string
+	// OpenBrowser opens a published walkthrough's URL when it asks to be
+	// opened; nil never opens one.
+	OpenBrowser func(url string) error
 }
 
 // App composes discovery and document handlers into the HTTP API.
@@ -40,10 +47,11 @@ type App struct {
 	metrics  metricsCollector
 	openFile func(string) (fs.File, error)
 	// statsBudget bounds the bytes one compare-stats request reads.
-	statsBudget int64
-	shell       string
-	servers     *lsp.Manager
-	routes      *http.ServeMux
+	statsBudget  int64
+	shell        string
+	servers      *lsp.Manager
+	walkthroughs *walkthrough.Service
+	routes       *http.ServeMux
 }
 
 // errorResponse is every JSON error body. Code, when set, names a failure
@@ -89,7 +97,14 @@ func New(config Config) (*App, error) {
 	if err := checkLanguageServers(config.LanguageServers.Servers(), config.Types); err != nil {
 		return nil, err
 	}
+	if config.WalkthroughDirectory == "" {
+		config.WalkthroughDirectory, err = walkthrough.DefaultDirectory()
+		if err != nil {
+			return nil, err
+		}
+	}
 	app := &App{config: config, roots: roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers}
+	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{app: app})
 	app.routes = app.newRoutes()
 	return app, nil
 }

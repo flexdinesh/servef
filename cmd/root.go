@@ -120,7 +120,18 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return err
 	}
 
-	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Types: document.Builtins(), Filenames: filenames})
+	// Published walkthroughs open the browser only when startup may (decision 0047).
+	var openBrowser func(string) error
+	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
+		openBrowser = func(url string) error {
+			err := browser.Open(url)
+			if err != nil {
+				_, _ = fmt.Fprintf(stderr, "  could not open browser: %v\n", err)
+			}
+			return err
+		}
+	}
+	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Types: document.Builtins(), Filenames: filenames, OpenBrowser: openBrowser})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}

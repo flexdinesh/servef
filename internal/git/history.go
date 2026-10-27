@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -51,6 +52,9 @@ var (
 	// ErrUnknownHead is returned for a head branch name that is not a local
 	// branch Branches lists.
 	ErrUnknownHead = errors.New("unknown head branch")
+	// ErrAmbiguousCommit is returned for an abbreviated hash that names more
+	// than one commit.
+	ErrAmbiguousCommit = errors.New("ambiguous commit")
 )
 
 // rangeTooLarge names the base a range was too large to compare with.
@@ -135,6 +139,50 @@ func ParseHash(value string) (Hash, bool) {
 		}
 	}
 	return Hash(plumbing.NewHash(value)), true
+}
+
+// ResolveCommit returns the commit a full or abbreviated (at least 4 digits)
+// lowercase hexadecimal hash names. It returns ErrUnavailable when no commit
+// matches and ErrAmbiguousCommit when several do.
+func (r *Repository) ResolveCommit(value string) (Hash, error) {
+	if hash, ok := ParseHash(value); ok {
+		if _, err := r.commit(plumbing.Hash(hash)); err != nil {
+			return Hash{}, err
+		}
+		return hash, nil
+	}
+	if len(value) < 4 || len(value) > 40 {
+		return Hash{}, ErrUnavailable
+	}
+	for _, c := range value {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return Hash{}, ErrUnavailable
+		}
+	}
+	// Whole bytes narrow the candidates; the odd digit is matched as text.
+	prefix := plumbing.NewHash(value + strings.Repeat("0", 40-len(value)))
+	candidates, err := r.storage.HashesWithPrefix(prefix[:len(value)/2])
+	if err != nil {
+		return Hash{}, fmt.Errorf("resolve %s: %w", value, err)
+	}
+	var found []plumbing.Hash
+	for _, candidate := range candidates {
+		if !strings.HasPrefix(candidate.String(), value) || slices.Contains(found, candidate) {
+			continue
+		}
+		if _, err := r.commit(candidate); err != nil {
+			continue
+		}
+		found = append(found, candidate)
+	}
+	switch len(found) {
+	case 0:
+		return Hash{}, ErrUnavailable
+	case 1:
+		return Hash(found[0]), nil
+	default:
+		return Hash{}, ErrAmbiguousCommit
+	}
 }
 
 // baseCandidates are the refs tried, in order, as the base branch after

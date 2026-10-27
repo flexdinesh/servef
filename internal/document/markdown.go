@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -19,13 +20,24 @@ type markdownHandler struct {
 	markdown goldmark.Markdown
 }
 
-func newMarkdown() Handler {
+func newMarkdown() Handler { return newMarkdownHandler() }
+
+func newMarkdownHandler() *markdownHandler {
 	return &markdownHandler{markdown: goldmark.New(
 		goldmark.WithExtensions(extension.GFM),
 		goldmark.WithRendererOptions(renderer.WithNodeRenderers(
 			util.Prioritized(&escapedHTMLRenderer{}, 500),
 		)),
 	)}
+}
+
+var narrationMarkdown = sync.OnceValue(newMarkdownHandler)
+
+// RenderMarkdown renders Markdown that is not a file, such as walkthrough
+// narration, as a Markdown preview does: raw HTML escaped, local links and
+// images rewritten against context.
+func RenderMarkdown(source []byte, context Context) (string, error) {
+	return narrationMarkdown().Preview(source, context)
 }
 
 func (*markdownHandler) Type() Type {
