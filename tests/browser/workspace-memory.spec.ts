@@ -2,18 +2,25 @@ import { expect, test } from "@playwright/test"
 
 import { endsWith, fixtureRoot, projectParam, rootParam } from "./fixture-root.ts"
 
-test("folder expansion survives reloads and stays independent per project", async ({ page }) => {
-  const tree = page.getByRole("complementary", { name: "Files" })
-  await page.goto(`/?project=${rootParam}`)
+test("folder expansion survives reloads and stays independent per project", async ({ context, page: firstPage }) => {
+  let tree = firstPage.getByRole("complementary", { name: "Files" })
+  await firstPage.goto(`/?project=${rootParam}`)
   await tree.getByRole("treeitem", { name: "config", exact: true }).click()
   await expect(tree.getByRole("treeitem", { name: "settings.json" })).toBeVisible()
-  await page.reload()
+  await firstPage.reload()
   await expect(tree.getByRole("treeitem", { name: "config", exact: true })).toHaveAttribute("aria-expanded", "true")
   await expect(tree.getByRole("treeitem", { name: "guides", exact: true })).toHaveAttribute("aria-expanded", "false")
 
-  await page.goto(`/?project=${projectParam("reference")}`)
+  await firstPage.goto(`/?project=${projectParam("reference")}`)
   await tree.getByRole("treeitem", { name: "topics", exact: true }).click()
   await expect(tree.getByRole("treeitem", { name: "search.md" })).toBeVisible()
+
+  // Each Vite dev load fetches about 200 modules, and Chromium fails a page's
+  // requests with ERR_INSUFFICIENT_RESOURCES after about 1,000. Continue in a
+  // new tab; it shares localStorage, where the expansion is remembered.
+  const page = await context.newPage()
+  await firstPage.close()
+  tree = page.getByRole("complementary", { name: "Files" })
   await page.goto(`/?project=${rootParam}`)
   await expect(tree.getByRole("treeitem", { name: "config", exact: true })).toHaveAttribute("aria-expanded", "true")
   await tree.getByRole("button", { name: "Collapse all folders" }).click()
