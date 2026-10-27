@@ -1370,6 +1370,23 @@ test("Collapse All Files and Expand All Files toggle every review diff", async (
   await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)")
 })
 
+test("the review header and rail are islands one gutter in from the tab strip", async ({ page }) => {
+  await openReview(page, "review=branch")
+  await expect(railFile(page, "clean.md")).toBeVisible()
+  const [main, header, column, card] = await Promise.all([
+    page.getByRole("main").boundingBox(),
+    page.getByRole("main").locator(".review-header").boundingBox(),
+    rail(page).boundingBox(),
+    rail(page).locator(".review-rail-panel").boundingBox(),
+  ])
+  if (!main || !header || !column || !card) throw new Error("review layout is not rendered")
+  expect(header.y - main.y).toBeCloseTo(pinnedOffset, 0)
+  expect(card.y - column.y).toBeCloseTo(pinnedOffset, 0)
+  expect(card.y).toBeCloseTo(header.y, 0)
+  expect(column.x + column.width - (card.x + card.width)).toBeCloseTo(pinnedOffset, 0)
+  expect(column.y + column.height - (card.y + card.height)).toBeCloseTo(pinnedOffset, 0)
+})
+
 test("Viewed marks collapse files, survive reloads, and clear when the file changes", async ({ page }) => {
   const file = path.join(gitFixtureRoot, "untracked.txt")
   const original = readFileSync(file, "utf8")

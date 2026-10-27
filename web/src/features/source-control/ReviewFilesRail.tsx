@@ -106,8 +106,10 @@ export function ReviewFilesRail({ width, onHide, onResetWidth, onResize, ...list
           if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
         }}
         onPointerCancel={() => { dragging.current = null }} />
-      <FilesList {...list}
-        close={<IconButton size="xs" label="Hide Files" icon={<PanelRightCloseIcon aria-hidden="true" />} onClick={onHide} />} />
+      <div className="review-rail-panel">
+        <FilesList {...list}
+          close={<IconButton size="xs" label="Hide Files" icon={<PanelRightCloseIcon aria-hidden="true" />} onClick={onHide} />} />
+      </div>
     </aside>
   )
 }

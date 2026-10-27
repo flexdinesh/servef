@@ -559,10 +559,15 @@ tooltip, and Unified is forced; below 30rem the layout group hides so tabs
 keep room.
 
 Commit, range, and branch reviews show a Files rail at the tab body's end:
-full height, 16rem by default (12–32rem, persisted), on `surface` with a 1px
-`border` on its leading edge. A 5px vertical separator on that edge resizes
-it, revealing a 2px accent line on hover and focus; Left and Right arrows step
-1rem and double-click restores 16rem. Its 22px header reads “Files” (12px,
+full height, 16rem by default (12–32rem, persisted, including its gutter). It
+is an island on the review's `workspace-chrome` gutter, inset like the files:
+8px from the tab strip, the island's edge, and its bottom, with the files' 8px
+inset between them; a `surface` card with `--radius-island` corners and the
+`island-border` hairline. A 5px vertical separator on the card's leading edge
+resizes it, revealing a 2px accent line (inset from the card's rounded ends)
+on hover and focus; Left and Right arrows step
+1rem and double-click restores 16rem. Its header matches a file header
+(`control-lg` tall, 1px `border` rule below) and reads “Files” (12px,
 600) with a count badge, Collapse/Expand All Folders, and Hide Files; the
 Files tree fills the rest, and opening a file scrolls the review to it. The
 toolbar's Files toggle hides and shows the rail (persisted). Uncommitted
@@ -571,15 +576,18 @@ button opens a bottom sheet (`DialogShell` sheet: inset 4px, up to 70% of the
 viewport or 32rem tall) with a 32px header, the same tree, and Close files;
 choosing a file jumps there and closes the sheet.
 
-The tab body opens on a header (16px inset): the compare's title (16px, 600),
+The tab body is a recessed `workspace-chrome` gutter. It opens on a header
+island (8px from the tab strip and sides, 12px above the first file, 16px
+inner inset; `surface`, `--radius-island` corners, `island-border` hairline):
+the compare's title (16px, 600),
 the commit's meta, the branch's merge-base, or the range's span, then totals:
 “12 files”, `+120 −30` (in the status hues), and “3 of 12 viewed”. HEAD's
 branch review adds a small `SegmentedControl` above the totals, “Committed” |
 “+ Uncommitted 8” (muted tabular count), whose second item is `aria-disabled`
 with “No uncommitted changes” on a clean checkout; while it is pressed, files
 with uncommitted edits carry a 6px `accent` dot before the status letter
-(decision 0051). Files follow on a recessed
-`workspace-chrome` gutter (8px inset, 12px between files, 32px below the last),
+(decision 0051). Notes and narration sit on the gutter. Files follow on it
+(8px inset, 12px between files, 32px below the last),
 each an island: a `surface` section with `--radius-island` corners and the
 `island-border` hairline (Servef Light only), as the workspace islands sit on
 the canvas. Each section is named by its

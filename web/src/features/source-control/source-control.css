@@ -532,14 +532,28 @@
   flex: 1;
 }
 
+/* The rail is an island on the review's gutter, inset like its files: one
+   gutter from the tab strip, the island's edge, and its bottom, with the
+   files' own inset between them. */
 .review-rail {
   position: relative;
   display: flex;
   min-height: 0;
   flex: none;
   flex-direction: column;
-  border-left: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  background: var(--color-workspace-chrome);
+}
+
+.review-rail-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: clip;
+  border-radius: var(--radius-island);
   background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-island-border);
 }
 
 .review-rail-resizer {
@@ -551,9 +565,11 @@
   touch-action: none;
 }
 
+/* The accent line spans the card's edge, inset from its rounded ends. */
 .review-rail-resizer::after {
   position: absolute;
-  inset: 0 calc((var(--separator-hit) - 2px) / 2);
+  inset: calc(var(--space-2) + var(--radius-island)) calc((var(--separator-hit) - 2px) / 2);
+  border-radius: var(--radius-sm);
   content: "";
 }
 
@@ -576,6 +592,13 @@
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: 600;
+}
+
+/* The rail card's header matches a file header: as tall, with its rule. */
+.review-rail-panel > .review-rail-header {
+  height: auto;
+  min-height: var(--control-lg);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .review-rail-title {
