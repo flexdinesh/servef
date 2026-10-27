@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react"
+import { Activity, type ReactNode, type RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
 
@@ -14,8 +14,10 @@ import { projectUrl } from "../../api/project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
 
 interface DocumentPaneProps {
-  // diff is the open diff tab's content, shown instead of the page's file.
+  // diff is a review tab's content, shown instead of the page's file while
+  // diffShown; otherwise it stays mounted, hidden, keeping its state.
   diff?: ReactNode
+  diffShown?: boolean
   // walkthrough is the open walkthrough tab's content, shown without a file.
   walkthrough?: ReactNode
   // sourceAnnotation is a zone in Source, e.g. a walkthrough's narration.
@@ -40,10 +42,11 @@ function fileName(path: string): string {
 }
 
 export function DocumentPane({
-  diff, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceAnnotation, sourceNavigation, view,
-  walkthrough,
+  diff, diffShown = true, hasData, image, isLoading, lineSelection, loadError, main, navigate, onChooseProject, page, retry, sourceAnnotation,
+  sourceNavigation, view, walkthrough,
 }: DocumentPaneProps) {
-  const viewKind = loadError || page.error ? "none" : diff ? "diff" : walkthrough ? "walkthrough" : view.kind
+  const showDiff = Boolean(diff) && diffShown && !loadError && !page.projectUnavailable && !page.error
+  const viewKind = loadError || page.error ? "none" : showDiff ? "diff" : walkthrough ? "walkthrough" : view.kind
 
   return (
     <main
@@ -54,7 +57,9 @@ export function DocumentPane({
       aria-busy={isLoading}
       onKeyDown={viewKind === "image" ? (event) => handleImageKey(event, image) : undefined}
     >
-      {loadError ? (
+      {/* First, so the diff virtualizer finds it as the pane's content. */}
+      {diff && <Activity mode={showDiff ? "visible" : "hidden"}>{diff}</Activity>}
+      {showDiff ? null : loadError ? (
         <div className="error" role="alert">
           <p>{loadError}</p>
           <Button type="button" variant="outline" onClick={retry}>Try again</Button>
@@ -66,8 +71,6 @@ export function DocumentPane({
         </div>
       ) : page.error ? (
         <div className="error" role="alert">{page.error}</div>
-      ) : diff ? (
-        diff
       ) : walkthrough ? (
         walkthrough
       ) : sourceAnnotation && view.kind !== "source" && view.kind !== "none" ? (

@@ -247,27 +247,54 @@ function ReviewBody({
     if (next && repin.current?.path === path) repin.current.pin()
   }, [])
 
+  // A review hidden behind another tab keeps its scroll; the pane scrolls
+  // other documents meanwhile, so showing it again restores it (decision
+  // 0048). Layout effects run before the passive ones that read the scroll.
+  const kept = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    const root = scrollRoot.current
+    if (!root) return
+    if (kept.current !== null) root.scrollTo({ top: kept.current })
+    const save = () => { kept.current = root.scrollTop }
+    root.addEventListener("scroll", save, { passive: true })
+    return () => root.removeEventListener("scroll", save)
+  }, [scrollRoot])
+
   // The fragment's file scrolls into view when it changes, and stays pinned
   // there while diffs above it load and grow, until the user scrolls. Its
   // lines, once their diff shows, land near the top third with their
   // collapsed gaps open (decision 0034), unless already in view. While
   // pinned it is the file in view, even when too near the end to reach the
   // top. A gutter selection is where the pointer is, so it never scrolls.
+  // Showing a hidden review again at the fragment it last revealed pins it
+  // again only if the user had not scrolled away (decision 0048).
   const target = selection?.path ?? ""
   const anchor = selection?.lines ? diffLineAnchor(selection.lines) : ""
   const latestLines = useRef(selection?.lines ?? null)
   useLayoutEffect(() => { latestLines.current = selection?.lines ?? null })
   // pointer is the last gutter selection as `path#anchor`.
   const pointer = useRef("")
+  // revealed is the fragment last revealed, as `path#anchor`, and whether
+  // user input released its pin.
+  const revealed = useRef({ key: "", released: false })
   const ready = files.length > 0
   const pinned = useRef("")
   useEffect(() => {
     const root = scrollRoot.current
     const content = container.current
-    if (!target || !ready || !root || !content) return
-    const fromPointer = pointer.current === `${target}#${anchor}`
+    if (!target || !ready || !root || !content) {
+      revealed.current = { key: "", released: false }
+      return
+    }
+    const key = `${target}#${anchor}`
+    const fromPointer = pointer.current === key
     pointer.current = ""
-    if (fromPointer) return
+    const scrolledAway = revealed.current.key === key && revealed.current.released
+    revealed.current = { key, released: false }
+    if (fromPointer || scrolledAway) {
+      revealed.current.released = true
+      return
+    }
     const lineBox = () => {
       const range = latestLines.current
       const view = shown.current.get(target)
@@ -303,7 +330,10 @@ function ReviewBody({
     // A press inside the content (selecting lines, toggling Viewed) keeps the
     // pin; one on the pane itself is its scrollbar.
     const onInput = (event: Event) => {
-      if (event.type !== "pointerdown" || event.target === root) release()
+      if (event.type !== "pointerdown" || event.target === root) {
+        revealed.current.released = true
+        release()
+      }
     }
     for (const type of events) root.addEventListener(type, onInput, { passive: true })
     return release

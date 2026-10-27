@@ -5,6 +5,7 @@ import {
   useSearch,
 } from "@tanstack/react-router"
 import {
+  Activity,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -335,17 +336,34 @@ export function App({ project }: AppProps) {
     setFollowed(reviewKey)
     if (reviewCompare?.kind === "commit" || reviewCompare?.kind === "range") setCommitSelection(reviewCompare)
   }
+  // The last review stays mounted, hidden, while another tab shows, so
+  // returning to it keeps its scroll, open files, selection, and rail without
+  // rereading its diffs (decision 0048). hash is its last fragment.
+  const [keptReview, setKeptReview] = useState<{ project: string; compare: Compare; hash: string } | null>(null)
+  if (reviewCompare && !isLoading
+    && (keptReview?.project !== project || !sameCompare(keptReview.compare, reviewCompare) || keptReview.hash !== hash)) {
+    setKeptReview({ project, compare: reviewCompare, hash })
+  }
+  const kept = keptReview?.project === project
+    && workspace.tabs.some((tab) => tab.kind === "review" && sameCompare(tab.compare, keptReview.compare)) ? keptReview : null
+  // shownReview is the active review, else the kept one behind another tab.
+  const shownReview = reviewCompare ?? kept?.compare ?? null
   const workingData = useCompareData(project, workingCompare, changes, commits)
-  const reviewData = useCompareData(project, reviewCompare, changes, commits)
+  const reviewData = useCompareData(project, shownReview, changes, commits)
   // Commit, range, and branch reviews show their files in a rail beside the
   // diffs; Uncommitted's files are the sidebar's list.
   const reviewRail = reviewCompare !== null && reviewCompare.kind !== "working"
+  const shownRail = shownReview !== null && shownReview.kind !== "working"
   const [filesSheet, setFilesSheet] = useState(false)
   // Split needs room in the diff area itself, not just the window.
   const diffNarrow = useNarrowElement(main, splitMinimumWidth) || sidebar.mobile
   const diffOptions = useDiffOptions()
   const viewed = useReviewViewed(project)
-  const fragment = reviewCompare ? parseReviewFragment(hash) : null
+  // A pending navigation's location already carries the next route's hash;
+  // the review keeps the fragment it last resolved until then.
+  const keptShown = kept !== null && shownReview !== null && sameCompare(kept.compare, shownReview)
+  const reviewHash = keptShown && (!reviewCompare || isLoading) ? kept.hash : hash
+  const fragment = shownReview ? parseReviewFragment(reviewHash) : null
   const [currentFile, setCurrentFile] = useState("")
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null)
   const [expandRequest, setExpandRequest] = useState<CollapseRequest | null>(null)
@@ -359,10 +377,12 @@ export function App({ project }: AppProps) {
       return
     }
     if (focusDocument) prepareDocumentNavigation()
-    void navigate({ to: "/view", search: { project, ...compareSearch(compare) }, hash: path ? reviewFragment(path) : "",
+    // The kept review returns at the fragment it still shows.
+    const keptHash = kept && sameCompare(compare, kept.compare) ? kept.hash : ""
+    void navigate({ to: "/view", search: { project, ...compareSearch(compare) }, hash: path ? reviewFragment(path) : keptHash,
       replace: Boolean(reviewCompare && sameCompare(compare, reviewCompare)) })
     if (focusDocument && reviewCompare && sameCompare(compare, reviewCompare)) main.current?.focus({ preventScroll: true })
-  }, [main, navigate, prepareDocumentNavigation, project, reviewCompare])
+  }, [kept, main, navigate, prepareDocumentNavigation, project, reviewCompare])
   const selectReviewLines = useCallback((path: string, lines: Parameters<typeof reviewFragment>[1]) => {
     if (!reviewCompare) return
     void navigate({ to: "/view", search: { project, ...compareSearch(reviewCompare), ...stepSearch }, hash: reviewFragment(path, lines), replace: true })
@@ -594,12 +614,13 @@ export function App({ project }: AppProps) {
           </div>
           <div className="workspace-body">
           <DocumentPane
-            diff={reviewCompare ? <ReviewDocument key={compareKey(reviewCompare)} project={project} compare={reviewCompare}
-              name={nameTab(reviewTab(reviewCompare))} data={reviewData} options={diffOptions.options} narrow={diffNarrow}
+            diff={shownReview ? <ReviewDocument key={compareKey(shownReview)} project={project} compare={shownReview}
+              name={nameTab(reviewTab(shownReview))} data={reviewData} options={diffOptions.options} narrow={diffNarrow}
               scrollRoot={main} selection={fragment} expandRequest={expandRequest} treeFiles={treeFiles}
               viewed={viewed.isViewed} onViewedChange={viewed.mark} onSelectLines={selectReviewLines}
               onCurrentFile={setCurrentFile} onStatus={setReviewStatus} onOpenFile={navigateToDocument}
               onAllExpandedChange={setAnyFileExpanded} onRegisterHunkStep={registerHunkStep} annotation={reviewAnnotation} /> : undefined}
+            diffShown={reviewCompare !== null}
             walkthrough={walkthroughRoute ? <WalkthroughTab detail={walkthroughs.detail} position={walkthroughs.position}
               context={compareContext} canMove={walkthroughs.canMove} onMove={walkthroughs.move} onGoTo={walkthroughs.goTo}
               onExit={closeWalkthrough} onRetry={walkthroughs.retry} navigate={navigateToHref} /> : undefined}
@@ -617,12 +638,14 @@ export function App({ project }: AppProps) {
             sourceNavigation={sourceNavigation}
             view={view}
           />
-          {reviewRail && reviewCompare && !sidebar.mobile && !sourceControlLayout.railHidden && (
-            <ReviewFilesRail data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
-              width={sourceControlLayout.railWidth} onResize={sourceControlLayout.setRailWidth}
-              onResetWidth={() => sourceControlLayout.setRailWidth(defaultRailWidth)}
-              onHide={() => sourceControlLayout.setRailHidden(true)}
-              onOpen={(path, focusDocument) => openReview(reviewCompare, focusDocument, path)} />
+          {shownRail && shownReview && !sidebar.mobile && !sourceControlLayout.railHidden && (
+            <Activity mode={reviewCompare ? "visible" : "hidden"}>
+              <ReviewFilesRail data={reviewData} activePath={currentFile} itemHeight={treeRowHeight(false, uiScale(settings))}
+                width={sourceControlLayout.railWidth} onResize={sourceControlLayout.setRailWidth}
+                onResetWidth={() => sourceControlLayout.setRailWidth(defaultRailWidth)}
+                onHide={() => sourceControlLayout.setRailHidden(true)}
+                onOpen={(path, focusDocument) => openReview(shownReview, focusDocument, path)} />
+            </Activity>
           )}
           </div>
           {reviewRail && reviewCompare && sidebar.mobile && (

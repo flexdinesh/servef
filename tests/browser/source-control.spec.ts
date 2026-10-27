@@ -811,6 +811,64 @@ test("a commit's rail scrolls its review to a file and selects the file in view"
   await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "false")
 })
 
+test("a review tab keeps its scroll, files, and rail behind a document tab, without rereading diffs", async ({ page }) => {
+  await openSourceControl(page)
+  await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
+  await commitRow(page, "Initial").dblclick()
+  await fileToggle(page, "assets/logo.bin").click()
+  await expect(fileToggle(page, "assets/logo.bin")).toHaveAttribute("aria-expanded", "false")
+  await railFile(page, "app.ts").click()
+  await expect(page).toHaveURL(/#f=src\/app\.ts$/)
+  await expect(diffLines(page, "change-addition", "src/app.ts").first()).toBeVisible()
+  await expect.poll(() => topOffset(page, "src/app.ts")).toBeCloseTo(pinnedOffset, 0)
+  // Scrolling releases the pin; the review is left mid-file.
+  const main = page.locator("main")
+  const top = await main.evaluate((pane) => {
+    pane.dispatchEvent(new WheelEvent("wheel"))
+    pane.scrollTop += 24
+    return pane.scrollTop
+  })
+  await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "true")
+
+  const diffReads: string[] = []
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/diff") diffReads.push(request.url())
+  })
+  await reviewFile(page, "src/app.ts").getByRole("button", { name: "Open File" }).click()
+  await expect(page.getByRole("tab", { name: "app.ts" })).toHaveAttribute("aria-selected", "true")
+  await expect(rail(page)).toBeHidden()
+
+  await commitTab(page, "Initial").click()
+  await expect(commitTab(page, "Initial")).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/#f=src\/app\.ts$/)
+  await expect(diffLines(page, "change-addition", "src/app.ts").first()).toBeVisible()
+  await expect.poll(() => main.evaluate((pane) => pane.scrollTop)).toBeCloseTo(top, 0)
+  await expect(fileToggle(page, "assets/logo.bin")).toHaveAttribute("aria-expanded", "false")
+  await expect(railFile(page, "app.ts")).toHaveAttribute("aria-selected", "true")
+  await expect(page.locator(".status-path")).toHaveText("src/app.ts")
+  expect(diffReads).toEqual([])
+})
+
+test("a pinned review file stays the file in view behind a document tab", async ({ page }) => {
+  await openSourceControl(page)
+  const current = branchRow(page, "feature")
+  await current.hover()
+  await current.getByRole("button", { name: "Open changes on feature since main" }).click()
+  const tab = page.getByRole("tab", { name: "vs main", exact: true })
+  // clean.md is last, too near the end to reach the top.
+  await railFile(page, "clean.md").click()
+  await expect(page).toHaveURL(/#f=clean\.md$/)
+  await expect(railFile(page, "clean.md")).toHaveAttribute("aria-selected", "true")
+  await reviewFile(page, "clean.md").getByRole("button", { name: "Open File" }).click()
+  await expect(page.getByRole("tab", { name: "clean.md" })).toHaveAttribute("aria-selected", "true")
+
+  await page.goBack()
+  await expect(tab).toHaveAttribute("aria-selected", "true")
+  await expect(page).toHaveURL(/#f=clean\.md$/)
+  await expect(railFile(page, "clean.md")).toHaveAttribute("aria-selected", "true")
+  await expect(page.locator(".status-path")).toHaveText("clean.md")
+})
+
 test("Collapse All Folders and Expand All Folders toggle every rail folder", async ({ page }) => {
   await openSourceControl(page)
   await pane(page, "Commits").getByRole("button", { name: "All", exact: true }).click()
