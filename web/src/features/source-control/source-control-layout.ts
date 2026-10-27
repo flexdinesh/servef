@@ -105,6 +105,14 @@ export function paneOpen(collapsed: boolean | undefined, empty: boolean | null):
   return collapsed === undefined ? empty !== true : !collapsed
 }
 
+// paneShares normalizes the open panes' weights to sum to 1. Flex grow
+// factors summing below 1 leave free space unfilled, which would float
+// closed panes off the bottom.
+export function paneShares(weights: Readonly<Record<PaneId, number>>, open: readonly PaneId[]): Partial<Record<PaneId, number>> {
+  const total = open.reduce((sum, id) => sum + weights[id], 0)
+  return Object.fromEntries(open.map((id) => [id, weights[id] / total]))
+}
+
 // resizePair moves the sash between two open panes by delta, a share of the
 // height the open panes split, keeping the pair's total and each side at
 // least minimumWeight of it.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
-  clampRailWidth, defaultLayout, maximumRailWidth, minimumRailWidth, paneIds, paneOpen, parseLayout, resizePair, withBase, type PaneId,
+  clampRailWidth, defaultLayout, maximumRailWidth, minimumRailWidth, paneIds, paneOpen, paneShares, parseLayout, resizePair, withBase, type PaneId,
 } from "./source-control-layout.ts"
 
 test("layout defaults to the branch range, a flat change list, a shown rail, and no choices", () => {
@@ -50,6 +50,15 @@ test("a sash moves weight between its two panes within bounds", () => {
   const floored = resizePair(weights, open, "working", "commits", -5)
   assert.ok(Math.abs(floored.working - 0.8 * 0.15) < 1e-9)
   assert.ok(Math.abs(floored.working + floored.commits - 0.8) < 1e-9)
+})
+
+test("open panes fill the height, so closed panes sit at the bottom", () => {
+  const shares = paneShares(defaultLayout.weights, ["working"])
+  assert.deepEqual(shares, { working: 1 })
+  const two = paneShares({ working: 0.3, commits: 0.5, branches: 0.2 }, ["working", "branches"])
+  assert.ok(Math.abs((two.working ?? 0) - 0.6) < 1e-9)
+  assert.ok(Math.abs((two.branches ?? 0) - 0.4) < 1e-9)
+  assert.equal(two.commits, undefined)
 })
 
 test("chosen bases are per project, and choosing the default forgets one", () => {

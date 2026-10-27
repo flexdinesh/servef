@@ -206,6 +206,16 @@ test("Source Control stacks Uncommitted, Commits, and Branches, open when they h
   await expect(commitsList(page)).toHaveCount(0)
   await expect(sourceControl(page).getByRole("separator")).toHaveCount(1)
   await expect(sourceControl(page).getByRole("separator", { name: "Resize Uncommitted and Branches" })).toBeVisible()
+
+  // With only Uncommitted open, it fills the view and closed panes sit at the bottom.
+  await paneToggle(page, "Branches").click()
+  await expect(paneToggle(page, "Branches")).toHaveAttribute("aria-expanded", "false")
+  const panes = sourceControl(page).locator(".scm-panes")
+  const bottom = async () => {
+    const [container, last] = await Promise.all([panes.boundingBox(), sourceControl(page).getByRole("region", { name: "Branches" }).boundingBox()])
+    return container && last ? Math.abs(container.y + container.height - (last.y + last.height)) : Infinity
+  }
+  await expect.poll(bottom).toBeLessThan(1)
 })
 
 test("empty panes start collapsed, and a pane's toggle is remembered", async ({ page }) => {
