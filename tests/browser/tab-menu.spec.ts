@@ -58,7 +58,7 @@ test("Close to the Right preserves tab order and removes the active document", a
   await expect(page).toHaveURL(/path=README.md/)
 })
 
-test("Close All clears the workspace and stays closed after reload", async ({ page }) => {
+test("Close All clears the workspace; a reload with nothing to restore opens Welcome", async ({ page }) => {
   await openTabs(page)
   await page.getByRole("tab", { name: "README.md" }).click({ button: "right" })
   await page.getByRole("menuitem", { name: "Close All", exact: true }).click()
@@ -66,6 +66,5 @@ test("Close All clears the workspace and stays closed after reload", async ({ pa
   await expect(page.getByRole("heading", { name: "Choose a file" })).toBeVisible()
   await expect(page.locator("#document-pane")).toBeFocused()
   await page.reload()
-  await expect(page.getByRole("tab")).toHaveCount(0)
-  await expect(page.getByRole("heading", { name: "Choose a file" })).toBeVisible()
+  await expect(page.getByRole("tab")).toHaveText(["Welcome"])
 })

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import type { CompareContext } from "../features/source-control/compare.ts"
-import { documentKey, documentTab, includesTab, parseStoredTab, reviewTab, routeAt, sameTab, storedTab, tabKey, tabName, tabSearch, walkthroughTab } from "./workspace-tabs.ts"
+import { documentKey, documentTab, includesTab, parseStoredTab, reviewTab, routeAt, sameTab, storedTab, tabKey, tabName, tabSearch, walkthroughTab, welcomeTab } from "./workspace-tabs.ts"
 
 const hash = "3577ec6a1b2c3d4e5f60718293a4b5c6d7e8f901"
 const other = "4f76e9a1b2c3d4e5f60718293a4b5c6d7e8f9012"
@@ -97,4 +97,17 @@ test("walkthrough tabs key, name, store, and route by ID", () => {
   assert.equal(parseStoredTab({ walkthrough: "" }), null)
   assert.equal(parseStoredTab({ walkthrough: 3 }), null)
   assert.deepEqual(tabSearch("/p", tab), { project: "/p", wt: "tour" })
+})
+
+test("the Welcome tab is one tab that keys, names, stores, and routes", () => {
+  const tab = welcomeTab()
+  assert.equal(tabKey(tab), "welcome")
+  assert.equal(sameTab(tab, welcomeTab()), true)
+  assert.equal(sameTab(tab, documentTab("welcome")), false)
+  assert.deepEqual(tabName(tab, context), { label: "Welcome", title: "Welcome" })
+  assert.deepEqual(storedTab(tab), { welcome: true })
+  assert.deepEqual(parseStoredTab(storedTab(tab)), tab)
+  assert.equal(parseStoredTab({ welcome: false }), null)
+  assert.equal(parseStoredTab({ welcome: "yes" }), null)
+  assert.deepEqual(tabSearch("/p", tab), { project: "/p", welcome: 1 })
 })

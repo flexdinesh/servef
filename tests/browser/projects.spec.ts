@@ -19,11 +19,12 @@ test("a project scopes the tree to its directory", async ({ page }) => {
   await expect(tree.getByText("guides", { exact: true })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "diagrams.md" })).toBeVisible()
   await expect(tree.getByRole("treeitem", { name: "README.md" })).toHaveCount(0)
-  await expect(tabs.getByRole("tab")).toHaveCount(0)
+  // Nothing to restore: the project greets with Welcome (decision 0052).
+  await expect(tabs.getByRole("tab")).toHaveText(["Welcome"])
 
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
-  await expect(tabs.getByRole("tab")).toHaveCount(1)
+  await expect(tabs.getByRole("tab")).toHaveText(["Welcome", "diagrams.md"])
 })
 
 test("an unavailable project explains itself", async ({ page }) => {
@@ -41,13 +42,13 @@ test("projects remember their tabs and the last project reopens", async ({ page 
   await expect(tabs.getByRole("tab")).toHaveCount(2)
 
   await page.goto(`/?project=${projectParam("guides")}`)
-  await expect(tabs.getByRole("tab")).toHaveCount(0)
+  await expect(tabs.getByRole("tab")).toHaveText(["Welcome"])
   await tree.getByRole("treeitem", { name: "diagrams.md" }).click()
   await expect(tabs.getByRole("tab", { name: "diagrams.md" })).toHaveAttribute("aria-selected", "true")
 
   await page.goto("/")
   await expect(page).toHaveURL(endsWith(`/view?project=${projectParam("guides")}&path=diagrams.md`))
-  await expect(tabs.getByRole("tab")).toHaveCount(1)
+  await expect(tabs.getByRole("tab")).toHaveText(["Welcome", "diagrams.md"])
 
   await page.goto(`/?project=${rootParam}`)
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&path=README.md`))

@@ -656,8 +656,9 @@ func TestAppHandlesEmptyMissingAndUnsafeSelections(t *testing.T) {
 		t.Fatalf("empty selection status = %d, want %d", noSelection.Code, http.StatusBadRequest)
 	}
 
-	// Review tabs name a compare, not a file (decision 0035).
-	for _, target := range []string{"/view?project=.&review=working", "/view?project=.&commit=" + strings.Repeat("a", 40)} {
+	// Review tabs name a compare, not a file (decision 0035); Welcome names
+	// neither (decision 0052).
+	for _, target := range []string{"/view?project=.&review=working", "/view?project=.&commit=" + strings.Repeat("a", 40), "/view?project=.&welcome=1"} {
 		review := request(t, app, target)
 		if review.Code != http.StatusOK {
 			t.Fatalf("%s status = %d, want %d", target, review.Code, http.StatusOK)

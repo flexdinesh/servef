@@ -47,7 +47,7 @@ test("list rows are 22px in Explorer, the Source Control panes, the review rail,
   const rail = page.getByRole("complementary", { name: "Review files" })
   expect(await height(rail.getByRole("treeitem", { name: "clean.md" }))).toBe(22)
 
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   await page.getByRole("textbox", { name: "Search", exact: true }).fill("Fixture")
   const results = page.getByRole("tree", { name: "Search results" }).getByRole("treeitem")
   await expect(results.first()).toBeVisible()
@@ -66,7 +66,7 @@ test("view header icon buttons share size, glyph, and rest color", async ({ page
   const measured = [await measure(page.getByRole("complementary", { name: "Files" }).getByRole("button", { name: "Search files" }))]
   await page.keyboard.press("ControlOrMeta+Shift+g")
   measured.push(await measure(sourceControl(page).getByRole("button", { name: "Refresh" })))
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   measured.push(await measure(page.getByRole("region", { name: "Search" }).getByRole("button", { name: "Refresh" })))
   expect(measured[0]).toEqual({ width: 24, height: 24, glyph: 16, color: expect.any(String) })
   for (const entry of measured) expect(entry).toEqual(measured[0])
@@ -84,7 +84,7 @@ test("fields share height, border, focus ring, and invalid border", async ({ pag
   const filterRest = await styles(field(filter), rest)
   await filter.focus()
   const filterFocused = await styles(field(filter), ring)
-  await page.getByRole("button", { name: /^Find in files/ }).click()
+  await page.locator(".status-bar").getByRole("button", { name: /^Find in files/ }).click()
   // Opening Search focuses its field; compare the rest state.
   await search.evaluate((element) => { if (element instanceof HTMLElement) element.blur() })
   expect(await styles(field(search), rest)).toEqual(filterRest)

@@ -11,6 +11,7 @@ else.
 - Serve several directories; switch repositories and worktrees
 - Live updates: the tree, open document, Source Control, and Search follow changes on disk
 - VS Code-style Explorer, Search, Source Control, tabs, and command palette
+- A Welcome tab that lists your projects and shows what you can do
 - Review uncommitted work, commits, a range of commits, a branch with or without its uncommitted work, or a branch stack layer by layer in one stacked diff tab
 - Go to definition and find references through installed language servers
 - Walkthroughs: agents publish guided tours of files and diffs with narration inline in the code ([agent skill](skills/servef-walkthrough/SKILL.md): `npx skills add flexdinesh/servef --skill servef-walkthrough`)

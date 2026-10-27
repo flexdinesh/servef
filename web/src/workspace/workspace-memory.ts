@@ -4,7 +4,7 @@
 // readMemory/writeMemory are the only storage access and never throw.
 
 import { isRecord } from "../api/http.ts"
-import { includesTab, parseStoredTab, sameTab, storedTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
+import { includesTab, parseStoredTab, sameTab, storedTab, welcomeTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
 export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"
 
@@ -145,6 +145,15 @@ export function restoreTabs(memory: ProjectMemory | undefined, files: ReadonlySe
   const remembered = parseStoredTab(memory?.active)
   const active = tabs.find((tab) => sameTab(tab, remembered)) ?? null
   return { tabs, active }
+}
+
+// startupTab is the tab a project opens on when its route names none: the
+// remembered active tab, else Welcome when nothing was restored and Welcome
+// shows on startup (decision 0052), else none.
+export function startupTab(routed: WorkspaceTab | null, restored: RestoredTabs, welcome: boolean): WorkspaceTab | null {
+  if (routed) return null
+  if (restored.active) return restored.active
+  return welcome && restored.tabs.length === 0 ? welcomeTab() : null
 }
 
 // Only restore directories still present in the fresh project tree. Keep an

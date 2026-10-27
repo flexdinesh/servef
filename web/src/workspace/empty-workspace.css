@@ -1,0 +1,14 @@
+/* The empty document pane's actions sit under its hint (decision 0052). */
+.empty-workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  font-size: var(--text-label);
+}
+
+.empty-workspace-actions .ui-kbd {
+  margin-left: var(--space-1);
+}

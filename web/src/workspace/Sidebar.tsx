@@ -16,6 +16,11 @@ const activities: ReadonlyArray<{ view: SidebarView; label: string; shortcut?: s
 
 const viewNames: Record<SidebarView, string> = { explorer: "Files", search: "Search", "source-control": "Source Control", walkthroughs: "Walkthroughs" }
 
+// sidebarViewName names a view as its mobile drawer does.
+export function sidebarViewName(view: SidebarView): string {
+  return viewNames[view]
+}
+
 // badgeLabel caps the activity badge as VS Code does.
 function badgeLabel(count: number): string {
   return count > 99 ? "99+" : String(count)

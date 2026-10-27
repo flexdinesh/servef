@@ -42,4 +42,6 @@
 @import "./features/search/search.css" layer(features);
 @import "./features/source-control/source-control.css" layer(features);
 @import "./features/walkthrough/walkthrough.css" layer(features);
+@import "./features/welcome/welcome.css" layer(features);
+@import "./workspace/empty-workspace.css" layer(features);
 @import "./styles/print.css" layer(features);

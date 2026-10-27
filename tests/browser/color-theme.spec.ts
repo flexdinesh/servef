@@ -85,7 +85,7 @@ test("renamed stored themes keep working", async ({ page }) => {
   await page.evaluate(() => window.localStorage.setItem("servef-theme", "gruvbox-dark"))
   await page.reload()
   await expect(page.locator("html")).toHaveAttribute("data-theme", "gruvbox")
-  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   const theme = page.getByRole("dialog", { name: "Settings" }).getByRole("combobox", { name: "Appearance: Theme" })
   await expect(theme).toHaveValue("gruvbox")
 })

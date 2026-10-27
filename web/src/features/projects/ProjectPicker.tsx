@@ -429,7 +429,9 @@ function PickerOption({ row, active, onActivate, onHover, onDrill, onForget }: P
   )
 }
 
-function OptionIcon({ row }: { row: PickerRow }) {
+// OptionIcon and OptionText draw a row's icon and text; Welcome's project
+// list shares them.
+export function OptionIcon({ row }: { row: PickerRow }) {
   switch (row.kind) {
     case "browse": return <FolderSearchIcon aria-hidden="true" />
     case "open": return <CornerDownLeftIcon aria-hidden="true" />
@@ -449,7 +451,7 @@ function OptionPath({ path, title = path }: { path: string; title?: string }) {
   return <span className="project-option-path project-option-path-tail" title={title}><span dir="ltr">{path}</span></span>
 }
 
-function OptionText({ row }: { row: PickerRow }) {
+export function OptionText({ row }: { row: PickerRow }) {
   switch (row.kind) {
     case "browse":
       return <>

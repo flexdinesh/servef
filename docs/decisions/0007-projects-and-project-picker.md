@@ -2,6 +2,8 @@
 
 - Status: Partially superseded by [0009](0009-multiple-roots-and-worktree-picker.md)
   (roots, project IDs, what opens, worktree boundary, picker layout, memory)
+  and [0052](0052-welcome-tab-and-contextual-empty-state.md) (the picker
+  opening on first landing)
 - Date: 2026-10-13
 
 ## Context

@@ -46,6 +46,7 @@ Key files:
 | Live updates | `internal/watch/` (`watch.go` hub and subscriptions, `project.go` per-project watch and debounce, `poll.go` fallback, `backend.go` fsnotify), `internal/files/directories.go`, `internal/projects/git_state.go`, `internal/web/events.go` (`/api/events`), `web/src/api/events-contract.ts`, `web/src/features/live-updates/` (`live-updates.ts` pure targets and labels, `use-live-updates.ts` stream), `use-document-navigation.ts` (`reread` keeps scroll), `search-controller.ts` (`onStale`), `tests/browser/live-fixture.ts`, `docs/decisions/0050-live-updates.md` |
 | Design system | `web/src/styles/tokens.css`, `themes.css`, `web/src/style.css` (manifest), `web/src/components/ui/`, `web/src/gallery/`, `web/.oxlintrc.json`, `web/stylelint.config.mjs`, `DESIGN.md`, `docs/decisions/0033-design-tokens-and-ui-primitives.md` |
 | Explorer filter | `web/src/features/explorer/filename-filter.ts`, `FilenameFilter.tsx`, `FileTree.tsx` |
+| Welcome and empty pane | `web/src/features/welcome/` (`welcome-model.ts` pure entries, project lines, and sections; `WelcomeTab.tsx`), `web/src/workspace/empty-workspace.ts` (pure, per sidebar view), `EmptyWorkspace.tsx`, `workspace-memory.ts` (`startupTab`), `web/src/api/projects-data.ts` (`landingProject`), `docs/decisions/0052-welcome-tab-and-contextual-empty-state.md` |
 
 ## Patterns
 

@@ -12,7 +12,7 @@ rewriting history; update `Status` on the old record.
 | [0004](0004-binary-and-size-limits.md) | Binary detection and size limits | Accepted |
 | [0005](0005-images-as-documents.md) | Images are browsable documents | Accepted |
 | [0006](0006-explorer-filename-filter.md) | Explorer filename filter and tab icons | Accepted |
-| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Partially superseded by 0009 |
+| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Partially superseded by 0009 and 0052 |
 | [0008](0008-line-links-and-copy-path.md) | Line links and copy path | Accepted |
 | [0009](0009-multiple-roots-and-worktree-picker.md) | Multiple roots, whole repositories, and worktree picker | Partially superseded by 0012 |
 | [0010](0010-markdown-opens-in-source.md) | Markdown opens in Source | Accepted |
@@ -57,3 +57,4 @@ rewriting history; update `Status` on the old record.
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted |
 | [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted |
 | [0051](0051-branch-review-with-uncommitted.md) | Branch review with uncommitted changes | Accepted |
+| [0052](0052-welcome-tab-and-contextual-empty-state.md) | Welcome tab and an empty pane that follows the sidebar view | Accepted |
