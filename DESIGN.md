@@ -212,7 +212,7 @@ Implementation authority (decision 0033): tokens in `web/src/styles/tokens.css` 
 ### Token tiers
 
 1. **Theme values**: `light-dark()` colors in Tailwind's `@theme`, resolved by the root `color-scheme`; named themes override them in `themes.css`.
-2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-status` (11px git status letters), `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
+2. **Semantic roles**: state layers, selection, focus, field colors, type roles (`--text-badge`, `--text-status` (11px git status letters), `--text-metadata`, `--text-label`, `--text-supporting`, `--text-code`), motion (`--duration-fast` 100ms, `--duration-base` 120ms, `--delay-progress` 150ms, `--duration-feedback` 1.6s), z-index (`--z-behind`, `--z-raised`, `--z-sticky`, `--z-popover`, `--z-progress`, `--z-menu`), and radii (`--radius-island`, `--radius-overlay`).
 3. **Component tokens**: controls (`--control-xs` 20, `sm` 24, `md` 28, `lg` 32, `touch` 44px), icons (`--icon-xs` 12, `sm` 14, `md` 16, `lg` 18px), rows (`--row-list` 22, `--row-menu` 28, `--row-pick` 32, `--row-drawer` 32px; list 32 and pick/menu 44px on narrow screens), `--chrome-height`, `--field-height`, `--field-height-palette` (40px; 44px narrow), `--status-height`.
 
 Feature CSS references tokens only; stylelint rejects color literals, raw font sizes, radii, z-indexes, durations, and px above 2. Raw `button`, `input`, `select`, `textarea`, and `dialog` elements live only in `components/ui/`; oxlint rejects them elsewhere.
@@ -580,6 +580,7 @@ each an island: a `surface` section with `--radius-island` corners and the
 the canvas. Each section is named by its
 path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`,
 sticking one 8px gutter below the tab strip over a gutter-colored band,
+keeping its `--radius-island` top corners while stuck,
 with a bottom border that hides while the file is collapsed): a plain disclosure toggle (no hover fill) with chevron,
 file icon, and path; a muted “from <old path>”; stats; the status letter; a
 Viewed toggle button (disabled until the file's blob hash arrives); and Open

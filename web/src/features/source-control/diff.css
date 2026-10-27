@@ -167,7 +167,10 @@
 
 /* File headers stick one gutter below the tab strip while their diff scrolls
    under them; a gutter-colored band above masks the scrolled lines. Before
-   the header sticks the band sits outside its file and is clipped. */
+   the header sticks the band sits outside its file and is clipped. Once
+   stuck the file's rounded clip has scrolled away, so the header rounds its
+   own top corners: its surface is a rounded layer over the band, which
+   reaches down into the corners to mask lines there too. */
 .review-file-header {
   position: sticky;
   top: var(--space-2);
@@ -178,18 +181,28 @@
   gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-1);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
   font-size: var(--text-label);
 }
 
-.review-file-header::before {
+.review-file-header::before,
+.review-file-header::after {
   position: absolute;
+  z-index: var(--z-behind);
   right: 0;
-  bottom: 100%;
   left: 0;
-  height: var(--space-2);
-  background: var(--color-workspace-chrome);
   content: "";
+}
+
+.review-file-header::before {
+  top: calc(-1 * var(--space-2));
+  height: calc(var(--space-2) + var(--radius-island));
+  background: var(--color-workspace-chrome);
+}
+
+.review-file-header::after {
+  inset: 0;
+  border-radius: var(--radius-island) var(--radius-island) 0 0;
+  background: var(--color-surface);
 }
 
 .review-file-toggle {
