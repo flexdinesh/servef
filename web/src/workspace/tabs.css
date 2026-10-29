@@ -2,7 +2,6 @@
   display: flex;
   min-width: 0;
   flex: 1;
-  column-gap: calc(var(--space-1) / 2);
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--color-workspace-chrome);
@@ -23,30 +22,16 @@
   background: var(--color-workspace-chrome);
 }
 
-.buffer-tab:hover {
+.buffer-tab:not(.active):hover {
   color: var(--color-text-primary);
   background-image: linear-gradient(var(--color-chrome-hover), var(--color-chrome-hover));
 }
 
-/* The active tab is a flat block of the document surface with an accent line
-   on its top edge, as in VS Code. */
+/* Selection joins the tab to the document surface; focus keeps its own outline. */
 .buffer-tab.active {
   z-index: var(--z-raised);
   color: var(--color-text-primary);
   background: var(--color-surface);
-  box-shadow: inset 0 2px var(--color-selected-border);
-}
-
-.buffer-tab:not(.active)::after {
-  position: absolute;
-  inset: var(--space-2) 0 var(--space-2) auto;
-  width: 1px;
-  background: var(--color-border);
-  content: "";
-}
-
-.buffer-tab:has(+ .buffer-tab.active)::after {
-  display: none;
 }
 
 /* The tab owns hover; the target and close action only lay out inside it. */
@@ -57,7 +42,7 @@
   gap: var(--space-1);
   padding: 0 var(--space-1) 0 var(--space-2);
   color: inherit;
-  background-image: none;
+  border-radius: 0;
   font-size: var(--text-label);
 }
 
@@ -79,4 +64,12 @@
 
 .buffer-tab-close {
   margin-right: var(--space-1);
+}
+
+/* Reserve the close action's space so revealing it never shifts the label.
+   Devices without a precise, hovering pointer keep every close action visible. */
+@media (hover: hover) and (pointer: fine) {
+  .buffer-tab:not(.active, :hover, :focus-within) .buffer-tab-close {
+    opacity: 0;
+  }
 }
