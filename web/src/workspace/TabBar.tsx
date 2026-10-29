@@ -23,16 +23,19 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
   const activeKey = active ? tabKey(active) : ""
 
   // Keep the active tab visible in an overflowing strip, as editors do. Tabs
-  // widen once the UI font loads, so reveal again when the active one resizes.
+  // widen once the UI font loads; also reveal when the strip narrows. Include
+  // the close action so the whole active tab remains reachable on phones.
   useEffect(() => {
     if (!activeKey) return
-    const target = Array.from(tabList.current?.querySelectorAll<HTMLElement>("[role=tab]") ?? [])
-      .find((tab) => tab.dataset.tab === activeKey)
+    const strip = tabList.current
+    const target = Array.from(strip?.querySelectorAll<HTMLElement>("[role=tab]") ?? [])
+      .find((tab) => tab.dataset.tab === activeKey)?.closest<HTMLElement>(".buffer-tab")
     if (!target) return
     const reveal = () => target.scrollIntoView({ block: "nearest", inline: "nearest" })
     reveal()
     const observer = new ResizeObserver(reveal)
     observer.observe(target)
+    if (strip) observer.observe(strip)
     return () => observer.disconnect()
   }, [activeKey, tabs.length])
 
@@ -87,7 +90,7 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
             <ContextMenu.Trigger className={`buffer-tab${selected ? " active" : ""}`}>
               <Button
                 className="buffer-tab-target"
-                variant="ghost"
+                variant="plain"
                 size="inline"
                 role="tab"
                 data-tab={tabKey(tab)}

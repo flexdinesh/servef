@@ -10,7 +10,7 @@ else.
 - Format JSON, YAML, HTML, CSS, and JavaScript on demand; files stay unchanged
 - Serve several directories; switch repositories and worktrees
 - Live updates: the tree, open document, Source Control, and Search follow changes on disk
-- VS Code-style Explorer, Search, Source Control, tabs, and command palette
+- VS Code-style Explorer, Search, Source Control, borderless editor tabs, and command palette
 - A Welcome tab that lists your projects and shows what you can do
 - Review uncommitted work, commits, a range of commits, a branch with or without its uncommitted work, or a branch stack layer by layer in one stacked diff tab
 - Go to definition and find references through installed language servers
