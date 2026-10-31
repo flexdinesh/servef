@@ -22,6 +22,10 @@ go = "1.26"
 # Local overrides such as dev ports; see .env.example. Missing is fine.
 _.file = ".env"
 
+# Checks shared by check, check:push, and check:full.
+[vars]
+shared_checks = "fmt:check tidy:check mise:check vet test:web test:release typecheck lint"
+
 [tasks.setup]
 description = "Install dependencies and build embedded frontend assets"
 run = ["go mod download", "pnpm install", { task = "build:web" }]
@@ -85,8 +89,18 @@ depends = ["build:web"]
 run = "go build ./..."
 
 [tasks."build:site"]
-description = "Build the docs site"
+description = "Build the docs site; skipped when inputs are unchanged"
 run = "pnpm build:site"
+sources = [
+  "site/src/**/*",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "site/package.json",
+  "site/tsconfig.json",
+  "site/vocs.config.ts",
+]
+outputs = ["site/dist/**/*"]
 
 [tasks.install]
 description = "Install the local CLI with go install"
@@ -151,45 +165,31 @@ run = "pnpm typecheck"
 description = "Lint with oxlint and stylelint"
 run = "pnpm lint"
 
-[tasks."check:shared"]
-description = "Checks shared by check and check:push"
-hide = true
-depends = [
-  "fmt:check",
-  "tidy:check",
-  "mise:check",
-  "vet",
-  "test:web",
-  "test:release",
-  "typecheck",
-  "lint",
-]
-
+# scripts/check.ts runs `:::`-separated groups in order, logs each task to
+# .dev/check-logs, and prints one line per task (decision 0057).
 [tasks.check]
 description = "Run non-browser checks, including the docs build"
-depends = ["check:shared", "test:go", "build:site"]
+quiet = true
+run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:go build:site"
 
 # The shared Git directory gives all worktrees the same OS-backed lock.
 [tasks."check:push"]
 description = "Queue pre-push checks across worktrees"
-run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run check:push:run"
+quiet = true
+run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run -q check:push:run"
 
 [tasks."check:push:run"]
 description = "Run ordinary checks, then critical browser tests"
 hide = true
-run = [{ tasks = ["check:shared", "test:go"] }, { task = "test:browser" }]
+quiet = true
+run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:go ::: test:browser"
 
 [tasks."check:full"]
 description = "Queue full checks, including race tests and the docs build"
-run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run check:full:run"
+quiet = true
+run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run -q check:full:run"
 
 [tasks."check:full:run"]
 hide = true
-run = [
-  { tasks = [
-    "check:shared",
-    "test:race",
-    "build:site",
-  ] },
-  { task = "test:browser" },
-]
+quiet = true
+run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:race build:site ::: test:browser"

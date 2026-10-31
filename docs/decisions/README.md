@@ -59,5 +59,6 @@ rewriting history; update `Status` on the old record.
 | [0051](0051-branch-review-with-uncommitted.md) | Branch review with uncommitted changes | Accepted |
 | [0052](0052-welcome-tab-and-contextual-empty-state.md) | Welcome tab and an empty pane that follows the sidebar view | Accepted |
 | [0053](0053-files-rail-viewed-marks.md) | Viewed marks in the review Files rail | Accepted |
-| [0054](0054-worktree-checks.md) | Queued worktree checks and critical browser coverage | Accepted; supersedes 0032/0038 check execution |
+| [0054](0054-worktree-checks.md) | Queued worktree checks and critical browser coverage | Accepted; supersedes 0032/0038 check execution; check output superseded by 0057 |
 | [0055](0055-scrollbars.md) | Thin, hover-revealed scrollbars with reserved gutters | Accepted |
+| [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |

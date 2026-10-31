@@ -143,4 +143,21 @@ For every addition:
 
 ## Iteration
 
-Use `testdata/markdown` and `mise run dev` while iterating; it also serves the browser tests' git fixture, rebuilt in the gitignored `.dev/git-fixture`, for Source Control, and publishes sample walkthroughs (`scripts/dev-walkthroughs.ts`) into `.dev/cache`. mise is required: `mise.toml` declares tools (locked in `mise.lock`), loads the gitignored `.env` (dev ports: `SERVEF_DEV_SERVER_PORT`, `SERVEF_DEV_WEB_PORT`), and owns every composite task; `package.json` keeps single JS steps (`docs/decisions/0038-mise-dev-tooling-and-env-ports.md`). Verify with `mise run test:go`, `mise run test:web`, `mise run typecheck`, `mise run lint`, `mise run check`, and `mise run test:browser` as applicable.
+Use `testdata/markdown` and `mise run dev` while iterating; it also serves the browser tests' git fixture, rebuilt in the gitignored `.dev/git-fixture`, for Source Control, and publishes sample walkthroughs (`scripts/dev-walkthroughs.ts`) into `.dev/cache`. mise is required: `mise.toml` declares tools (locked in `mise.lock`), loads the gitignored `.env` (dev ports: `SERVEF_DEV_SERVER_PORT`, `SERVEF_DEV_WEB_PORT`), and owns every composite task; `package.json` keeps single JS steps (`docs/decisions/0038-mise-dev-tooling-and-env-ports.md`).
+
+Check output stays in the conversation, so verify with the narrowest command for what changed (decision 0057):
+
+| Change | Command |
+| --- | --- |
+| One Go package | `go test ./internal/<pkg>` (`mise run build:web` once per worktree first; it skips when unchanged) |
+| Frontend logic | `pnpm --filter @servef/web exec node --test --test-reporter=dot <file>.test.ts` |
+| TypeScript types | `pnpm --filter @servef/web typecheck`; `pnpm exec tsc --noEmit` for `scripts/` and `tests/` |
+| CSS, components, Hooks | `mise run lint` |
+| Release tooling, `scripts/` | `node --test --test-reporter=dot tests/<file>.test.ts` |
+| `mise.toml` | `mise run mise:check` |
+| Docs site | `pnpm --filter @servef/site typecheck`; `mise run build:site` |
+| Browser behavior | `mise run test:browser -- tests/browser/<spec>.ts` |
+
+- The pre-push hook runs `mise run check:push` and is the full-check gate. Do not run `check` or `check:push` separately before pushing.
+- `check`, `check:push`, and `check:full` print one line per task and log output to `.dev/check-logs/`. On failure, read the printed tail or log and rerun only the printed `mise run <task>`. `SERVEF_CHECK_VERBOSE=1` streams output.
+- Run long checks in the background and wait for the completion notification. Never poll logs or `sleep` in loops.

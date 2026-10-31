@@ -70,9 +70,21 @@ and `pnpm link:local` delegate to the mise tasks below.
 
 `mise run check` builds the embedded frontend once, then runs Go formatting,
 tidiness, vet, tests, mise config validation, web and tooling tests,
-typecheck, lint, and the docs build in parallel. `build:web` declares its
-inputs, so mise skips it when none changed; `mise run build:web --force`
-rebuilds anyway.
+typecheck, lint, and the docs build in parallel. `build:web` and `build:site`
+declare their inputs, so mise skips them when none changed;
+`mise run --force build:web` (or `build:site`) rebuilds anyway.
+
+`check`, `check:push`, and `check:full` run `scripts/check.ts`, which takes
+`:::`-separated groups of mise tasks from `mise.toml`. Groups run in order;
+each group runs its tasks in parallel, up to `MISE_JOBS` (default 8). Each
+task's stdout and stderr go to `.dev/check-logs/NN-<task>.log`, cleared at the
+start of each run, and the terminal shows one `ok <task> 4.2s` line per task.
+A failed task prints its last 100 log lines, the log path, and the
+`mise run <task>` command that reruns it alone. The rest of its group
+finishes, later groups print `skip`, and the run exits with the first failing
+status. Set `SERVEF_CHECK_VERBOSE=1` to stream task output instead of writing
+logs. Node tests use the dot reporter, Playwright uses dots unless stdout is a
+terminal, and the app build prints only warnings and errors (decision 0057).
 
 `mise run test:browser` builds the embedded frontend first, since some specs load
 the Go-served UI. The runner compiles one Go binary, starts three API servers
@@ -90,7 +102,8 @@ then critical browser tests. Go tests already compile every package, so no
 duplicate Go build runs. Race tests and the docs production build move to
 `mise run check:full`; race tests need a C compiler. CI only publishes embedded
 assets on `edge`; release builds packages and smoke-tests the shipped binary.
-Skip the hook once with `git push --no-verify`.
+Skip the hook once with `git push --no-verify`. The hook is the full-check
+gate: do not also run `check:push` by hand before pushing.
 
 On Linux and macOS, `check:push` and `check:full` hold an OS-backed lock in
 `git rev-parse --git-common-dir` for the complete run. All linked worktrees
