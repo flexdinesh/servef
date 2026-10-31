@@ -8,6 +8,8 @@ export default defineConfig({
   // Bound CPU and Chromium memory across agent sessions. --workers overrides.
   workers: 2,
   retries: 0,
+  // Per-test lines only for people watching; logs and agents get dots.
+  reporter: process.stdout.isTTY ? "list" : "dot",
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     screenshot: "only-on-failure",

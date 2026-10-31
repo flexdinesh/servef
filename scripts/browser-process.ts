@@ -5,11 +5,14 @@ export interface ManagedProcess {
   exited: Promise<number>
 }
 
-export function startProcess(command: string, args: string[], env: NodeJS.ProcessEnv, capture = false): ManagedProcess {
+// `output`, a file descriptor, receives both stdout and stderr instead.
+export function startProcess(
+  command: string, args: string[], env: NodeJS.ProcessEnv, capture = false, output?: number,
+): ManagedProcess {
   const child = spawn(command, args, {
     env,
     detached: process.platform !== "win32",
-    stdio: ["ignore", capture ? "pipe" : "inherit", "inherit"],
+    stdio: output === undefined ? ["ignore", capture ? "pipe" : "inherit", "inherit"] : ["ignore", output, output],
   })
   if (capture) child.stdout?.pipe(process.stdout, { end: false })
   const exited = new Promise<number>((resolve, reject) => {

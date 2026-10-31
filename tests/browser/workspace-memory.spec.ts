@@ -33,6 +33,14 @@ test("folder expansion survives reloads and stays independent per project", asyn
 
 test("restoring tabs never writes an empty workspace before navigation finishes", async ({ page }) => {
   await page.goto(`/?project=${rootParam}`)
+  // Seed only after the first visit remembers Welcome; that write would
+  // otherwise replace the seeded tabs.
+  await page.waitForFunction((project) => {
+    const memory: unknown = JSON.parse(window.localStorage.getItem("servef-workspaces-v2") ?? "{}")
+    if (typeof memory !== "object" || memory === null || !("projects" in memory)) return false
+    const projects = memory.projects
+    return typeof projects === "object" && projects !== null && project in projects
+  }, fixtureRoot)
   await page.evaluate((project) => {
     window.localStorage.setItem("servef-workspaces-v2", JSON.stringify({ last: {}, projects: {
       [project]: { tabs: ["README.md", "config/settings.json", "removed.md"], active: "config/settings.json", expanded: ["config/", "removed/", "../outside/", "README.md"] },
