@@ -154,12 +154,16 @@ func TestRunServesStatusRootsAndWebRoutes(t *testing.T) {
 
 	code, body = d.request(t, http.MethodGet, "/api/projects", nil, "")
 	var projects struct {
-		Projects []struct {
+		SessionKey string `json:"sessionKey"`
+		Projects   []struct {
 			ID string `json:"id"`
 		} `json:"projects"`
 	}
 	if err := json.Unmarshal(body, &projects); err != nil || code != http.StatusOK {
 		t.Fatalf("GET /api/projects = %d %s", code, body)
+	}
+	if projects.SessionKey != "daemon" {
+		t.Fatalf("sessionKey = %q, want daemon", projects.SessionKey)
 	}
 	var ids []string
 	for _, project := range projects.Projects {

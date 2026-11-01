@@ -27,6 +27,15 @@ func (e *ProtocolMismatchError) Error() string {
 		e.DaemonVersion, e.Socket, e.Daemon, e.Client, e.Daemon)
 }
 
+// ControlError is a daemon's JSON error answer: its HTTP status and the
+// {error, code?} body.
+type ControlError struct {
+	Status        int
+	Code, Message string
+}
+
+func (e *ControlError) Error() string { return "servef daemon: " + e.Message }
+
 // stopPollInterval paces Stop's wait for the socket to go quiet.
 const stopPollInterval = 50 * time.Millisecond
 
@@ -87,6 +96,27 @@ func (c *Client) AddRoot(ctx context.Context, path string) (string, bool, error)
 	return response.Root, response.Added, nil
 }
 
+// Open asks the daemon to serve path, an absolute directory: a path within a
+// served root adds nothing; otherwise path becomes a root, replacing the roots
+// inside it. It returns the root, the replaced roots, and the project that
+// shows path.
+func (c *Client) Open(ctx context.Context, path string) (OpenResult, error) {
+	var result OpenResult
+	if err := c.call(ctx, http.MethodPost, "open", addRootRequest{Path: path}, 0, &result); err != nil {
+		return OpenResult{}, err
+	}
+	return result, nil
+}
+
+// AnnounceWalkthrough asks the daemon to announce project's walkthrough id,
+// read from the daemon's store, to its control streams. A *ControlError with
+// code walkthroughUnavailable means the daemon's store lacks it;
+// projectUnavailable means no served root shows the project.
+func (c *Client) AnnounceWalkthrough(ctx context.Context, project, id string, created bool) error {
+	var response announceResponse
+	return c.call(ctx, http.MethodPost, "walkthroughs", announceRequest{Project: project, ID: id, Created: created}, http.StatusAccepted, &response)
+}
+
 // Stop asks the daemon to stop and waits, within ctx, until the socket stops
 // answering. A daemon that is not running is already stopped.
 func (c *Client) Stop(ctx context.Context) error {
@@ -112,7 +142,7 @@ func (c *Client) Stop(ctx context.Context) error {
 }
 
 // call sends a control request. want is the success status; 0 accepts 200
-// and 201. A JSON error body becomes the error.
+// and 201. A JSON error body becomes a *ControlError.
 func (c *Client) call(ctx context.Context, method, name string, body any, want int, result any) error {
 	var reader io.Reader
 	if body != nil {
@@ -145,7 +175,7 @@ func (c *Client) call(ctx context.Context, method, name string, body any, want i
 	if !ok {
 		var failure errorResponse
 		if json.Unmarshal(content, &failure) == nil && failure.Error != "" {
-			return fmt.Errorf("servef daemon: %s", failure.Error)
+			return &ControlError{Status: response.StatusCode, Code: failure.Code, Message: failure.Error}
 		}
 		return fmt.Errorf("%s does not answer as a servef daemon (%s %s: %s)", c.socket, method, request.URL.Path, response.Status)
 	}

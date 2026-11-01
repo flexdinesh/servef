@@ -54,6 +54,7 @@ func TestDaemonCommandParsesFlags(t *testing.T) {
 		{[]string{"ensure", "--json", "--socket", "/tmp/sf/d.sock", "--depth", "3", "--scan-depth", "4", "--idle-exit", "0"}, "ensure", daemonOptions{socket: "/tmp/sf/d.sock", depth: 3, scanDepth: 4, json: true}},
 		{[]string{"--socket", "/tmp/sf/d.sock", "stop"}, "stop", daemonOptions{socket: "/tmp/sf/d.sock"}},
 		{[]string{"status", "--json"}, "status", daemonOptions{socket: defaultSocket, json: true}},
+		{[]string{"run", "--roots-file", "/tmp/sf/roots.json"}, "run", daemonOptions{socket: defaultSocket, depth: 5, scanDepth: 10, idleExit: 30 * time.Minute, rootsFile: "/tmp/sf/roots.json"}},
 	}
 	for _, test := range tests {
 		called, opts, err := executeDaemon(t, test.args...)
@@ -74,6 +75,7 @@ func TestDaemonCommandValidatesFlags(t *testing.T) {
 		{"stop", "--depth", "3"},
 		{"status", "--idle-exit", "1m"},
 		{"stop", "--json"},
+		{"status", "--roots-file", "/tmp/sf/roots.json"},
 		{"run", "extra"},
 	} {
 		if called, _, err := executeDaemon(t, args...); err == nil || called != "" {
@@ -187,5 +189,35 @@ func TestDaemonCommandsDetachEnsureStopAndStatus(t *testing.T) {
 			t.Fatalf("daemon process %d still running after stop", first.PID)
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestDaemonEnsureForwardsRootsFile(t *testing.T) {
+	dir, err := os.MkdirTemp("", "sf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "daemon.sock")
+	env := []string{"SERVEF_CMD_TEST_EXEC=1", "XDG_CONFIG_HOME=" + t.TempDir(), "XDG_CACHE_HOME=" + t.TempDir()}
+	t.Cleanup(func() { servef(t, env, "daemon", "stop", "--socket", socket) })
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A relative path is forwarded absolute: the started daemon runs in /.
+	rootsFile := filepath.Join(t.TempDir(), "roots.json")
+	if err := daemon.SaveRoots(rootsFile, []string{root}); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(filepath.Dir(rootsFile))
+
+	result := servef(t, env, "daemon", "ensure", "--json", "--socket", socket, "--roots-file", filepath.Base(rootsFile))
+	var status daemon.Status
+	if result.err != nil || json.Unmarshal([]byte(result.stdout), &status) != nil {
+		t.Fatalf("ensure = %+v", result)
+	}
+	if len(status.Roots) != 1 || status.Roots[0] != root {
+		t.Fatalf("roots = %v, want %s from --roots-file", status.Roots, root)
 	}
 }

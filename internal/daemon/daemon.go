@@ -71,7 +71,7 @@ func Run(ctx context.Context, config Config) error {
 		return err
 	}
 	defer func() { _ = listener.Close() }()
-	rt, err := runtime.New(runtime.Config{Roots: roots, Depth: config.Depth, ScanDepth: config.ScanDepth})
+	rt, err := runtime.New(runtime.Config{Roots: roots, Depth: config.Depth, ScanDepth: config.ScanDepth, SessionKey: "daemon"})
 	if err != nil {
 		return err
 	}
@@ -84,6 +84,8 @@ func Run(ctx context.Context, config Config) error {
 		skipped:   skipped,
 		rootsFile: config.RootsFile,
 		stop:      func() { cancel(errStopRequested) },
+		done:      ctx.Done(),
+		notices:   rt,
 		status: Status{
 			Protocol:  ProtocolVersion,
 			Version:   version.Number(),

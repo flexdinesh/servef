@@ -487,3 +487,55 @@ func ids(projects []Project) []string {
 	}
 	return result
 }
+
+func TestProjectForFindsTheProjectShowingADirectory(t *testing.T) {
+	parent := canonicalTemp(t)
+	root := filepath.Join(parent, "root")
+	repo := filepath.Join(root, "repo")
+	makeRepo(t, repo)
+	writeFile(t, filepath.Join(repo, "packages", "app", "index.js"), "")
+	worktree := linkWorktree(t, repo, "feature", filepath.Join(root, "feature"))
+	writeFile(t, filepath.Join(worktree, "src", "main.go"), "")
+	outsideWorktree := linkWorktree(t, repo, "away", filepath.Join(parent, "away"))
+	writeFile(t, filepath.Join(root, "docs", "guides", "readme.md"), "")
+	writeFile(t, filepath.Join(root, "node_modules", "pkg", "index.js"), "")
+	writeFile(t, filepath.Join(parent, "outside", "file"), "")
+	roots := []string{root}
+
+	for dir, want := range map[string]string{
+		root:                                   root,
+		repo:                                   repo,
+		filepath.Join(repo, "packages", "app"): repo,
+		worktree:                               worktree,
+		filepath.Join(worktree, "src"):         worktree,
+		outsideWorktree:                        outsideWorktree,
+		filepath.Join(root, "docs"):            filepath.Join(root, "docs"),
+		filepath.Join(root, "docs", "guides"):  filepath.Join(root, "docs", "guides"),
+	} {
+		got, err := ProjectFor(roots, dir)
+		if err != nil || got != want {
+			t.Errorf("ProjectFor(%q) = %q, %v; want %q", dir, got, err, want)
+			continue
+		}
+		if resolved, err := Resolve(roots, got); err != nil || resolved != got {
+			t.Errorf("Resolve(ProjectFor(%q)) = %q, %v; want it", dir, resolved, err)
+		}
+	}
+	for dir, want := range map[string]error{
+		filepath.Join(parent, "outside"): files.ErrPathEscape,
+		parent:                           files.ErrPathEscape,
+		filepath.Join(root, "node_modules", "pkg"): ErrUnavailable,
+		filepath.Join(root, "missing"):             ErrUnavailable,
+		"docs":                                     ErrUnavailable,
+	} {
+		if got, err := ProjectFor(roots, dir); !errors.Is(err, want) {
+			t.Errorf("ProjectFor(%q) = %q, %v; want %v", dir, got, err, want)
+		}
+	}
+
+	// A repository at the root holds every folder below it.
+	makeRepo(t, root)
+	if got, err := ProjectFor(roots, filepath.Join(root, "docs", "guides")); err != nil || got != root {
+		t.Fatalf("ProjectFor(folder in repository root) = %q, %v; want root", got, err)
+	}
+}

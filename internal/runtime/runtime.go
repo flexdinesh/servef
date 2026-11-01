@@ -26,6 +26,8 @@ type Config struct {
 	ScanDepth int
 	// OpenBrowser opens published walkthroughs that ask; nil never opens.
 	OpenBrowser func(url string) error
+	// SessionKey keys the browser's session memory; "" keys it by roots.
+	SessionKey string
 }
 
 // Runtime is the composed web application.
@@ -34,7 +36,7 @@ type Runtime struct{ app *web.App }
 // New builds the web app over document.Builtins(); language servers, the
 // watch hub, and the walkthrough service use web.New's defaults.
 func New(config Config) (*Runtime, error) {
-	app, err := web.New(web.Config{Roots: config.Roots, ScanDepth: config.ScanDepth, Depth: config.Depth, Types: document.Builtins(), OpenBrowser: config.OpenBrowser})
+	app, err := web.New(web.Config{Roots: config.Roots, ScanDepth: config.ScanDepth, Depth: config.Depth, Types: document.Builtins(), OpenBrowser: config.OpenBrowser, SessionKey: config.SessionKey})
 	if err != nil {
 		return nil, fmt.Errorf("create web interface: %w", err)
 	}
@@ -43,6 +45,18 @@ func New(config Config) (*Runtime, error) {
 
 // Handler is the web application (Host check, CSP, routes).
 func (r *Runtime) Handler() http.Handler { return r.app }
+
+// AnnounceWalkthrough tells walkthrough notice subscribers that project's
+// walkthrough id was published (web.App.AnnounceWalkthrough).
+func (r *Runtime) AnnounceWalkthrough(project, id string, created bool) (web.WalkthroughNotice, error) {
+	return r.app.AnnounceWalkthrough(project, id, created)
+}
+
+// WalkthroughNotices subscribes to walkthrough announcements
+// (web.App.WalkthroughNotices).
+func (r *Runtime) WalkthroughNotices() (<-chan web.WalkthroughNotice, func()) {
+	return r.app.WalkthroughNotices()
+}
 
 // Serve serves handler on listener until ctx ends or serving fails. On ctx
 // end it shuts down: event streams end first, then in-flight requests get
