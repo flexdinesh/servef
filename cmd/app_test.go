@@ -57,6 +57,9 @@ func newAppFake() (*appFake, *appDeps) {
 			fake.served = append(fake.served, opts)
 			return nil
 		},
+		hostname: func() (string, error) { return "devbox", nil },
+		username: func() string { return "dee" },
+		terminal: func(io.Writer) bool { return false },
 	}
 }
 
@@ -148,12 +151,6 @@ func TestAppNoOpenPrintsTheURL(t *testing.T) {
 
 func TestAppServesInBrowserWithoutTouchingTheApp(t *testing.T) {
 	root := appRoot(t)
-	ssh := func(name string) string {
-		if name == "SSH_TTY" {
-			return "/dev/pts/1"
-		}
-		return ""
-	}
 	for _, test := range []struct {
 		name   string
 		opts   func(*options)
@@ -162,7 +159,7 @@ func TestAppServesInBrowserWithoutTouchingTheApp(t *testing.T) {
 	}{
 		{"host", func(o *options) { o.host, o.hostSet = "127.0.0.1", true }, nil, ""},
 		{"port", func(o *options) { o.port, o.portSet = 8080, true }, nil, ""},
-		{"ssh", nil, func(d *appDeps) { d.getenv = ssh }, "servef remote is not available yet; serving in browser mode\n"},
+		{"port inside SSH", func(o *options) { o.port, o.portSet = 8080, true }, func(d *appDeps) { d.getenv = sshEnv }, ""},
 		{"windows", nil, func(d *appDeps) { d.goos = "windows" }, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -343,5 +340,73 @@ func TestAppWarnsWhenTheRunningDaemonUsesOtherDepths(t *testing.T) {
 				t.Errorf("stderr = %q, want no warning", stderr)
 			}
 		})
+	}
+}
+
+func sshEnv(name string) string {
+	if name == "SSH_CONNECTION" {
+		return testSSHConnection
+	}
+	return ""
+}
+
+func TestAppInsideSSHPrintsTheRemoteLink(t *testing.T) {
+	root := appRoot(t)
+	fake, deps := newAppFake()
+	deps.getenv = sshEnv
+
+	stdout, stderr, err := runAppWith(appOptions(root), deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := "servef://ssh/devbox/?project=" + url.QueryEscape(root) + "&ssh-hostname=devbox&ssh-user=dee&ssh-addr=10.0.0.5"
+	if want := "serving " + root + " on devbox\n" + link + "\nopen the link on your computer; it needs the servef desktop app\n"; stdout != want || stderr != "" {
+		t.Errorf("stdout = %q, stderr = %q; want %q", stdout, stderr, want)
+	}
+	if want := []daemonOptions{{socket: fakeSocket, depth: 5, scanDepth: 10, idleExit: daemon.DefaultIdleExit}}; !reflect.DeepEqual(fake.ensured, want) {
+		t.Errorf("ensured %+v, want %+v", fake.ensured, want)
+	}
+	if fake.installedCalls != 0 || len(fake.openedURLs) != 0 || len(fake.served) != 0 {
+		t.Errorf("fake = %+v; want no local app and no browser mode", fake)
+	}
+}
+
+func TestAppInsideSSHFallsBackToBrowserWhenRemoteFails(t *testing.T) {
+	root := appRoot(t)
+	for _, test := range []struct {
+		name string
+		deps func(*appDeps)
+		want string
+	}{
+		{"unsupported OS", func(d *appDeps) { d.goos = "windows" }, daemon.ErrUnsupported.Error() + "; serving in browser mode\n"},
+		{"ensure failure", func(d *appDeps) {
+			d.ensure = func(context.Context, daemonOptions) (daemon.Status, bool, error) {
+				return daemon.Status{}, true, errors.New("servef daemon did not start")
+			}
+		}, "servef daemon is unavailable (servef daemon did not start; see " + fakeSocket + ".log); serving in browser mode\n"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fake, deps := newAppFake()
+			deps.getenv = sshEnv
+			test.deps(deps)
+			opts := appOptions(root)
+			stdout, stderr, err := runAppWith(opts, deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stdout != "" || stderr != test.want {
+				t.Errorf("stdout = %q, stderr = %q; want %q", stdout, stderr, test.want)
+			}
+			if !reflect.DeepEqual(fake.served, []options{opts}) {
+				t.Errorf("served %+v, want %+v", fake.served, opts)
+			}
+		})
+	}
+
+	// Invalid paths exit instead of falling back.
+	fake, deps := newAppFake()
+	deps.getenv = sshEnv
+	if _, _, err := runAppWith(appOptions(filepath.Join(root, "missing")), deps); err == nil || len(fake.served) != 0 || len(fake.ensured) != 0 {
+		t.Errorf("missing path: err = %v, fake = %+v; want an error and nothing else", err, fake)
 	}
 }
