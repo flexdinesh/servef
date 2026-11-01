@@ -34,6 +34,12 @@ These installs include the embedded frontend; Node.js and pnpm are not required.
 Other branches and commits do not include it and fail to build with
 `go install`.
 
+### Desktop app
+
+Optional. Packages for macOS and Linux are on
+[GitHub Releases](https://github.com/flexdinesh/servef/releases); see
+[Desktop app](/desktop).
+
 ## Run
 
 Serve the current directory:
@@ -42,8 +48,10 @@ Serve the current directory:
 servef .
 ```
 
-servef opens the browser UI on the first free port from `7971` through `7980`.
-See [Usage](/usage) for directories, scope, and ports, and
+With the [desktop app](/desktop) installed, servef opens the directory in it.
+Otherwise it opens the browser UI on the first free port from `7971` through
+`7980`; `servef browser .` always does. See [Usage](/usage) for directories,
+scope, and ports, and
 [Browsing](/browsing) for the UI.
 
 See all options:

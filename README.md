@@ -16,6 +16,7 @@ else.
 - Go to definition and find references through installed language servers
 - Walkthroughs: agents publish guided tours of files and diffs with narration inline in the code, with `servef walkthrough publish` and no server needed ([agent skill](skills/servef-walkthrough/SKILL.md): `npx skills add flexdinesh/servef --skill servef-walkthrough`)
 - 28 themes, including Omarchy's built-ins; Mermaid diagrams; line links
+- Desktop app (macOS, Linux; preview): `servef .` opens projects in their own windows, with notifications for branch switches, commits, settled edits, and walkthroughs
 
 ## Install
 
@@ -51,16 +52,24 @@ These installs include the embedded frontend; Node.js and pnpm are not required.
 Other branches and commits do not include it and fail to build with
 `go install`.
 
+### Desktop app
+
+Optional: macOS and Linux packages on
+[GitHub Releases](https://github.com/flexdinesh/servef/releases). See
+[desktop](site/src/pages/desktop.mdx) for install and Gatekeeper steps.
+
 ## Usage
 
-Serve the current directory:
+Open the current directory:
 
 ```sh
 servef .
 ```
 
-`servef browser [path]` is equivalent to `servef [path]` and takes the same
-flags. To serve a directory named `browser`, run `servef ./browser`.
+With the desktop app installed, `servef [path]` opens it there and exits;
+otherwise (or over SSH, or with `--host`/`--port`) it serves in a browser.
+`servef browser [path]` always serves in a browser and takes the same flags.
+To open a directory named `browser`, run `servef ./browser`.
 
 See all options:
 
@@ -70,7 +79,7 @@ servef --help
 
 ## Documentation
 
-Usage, browsing, code navigation, and walkthrough guides live in
+Usage, desktop app, browsing, code navigation, and walkthrough guides live in
 [`site/src/pages`](https://github.com/flexdinesh/servef/tree/main/site/src/pages).
 Contributors: see [development](docs/development.md) and
 [architecture](docs/architecture.md).

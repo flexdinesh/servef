@@ -10,6 +10,7 @@ export default defineConfig({
     { text: 'Introduction', link: '/' },
     { text: 'Getting started', link: '/getting-started' },
     { text: 'Usage', link: '/usage' },
+    { text: 'Desktop app', link: '/desktop' },
     { text: 'Browsing', link: '/browsing' },
     { text: 'Code navigation', link: '/code-navigation' },
     { text: 'Walkthroughs', link: '/walkthroughs' },
