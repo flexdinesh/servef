@@ -24,10 +24,7 @@ func TestDiscoverFindsRepositoriesAndStopsAtThem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	discovery, err := Discover([]string{root}, 3)
-	if err != nil {
-		t.Fatalf("Discover() error = %v", err)
-	}
+	discovery := Discover([]string{root}, 3)
 	alpha, beta := filepath.Join(root, "alpha"), filepath.Join(root, "work", "Beta")
 	want := []Project{
 		{ID: root, Name: filepath.Base(root), Path: root, Kind: KindFolder, Root: root, Available: true},
@@ -43,10 +40,7 @@ func TestDiscoverScanDepthZeroChecksRootOnly(t *testing.T) {
 	root := canonicalTemp(t)
 	makeRepo(t, filepath.Join(root, "alpha"))
 
-	discovery, err := Discover([]string{root}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 0)
 	if got := ids(discovery.Projects); !reflect.DeepEqual(got, []string{root}) {
 		t.Fatalf("IDs = %v, want root only", got)
 	}
@@ -57,10 +51,7 @@ func TestDiscoverRootRepositoryIsTheOnlyProject(t *testing.T) {
 	makeRepo(t, root)
 	makeRepo(t, filepath.Join(root, "vendored"))
 
-	discovery, err := Discover([]string{root}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 10)
 	want := []Project{{ID: root, Name: filepath.Base(root), Path: root, Kind: KindRepo, Root: root, Branch: "main", Repository: filepath.Base(root), Available: true}}
 	if !reflect.DeepEqual(discovery.Projects, want) {
 		t.Fatalf("Projects = %#v, want %#v", discovery.Projects, want)
@@ -74,10 +65,7 @@ func TestDiscoverListsEveryRootInOrder(t *testing.T) {
 	makeRepo(t, personal)
 	makeRepo(t, filepath.Join(parent, "between"))
 
-	discovery, err := Discover([]string{work, personal}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{work, personal}, 10)
 	if got, want := ids(discovery.Projects), []string{work, filepath.Join(work, "api"), personal}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("IDs = %v, want %v", got, want)
 	}
@@ -95,10 +83,7 @@ func TestDiscoverGroupsWorktreesWherever(t *testing.T) {
 	inside := linkWorktree(t, main, "inside", filepath.Join(main, ".worktrees", "inside"))
 	outside := linkWorktree(t, main, "outside", filepath.Join(parent, "elsewhere", "outside"))
 
-	discovery, err := Discover([]string{root}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 10)
 	want := []Project{
 		{ID: root, Name: "root", Path: root, Kind: KindFolder, Root: root, Available: true},
 		{ID: outside, Name: "outside", Path: outside, Kind: KindWorktree, Group: main, Root: root, Branch: "outside", Repository: "main", Available: true},
@@ -112,10 +97,7 @@ func TestDiscoverGroupsWorktreesWherever(t *testing.T) {
 
 	// A root holding only a linked worktree still lists its group; members
 	// outside that root, and repositories outside every root, do not open.
-	worktreeOnly, err := Discover([]string{sibling}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	worktreeOnly := Discover([]string{sibling}, 10)
 	if got := len(worktreeOnly.Projects); got != 4 {
 		t.Fatalf("worktree-root projects = %#v, want 4 group members", worktreeOnly.Projects)
 	}
@@ -136,10 +118,7 @@ func TestDiscoverGroupsWorktreesAcrossRoots(t *testing.T) {
 	makeRepo(t, main)
 	feature := linkWorktree(t, main, "feature", filepath.Join(second, "feature"))
 
-	discovery, err := Discover([]string{second, first}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{second, first}, 10)
 	for _, project := range discovery.Projects {
 		if project.Kind == KindFolder {
 			continue
@@ -167,10 +146,7 @@ func TestDiscoverIgnoresWorktreesWithoutBacklink(t *testing.T) {
 	writeFile(t, filepath.Join(admin, "gitdir"), filepath.Join(secret, ".git")+"\n")
 	writeFile(t, filepath.Join(admin, "commondir"), "../..\n")
 
-	discovery, err := Discover([]string{root}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 10)
 	if got := ids(discovery.Projects); !reflect.DeepEqual(got, []string{root, main}) {
 		t.Fatalf("IDs = %v, want forged worktree ignored", got)
 	}
@@ -202,10 +178,7 @@ func TestDiscoverWithGitWorktrees(t *testing.T) {
 	runGit(t, gitPath, main, "worktree", "add", "-q", "-b", "feature-x", filepath.Join(root, "feature"))
 	runGit(t, gitPath, main, "worktree", "add", "-q", "--detach", filepath.Join(parent, "outside"))
 
-	discovery, err := Discover([]string{root}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 10)
 	branches := map[string]string{}
 	for _, project := range discovery.Projects {
 		if project.ID != root && project.Group != main {
@@ -368,10 +341,7 @@ func TestDiscoveredProjectsResolve(t *testing.T) {
 	linkWorktree(t, filepath.Join(root, "a"), "wt", filepath.Join(root, "a-wt"))
 	linkWorktree(t, filepath.Join(root, "a"), "far", filepath.Join(parent, "far"))
 
-	discovery, err := Discover([]string{root}, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery := Discover([]string{root}, 10)
 	for _, project := range discovery.Projects {
 		if _, err := Resolve([]string{root}, project.ID); err != nil {
 			t.Errorf("Resolve(%q) error = %v", project.ID, err)
@@ -442,9 +412,25 @@ func TestInspectNamesRepositoryByOriginURL(t *testing.T) {
 	}
 }
 
-func TestDiscoverRejectsMissingRoot(t *testing.T) {
-	if _, err := Discover([]string{filepath.Join(t.TempDir(), "missing")}, 10); err == nil {
-		t.Fatal("Discover() error = nil, want missing root error")
+func TestDiscoverSkipsUnavailableRootsAndKeepsOthers(t *testing.T) {
+	parent := canonicalTemp(t)
+	missing, file, kept := filepath.Join(parent, "missing"), filepath.Join(parent, "file"), filepath.Join(parent, "kept")
+	writeFile(t, file, "")
+	makeRepo(t, filepath.Join(kept, "api"))
+	discovery := Discover([]string{missing, file, kept}, 10)
+	var skipped []string
+	for _, warning := range discovery.Skipped {
+		skipped = append(skipped, warning.Path)
+	}
+	if !reflect.DeepEqual(skipped, []string{missing, file}) {
+		t.Fatalf("Skipped = %v, want %v", discovery.Skipped, []string{missing, file})
+	}
+	var ids []string
+	for _, project := range discovery.Projects {
+		ids = append(ids, project.ID)
+	}
+	if !reflect.DeepEqual(ids, []string{kept, filepath.Join(kept, "api")}) {
+		t.Fatalf("Projects = %v, want only the kept root's projects", ids)
 	}
 }
 

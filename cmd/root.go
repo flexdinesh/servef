@@ -110,10 +110,11 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 
 	// Validate the root before binding a port or opening a browser.
 	discoveryStarted := time.Now()
-	discovery, err := projects.Discover(roots, opts.scanDepth)
+	discovery := projects.Discover(roots, opts.scanDepth)
 	discoveryDuration := time.Since(discoveryStarted)
-	if err != nil {
-		return err
+	// NewRootSet rejected missing roots; an unreadable root still fails startup.
+	if len(discovery.Skipped) > 0 {
+		return discovery.Skipped[0].Err
 	}
 
 	// Published walkthroughs open the browser only when startup may (decision 0047).

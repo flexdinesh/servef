@@ -597,3 +597,21 @@ func TestRunStopsOnControlRequest(t *testing.T) {
 		t.Fatal("control record remains after stop")
 	}
 }
+
+func TestRunRejectsUnreadableRootBeforeServing(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	root := t.TempDir()
+	if err := os.Chmod(root, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
+	var stdout bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := run(ctx, options{paths: []string{root}, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{})
+	if err == nil || !strings.HasPrefix(err.Error(), "read discovery root: ") || stdout.Len() != 0 {
+		t.Fatalf("run(unreadable root) = %v, stdout %q; want read discovery root error before serving", err, stdout.String())
+	}
+}

@@ -21,15 +21,12 @@ type directoriesResponse struct {
 
 func (a *App) serveProjects(w http.ResponseWriter) {
 	roots := a.roots.List()
-	discovery, err := projects.Discover(roots, a.config.ScanDepth)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
+	// A root removed while serving is a warning, not a failure for every root.
+	discovery := projects.Discover(roots, a.config.ScanDepth)
 	writeJSON(w, http.StatusOK, projectsResponse{
 		Roots:    projects.Roots(roots),
 		Projects: discovery.Projects,
-		Warnings: warningStrings(discovery.Warnings),
+		Warnings: warningStrings(append(discovery.Skipped, discovery.Warnings...)),
 	})
 }
 
