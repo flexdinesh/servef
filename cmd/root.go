@@ -51,6 +51,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	// Bare servef keeps browser behavior until the desktop app ships (decision 0060).
 	command.AddCommand(newBrowserCommand("browser [path]", runCommand))
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
+	command.AddCommand(newDaemonCommand())
 	return command
 }
 
