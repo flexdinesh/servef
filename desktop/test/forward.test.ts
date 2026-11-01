@@ -45,6 +45,9 @@ const server = http.createServer((req, res) => {
         res.on("close", () => markSSEClosed())
         sseRelease = () => res.write("event: change\ndata: 2\n\n")
         return
+      case "/hangup":
+        req.socket.destroy()
+        return
       default:
         res.writeHead(404).end()
     }
@@ -140,6 +143,10 @@ test("a missing socket rejects with a daemon-gone error", async () => {
   await assert.rejects(forwarder.forward(request({ socket: path.join(dir, "missing.sock") })), (error: unknown) => isDaemonGone(error))
 })
 
+test("a connection closed before the response head is a daemon-gone error", async () => {
+  await assert.rejects(forwarder.forward(request({ path: "/hangup" })), (error: unknown) => isDaemonGone(error))
+})
+
 test("keep-alive requests do not leak socket listeners", async () => {
   const warnings: string[] = []
   const onWarning = (warning: Error) => warnings.push(warning.name)
@@ -156,10 +163,12 @@ test("keep-alive requests do not leak socket listeners", async () => {
   assert.deepEqual(warnings, [])
 })
 
-test("isDaemonGone recognizes connect failures only", () => {
+test("isDaemonGone recognizes connect failures, resets, and broken pipes only", () => {
   assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ECONNREFUSED" })), true)
   assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ENOENT" })), true)
-  assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ECONNRESET" })), false)
+  assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ECONNRESET" })), true)
+  assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "EPIPE" })), true)
+  assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ETIMEDOUT" })), false)
   assert.equal(isDaemonGone(new Error("x")), false)
   assert.equal(isDaemonGone(null), false)
 })
