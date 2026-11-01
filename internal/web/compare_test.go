@@ -419,7 +419,7 @@ func TestCompareStatsStopWhenCancelled(t *testing.T) {
 		return os.Open(name)
 	}
 
-	target := "/api/compare-stats?project=" + url.QueryEscape(app.roots[0]) + "&compare=working"
+	target := "/api/compare-stats?project=" + url.QueryEscape(app.roots.List()[0]) + "&compare=working"
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, localRequest(http.MethodGet, target).WithContext(ctx))
 	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), "context canceled") {

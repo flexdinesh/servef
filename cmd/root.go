@@ -103,10 +103,11 @@ func addBrowserFlags(command *cobra.Command, opts *options) {
 }
 
 func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.Writer) error {
-	roots, err := projects.CanonicalRoots(opts.paths)
+	rootSet, err := projects.NewRootSet(opts.paths)
 	if err != nil {
 		return err
 	}
+	roots := rootSet.List()
 
 	// Validate the root before binding a port or opening a browser.
 	discoveryStarted := time.Now()
@@ -127,7 +128,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 			return err
 		}
 	}
-	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Types: document.Builtins(), OpenBrowser: openBrowser})
+	app, err := webui.New(webui.Config{Roots: rootSet, ScanDepth: opts.scanDepth, Depth: opts.depth, Types: document.Builtins(), OpenBrowser: openBrowser})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}

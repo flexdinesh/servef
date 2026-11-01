@@ -345,32 +345,6 @@ func TestDiscoveredProjectsResolve(t *testing.T) {
 	}
 }
 
-func TestCanonicalRoots(t *testing.T) {
-	parent := canonicalTemp(t)
-	a, b := filepath.Join(parent, "a"), filepath.Join(parent, "b")
-	writeFile(t, filepath.Join(a, "inner", "file"), "")
-	writeFile(t, filepath.Join(b, "file"), "")
-	if err := os.Symlink(a, filepath.Join(parent, "link")); err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := CanonicalRoots([]string{b, filepath.Join(parent, "link"), a, b + "/"})
-	if err != nil || !reflect.DeepEqual(got, []string{b, a}) {
-		t.Fatalf("CanonicalRoots() = %v, %v; want deduplicated [b a]", got, err)
-	}
-	for _, paths := range [][]string{
-		{a, filepath.Join(a, "inner")},
-		{filepath.Join(a, "inner"), a},
-		{filepath.Join(parent, "missing")},
-		{filepath.Join(b, "file")},
-		{},
-	} {
-		if _, err := CanonicalRoots(paths); err == nil {
-			t.Errorf("CanonicalRoots(%v) error = nil", paths)
-		}
-	}
-}
-
 func TestBranchReadsHead(t *testing.T) {
 	root := canonicalTemp(t)
 	for dir, head := range map[string]string{

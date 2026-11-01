@@ -89,31 +89,6 @@ type Discovery struct {
 	Warnings []files.Warning
 }
 
-// CanonicalRoots resolves served roots to absolute, symlink-evaluated
-// directories in order, drops duplicates, and rejects roots nested in another.
-func CanonicalRoots(paths []string) ([]string, error) {
-	roots := make([]string, 0, len(paths))
-	for _, name := range paths {
-		root, err := canonicalDir(name)
-		if err != nil {
-			return nil, err
-		}
-		if containsPath(roots, root) {
-			continue
-		}
-		for _, other := range roots {
-			if files.Within(other, root) || files.Within(root, other) {
-				return nil, fmt.Errorf("roots %q and %q overlap; pass only the outer one", other, root)
-			}
-		}
-		roots = append(roots, root)
-	}
-	if len(roots) == 0 {
-		return nil, errors.New("no root to serve")
-	}
-	return roots, nil
-}
-
 // Roots describes served roots for display.
 func Roots(roots []string) []Root {
 	result := make([]Root, len(roots))

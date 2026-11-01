@@ -55,7 +55,7 @@ func serverApp(t *testing.T, installed bool) *App {
 	servers := lsp.NewManager([]lsp.Server{fakeServer}, lsp.Options{
 		LookPath: func(string) (string, bool) { return os.Args[0], installed },
 	})
-	app, err := New(Config{Roots: []string{root}, Depth: 5, LanguageServers: servers})
+	app, err := New(Config{Roots: testRoots(t, root), Depth: 5, LanguageServers: servers})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func serverApp(t *testing.T, installed bool) *App {
 
 func serverRequest(t *testing.T, app *App, target string, enabled bool) *httptest.ResponseRecorder {
 	t.Helper()
-	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
+	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
 	if enabled {
 		req.Header.Set(languageServerHeader, "on")
@@ -104,7 +104,7 @@ const (
 
 func navigationErrorCode(t *testing.T, app *App, target string, enabled bool, wantStatus int, wantCode string) {
 	t.Helper()
-	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
+	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
 	if enabled {
 		req.Header.Set(languageServerHeader, "on")
@@ -178,7 +178,7 @@ func TestCrashedLanguageServersReportFailureWithoutFallback(t *testing.T) {
 func TestNavigationStatusForUnsupportedAndIneligibleFiles(t *testing.T) {
 	app := serverApp(t, true)
 	for name, content := range map[string]string{"notes.txt": "hello", "binary.go": "abc\x00def", "large.go": strings.Repeat("a", (4<<20)+1)} {
-		if err := os.WriteFile(filepath.Join(app.roots[0], name), []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(app.roots.List()[0], name), []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -214,7 +214,7 @@ func TestNavigationCancellationExplainsStartingAndQueryTimeout(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Setenv(test.env, "500ms")
 			app := serverApp(t, true)
-			target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots[0])+"$1")
+			target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 			req := localRequest(http.MethodGet, target)
 			req.Header.Set(languageServerHeader, "on")
 			ctx, cancel := context.WithTimeout(req.Context(), 100*time.Millisecond)
@@ -250,7 +250,7 @@ func TestWorkspaceConfigurationChangesNotifyServer(t *testing.T) {
 	app.servers = lsp.NewManager([]lsp.Server{server}, lsp.Options{LookPath: func(string) (string, bool) { return os.Args[0], true }})
 	logPath := filepath.Join(t.TempDir(), "notifications.log")
 	t.Setenv("SERVEF_FAKE_LSP_LOG", logPath)
-	configPath := filepath.Join(app.roots[0], "go.mod")
+	configPath := filepath.Join(app.roots.List()[0], "go.mod")
 	if err := os.WriteFile(configPath, []byte("module example.com/original\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestNavigationSyncsFreshDocumentAfterSlowStartup(t *testing.T) {
 	app := serverApp(t, true)
 	logPath := filepath.Join(t.TempDir(), "notifications.log")
 	t.Setenv("SERVEF_FAKE_LSP_LOG", logPath)
-	target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots[0])+"$1")
+	target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
 	req.Header.Set(languageServerHeader, "on")
 	response := httptest.NewRecorder()
@@ -281,7 +281,7 @@ func TestNavigationSyncsFreshDocumentAfterSlowStartup(t *testing.T) {
 	go func() { app.ServeHTTP(response, req); close(done) }()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		status, ok := app.servers.Status(app.roots[0], "go")
+		status, ok := app.servers.Status(app.roots.List()[0], "go")
 		if ok && status.State == lsp.StateStarting {
 			break
 		}
@@ -291,7 +291,7 @@ func TestNavigationSyncsFreshDocumentAfterSlowStartup(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	updated := "package app\n\nfunc main() { ChangedAfterStartup() }\n"
-	if err := os.WriteFile(filepath.Join(app.roots[0], "main.go"), []byte(updated), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(app.roots.List()[0], "main.go"), []byte(updated), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	<-done

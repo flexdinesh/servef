@@ -357,10 +357,11 @@ func (a *App) servePageData(w http.ResponseWriter, projectID, selected, at strin
 // page reads a project's tree and, when selected is set, that document: from
 // the working tree, or with at (a full commit hash) from that commit.
 func (a *App) page(projectID, selected, at string, required bool) (pageData, int) {
-	project, status, message := a.project(projectID)
+	roots := a.roots.List()
+	project, status, message := projectIn(roots, projectID)
 	if status != http.StatusOK {
 		return pageData{
-			Roots:              a.roots,
+			Roots:              roots,
 			Project:            projectID,
 			ProjectUnavailable: true,
 			ProjectKind:        projects.KindFolder,
@@ -374,7 +375,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
-			Roots:       a.roots,
+			Roots:       roots,
 			Project:     project.id,
 			RootName:    filepath.Base(project.root),
 			Repository:  checkout.Repository,
@@ -387,7 +388,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		Roots:       a.roots,
+		Roots:       roots,
 		Project:     project.id,
 		RootName:    filepath.Base(index.RootPath()),
 		Repository:  checkout.Repository,

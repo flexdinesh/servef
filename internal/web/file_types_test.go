@@ -405,7 +405,7 @@ func TestSourceOnlyHandlerUsesSameAPIContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app, err := New(Config{Roots: []string{root}, Depth: 0, Types: types})
+	app, err := New(Config{Roots: testRoots(t, root), Depth: 0, Types: types})
 	if err != nil {
 		t.Fatal(err)
 	}

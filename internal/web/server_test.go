@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
@@ -721,9 +722,19 @@ func TestServerRefusesOtherHosts(t *testing.T) {
 	}
 }
 
+// testRoots builds the served root set from paths.
+func testRoots(t *testing.T, paths ...string) *projects.RootSet {
+	t.Helper()
+	roots, err := projects.NewRootSet(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return roots
+}
+
 func newTestApp(t *testing.T, root string) *App {
 	t.Helper()
-	app, err := New(Config{Roots: []string{root}, Depth: 5})
+	app, err := New(Config{Roots: testRoots(t, root), Depth: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -737,7 +748,7 @@ var rootProject = regexp.MustCompile(`project=\.(&|#|$)`)
 func request(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	if app, ok := handler.(*App); ok {
-		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
+		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	}
 	req := localRequest(http.MethodGet, target)
 	response := httptest.NewRecorder()
@@ -754,7 +765,7 @@ func requestPageData(t *testing.T, handler http.Handler, target string) (*httpte
 	}
 	if app, ok := handler.(*App); ok {
 		// Links in previews name the first root as ".", as targets do.
-		data.Content = strings.ReplaceAll(data.Content, "project="+url.QueryEscape(app.roots[0])+"&amp;", "project=.&amp;")
+		data.Content = strings.ReplaceAll(data.Content, "project="+url.QueryEscape(app.roots.List()[0])+"&amp;", "project=.&amp;")
 	}
 	return response, data
 }
