@@ -1,4 +1,5 @@
 import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs"
+import { randomUUID } from "node:crypto"
 import path from "node:path"
 
 import { startProcess, stopProcess, type ManagedProcess } from "./browser-process.ts"
@@ -128,7 +129,7 @@ if (import.meta.main) {
   const groups = parseGroups(process.argv.slice(2)).map((group) => group.map((task) => ({
     name: task,
     command: ["mise", "run", "-q", "--skip-deps", ...(task.startsWith("_host:") ? ["--skip-tools"] : []), task],
-    rerun: `mise run ${task}`,
+    rerun: `mise run ${task.replace(/^_(host|container):/, "").replace(/^typecheck:.+$/, "typecheck")}`,
   })))
   if (groups.length === 0) {
     console.error("usage: node scripts/check.ts task... [::: task...]")
@@ -140,7 +141,7 @@ if (import.meta.main) {
   process.once("SIGTERM", abort)
   process.exitCode = await runChecks({
     groups,
-    logDir: process.env.SERVEF_CHECK_LOG_DIR ?? path.join(".dev", "check-logs"),
+    logDir: process.env.SERVEF_CHECK_LOG_DIR ?? path.join(".dev", "check-logs", randomUUID()),
     jobs: jobCount(process.env.MISE_JOBS),
     verbose: process.env.SERVEF_CHECK_VERBOSE === "1",
     write: (text) => { process.stdout.write(text) },
