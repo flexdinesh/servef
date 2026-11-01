@@ -60,3 +60,23 @@ test("port overrides preserve explicit ports and reject invalid ranges", () => {
     assert.throws(() => requestedPort(value, "PORT", 65532), /PORT must be a port/)
   }
 })
+
+test("runner cancellation stops servers owned by a worker", { skip: process.platform === "win32" }, async () => {
+  const helper = new URL("../scripts/browser-process.ts", import.meta.url).href
+  const server = `
+    const server = require('node:http').createServer((request, response) => response.end('ready'));
+    server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port + '/'));
+  `
+  const worker = `
+    const { startProcess } = await import(${JSON.stringify(helper)});
+    startProcess(process.execPath, ['-e', ${JSON.stringify(server)}], process.env, true, undefined, 'child');
+  `
+  const proc = startProcess(process.execPath, ["--input-type=module", "-e", worker], process.env, true)
+  try {
+    const port = await serverPort(proc)
+    await stopProcess(proc)
+    await assert.rejects(fetch(`http://127.0.0.1:${port}`))
+  } finally {
+    await stopProcess(proc)
+  }
+})

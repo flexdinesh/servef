@@ -43,6 +43,11 @@ Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests
 
+Qualifying local checks use immutable committed snapshots through a Go Dagger
+module in `.dagger/`. `tools/validate/` owns snapshot selection, evidence,
+resource admission, and PR preparation; mise owns check commands. This tooling
+is independent of the distributed application. See [validation](validation.md).
+
 - `mise run dev`: Go over `testdata/markdown` plus Vite with API proxying.
 - `mise run dev:mock`: Vite plus committed JSON fixtures; no Go process.
 - `go test ./...`: Go unit and HTTP integration behavior.

@@ -1,13 +1,12 @@
 import { writeFileSync } from "node:fs"
 import path from "node:path"
 
-import { expect, test, type Page } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
-import { liveFixtureRoot, longDocument } from "./live-fixture.ts"
-import { liveApiOrigin } from "./ports.ts"
+import { longDocument } from "./live-fixture.ts"
+import { test } from "./live-test.ts"
 
 // Live updates (decision 0050): the open project follows changes on disk.
-const project = encodeURIComponent(liveFixtureRoot)
 
 function liveIndicator(page: Page) {
   return page.locator(".status-live")
@@ -17,7 +16,9 @@ function explorer(page: Page) {
   return page.getByRole("complementary", { name: "Files" })
 }
 
-test("an edited document updates in place and keeps its scroll", async ({ page }) => {
+test("an edited document updates in place and keeps its scroll", async ({ page, live }) => {
+  const { root: liveFixtureRoot, origin: liveApiOrigin } = live
+  const project = encodeURIComponent(liveFixtureRoot)
   await page.goto(`${liveApiOrigin}/view?project=${project}&path=long.md#L5`)
   await expect(liveIndicator(page)).toHaveAttribute("data-mode", "watching")
   await expect(liveIndicator(page)).toHaveAttribute("title", /watching the project/)
@@ -32,7 +33,9 @@ test("an edited document updates in place and keeps its scroll", async ({ page }
   expect(await pane.evaluate((element) => element.scrollTop)).toBe(3000)
 })
 
-test("created files appear in the tree and Source Control", async ({ page }) => {
+test("created files appear in the tree and Source Control", async ({ page, live }) => {
+  const { root: liveFixtureRoot, origin: liveApiOrigin } = live
+  const project = encodeURIComponent(liveFixtureRoot)
   await page.goto(`${liveApiOrigin}/?project=${project}`)
   await expect(liveIndicator(page)).toHaveAttribute("data-mode", "watching")
   await expect(explorer(page).getByRole("treeitem", { name: "docs" })).toBeVisible()
@@ -45,7 +48,9 @@ test("created files appear in the tree and Source Control", async ({ page }) => 
   await expect(uncommitted.getByRole("option", { name: /^fresh\.md, / })).toBeVisible()
 })
 
-test("a branch review with uncommitted changes lists files created on disk", async ({ page }) => {
+test("a branch review with uncommitted changes lists files created on disk", async ({ page, live }) => {
+  const { root: liveFixtureRoot, origin: liveApiOrigin } = live
+  const project = encodeURIComponent(liveFixtureRoot)
   // With nothing ahead of main, the branch's merge base is HEAD (decision 0051).
   writeFileSync(path.join(liveFixtureRoot, "scoped.md"), "# Scoped\n")
   await page.goto(`${liveApiOrigin}/view?project=${project}&review=branch&uncommitted=1`)

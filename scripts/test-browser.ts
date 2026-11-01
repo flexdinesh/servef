@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync } from "node:fs"
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -53,10 +53,12 @@ async function run(command: string, args: string[]) {
 try {
   const base = requestedPort(process.env.PORT, "PORT", 65532)
   const web = requestedPort(process.env.SERVEF_BROWSER_WEB_PORT, "SERVEF_BROWSER_WEB_PORT")
-  const binary = path.join(root, process.platform === "win32" ? "servef.exe" : "servef")
-  await run("go", ["build", "-o", binary, "."])
+  const binary = process.env.SERVEF_BROWSER_BINARY
+    ? path.resolve(process.env.SERVEF_BROWSER_BINARY)
+    : path.join(root, process.platform === "win32" ? "servef.exe" : "servef")
+  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "."])
   await run(process.execPath, ["tests/browser/git-fixture.ts"])
-  await run(process.execPath, ["tests/browser/live-fixture.ts"])
+  mkdirSync(env.SERVEF_BROWSER_LIVE_ROOT, { recursive: true })
 
   async function serve(directory: string, port: number) {
     return serverPort(launch(binary, [directory, "--host", "127.0.0.1", "--port", String(port), "--no-open"], {
@@ -66,7 +68,6 @@ try {
 
   const api = await serve("testdata/markdown", base)
   const git = await serve(env.SERVEF_BROWSER_GIT_ROOT, base === 0 ? 0 : base + 2)
-  const live = await serve(env.SERVEF_BROWSER_LIVE_ROOT, base === 0 ? 0 : base + 3)
   const vite = await serverPort(launch(process.execPath, [
     "web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
     "--config", "web/vite.config.ts",
@@ -75,7 +76,7 @@ try {
   const result = await launch("playwright", ["test", ...process.argv.slice(2)], {
     SERVEF_BROWSER_API_PORT: String(api),
     SERVEF_BROWSER_GIT_PORT: String(git),
-    SERVEF_BROWSER_LIVE_PORT: String(live),
+    SERVEF_BROWSER_BINARY: binary,
     SERVEF_BROWSER_WEB_PORT: String(vite),
   }).exited
   process.exitCode = interrupted ? 130 : result
@@ -84,7 +85,14 @@ try {
   process.exitCode = interrupted ? 130 : 1
 } finally {
   await Promise.all(processes.map(stopProcess))
-  rmSync(root, { recursive: true, force: true })
+  try {
+    if (process.exitCode && process.env.SERVEF_BROWSER_ARTIFACT_DIR) {
+      const destination = path.join(process.env.SERVEF_BROWSER_ARTIFACT_DIR, path.basename(root))
+      cpSync(root, destination, { recursive: true })
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
   process.removeListener("SIGINT", interrupt)
   process.removeListener("SIGTERM", interrupt)
 }

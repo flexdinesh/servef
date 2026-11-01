@@ -17,6 +17,7 @@ idiomatic_version_file_enable_tools = ["node", "pnpm"]
 [tools]
 # go.mod's `go` line stays the language minimum; mise.lock pins the patch.
 go = "1.26"
+dagger = "0.21.10"
 
 [env]
 # Local overrides such as dev ports; see .env.example. Missing is fine.
@@ -193,3 +194,111 @@ run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/chec
 hide = true
 quiet = true
 run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:race build:site ::: test:browser"
+
+# Container leaves. Dagger supplies immutable preparation and private state.
+[tasks."_validate:go"]
+hide = true
+run = "node scripts/check.ts _validate:fmt:check _validate:tidy:check _validate:vet _validate:test:go _validate:test:race"
+
+[tasks."_validate:frontend"]
+hide = true
+run = "node scripts/check.ts _validate:test:web _validate:typecheck:web _validate:lint"
+
+[tasks."_validate:tooling"]
+hide = true
+run = "node scripts/check.ts _validate:test:release _validate:typecheck:root _validate:mise:check"
+
+[tasks."_validate:docs"]
+hide = true
+run = "node scripts/check.ts _validate:typecheck:site _validate:build:site"
+
+[tasks."_validate:browser"]
+hide = true
+run = "pnpm exec node scripts/test-browser.ts"
+
+[tasks."_validate:binary"]
+hide = true
+run = "go build -buildvcs=false -o /out/servef ."
+
+[tasks."_validate:fmt:check"]
+hide = true
+shell = "bash -e -o pipefail -c"
+run = '''
+unformatted=$(git ls-files -z '*.go' | xargs -0 gofmt -l)
+if [ -n "$unformatted" ]; then
+  printf '%s\n' "$unformatted" >&2
+  exit 1
+fi
+'''
+
+[tasks."_validate:tidy:check"]
+hide = true
+run = "go mod tidy -diff"
+
+[tasks."_validate:vet"]
+hide = true
+run = "go vet ./..."
+
+[tasks."_validate:test:go"]
+hide = true
+run = "go test -count=1 ./..."
+
+[tasks."_validate:test:race"]
+hide = true
+run = "go test -race -count=1 ./..."
+
+[tasks."_validate:test:web"]
+hide = true
+run = "pnpm test:web"
+
+[tasks."_validate:test:release"]
+hide = true
+run = "pnpm test:release"
+
+[tasks."_validate:test:browser"]
+hide = true
+run = "pnpm exec node scripts/test-browser.ts"
+
+[tasks."_validate:typecheck:web"]
+hide = true
+run = "pnpm --filter @servef/web typecheck"
+
+[tasks."_validate:typecheck:root"]
+hide = true
+run = "pnpm exec tsc --noEmit"
+
+[tasks."_validate:typecheck:site"]
+hide = true
+run = "pnpm --filter @servef/site typecheck"
+
+[tasks."_validate:lint"]
+hide = true
+run = "pnpm lint"
+
+[tasks."_validate:mise:check"]
+hide = true
+run = ["mise tasks validate", "mise fmt --check"]
+
+[tasks."_validate:build:site"]
+hide = true
+run = "pnpm build:site"
+
+[tasks.validate]
+description = "Validate committed HEAD in isolated local Dagger containers"
+run = "go run ./tools/validate validate"
+
+[tasks."validate:status"]
+description = "Show successful validation coverage for current HEAD inputs"
+run = "go run ./tools/validate status"
+
+[tasks."validate:prune"]
+description = "Remove old completed local validation artifacts"
+run = "go run ./tools/validate prune"
+
+[tasks."pr:create"]
+description = "Validate committed HEAD, push tested commit, and create a PR"
+run = "go run ./tools/validate pr-create"
+
+[tasks."pr:update"]
+description = "Validate committed HEAD and push tested commit"
+run = "go run ./tools/validate pr-update"

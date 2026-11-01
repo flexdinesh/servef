@@ -140,7 +140,7 @@ if (import.meta.main) {
   process.once("SIGTERM", abort)
   process.exitCode = await runChecks({
     groups,
-    logDir: path.join(".dev", "check-logs"),
+    logDir: process.env.SERVEF_CHECK_LOG_DIR ?? path.join(".dev", "check-logs"),
     jobs: jobCount(process.env.MISE_JOBS),
     verbose: process.env.SERVEF_CHECK_VERBOSE === "1",
     write: (text) => { process.stdout.write(text) },

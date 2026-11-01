@@ -3,15 +3,18 @@ import { spawn, type ChildProcess } from "node:child_process"
 export interface ManagedProcess {
   child: ChildProcess
   exited: Promise<number>
+  ownsProcessGroup: boolean
 }
 
 // `output`, a file descriptor, receives both stdout and stderr instead.
 export function startProcess(
   command: string, args: string[], env: NodeJS.ProcessEnv, capture = false, output?: number,
+  ownership: "group" | "child" = "group",
 ): ManagedProcess {
+  const ownsProcessGroup = ownership === "group" && process.platform !== "win32"
   const child = spawn(command, args, {
     env,
-    detached: process.platform !== "win32",
+    detached: ownsProcessGroup,
     stdio: output === undefined ? ["ignore", capture ? "pipe" : "inherit", "inherit"] : ["ignore", output, output],
   })
   if (capture) child.stdout?.pipe(process.stdout, { end: false })
@@ -21,13 +24,14 @@ export function startProcess(
   })
   // A server can fail before its caller awaits readiness or cleanup.
   void exited.catch(() => {})
-  return { child, exited }
+  return { child, exited, ownsProcessGroup }
 }
 
-function terminate(child: ChildProcess, signal: NodeJS.Signals) {
+function terminate(proc: ManagedProcess, signal: NodeJS.Signals) {
+  const { child } = proc
   if (child.pid === undefined) return
   try {
-    if (process.platform === "win32") child.kill(signal)
+    if (!proc.ownsProcessGroup) child.kill(signal)
     else process.kill(-child.pid, signal)
   } catch (error) {
     if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) throw error
@@ -35,13 +39,13 @@ function terminate(child: ChildProcess, signal: NodeJS.Signals) {
 }
 
 export async function stopProcess(proc: ManagedProcess): Promise<void> {
-  terminate(proc.child, "SIGTERM")
-  const force = setTimeout(() => terminate(proc.child, "SIGKILL"), 5_000)
+  terminate(proc, "SIGTERM")
+  const force = setTimeout(() => terminate(proc, "SIGKILL"), 5_000)
   try {
     await proc.exited.catch(() => {})
     // A launcher may exit before its descendants. Once it has finished,
     // terminate anything still in its process group before removing fixtures.
-    if (process.platform !== "win32") terminate(proc.child, "SIGKILL")
+    if (proc.ownsProcessGroup) terminate(proc, "SIGKILL")
   } finally {
     clearTimeout(force)
   }
