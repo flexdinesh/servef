@@ -133,8 +133,12 @@ set +e
   mise exec -- pnpm exec playwright --version
   printf 'HOME=%s\nLANG=%s\nTZ=%s\nGOFLAGS=%s\nGOMAXPROCS=%s\nMISE_JOBS=%s\n' "$HOME" "$LANG" "$TZ" "$GOFLAGS" "$GOMAXPROCS" "$MISE_JOBS"
 } > /out/environment.txt 2>&1
-"$@" > /out/check.log 2>&1
-status=$?
+"$@" 2>&1 | tee /out/check.log
+codes=("${PIPESTATUS[@]}")
+status=${codes[0]}
+if [ "$status" -eq 0 ] && [ "${codes[1]}" -ne 0 ]; then
+  status=${codes[1]}
+fi
 if ! git diff --exit-code --quiet HEAD; then
   printf '\nValidation changed tracked source files.\n' >> /out/check.log
   git diff HEAD >> /out/check.log
@@ -146,6 +150,5 @@ if [ -n "$untracked" ]; then
   status=1
 fi
 printf '{"exitCode":%s}\n' "$status" > /out/status.json
-cat /out/check.log
 exit 0
 `
