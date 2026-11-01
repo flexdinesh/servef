@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,9 +137,65 @@ func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 	}
 }
 
+func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T) {
+	root := repository(t)
+	put(t, root, "web/base.ts", "base")
+	put(t, root, "site/page.mdx", "docs")
+	commit(t, root, "base")
+	base := snap(t, root).Head
+	if _, err := git(root, "switch", "-qc", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "web/feature.ts", "feature")
+	commit(t, root, "feature")
+	before := snap(t, root)
+	for _, args := range [][]string{
+		{"switch", "-q", "main"},
+		{"-c", "commit.gpgsign=false", "commit", "--amend", "-qm", "renamed base"},
+		{"switch", "-q", "feature"},
+		{"-c", "commit.gpgsign=false", "rebase", "--onto", "main", base},
+	} {
+		if _, err := git(root, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	history := snap(t, root)
+	if before.Head == history.Head || before.Tree != history.Tree {
+		t.Fatal("expected new history with identical source tree")
+	}
+	for _, group := range groups {
+		if key(t, before, group) != key(t, history, group) {
+			t.Fatalf("history-only rebase invalidated %s", group)
+		}
+	}
+	if _, err := git(root, "switch", "-q", "main"); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "web/upstream.ts", "upstream")
+	commit(t, root, "upstream content")
+	for _, args := range [][]string{{"switch", "-q", "feature"}, {"-c", "commit.gpgsign=false", "rebase", "main"}} {
+		if _, err := git(root, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	upstream := snap(t, root)
+	for _, group := range []string{"go", "frontend", "browser"} {
+		if key(t, history, group) == key(t, upstream, group) {
+			t.Fatalf("upstream content did not invalidate %s", group)
+		}
+	}
+	if key(t, history, "docs") != key(t, upstream, "docs") {
+		t.Fatal("application-only upstream change invalidated docs")
+	}
+}
+
 func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 	s := snapshot{Entries: []entry{{Path: "web/a.ts", Mode: "100644", Blob: "abc"}}}
 	_, full, _ := manifest(s, "frontend", "", nil)
+	_, empty, _ := manifest(s, "frontend", "", []string{})
+	if full != empty {
+		t.Fatal("equivalent empty selections have different identities")
+	}
 	_, partial, _ := manifest(s, "frontend", "_validate:test:web", []string{"filter"})
 	if full == partial {
 		t.Fatal("partial and full identities match")
@@ -155,6 +210,32 @@ func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 	put(t, a.Cache, "receipts/"+full+".json", "{}")
 	if _, ok := a.receipt(full); ok {
 		t.Fatal("malformed receipt accepted")
+	}
+}
+
+func TestPRArgumentsCannotOverrideTestedTarget(t *testing.T) {
+	for _, arg := range []string{"--head=other", "-Hother", "-Bother", "-Rowner/repo", "-dHother", "--repo=owner/repo", "--web"} {
+		if _, err := prArguments([]string{arg}); err == nil {
+			t.Fatalf("target-changing or interactive argument accepted: %s", arg)
+		}
+	}
+	got, err := prArguments([]string{"--ready", "--title", "--head", "--body=literal body"})
+	if err != nil || strings.Join(got, "|") != "--title|--head|--body|literal body" {
+		t.Fatalf("flag-like title value changed: %v, %v", got, err)
+	}
+	if _, err := prArguments([]string{"--ready", "--draft"}); err == nil {
+		t.Fatal("conflicting modes accepted")
+	}
+}
+
+func TestTargetedTasksRequireTheirCompleteSourceGroup(t *testing.T) {
+	if !taskBelongsToGroup("_validate:test:go", "go") {
+		t.Fatal("Go task rejected for Go group")
+	}
+	for _, task := range []string{"_validate:test:go", "_validate:test:race", "_validate:unknown", "test:web"} {
+		if taskBelongsToGroup(task, "frontend") {
+			t.Fatalf("task accepted against incomplete frontend source: %s", task)
+		}
 	}
 }
 
@@ -232,30 +313,22 @@ func TestSlotSurvivesSupervisorDescriptorClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	reader, writer, err := os.Pipe()
-	if err != nil {
+	child := exec.Command("sleep", "30")
+	child.ExtraFiles = []*os.File{first}
+	if err = child.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
-	defer writer.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() {
-		done <- commandWithFiles(ctx, t.TempDir(), os.Environ(), io.Discard, []*os.File{first, writer}, "sh", "-c", "printf ready >&4; exec sleep 30")
-	}()
-	ready := make([]byte, 5)
-	if _, err = io.ReadFull(reader, ready); err != nil {
-		t.Fatal(err)
-	}
+	defer func() { _ = child.Process.Kill(); _ = child.Wait() }()
+	// Start synchronously duplicates ExtraFiles before closing the parent copy.
+	// Pipe I/O across processes alone is not a Go memory synchronization edge.
 	first.Close()
 	wait, stop := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer stop()
 	if _, err = acquireSlot(wait, dir); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("inherited lock released too early: %v", err)
 	}
-	cancel()
-	<-done
+	_ = child.Process.Kill()
+	_ = child.Wait()
 	next, err := acquireSlot(context.Background(), dir)
 	if err != nil {
 		t.Fatal(err)

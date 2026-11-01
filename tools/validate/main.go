@@ -24,6 +24,7 @@ import (
 )
 
 const engine = "servef-validation-engine-v0.21.10"
+const engineImage = "registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334"
 
 type options struct {
 	Group string
@@ -115,8 +116,8 @@ func run(ctx context.Context, args []string) error {
 	if (o.Task != "" || len(o.Args) > 0) && o.Group == "" {
 		return errors.New("targeted tasks/arguments require --group")
 	}
-	if o.Task != "" && !strings.HasPrefix(o.Task, "_validate:") {
-		return errors.New("targeted task must name an _validate: leaf")
+	if o.Task != "" && !taskBelongsToGroup(o.Task, o.Group) {
+		return errors.New("targeted task must belong to the selected group")
 	}
 	switch command {
 	case "validate":
@@ -464,22 +465,9 @@ func (a app) pr(ctx context.Context, operation string, args []string) error {
 	if operation == "pr-update" && len(args) > 0 {
 		return errors.New("pr-update accepts no arguments")
 	}
-	var forwarded []string
-	ready := false
-	for _, arg := range args {
-		if arg == "--ready" {
-			ready = true
-			continue
-		}
-		for _, flag := range []string{"--head", "--base", "--repo", "-H", "-B", "-R"} {
-			if arg == flag || strings.HasPrefix(arg, flag+"=") {
-				return errors.New("PR repository/head/base are fixed to origin, tested branch, and main")
-			}
-		}
-		forwarded = append(forwarded, arg)
-	}
-	if !ready && !slices.Contains(forwarded, "--draft") {
-		forwarded = append(forwarded, "--draft")
+	forwarded, err := prArguments(args)
+	if err != nil {
+		return err
 	}
 	r, err := a.validate(ctx, options{})
 	if err != nil {
@@ -528,6 +516,58 @@ func (a app) pr(ctx context.Context, operation string, args []string) error {
 	return command(ctx, a.Root, os.Environ(), os.Stdout, "gh", create...)
 }
 
+func taskBelongsToGroup(task, group string) bool {
+	owners := map[string]string{
+		"fmt:check": "go", "tidy:check": "go", "vet": "go", "test:go": "go", "test:race": "go",
+		"test:web": "frontend", "typecheck:web": "frontend", "lint": "frontend",
+		"test:release": "tooling", "typecheck:root": "tooling", "mise:check": "tooling",
+		"typecheck:site": "docs", "build:site": "docs", "test:browser": "browser",
+	}
+	name, ok := strings.CutPrefix(task, "_validate:")
+	return ok && group != "" && owners[name] == group
+}
+
+// Parse values as values, never as flags. An allowlist also rejects attached
+// gh target shorthands such as -Hother and -Rowner/repository before any push.
+func prArguments(args []string) ([]string, error) {
+	values := map[string]bool{"--title": true, "-t": true, "--body": true, "-b": true, "--body-file": true, "-F": true, "--reviewer": true, "-r": true, "--assignee": true, "-a": true, "--label": true, "-l": true, "--milestone": true, "-m": true, "--project": true, "-p": true}
+	switches := map[string]bool{"--fill": true, "--fill-first": true, "--fill-verbose": true, "--draft": true, "-d": true, "--no-maintainer-edit": true}
+	var out []string
+	ready, draft := false, false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--ready" {
+			ready = true
+			continue
+		}
+		name, value, equals := strings.Cut(arg, "=")
+		if values[name] {
+			if !equals {
+				i++
+				if i == len(args) {
+					return nil, fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			out = append(out, name, value)
+			continue
+		}
+		if !equals && switches[arg] {
+			draft = draft || arg == "--draft" || arg == "-d"
+			out = append(out, arg)
+			continue
+		}
+		return nil, fmt.Errorf("unsupported PR argument %q; repository/head/base are fixed", arg)
+	}
+	if ready && draft {
+		return nil, errors.New("choose --ready or --draft")
+	}
+	if !ready && !draft {
+		out = append(out, "--draft")
+	}
+	return out, nil
+}
+
 func resolveDagger(root string) (string, error) {
 	cmd := exec.Command("mise", "where", "dagger@0.21.10")
 	cmd.Dir = root
@@ -543,7 +583,7 @@ func resolveDagger(root string) (string, error) {
 }
 
 func checkEngine() error {
-	cmd := exec.Command("docker", "inspect", engine, "--format", `{{.State.Running}} {{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}`)
+	cmd := exec.Command("docker", "inspect", engine, "--format", `{{.State.Running}} {{.HostConfig.NanoCpus}} {{.HostConfig.Memory}} {{.Config.Image}}`)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
 	out, err := cmd.Output()
 	if err != nil {
@@ -551,8 +591,12 @@ func checkEngine() error {
 	}
 	var running bool
 	var cpus, memory int64
-	if _, err = fmt.Sscan(string(out), &running, &cpus, &memory); err != nil {
+	var image string
+	if _, err = fmt.Sscan(string(out), &running, &cpus, &memory, &image); err != nil {
 		return err
+	}
+	if image != engineImage {
+		return errors.New("managed engine image differs from the validation pin; see docs/validation.md")
 	}
 	if !running {
 		return errors.New("managed validation engine is stopped; start it explicitly")

@@ -157,6 +157,11 @@ type inputManifest struct {
 }
 
 func manifest(s snapshot, group, task string, args []string) (inputManifest, string, error) {
+	// Flag parsing and programmatic PR calls can represent no arguments as
+	// either nil or an empty slice. They describe identical check coverage.
+	if len(args) == 0 {
+		args = nil
+	}
 	m := inputManifest{Policy: policy, Group: group, Task: task, Args: args}
 	for _, e := range s.Entries {
 		if selected(group, e.Path) {

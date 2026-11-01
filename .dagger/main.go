@@ -30,10 +30,15 @@ func (m *ServefValidation) Run(ctx context.Context,
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
-	allowed := map[string]bool{"fmt:check": true, "tidy:check": true, "mise:check": true, "vet": true, "test:go": true, "test:race": true, "test:web": true, "test:release": true, "test:browser": true, "typecheck:web": true, "typecheck:root": true, "typecheck:site": true, "lint": true, "build:site": true}
+	owners := map[string]string{
+		"fmt:check": "go", "tidy:check": "go", "vet": "go", "test:go": "go", "test:race": "go",
+		"test:web": "frontend", "typecheck:web": "frontend", "lint": "frontend",
+		"test:release": "tooling", "typecheck:root": "tooling", "mise:check": "tooling",
+		"typecheck:site": "docs", "build:site": "docs", "test:browser": "browser",
+	}
 	task = strings.TrimPrefix(task, "_validate:")
-	if task != "" && !allowed[task] {
-		return nil, fmt.Errorf("unknown task %q", task)
+	if task != "" && owners[task] != group {
+		return nil, fmt.Errorf("task %q does not belong to group %q", task, group)
 	}
 	var args []string
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {

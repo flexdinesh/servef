@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -164,3 +165,89 @@ func main(){
  seconds,_:=strconv.Atoi(os.Args[3]);time.Sleep(time.Duration(seconds)*time.Second)
  fmt.Println("RESULT:"+marker);s.Close()
 }`
+
+func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
+	if os.Getenv("SERVEF_DAGGER_ACCEPTANCE") != "1" {
+		t.Skip("set SERVEF_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Clean(filepath.Join(cwd, "../.."))
+	where, err := exec.Command("mise", "where", "dagger@0.21.10").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dagger := filepath.Join(strings.TrimSpace(string(where)), "bin", "dagger")
+	if _, err := os.Stat(dagger); err != nil {
+		dagger = filepath.Join(strings.TrimSpace(string(where)), "dagger")
+	}
+	for _, scenario := range []struct {
+		name, script, diagnostic string
+		code                     int
+	}{
+		{"failure", "printf 'expected failure diagnostic\\n'; exit 7", "expected failure diagnostic", 7},
+		{"drift", "printf '\\n' >> package.json", "Validation changed tracked source files", 1},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, "source")
+			files := []string{"mise.toml", "mise.lock", ".node-version", ".gitignore", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "web/package.json", "site/package.json", "scripts/check.ts", "scripts/browser-process.ts"}
+			patches, err := os.ReadDir(filepath.Join(repo, "patches"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, patch := range patches {
+				if !patch.IsDir() {
+					files = append(files, filepath.Join("patches", patch.Name()))
+				}
+			}
+			for _, file := range files {
+				content, err := os.ReadFile(filepath.Join(repo, file))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if file == "mise.toml" {
+					original := "[tasks.\"_validate:mise:check\"]\nhide = true\nrun = [\"mise tasks validate\", \"mise fmt --check\"]"
+					quoted, _ := json.Marshal(scenario.script)
+					replacement := "[tasks.\"_validate:mise:check\"]\nhide = true\nrun = " + string(quoted)
+					if !strings.Contains(string(content), original) {
+						t.Fatal("update fixture override for changed mise leaf")
+					}
+					content = []byte(strings.Replace(string(content), original, replacement, 1))
+				}
+				destination := filepath.Join(source, file)
+				if err := os.MkdirAll(filepath.Dir(destination), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(destination, content, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			out := filepath.Join(root, "output")
+			var output acceptanceOutput
+			args := []string{"--progress=plain", "-m", repo, "call", "run", "--source", source, "--group", "tooling", "--attempt", newID(), "--task", "_validate:mise:check", "export", "--path", out}
+			if err := command(ctx, root, runnerEnvironment(filepath.Join(root, "home")), &output, dagger, args...); err != nil {
+				t.Fatalf("module export: %v\n%s", err, output.String())
+			}
+			status, err := os.ReadFile(filepath.Join(out, "status.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				ExitCode int `json:"exitCode"`
+			}
+			if err := json.Unmarshal(status, &result); err != nil || result.ExitCode != scenario.code {
+				t.Fatalf("wrong failure status: %s (%v)", status, err)
+			}
+			log, err := os.ReadFile(filepath.Join(out, "check.log"))
+			if err != nil || !strings.Contains(string(log), scenario.diagnostic) {
+				t.Fatalf("failure diagnostic not retained: %s (%v)", log, err)
+			}
+			t.Logf("actual module %s exported status %d and retained diagnostics", scenario.name, result.ExitCode)
+		})
+	}
+}
