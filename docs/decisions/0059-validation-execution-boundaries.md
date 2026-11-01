@@ -1,6 +1,6 @@
 # 0059: Test isolation and safe host checks before PR work
 
-- Status: Accepted
+- Status: Accepted; revised by [0067](0067-desktop-shell-and-protocol-proxy.md) (eleven groups: `desktop-static`, `desktop`)
 - Date: 2026-11-01
 - Supersedes: 0058 command boundary, grouping, certification lifecycle, and PR wrappers
 

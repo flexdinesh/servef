@@ -64,6 +64,9 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Validate committed HEAD before PR work | `mise run check:pr` |
 | Run browser tests | `mise run test:browser` |
 | Run selected browser coverage | `mise run test:browser -- tests/browser/live-updates.spec.ts` |
+| Run the desktop app against an isolated dev daemon | `mise run dev:desktop` |
+| Run desktop unit and Electron smoke tests | `mise run test:desktop` |
+| Measure desktop and daemon memory (host, needs a display) | `mise run measure:desktop` |
 | Inspect current validation coverage | `mise run check:status` |
 | Run full checks, including race tests and docs build | `mise run check:full` |
 | Prune completed validation artifacts | `mise run check:prune` |
@@ -75,7 +78,7 @@ development, and safe static checks stay on the host. Static checks use private
 worktree-local snapshots, homes, temporary directories, and dependency state.
 
 Commit first, then run `mise run check:pr` before creating or updating a PR.
-It requires clean committed HEAD and covers all nine host/container groups.
+It requires clean committed HEAD and covers all eleven host/container groups.
 `check`, `check:full`, and `validate` are compatibility aliases. Immediately
 before the separate push/PR operation, run `mise run check:status` and confirm
 HEAD still matches its reported commit. Targeted working-copy checks do not
@@ -125,6 +128,25 @@ To use other ports, copy `.env.example` to `.env` (gitignored) and set
 Frontend source and dependencies live in the `web` workspace. Production builds
 write to `internal/web/dist`, which is embedded in the Go binary and ignored by
 Git.
+
+## Desktop development
+
+`desktop/` is the Electron app (decision 0067). `mise run dev:desktop` builds
+the web dist, a dev binary at `.dev/desktop/servef`, and the desktop bundle,
+fetches the Electron binary once, then runs the app against an isolated daemon:
+socket, roots file, app data, and walkthrough cache all live under the
+gitignored `.dev/`. It never touches your daemon or roots (on macOS the
+walkthrough cache isolation is partial). Open Folder (Cmd/Ctrl-O) adds roots
+to the dev daemon.
+
+Pure modules under `desktop/src/main/` never import `electron`; only
+`main.ts`, `electron-*.ts`, and `preload.ts` do (oxlint enforces it). Unit
+tests run under plain Node. `mise run test:desktop` runs them and the
+Playwright `_electron` smoke under Xvfb in Dagger (Linux only). To run the
+smoke on a host with a display: `mise run build:desktop`, then
+`SERVEF_DESKTOP_BINARY=$PWD/.dev/desktop/servef pnpm --filter @servef/desktop test:smoke`
+(add `SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland).
+Headless Chromium hides the page, which stops live updates; do not use it.
 
 ## Adding a file type
 
