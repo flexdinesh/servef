@@ -32,6 +32,8 @@ server.
   app or daemon. It replaces agents probing ports 7971 to 7980.
 - `servef daemon run|ensure|stop|status`: internal plumbing for clients;
   `ensure --json` reports the socket path, protocol version, and roots.
+  Implemented (0061 Details): `ensure` and `status` print a line by default
+  and JSON with `--json`.
 
 ### Scheme
 

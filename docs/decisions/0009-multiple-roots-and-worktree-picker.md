@@ -2,6 +2,8 @@
 
 - Status: Partially superseded by [0012](0012-repository-names-and-worktree-header.md);
   exclusions (`--exclude`) superseded by [0060](0060-scope-flags-removed.md)
+- Revised by [0061](0061-daemon-roots-and-leases.md): the daemon's roots grow
+  at runtime; the CLI keeps fixed roots.
 - Date: 2026-10-15
 - Supersedes parts of: [0007](0007-projects-and-project-picker.md)
 
