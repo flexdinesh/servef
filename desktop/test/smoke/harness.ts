@@ -324,6 +324,51 @@ export async function publishWalkthrough(session: Session, project: string, id: 
   return { id: value.id, project: value.project, created: value.created }
 }
 
+export interface CliServer {
+  port: number
+  // stop sends SIGTERM and resolves once the server exited.
+  stop(): Promise<void>
+}
+
+// Starts `servef browser --no-open --port 0 <directory>` with the session's
+// XDG_CACHE_HOME, so its control record is the one the app lists (decision
+// 0071). Resolves once it printed its http://localhost:<port>/ address.
+export function startCliServer(session: Session, directory: string): Promise<CliServer> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(servefBinary(), ["browser", "--no-open", "--port", "0", "--", directory], { env: cliEnv(session), stdio: ["ignore", "pipe", "pipe"] })
+    const exited = new Promise<void>((done) => child.on("exit", () => done()))
+    let output = ""
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL")
+      reject(new Error(`servef browser printed no address within 30 s:\n${output}`))
+    }, 30_000)
+    const collect = (chunk: Buffer) => {
+      output += chunk.toString("utf8")
+      appendFileSync(session.electronLog, `[servef browser] ${chunk.toString("utf8")}`)
+      const port = /http:\/\/localhost:(\d+)\//.exec(output)?.[1]
+      if (port === undefined) return
+      clearTimeout(timer)
+      resolve({
+        port: Number(port),
+        stop: async () => {
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM")
+          await exited
+        },
+      })
+    }
+    child.stdout.on("data", collect)
+    child.stderr.on("data", collect)
+    child.on("error", (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+    child.on("exit", (code) => {
+      clearTimeout(timer)
+      reject(new Error(`servef browser exited ${code}:\n${output}`))
+    })
+  })
+}
+
 // Copies logs worth reading after a failure; sockets and app data stay behind.
 export function keepDiagnostics(session: Session, destination: string): void {
   mkdirSync(destination, { recursive: true })

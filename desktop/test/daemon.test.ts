@@ -111,7 +111,7 @@ test("openPath posts JSON without browser headers and validates the result", asy
   assert.ok(request !== undefined)
   assert.equal(request.method, "POST")
   assert.equal(request.path, "/_daemon/open")
-  assert.equal(request.socket, "/s.sock")
+  assert.deepEqual(request.target, { socket: "/s.sock" })
   assert.equal(request.headers.host, "localhost")
   assert.equal(request.headers["content-type"], "application/json")
   assert.equal(request.headers.origin, undefined)

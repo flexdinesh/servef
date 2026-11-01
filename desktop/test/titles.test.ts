@@ -13,12 +13,16 @@ test("ssh windows name the destination and show reconnecting while not ready", (
   assert.equal(windowTitle("README.md", { kind: "ssh", label: "dee@10.0.0.5", ready: false }), "README.md - dee@10.0.0.5 (SSH, reconnecting)")
 })
 
+test("CLI server windows name localhost:<port>", () => {
+  assert.equal(windowTitle("README.md", { kind: "cli", label: "localhost:7971", ready: true }), "README.md - localhost:7971")
+})
+
 test("app pages read servef - Connect whatever the page title", () => {
   assert.equal(windowTitle("anything", { kind: "app", label: "", ready: true }), "servef - Connect")
 })
 
 test("titles never use an em dash", () => {
-  const connections: TitleConnection[] = [{ kind: "local", label: "", ready: true }, { kind: "app", label: "", ready: true }, { kind: "ssh", label: "box", ready: false }]
+  const connections: TitleConnection[] = [{ kind: "local", label: "", ready: true }, { kind: "app", label: "", ready: true }, { kind: "ssh", label: "box", ready: false }, { kind: "cli", label: "localhost:1", ready: true }]
   for (const connection of connections) {
     assert.ok(!windowTitle("page", connection).includes(String.fromCodePoint(0x2014)))
   }

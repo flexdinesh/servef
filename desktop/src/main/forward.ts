@@ -1,14 +1,19 @@
 import http from "node:http"
 import { responseHeaders } from "./headers.ts"
 
-// Forward sends one request over the daemon's Unix socket and resolves with
+// Forward sends one request to a daemon's Unix socket or a CLI server's TCP
+// port (decision 0071) and resolves with
 // a streamed web Response. It rejects only when the request could not be
 // sent or no response head arrived (see isDaemonGone). Cancelling the
 // response body destroys the upstream request.
 export type Forward = (request: ForwardRequest) => Promise<Response>
 
+// ForwardTarget is a Unix socket (local daemon, ssh forward) or a loopback
+// TCP address (a CLI server).
+export type ForwardTarget = { socket: string } | { host: string; port: number }
+
 export interface ForwardRequest {
-  socket: string
+  target: ForwardTarget
   method: string
   // path is the request target: pathname plus search, already encoded.
   path: string
@@ -24,14 +29,31 @@ export interface Forwarder {
   close(): void
 }
 
-// createForwarder keeps a keep-alive agent (maxSockets 16) for ordinary requests.
-// Listeners attach to requests and responses only, never to pooled sockets.
+// createForwarder keeps one keep-alive agent (maxSockets 16) per target for
+// ordinary requests. Listeners attach to requests and responses only, never
+// to pooled sockets.
 export function createForwarder(): Forwarder {
-  const agent = new http.Agent({ keepAlive: true, maxSockets: 16 })
-  return {
-    forward: (request) => send(request, request.stream ? false : agent),
-    close: () => agent.destroy(),
+  const agents = new Map<string, http.Agent>()
+  const agentFor = (target: ForwardTarget): http.Agent => {
+    const key = targetKey(target)
+    let agent = agents.get(key)
+    if (agent === undefined) {
+      agent = new http.Agent({ keepAlive: true, maxSockets: 16 })
+      agents.set(key, agent)
+    }
+    return agent
   }
+  return {
+    forward: (request) => send(request, request.stream ? false : agentFor(request.target)),
+    close: () => {
+      for (const agent of agents.values()) agent.destroy()
+      agents.clear()
+    },
+  }
+}
+
+function targetKey(target: ForwardTarget): string {
+  return "socket" in target ? `unix:${target.socket}` : `tcp:${target.host}:${target.port}`
 }
 
 // isDaemonGone reports a socket failure before a response head: connect
@@ -51,7 +73,11 @@ function send(request: ForwardRequest, agent: http.Agent | false): Promise<Respo
       reject(abortError(signal))
       return
     }
-    const upstream = http.request({ socketPath: request.socket, method: request.method, path: request.path, headers: request.headers, agent })
+    const where = "socket" in request.target
+      ? { socketPath: request.target.socket }
+      // autoSelectFamily tries both families for localhost (::1 and 127.0.0.1).
+      : { host: request.target.host, port: request.target.port, autoSelectFamily: true }
+    const upstream = http.request({ ...where, method: request.method, path: request.path, headers: request.headers, agent })
     // The signal is a backstop; renderer cancellation arrives as body cancel.
     const onAbort = () => { if (signal !== undefined) upstream.destroy(abortError(signal)) }
     signal?.addEventListener("abort", onAbort)

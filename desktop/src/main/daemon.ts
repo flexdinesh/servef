@@ -121,7 +121,7 @@ export async function openPath(forward: Forward, socket: string, path: string): 
   let response: Response
   try {
     response = await forward({
-      socket,
+      target: { socket },
       method: "POST",
       path: "/_daemon/open",
       headers: { host: CONTROL_HOST, "content-type": "application/json", "content-length": String(payload.byteLength) },
@@ -146,7 +146,7 @@ export const PROBE_TIMEOUT_MS = 5_000
 // "failed" (other status, timeout).
 export async function probeDaemon(forward: Forward, socket: string, timeoutMs = PROBE_TIMEOUT_MS): Promise<ProbeOutcome> {
   try {
-    const response = await forward({ socket, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false, signal: AbortSignal.timeout(timeoutMs) })
+    const response = await forward({ target: { socket }, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false, signal: AbortSignal.timeout(timeoutMs) })
     await response.arrayBuffer()
     return response.status === 200 ? "ok" : "failed"
   } catch (error) {
@@ -161,7 +161,7 @@ export const STOP_WAIT_MS = 5_000
 // answering (so a following ensure starts a new daemon), false otherwise.
 export async function stopDaemon(forward: Forward, socket: string, waitMs = STOP_WAIT_MS): Promise<boolean> {
   try {
-    const response = await forward({ socket, method: "POST", path: "/_daemon/stop", headers: { host: CONTROL_HOST }, body: null, stream: false })
+    const response = await forward({ target: { socket }, method: "POST", path: "/_daemon/stop", headers: { host: CONTROL_HOST }, body: null, stream: false })
     await response.arrayBuffer()
     if (response.status !== 202) return false
   } catch {
@@ -170,7 +170,7 @@ export async function stopDaemon(forward: Forward, socket: string, waitMs = STOP
   const deadline = Date.now() + waitMs
   while (Date.now() < deadline) {
     try {
-      const status = await forward({ socket, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false })
+      const status = await forward({ target: { socket }, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false })
       await status.arrayBuffer()
     } catch (error) {
       if (isDaemonGone(error)) return true

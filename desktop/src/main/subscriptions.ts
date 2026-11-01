@@ -1,6 +1,6 @@
 import { isLiveChange, isLiveHead, isLiveStatus } from "../../../web/src/api/events-contract.ts"
 import type { LiveChange, LiveHead, LiveStatus } from "../../../web/src/api/events-contract.ts"
-import type { Connection } from "./connections.ts"
+import type { DaemonConnection } from "./connections.ts"
 import { isControlStatus, isWalkthroughAnnouncement } from "./daemon-contract.ts"
 import type { ControlStatus, WalkthroughAnnouncement } from "./daemon-contract.ts"
 import { isDaemonGone } from "./forward.ts"
@@ -22,7 +22,7 @@ export const BACKOFF_MIN_MS = 1_000
 export const BACKOFF_MAX_MS = 30_000
 
 export interface SubscriptionDeps {
-  connection(): Promise<Connection | null>
+  connection(): Promise<DaemonConnection | null>
   reensure(): Promise<boolean>
   forward: Forward
   timers: Timers
@@ -71,7 +71,7 @@ export function createSubscriptions(deps: SubscriptionDeps): Subscriptions {
         if (connection === null) {
           gone = true
         } else {
-          const response = await deps.forward({ socket: connection.socket, method: "GET", path, headers: { ...STREAM_HEADERS }, body: null, stream: true })
+          const response = await deps.forward({ target: { socket: connection.socket }, method: "GET", path, headers: { ...STREAM_HEADERS }, body: null, stream: true })
           const body = response.body
           if (stopped || !response.ok || body === null) {
             await body?.cancel()

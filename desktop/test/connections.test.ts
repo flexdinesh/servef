@@ -4,6 +4,7 @@ import type { ConnectionStore, KnownConnection } from "../src/main/connection-st
 import { assignId } from "../src/main/connection-store.ts"
 import { APP_HOST, createConnections, LOCAL_CONNECTION, RELEASE_GRACE_MS } from "../src/main/connections.ts"
 import type { ConnectionLookup, Connections, ConnectionsDeps } from "../src/main/connections.ts"
+import type { CliList } from "../src/main/cli-servers.ts"
 import type { EnsureResult } from "../src/main/daemon.ts"
 import type { SshReady, SshSession, SshState, SshTarget } from "../src/main/ssh-connection.ts"
 import type { SshFailure } from "../src/main/ssh-errors.ts"
@@ -90,9 +91,14 @@ interface Harness {
   stops: string[]
   timers: ReturnType<typeof createFakeTimers>
   heard: [string, string][]
+  // lists counts listCli calls.
+  lists: () => number
 }
 
-function harness(options: { known?: KnownConnection[]; ensure?: () => Promise<EnsureResult> } = {}): Harness {
+// harness lists CLI servers from options.cli (last repeats; none by default).
+function harness(options: { known?: KnownConnection[]; ensure?: () => Promise<EnsureResult>; cli?: CliList[] } = {}): Harness {
+  const cli = [...(options.cli ?? [{ ok: true, servers: [] }])]
+  let lists = 0
   const sessions: FakeSession[] = []
   const saves: KnownConnection[][] = []
   const stops: string[] = []
@@ -116,11 +122,15 @@ function harness(options: { known?: KnownConnection[]; ensure?: () => Promise<En
     },
     store,
     timers: timers.timers,
+    listCli: async () => {
+      lists += 1
+      return (cli.length > 1 ? cli.shift() : cli[0]) ?? { ok: true, servers: [] }
+    },
   }
   const connections = createConnections(deps)
   const heard: [string, string][] = []
   connections.subscribe((id, lookup) => heard.push([id, lookup === null ? "null" : lookup.kind]))
-  return { connections, sessions, saves, stops, timers, heard }
+  return { connections, sessions, saves, stops, timers, heard, lists: () => lists }
 }
 
 function only(h: Harness, index = 0): FakeSession {
@@ -492,4 +502,79 @@ test("close closes every session and clears grace timers; closeSync closes synch
   s.connections.closeSync()
   assert.deepEqual(only(s).calls, ["closeSync"])
   assert.equal(s.timers.pending(), 0)
+})
+
+// CLI servers (decision 0071).
+
+const cliServer = (port: number, origin = `http://127.0.0.1:${port}`) => ({ host: "localhost", port, origin })
+
+test("an unregistered cli id lists servers once and registers a running one", async () => {
+  const h = harness({ cli: [{ ok: true, servers: [cliServer(7971), cliServer(7972, "http://[::1]:7972")] }] })
+  const lookup = await h.connections.lookup("cli-7971")
+  assert.deepEqual(lookup, {
+    kind: "ready",
+    connection: { id: "cli-7971", kind: "cli", origin: "servef-app://cli-7971", host: "127.0.0.1", port: 7971, label: "localhost:7971" },
+  })
+  assert.equal(h.lists(), 1)
+  // Registered ids answer without listing again.
+  const ipv6 = await h.connections.lookup("cli-7972")
+  assert.equal(ipv6.kind === "ready" && ipv6.connection.kind === "cli" ? ipv6.connection.host : null, "::1")
+  assert.equal(h.lists(), 1)
+  assert.deepEqual(h.connections.describe("cli-7971"), { id: "cli-7971", kind: "cli", label: "localhost:7971", state: "ready", detail: "" })
+  assert.deepEqual(h.connections.summaries().map((summary) => summary.id), ["local", "ssh-devbox", "ssh-work", "cli-7971", "cli-7972"])
+  assert.equal(h.sessions.length, 0)
+})
+
+test("cli ids that no running server answers are unknown and list each time", async () => {
+  const h = harness({ cli: [{ ok: true, servers: [cliServer(7971)] }] })
+  assert.deepEqual(await h.connections.lookup("cli-8000"), { kind: "unknown" })
+  assert.deepEqual(await h.connections.lookup("cli-8000"), { kind: "unknown" })
+  assert.equal(h.lists(), 2)
+  assert.equal(h.connections.describe("cli-8000"), null)
+  // Non-canonical ids are not cli ids at all.
+  for (const id of ["cli-07971", "cli-0", "cli-65536", "cli-", "cli-x"]) assert.deepEqual(await h.connections.lookup(id), { kind: "unknown" }, id)
+  assert.equal(h.lists(), 2)
+})
+
+test("concurrent cli lookups share one list", async () => {
+  const h = harness({ cli: [{ ok: true, servers: [cliServer(7971)] }] })
+  const [a, b] = await Promise.all([h.connections.lookup("cli-7971"), h.connections.lookup("cli-7971")])
+  assert.equal(a.kind, "ready")
+  assert.equal(b.kind, "ready")
+  assert.equal(h.lists(), 1)
+})
+
+test("refreshCli registers exactly the running servers; a failed list keeps them", async () => {
+  const h = harness({ cli: [
+    { ok: true, servers: [cliServer(7971), cliServer(7972)] },
+    { ok: true, servers: [cliServer(7972)] },
+    { ok: false, detail: "servef control list timed out" },
+  ] })
+  assert.deepEqual(await h.connections.refreshCli(), { ok: true })
+  assert.deepEqual(h.heard, [["cli-7971", "ready"], ["cli-7972", "ready"]])
+  assert.deepEqual(await h.connections.refreshCli(), { ok: true })
+  assert.deepEqual(h.heard.slice(2), [["cli-7971", "null"]])
+  assert.deepEqual(h.connections.peek("cli-7971"), { kind: "unknown" })
+  assert.deepEqual(await h.connections.refreshCli(), { ok: false, detail: "servef control list timed out" })
+  assert.equal(h.connections.peek("cli-7972")?.kind, "ready")
+})
+
+test("dropCli unregisters a stopped server so the next lookup lists again", async () => {
+  const h = harness({ cli: [{ ok: true, servers: [cliServer(7971)] }, { ok: true, servers: [] }] })
+  assert.equal((await h.connections.lookup("cli-7971")).kind, "ready")
+  h.connections.dropCli("cli-7971")
+  assert.deepEqual(h.heard, [["cli-7971", "ready"], ["cli-7971", "null"]])
+  assert.deepEqual(await h.connections.lookup("cli-7971"), { kind: "unknown" })
+  assert.equal(h.lists(), 2)
+})
+
+test("cli connections are never re-ensured or held open", async () => {
+  const h = harness({ cli: [{ ok: true, servers: [cliServer(7971)] }] })
+  await h.connections.lookup("cli-7971")
+  assert.equal(await h.connections.reensure("cli-7971"), false)
+  assert.equal(await h.connections.stopAndRetry("cli-7971"), false)
+  h.connections.hold("cli-7971")
+  h.connections.release("cli-7971")
+  assert.equal(h.timers.pending(), 0)
+  assert.equal(h.lists(), 1)
 })

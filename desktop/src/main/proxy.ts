@@ -1,10 +1,11 @@
+import { cliPort } from "./cli-servers.ts"
 import { APP_HOST, connectionOrigin } from "./connections.ts"
-import type { Connection, ConnectionLookup } from "./connections.ts"
+import type { CliConnection, Connection, ConnectionLookup } from "./connections.ts"
 import { isDaemonGone } from "./forward.ts"
-import type { Forward, ForwardRequest } from "./forward.ts"
+import type { Forward, ForwardRequest, ForwardTarget } from "./forward.ts"
 import { isEventStreamRequest, upstreamHeaders } from "./headers.ts"
 import { failureInstructions, sshFailureInstructions } from "./instructions.ts"
-import { failurePage, jsonError, reconnectingPage, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
+import { cliStoppedPage, failurePage, jsonError, noCliServerPage, reconnectingPage, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
 
 export interface ProxyDeps {
   // packaged selects failure instructions (reinstall vs dev build).
@@ -18,6 +19,8 @@ export interface ProxyDeps {
   stopAndRetry(id: string): Promise<boolean>
   // appPages serves servef-app://app (the Connect page); no lookup, no upstream.
   appPages(request: Request): Promise<Response>
+  // dropCli unregisters a CLI server that stopped answering (decision 0071).
+  dropCli(id: string): void
 }
 
 // createProxy returns the servef-app:// protocol handler.
@@ -25,6 +28,34 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
   const failed = (lookup: Extract<ConnectionLookup, { kind: "failed" }>): Response => lookup.connection === "daemon"
     ? failurePage(failureInstructions(lookup.failure, deps.packaged))
     : failurePage(sshFailureInstructions(lookup.failure, deps.release))
+
+  // forwardCli sends a request to a CLI server. One that stopped is dropped
+  // and listed again (never started: the user runs it); a read retries once
+  // when the list still reports it (a pooled socket outlived a restart).
+  const forwardCli = async (connection: CliConnection, readOnly: boolean, document: boolean, toForward: (connection: Connection) => ForwardRequest): Promise<Response> => {
+    const stopped = (): Response => document
+      ? cliStoppedPage(connection.port)
+      : jsonError(503, "serverStopped", `The servef server on port ${connection.port} stopped.`)
+    const unavailable = (error: unknown): Response => document
+      ? unavailablePage(errorMessage(error))
+      : jsonError(503, "daemonUnavailable", errorMessage(error))
+    try {
+      return await deps.forward(toForward(connection))
+    } catch (error) {
+      if (!isDaemonGone(error)) return unavailable(error)
+    }
+    deps.dropCli(connection.id)
+    if (!readOnly) return stopped()
+    const retry = await deps.lookup(connection.id)
+    if (retry.kind !== "ready") return stopped()
+    try {
+      return await deps.forward(toForward(retry.connection))
+    } catch (error) {
+      if (!isDaemonGone(error)) return unavailable(error)
+      deps.dropCli(connection.id)
+      return stopped()
+    }
+  }
 
   return async (request) => {
     const url = new URL(request.url)
@@ -43,10 +74,17 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
     // Repeated leading slashes still name the control API.
     pathname = pathname.replace(/^\/+/, "/")
     if (pathname.startsWith("/_daemon")) return jsonError(403, "forbidden", "The daemon control API is not reachable from the app.")
+    // /_servef is a CLI server's control endpoint (decision 0071).
+    if (pathname.startsWith("/_servef")) return jsonError(403, "forbidden", "The servef control API is not reachable from the app.")
 
+    const document = isDocumentRequest(request.headers, pathname)
+    const port = cliPort(id)
     // Unknown ids (including unconfirmed ssh-* origins) reach nothing.
     let lookup = await deps.lookup(id)
-    if (lookup.kind === "unknown") return jsonError(404, "unknownConnection", "Unknown servef connection.")
+    if (lookup.kind === "unknown") {
+      if (port !== null && document) return noCliServerPage(port)
+      return jsonError(404, "unknownConnection", "Unknown servef connection.")
+    }
 
     if (pathname.startsWith("/_desktop")) {
       if (pathname === STOP_AND_RETRY_PATH && request.method === "POST" && lookup.kind === "failed" && lookup.failure.kind === "mismatch") {
@@ -56,7 +94,6 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
       return jsonError(404, "notFound", "Unknown app endpoint.")
     }
 
-    const document = isDocumentRequest(request.headers, pathname)
     if (lookup.kind === "failed" && document) {
       // A reload of the failure page retries; a reconnecting page does not
       // bypass the backoff.
@@ -75,10 +112,10 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
 
     const readOnly = request.method === "GET" || request.method === "HEAD"
     const toForward = (connection: Connection): ForwardRequest => ({
-      socket: connection.socket,
+      target: targetOf(connection),
       method: request.method,
       path: url.pathname + url.search,
-      headers: upstreamHeaders(request.headers),
+      headers: upstreamHeaders(request.headers, connection.kind === "cli" ? connection.port : null),
       body: readOnly ? null : request.body,
       stream: isEventStreamRequest(request.headers),
       signal: request.signal,
@@ -86,6 +123,8 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
     const unavailable = (detail: string): Response => document
       ? unavailablePage(detail)
       : jsonError(503, "daemonUnavailable", detail)
+
+    if (lookup.connection.kind === "cli") return forwardCli(lookup.connection, readOnly, document, toForward)
 
     try {
       return await deps.forward(toForward(lookup.connection))
@@ -102,6 +141,10 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
       return unavailable(errorMessage(error))
     }
   }
+}
+
+function targetOf(connection: Connection): ForwardTarget {
+  return connection.kind === "cli" ? { host: connection.host, port: connection.port } : { socket: connection.socket }
 }
 
 function isDocumentRequest(headers: Headers, pathname: string): boolean {

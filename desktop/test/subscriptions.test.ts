@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import type { Connection } from "../src/main/connections.ts"
+import type { DaemonConnection } from "../src/main/connections.ts"
 import type { ForwardRequest } from "../src/main/forward.ts"
 import { BACKOFF_MAX_MS, BACKOFF_MIN_MS, createSubscriptions, MAX_WATCHED } from "../src/main/subscriptions.ts"
 import type { SubscriptionEvent } from "../src/main/subscriptions.ts"
 import { createFakeTimers, flush } from "./fake-timers.ts"
 
-const connection: Connection = {
+const connection: DaemonConnection = {
   id: "local", kind: "daemon", origin: "servef-app://local", socket: "/run/servef.sock",
   status: { protocol: 1, version: "1", pid: 1, socket: "/run/servef.sock", roots: [] }, label: "local",
 }
@@ -21,7 +21,7 @@ interface FakeStream {
   end(): void
 }
 
-function setup(options: { connection?: () => Connection | null } = {}) {
+function setup(options: { connection?: () => DaemonConnection | null } = {}) {
   const clock = createFakeTimers()
   const streams: FakeStream[] = []
   const failures: Error[] = []
@@ -76,7 +76,7 @@ test("the control stream opens at once without browser headers and dispatches va
   await flush()
   const control = s.latest(CONTROL)
   assert.equal(control.request.method, "GET")
-  assert.equal(control.request.socket, "/run/servef.sock")
+  assert.deepEqual(control.request.target, { socket: "/run/servef.sock" })
   assert.equal(control.request.stream, true)
   assert.equal(control.request.body, null)
   assert.deepEqual(control.request.headers, { accept: "text/event-stream", host: "localhost" })

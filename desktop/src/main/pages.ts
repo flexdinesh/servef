@@ -28,7 +28,7 @@ export function escapeHTML(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;")
 }
 
-function page(title: string, content: string, actions: string, head = ""): Response {
+function page(title: string, content: string, actions: string, head = "", status = 503): Response {
   const html = `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8">${head}<title>${escapeHTML(title)}</title><style>${PAGE_STYLE}</style></head>
@@ -39,7 +39,7 @@ ${content}
 </main></body>
 </html>
 `
-  return new Response(html, { status: 503, headers: PAGE_HEADERS })
+  return new Response(html, { status, headers: PAGE_HEADERS })
 }
 
 // failurePage renders ensure-failure instructions as an HTML page (503) with
@@ -57,6 +57,17 @@ export function failurePage(instructions: Instructions): Response {
 // unavailablePage renders a daemon that stopped answering.
 export function unavailablePage(detail: string): Response {
   return page("The servef daemon stopped answering", `<p>${escapeHTML(detail)}</p>`, "")
+}
+
+// noCliServerPage: no running servef server listens on port (404).
+export function noCliServerPage(port: number): Response {
+  return page(`No servef server is running on port ${port}`, `<p>Start one with <code>servef browser</code>, or open the address it prints.</p>`, "", "", 404)
+}
+
+// cliStoppedPage: the CLI server this window showed stopped (503). The app
+// never starts CLI servers.
+export function cliStoppedPage(port: number): Response {
+  return page(`The servef server on port ${port} stopped`, `<p>Start it again in a terminal, then Retry:</p>\n<pre><code>servef browser --port ${port}</code></pre>`, "")
 }
 
 // RECONNECT_REFRESH_SECONDS is how often the reconnecting page reloads itself
