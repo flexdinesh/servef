@@ -16,6 +16,7 @@ import (
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
 	"github.com/flexdinesh/servef/internal/daemon"
+	"github.com/flexdinesh/servef/internal/desktopapp"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
@@ -49,6 +50,8 @@ type publishOptions struct {
 	socket         string             // "" uses daemon.DefaultSocket()
 	openBrowser    func(string) error // nil uses browser.Open
 	getenv         func(string) string
+	installed      func(context.Context) (bool, error) // nil uses desktopapp.Installed
+	openApp        func(context.Context, string) error // nil uses desktopapp.Open
 }
 
 type publishRunner func(context.Context, publishOptions, io.Reader, io.Writer, io.Writer) error
@@ -82,7 +85,7 @@ func newWalkthroughCommand(publish publishRunner) *cobra.Command {
 	}
 	flags := publishCommand.Flags()
 	flags.IntVar(&opts.depth, "depth", 5, "maximum directory depth of working-tree files within the project")
-	flags.BoolVar(&opts.noOpen, "no-open", false, "do not open the browser, even when the walkthrough asks to")
+	flags.BoolVar(&opts.noOpen, "no-open", false, "do not open the desktop app or browser, even when the walkthrough asks to")
 	flags.BoolVar(&opts.json, "json", false, "print the result as one JSON object")
 	schemaCommand := &cobra.Command{
 		Use:           "schema",
@@ -135,30 +138,48 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	}
 
 	stored := published.Walkthrough
-	announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr)
-	controlDir := opts.controlDir
-	if controlDir == "" {
-		controlDir, err = control.DefaultDirectory()
-		if err != nil {
-			return err
-		}
-	}
-	viewer, mismatches := findViewer(ctx, control.NewRegistry(controlDir), stored.Project, stored.ID)
-	for _, origin := range mismatches {
-		_, _ = fmt.Fprintf(stderr, "servef at %s serves this project but keeps walkthroughs elsewhere; POST to %s/api/walkthroughs\n", origin, origin)
-	}
-
 	getenv := opts.getenv
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	if draft.Open && viewer != "" && shouldOpenBrowser(opts.noOpen, getenv) {
-		open := opts.openBrowser
-		if open == nil {
-			open = browser.Open
+	open := draft.Open && shouldOpenBrowser(opts.noOpen, getenv)
+
+	// The desktop app shows walkthroughs of projects the daemon serves.
+	viewer := ""
+	if announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr) && desktopAppInstalled(ctx, opts) {
+		viewer = "servef://local/view?" + url.Values{"project": {stored.Project}, "wt": {stored.ID}}.Encode()
+		if open {
+			openApp := opts.openApp
+			if openApp == nil {
+				openApp = desktopapp.Open
+			}
+			if err := openApp(ctx, viewer); err != nil {
+				_, _ = fmt.Fprintf(stderr, "could not open the servef desktop app: %v\n", err)
+				viewer = ""
+			}
 		}
-		if err := open(viewer); err != nil {
-			_, _ = fmt.Fprintf(stderr, "could not open browser: %v\n", err)
+	}
+	if viewer == "" {
+		controlDir := opts.controlDir
+		if controlDir == "" {
+			controlDir, err = control.DefaultDirectory()
+			if err != nil {
+				return err
+			}
+		}
+		var mismatches []string
+		viewer, mismatches = findViewer(ctx, control.NewRegistry(controlDir), stored.Project, stored.ID)
+		for _, origin := range mismatches {
+			_, _ = fmt.Fprintf(stderr, "servef at %s serves this project but keeps walkthroughs elsewhere; POST to %s/api/walkthroughs\n", origin, origin)
+		}
+		if open && viewer != "" {
+			openBrowser := opts.openBrowser
+			if openBrowser == nil {
+				openBrowser = browser.Open
+			}
+			if err := openBrowser(viewer); err != nil {
+				_, _ = fmt.Fprintf(stderr, "could not open browser: %v\n", err)
+			}
 		}
 	}
 
@@ -184,17 +205,17 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 }
 
 // announceToDaemon tells a running daemon about the publish so its control
-// streams announce it. A daemon that is not running, unreachable, or not
-// serving the project is ignored; one that serves the project but reads
-// another store gets a warning.
-func announceToDaemon(ctx context.Context, socket, project, id string, created bool, stderr io.Writer) {
+// streams announce it, and reports whether it did. A daemon that is not
+// running, unreachable, or not serving the project is ignored; one that
+// serves the project but reads another store gets a warning.
+func announceToDaemon(ctx context.Context, socket, project, id string, created bool, stderr io.Writer) bool {
 	if daemonSupported() != nil {
-		return
+		return false
 	}
 	if socket == "" {
 		var err error
 		if socket, err = daemon.DefaultSocket(); err != nil {
-			return
+			return false
 		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, announceTimeout)
@@ -204,6 +225,18 @@ func announceToDaemon(ctx context.Context, socket, project, id string, created b
 	if errors.As(err, &failure) && failure.Status == http.StatusNotFound && failure.Code == "walkthroughUnavailable" {
 		_, _ = fmt.Fprintf(stderr, "servef daemon at %s serves this project but keeps walkthroughs elsewhere\n", socket)
 	}
+	return err == nil
+}
+
+// desktopAppInstalled reports whether the desktop app handles servef:// URLs;
+// a failed check counts as not installed.
+func desktopAppInstalled(ctx context.Context, opts publishOptions) bool {
+	installed := opts.installed
+	if installed == nil {
+		installed = desktopapp.Installed
+	}
+	ok, err := installed(ctx)
+	return err == nil && ok
 }
 
 // readDraft reads one strict draft from a file, or standard input for -,

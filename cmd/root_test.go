@@ -23,6 +23,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// newRootCommand runs runCommand for both bare servef and servef browser, so
+// flag parsing and validation tests cover both commands alike.
+func newRootCommand(runCommand runner) *cobra.Command {
+	return newRootCommandWith(runCommand, runCommand)
+}
+
+func TestRootCommandOpensAppAndBrowserServes(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "app"},
+		{[]string{"docs", "--depth", "3"}, "app"},
+		{[]string{"browser"}, "browser"},
+		{[]string{"browser", "docs", "--depth", "3"}, "browser"},
+	} {
+		var called []string
+		record := func(name string) runner {
+			return func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+				called = append(called, name)
+				return nil
+			}
+		}
+		command := newRootCommandWith(record("app"), record("browser"))
+		command.SetArgs(test.args)
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(called, ",") != test.want {
+			t.Errorf("Execute(%v) ran %v, want %s", test.args, called, test.want)
+		}
+	}
+}
+
 func TestRootCommandDefaults(t *testing.T) {
 	var got options
 	command := newRootCommand(func(_ context.Context, opts options, _ io.Reader, _, _ io.Writer) error {
@@ -33,7 +67,7 @@ func TestRootCommandDefaults(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen {
+	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.hostSet || got.port != 0 || got.portSet || got.noOpen {
 		t.Fatalf("default options = %+v", got)
 	}
 }
@@ -80,7 +114,7 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(got.paths, ",") != "docs" || got.depth != 3 || got.host != "192.0.2.10" || got.port != 8080 || !got.portSet || !got.noOpen {
+	if strings.Join(got.paths, ",") != "docs" || got.depth != 3 || got.host != "192.0.2.10" || !got.hostSet || got.port != 8080 || !got.portSet || !got.noOpen {
 		t.Fatalf("parsed options = %+v", got)
 	}
 }
