@@ -3,9 +3,11 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -250,4 +252,107 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 			t.Logf("actual module %s exported status %d and retained diagnostics", scenario.name, result.ExitCode)
 		})
 	}
+}
+
+func TestDaggerBrowserArtifactsAcceptance(t *testing.T) {
+	if os.Getenv("SERVEF_DAGGER_ACCEPTANCE") != "1" {
+		t.Skip("set SERVEF_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Clean(filepath.Join(cwd, "../.."))
+	snapshot, err := readSnapshot(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs, _, err := manifest(snapshot, "browser", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	if err := materialize(source, inputs.Files); err != nil {
+		t.Fatal(err)
+	}
+	const spec = "tests/browser/acceptance-failure.spec.ts"
+	const body = `import { expect, test } from "@playwright/test"
+test("deliberate acceptance failure", async ({ page }) => {
+  await page.goto("/")
+  await expect(page.locator("body")).toBeVisible()
+  expect("actual", "deliberate acceptance failure").toBe("expected")
+})
+`
+	if err := os.WriteFile(filepath.Join(source, spec), []byte(body), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(repo, ".scratch", "browser-failure-artifacts", newID())
+	if err := os.MkdirAll(out, 0700); err != nil {
+		t.Fatal(err)
+	}
+	log, err := os.Create(filepath.Join(out, "dagger.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer log.Close()
+	where, err := exec.Command("mise", "where", "dagger@0.21.10").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dagger := filepath.Join(strings.TrimSpace(string(where)), "bin", "dagger")
+	if _, err := os.Stat(dagger); err != nil {
+		dagger = filepath.Join(strings.TrimSpace(string(where)), "dagger")
+	}
+	selection, _ := json.Marshal([]string{spec})
+	args := []string{"--progress=plain", "-m", repo, "call", "run", "--source", source, "--group", "browser", "--attempt", newID(), "--args-json", string(selection), "export", "--path", filepath.Join(out, "output")}
+	var output acceptanceOutput
+	if err := command(ctx, root, runnerEnvironment(filepath.Join(root, "home")), io.MultiWriter(log, &output), dagger, args...); err != nil {
+		t.Fatalf("browser failure export: %v; log: %s\n%s", err, log.Name(), output.String())
+	}
+	status, err := os.ReadFile(filepath.Join(out, "output", "status.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state struct {
+		ExitCode *int `json:"exitCode"`
+	}
+	if err := json.Unmarshal(status, &state); err != nil || state.ExitCode == nil || *state.ExitCode == 0 {
+		t.Fatalf("deliberately failed browser reported success: %s (%v)", status, err)
+	}
+	checkLog, err := os.ReadFile(filepath.Join(out, "output", "check.log"))
+	if err != nil || !strings.Contains(string(checkLog), "deliberate acceptance failure") {
+		t.Fatalf("failure did not reach expected assertion: %s (%v)", checkLog, err)
+	}
+	var trace, screenshot bool
+	err = filepath.WalkDir(filepath.Join(out, "output", "playwright"), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		switch filepath.Ext(path) {
+		case ".zip":
+			archive, err := zip.OpenReader(path)
+			if err != nil {
+				return err
+			}
+			trace = trace || len(archive.File) > 0
+			return archive.Close()
+		case ".png":
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			screenshot = screenshot || strings.HasPrefix(string(content), "\x89PNG\r\n\x1a\n")
+		}
+		return nil
+	})
+	if err != nil || !trace || !screenshot {
+		t.Fatalf("missing valid failure artifacts: trace=%t screenshot=%t error=%v; %s", trace, screenshot, err, out)
+	}
+	t.Logf("actual browser assertion failed; valid trace, screenshot and logs retained at %s", out)
 }
