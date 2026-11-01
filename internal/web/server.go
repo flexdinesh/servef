@@ -107,7 +107,7 @@ func New(config Config) (*App, error) {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
 	app := &App{config: config, roots: config.Roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
-	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{app: app})
+	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: func(name string) (fs.File, error) { return app.openFile(name) }})
 	app.routes = app.newRoutes()
 	return app, nil
 }
