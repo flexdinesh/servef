@@ -196,7 +196,7 @@ func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 	if full != empty {
 		t.Fatal("equivalent empty selections have different identities")
 	}
-	_, partial, _ := manifest(s, "frontend", "_validate:test:web", []string{"filter"})
+	_, partial, _ := manifest(s, "frontend", "_container:test:web", []string{"filter"})
 	if full == partial {
 		t.Fatal("partial and full identities match")
 	}
@@ -213,26 +213,11 @@ func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 	}
 }
 
-func TestPRArgumentsCannotOverrideTestedTarget(t *testing.T) {
-	for _, arg := range []string{"--head=other", "-Hother", "-Bother", "-Rowner/repo", "-dHother", "--repo=owner/repo", "--web"} {
-		if _, err := prArguments([]string{arg}); err == nil {
-			t.Fatalf("target-changing or interactive argument accepted: %s", arg)
-		}
-	}
-	got, err := prArguments([]string{"--ready", "--title", "--head", "--body=literal body"})
-	if err != nil || strings.Join(got, "|") != "--title|--head|--body|literal body" {
-		t.Fatalf("flag-like title value changed: %v, %v", got, err)
-	}
-	if _, err := prArguments([]string{"--ready", "--draft"}); err == nil {
-		t.Fatal("conflicting modes accepted")
-	}
-}
-
 func TestTargetedTasksRequireTheirCompleteSourceGroup(t *testing.T) {
-	if !taskBelongsToGroup("_validate:test:go", "go") {
+	if !taskBelongsToGroup("_container:test:go", "go") {
 		t.Fatal("Go task rejected for Go group")
 	}
-	for _, task := range []string{"_validate:test:go", "_validate:test:race", "_validate:unknown", "test:web"} {
+	for _, task := range []string{"_container:test:go", "_container:test:race", "_container:unknown", "test:web"} {
 		if taskBelongsToGroup(task, "frontend") {
 			t.Fatalf("task accepted against incomplete frontend source: %s", task)
 		}
@@ -286,28 +271,6 @@ func TestCancellationStopsOwnedProcessAndPreservesOtherProcess(t *testing.T) {
 	}
 	if err := other.Process.Signal(syscall.Signal(0)); err != nil {
 		t.Fatalf("other process stopped: %v", err)
-	}
-}
-
-func TestPruneRetainsActiveAndReceipts(t *testing.T) {
-	a := app{Cache: t.TempDir()}
-	old := time.Now().Add(-31 * 24 * time.Hour)
-	for _, r := range []record{{ID: "active", Status: "running"}, {ID: "old", Finished: &old, Status: "success"}} {
-		if err := writeJSON(filepath.Join(a.Cache, "runs", r.ID, "run.json"), r); err != nil {
-			t.Fatal(err)
-		}
-	}
-	put(t, a.Cache, "receipts/proof.json", "proof")
-	if err := a.prune(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(a.Cache, "runs", "old")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("old run retained")
-	}
-	for _, path := range []string{"runs/active/run.json", "receipts/proof.json"} {
-		if _, err := os.Stat(filepath.Join(a.Cache, path)); err != nil {
-			t.Fatal(err)
-		}
 	}
 }
 

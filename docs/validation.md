@@ -1,17 +1,89 @@
 # Local validation
 
-Validation runs on this machine through Dagger. Linux aggregate validation
-qualifies for PR preparation; native macOS checks are optional supplements.
+Use this machine for validation before PR creation and updates. All tests and
+their prerequisite builds run in Dagger. Safe static checks run on the host
+against private snapshots. Development commands and formatting stay on the host.
+Linux test coverage qualifies; native macOS checks are optional supplements.
 CI edge publication and release workflows remain independent.
+
+## Commands and PR workflow
+
+While editing, targeted tasks capture immutable current edits and relevant
+unignored new files. They exclude personal environment files, dependencies, and
+generated outputs. Targeted results never qualify a PR, even when they pass.
+
+```sh
+mise run test:go
+mise run test:race
+mise run test:web
+mise run test:release
+mise run test:browser -- tests/browser/live-updates.spec.ts
+mise run lint
+mise run typecheck
+mise run fmt:check
+mise run tidy:check
+mise run mise:check
+```
+
+Before creating or updating a PR, commit changes and validate clean committed
+HEAD. Verify status immediately before the separate push/PR operation:
+
+```sh
+mise run check:pr
+mise run check:status
+```
+
+Confirm HEAD still matches the reported tested commit. Tracked changes or a
+changed HEAD require reassessing validation before publication. `check:status`
+compares relevant inputs with successful certificates; it runs no tests, builds,
+or engine startup. Validation never creates or updates a PR. Local conventions
+are bypassable; Git has no standard pre-PR hook and no remote enforcement is
+introduced. There is no mandatory pre-push suite.
+
+`check`, `check:full`, and `validate` alias `check:pr`. Select a committed group
+with `mise run check:pr -- --group docs`. Use `mise run check:pr -- --force` to
+execute checks and prerequisite builds again. `mise run check:prune` manages
+completed artifacts.
+
+Public mise tasks invoke the coordinator. Hidden `_host:*` and `_container:*`
+tasks contain leaf commands and never invoke public wrappers. This prevents
+container execution from recursively launching the host coordinator.
+
+| Group | Location | Coverage |
+| --- | --- | --- |
+| repo | Host | Go formatting, module tidy diff, mise validation |
+| web-static | Host | Web typecheck, oxlint, stylelint |
+| tooling-static | Host | Root TypeScript check for scripts and tests |
+| site-static | Host | Site TypeScript check |
+| go | Dagger | Vet, ordinary Go tests, race tests |
+| frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
+| tooling | Dagger | Release, runner, and browser harness tests |
+| docs | Dagger | Production site build and internal-link validation |
+| browser | Dagger | Chromium integration tests and fixture servers |
+
+Go vet stays in Dagger because it needs the embedded frontend build. Tests of
+architecture or validation tooling remain tests and run there too. Git, Ruby,
+and repository-local TypeScript are prerequisites: missing tooling must fail
+preparation rather than silently skip formula or navigation coverage.
 
 ## Engine ownership
 
-Install tools with mise. Validation connects explicitly to
-`servef-validation-engine-v0.21.10`. It must never fall back to Dagger's automatic
-engine bootstrap: that bootstrap can remove another repository's engine.
-Keep `DAGGER_LEAVE_OLD_ENGINE=true` as defense in depth.
+Install pinned tools through mise. Reuse `servef-validation-engine-v0.21.10`
+across this repository's worktrees, with the dedicated named volume
+`servef-validation-engine-v0.21.10-state`. CLI, SDK, and engine use 0.21.10.
+Initialization and execution connect directly with:
 
-Provision the engine once with a named volume and the pinned engine image:
+```sh
+export _EXPERIMENTAL_DAGGER_RUNNER_HOST=docker-container://servef-validation-engine-v0.21.10
+export DAGGER_LEAVE_OLD_ENGINE=true
+```
+
+Inspect existing containers and volumes before setup. Leave unclear ownership
+untouched. Validation never provisions an engine automatically; a missing,
+stopped, or incompatible engine produces an error. Never remove, stop, restart,
+or prune another task's engine or volume. Do not use broad prune commands.
+
+Only when explicitly provisioning a new repository-owned engine, use:
 
 ```sh
 docker volume create servef-validation-engine-v0.21.10-state
@@ -21,100 +93,90 @@ docker run -d --name servef-validation-engine-v0.21.10 --privileged \
   registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334
 ```
 
-Inspect an existing container before provisioning. Never replace another
-owner's engine or delete its volume. These limits suit a machine with at least
-8 available CPUs and 16 GiB RAM; reduce the engine ceiling on smaller machines
-and keep room for other repositories. Checks themselves use two Go/Node/browser
-workers and one expensive group per invocation. A two-slot user-level admission
-pool bounds concurrent invocations across worktrees and repositories using this
-wrapper. This is admission control, not a host-wide CPU scheduler.
+The name deliberately avoids `dagger-engine-*`. Explicit connection and
+`DAGGER_LEAVE_OLD_ENGINE=true` prevent automatic bootstrap cleanup from
+interfering with other repositories. Upgrades and cleanup require coordinated
+ownership, an idle engine, and an explicit compatible version/digest change.
 
-The host engine needs its container runtime. Check containers receive no Docker
-socket, host networking, published application ports, or host-service tunnels.
-Upgrades require an idle engine and an explicit version/digest change. Never
-stop the engine to cancel a single validation run or prune it automatically.
+The existing 8-CPU/12-GiB ceiling suits this shared machine. Do not increase it
+automatically. Two cooperative user-level execution slots bound participating
+repositories and worktrees. Each invocation runs one expensive group at a time,
+with two Go/Node/browser workers, and releases capacity after each group. Acquire
+the input-certificate lock before waiting for machine capacity. These limits do
+not control unrelated tools or guarantee freedom from host memory pressure.
 
-## Commands
+## Source and execution isolation
 
-Commit changes first; validation rejects staged or unstaged tracked changes.
-Untracked files, local `.env`, dependencies, and generated build outputs are not
-part of the snapshot. Tests run against tracked committed content only.
+Committed snapshots come from Git objects, preserving paths, modes, and safe
+symlinks. Unsupported submodules and escaping symlinks fail. Never copy a
+worktree's `.git` pointer. A separate synthetic baseline supplies tracked-file
+enumeration and generated-file drift detection; Git behavior tests create their
+own independent repositories.
 
-```sh
-mise run validate
-mise run validate -- --group frontend
-mise run validate -- --group browser -- tests/browser/live-updates.spec.ts
-mise run validate -- --force
-mise run validate:status
-mise run pr:create -- --ready --title "fix: example" --body-file /path/to/body
-mise run pr:update
-mise run validate:prune
-```
+Dagger prepares immutable toolchains, frozen pnpm dependencies, Go modules,
+frontend assets, and the application binary. Consumers receive private writable
+container state. Browser clients, Vite, application servers, and mutable fixture
+repositories run together inside the execution container. Mutating browser
+tests retain their own fixtures. No application ports are published, and runners
+receive no host networking, host-service tunnels, or host Docker socket. Future
+mutable Dagger services need invocation-specific identities and private storage.
 
-`check` and `check:full` mean validate everything. Public targeted check tasks
-use the same container isolation. Hidden `_validate:*` tasks are container
-implementation details. Direct native commands remain useful during editing,
-but do not establish the committed snapshot's aggregate coverage.
+Host static checks also use private materialized snapshots under
+`.dev/validation/`. Their home, temporary, output, and dependency state is
+worktree-local. Frozen dependency preparation is published atomically and copied
+without shared writable hardlinks. Formatting remains an explicit operation on
+the working tree; do not format concurrently with validation of that checkout.
 
-| Group | Coverage |
-| --- | --- |
-| go | Go formatting, tidy, vet, ordinary and race tests |
-| frontend | Web tests, typecheck, oxlint, stylelint |
-| tooling | Runner/release tests, root TypeScript, mise validation |
-| docs | Site typecheck and production build, including internal links |
-| browser | Chromium integration tests and private fixture servers |
+Both environments allowlist behavior inputs. Personal configuration, host
+service URLs, `.env`, and existing build outputs do not enter validation.
 
-Go tests include the host validation harness. Root TypeScript dependencies and
-Ruby are installed so native TypeScript navigation and formula syntax checks do
-not silently skip. Git behavior tests construct independent fixture repositories.
+## Inputs, reuse, and certificates
 
-## Inputs and reuse
+Each group receives a conservative source subset. Go/browser consume embedded
+UI inputs; frontend tests also consume API/family fixtures and the walkthrough
+schema. Shared workspace locks invalidate their consumers. Site content does
+not invalidate application tests. Toolchain preparation is separate from task
+commands, so unchanged toolchains can survive a task edit.
 
-The wrapper exports committed Git objects, preserving modes and symlinks and
-rejecting unsupported submodules. It never copies a worktree's `.git` pointer.
-Each group receives a conservative source subset. Go/browser include frontend
-inputs because their embedded UI depends on the web build; frontend consumes
-shared API and family fixtures. Shared workspace lockfile changes invalidate
-all pnpm consumers. Docs content does not invalidate application checks.
+Input identities include relevant contents, paths, modes, symlinks, manifests,
+locks, patches, configuration, implementation, toolchain/image/browser identity,
+platform, arguments, and behavior-affecting environment. Host static certificates
+are platform-specific. Commit and branch names record provenance, not validity.
+A history-only rebase can reuse matching certificates; relevant upstream changes
+invalidate affected groups. No elapsed-time or small-diff rule establishes success.
 
-Content manifests include source/tests/configuration, dependency locks/patches,
-task and validation implementation, toolchain/image/platform identity, selected
-arguments, and behavior-affecting environment. HEAD and branch names identify
-provenance, not cache validity. A history-only rebase can reuse matching results;
-upstream content changes invalidate affected groups.
+Dagger caches immutable preparation/build layers. Local certificates record
+successful complete check coverage. A per-input execution lock coordinates
+concurrent certification and rechecks reuse before doing work. Starting a real
+rerun invalidates old success and marks the input pending. Only completed checks,
+drift detection, and artifact export publish a new certificate. Failure or active
+cancellation leaves that input uncertified until a successful rerun. Cancellation
+while waiting does not revoke prior proof. Older concurrent work cannot restore
+stale success.
 
-Dagger reuses immutable preparation/build layers. Local success receipts reuse
-complete successful group results. Every executed attempt gets a fresh nonce,
-so failed attempts and mutable fixture executions cannot be replayed as success.
-Only successful checks with exported artifacts publish success receipts.
-Selections remain partial coverage. Aggregate success requires every complete
-group. `--force` bypasses receipts and build-result reuse; Go tests use
-`-count=1`. Download/compiler preparation caches are not test-result evidence.
+`--force` bypasses certificates and cached check/build execution; Go tests use
+`-count=1`. Dependency download preparation may remain reusable. Reusable build
+outputs are not successful test evidence. Aggregate success requires every
+complete group plus a final cancellation, HEAD, and tracked-cleanliness check.
 
-No mutable home, temporary directory, browser profile, walkthrough store, or
-fixture repository is shared between executions. Dependencies and build outputs
-are prepared immutably, then consumed through private container filesystems.
-Behavior environment is explicit; host service URLs and personal config are
-not imported into runners.
+## Failures, artifacts, and debugging
 
-## Failures and cancellation
+Each invocation records HEAD/tree or current-edit provenance, input identities,
+environment, coverage, execution/reuse, result status, and artifact locations.
+Logs use unique run directories, not a shared directory cleared by another run.
+Read the reported failure log and use the printed targeted rerun command.
+Browser traces, screenshots, and useful failure fixtures survive failed checks.
 
-Each invocation records tested HEAD, input identities, platform/environment,
-coverage, execution/reuse provenance, task status, and artifact paths. Logs,
-browser traces/screenshots, and useful failure fixtures remain outside shared
-checkout output paths. Read the reported log before rerunning a failed group.
+SIGINT/SIGTERM stops only owned process groups and the invocation's Dagger
+session, using TERM then bounded KILL. Never stop an engine to cancel validation.
+Graceful cleanup attempts artifact export; hard termination or engine failure
+may leave only streamed logs and incomplete records, never certified success.
 
-SIGINT/SIGTERM stops only the invocation's process groups/session. Graceful
-cleanup attempts artifact export; hard termination or engine failure may leave
-only streamed logs. Such runs never qualify as successful. Keep artifacts until
-explicit pruning; completed artifacts older than 30 days are eligible, while
-active runs and compact success receipts are retained.
+`check:prune` defaults to 30 days and 10 GiB of artifacts per worktree, removing
+oldest completed runs first. Active-run locks protect live output; PID guesses
+are insufficient. Compact certificates remain independent of artifact retention.
 
-PR wrappers validate, recheck tracked cleanliness and HEAD, push the captured
-commit explicitly, and verify the remote SHA before creating a PR. Credentials
-remain on the host. There is no standard Git pre-PR hook: wrappers and agent
-instructions are bypassable. No remote enforcement is introduced.
-
-Linux does not prove macOS kqueue behavior, native filesystem/process semantics,
-or macOS browser behavior. Run the relevant native commands explicitly when
-investigating those concerns; their coverage is separate from the Linux result.
+Linux tests do not establish macOS kqueue, filesystem, process, or browser
+coverage. Native checks are optional, explicitly chosen supplements for those
+concerns. Routine testing stays in Dagger. Container paths and retained traces
+replace reliance on host-local fixture servers during debugging.

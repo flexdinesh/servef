@@ -213,9 +213,9 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 					t.Fatal(err)
 				}
 				if file == "mise.toml" {
-					original := "[tasks.\"_validate:mise:check\"]\nhide = true\nrun = [\"mise tasks validate\", \"mise fmt --check\"]"
+					original := "[tasks.\"_container:test:release\"]\nhide = true\nrun = \"ruby --version && pnpm test:release\""
 					quoted, _ := json.Marshal(scenario.script)
-					replacement := "[tasks.\"_validate:mise:check\"]\nhide = true\nrun = " + string(quoted)
+					replacement := "[tasks.\"_container:test:release\"]\nhide = true\nrun = " + string(quoted)
 					if !strings.Contains(string(content), original) {
 						t.Fatal("update fixture override for changed mise leaf")
 					}
@@ -231,7 +231,7 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 			}
 			out := filepath.Join(root, "output")
 			var output acceptanceOutput
-			args := []string{"--progress=plain", "-m", repo, "call", "run", "--source", source, "--group", "tooling", "--attempt", newID(), "--task", "_validate:mise:check", "export", "--path", out}
+			args := []string{"--progress=plain", "-m", repo, "call", "run", "--source", source, "--group", "tooling", "--attempt", newID(), "--task", "_container:test:release", "export", "--path", out}
 			if err := command(ctx, root, runnerEnvironment(filepath.Join(root, "home")), &output, dagger, args...); err != nil {
 				t.Fatalf("module export: %v\n%s", err, output.String())
 			}

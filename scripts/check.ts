@@ -127,7 +127,7 @@ export function jobCount(value: string | undefined): number {
 if (import.meta.main) {
   const groups = parseGroups(process.argv.slice(2)).map((group) => group.map((task) => ({
     name: task,
-    command: ["mise", "run", "-q", "--skip-deps", task],
+    command: ["mise", "run", "-q", "--skip-deps", ...(task.startsWith("_host:") ? ["--skip-tools"] : []), task],
     rerun: `mise run ${task}`,
   })))
   if (groups.length === 0) {

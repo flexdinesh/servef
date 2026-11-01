@@ -27,10 +27,11 @@ const engine = "servef-validation-engine-v0.21.10"
 const engineImage = "registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334"
 
 type options struct {
-	Group string
-	Task  string
-	Force bool
-	Args  []string
+	Group   string
+	Task    string
+	Force   bool
+	Working bool
+	Args    []string
 }
 type result struct {
 	Group    string
@@ -41,13 +42,15 @@ type result struct {
 	Manifest inputManifest
 }
 type record struct {
-	ID       string
-	Head     string
-	Tree     string
-	Started  time.Time
-	Finished *time.Time
-	Status   string
-	Results  []result
+	ID        string
+	Head      string
+	Tree      string
+	Started   time.Time
+	Finished  *time.Time
+	Status    string
+	Committed bool
+	Artifacts string
+	Results   []result
 }
 type receipt struct {
 	Policy      string
@@ -99,11 +102,9 @@ func run(ctx context.Context, args []string) error {
 	if command == "prune" {
 		return a.prune()
 	}
-	if command == "pr-create" || command == "pr-update" {
-		return a.pr(ctx, command, args)
-	}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	var o options
+	o.Working = command == "working"
 	flags.StringVar(&o.Group, "group", "", "check group")
 	flags.StringVar(&o.Task, "task", "", "specific hidden mise task")
 	flags.BoolVar(&o.Force, "force", false, "execute checks and builds again")
@@ -121,7 +122,7 @@ func run(ctx context.Context, args []string) error {
 		return errors.New("targeted task must belong to the selected group")
 	}
 	switch command {
-	case "validate":
+	case "validate", "working":
 		_, err = a.validate(ctx, o)
 		return err
 	case "status":
@@ -162,6 +163,9 @@ func writeJSON(path string, value interface{}) error {
 }
 func (a app) receipt(key string) (receipt, bool) {
 	var r receipt
+	if _, err := os.Stat(filepath.Join(a.Cache, "pending", key+".json")); !errors.Is(err, os.ErrNotExist) {
+		return r, false
+	}
 	raw, err := os.ReadFile(filepath.Join(a.Cache, "receipts", key+".json"))
 	if err != nil {
 		return r, false
@@ -184,11 +188,22 @@ func (a app) status(o options) error {
 		return err
 	}
 	complete := true
+	var locks []*os.File
+	defer func() {
+		for _, f := range locks {
+			f.Close()
+		}
+	}()
 	for _, group := range chosen(o) {
 		_, key, err := manifest(s, group, o.Task, o.Args)
 		if err != nil {
 			return err
 		}
+		lock, err := tryReadCertificateLock(filepath.Join(a.Cache, "locks", key+".lock"))
+		if err != nil {
+			return fmt.Errorf("%s certification is busy or unavailable: %w", group, err)
+		}
+		locks = append(locks, lock)
 		r, ok := a.receipt(key)
 		if !ok || (!r.Complete && o.Task == "" && len(o.Args) == 0) {
 			fmt.Printf("missing %s %s\n", group, key)
@@ -200,38 +215,61 @@ func (a app) status(o options) error {
 	if !complete {
 		return errors.New("required successful validation is missing")
 	}
+	if err := unchangedSnapshot(a.Root, s); err != nil {
+		return err
+	}
 	fmt.Printf("HEAD %s covered (%s)\n", s.Head, policy)
 	return nil
 }
 
 func (a app) validate(ctx context.Context, o options) (record, error) {
-	s, err := readSnapshot(a.Root)
+	var s snapshot
+	var err error
+	if o.Working {
+		s, err = readWorkingSnapshot(a.Root)
+	} else {
+		s, err = readSnapshot(a.Root)
+	}
 	if err != nil {
 		return record{}, err
 	}
-	r := record{ID: newID(), Head: s.Head, Tree: s.Tree, Started: time.Now().UTC(), Status: "running"}
-	runDir := filepath.Join(a.Cache, "runs", r.ID)
+	if err = ctx.Err(); err != nil {
+		return record{}, err
+	}
+	r := record{ID: newID(), Head: s.Head, Tree: s.Tree, Started: time.Now().UTC(), Status: "running", Committed: !o.Working}
+	runDir := filepath.Join(a.artifactRoot(), r.ID)
+	r.Artifacts = runDir
+	lease, err := acquireFile(ctx, filepath.Join(runDir, "active.lock"))
+	if err != nil {
+		return r, err
+	}
+	defer lease.Close()
 	recordPath := filepath.Join(runDir, "run.json")
 	if err = writeJSON(recordPath, r); err != nil {
 		return r, err
 	}
-	finish := func(status string) {
+	finish := func(status string) error {
 		r.Status = status
 		now := time.Now().UTC()
 		r.Finished = &now
-		_ = writeJSON(recordPath, r)
+		return writeJSON(recordPath, r)
 	}
-	fmt.Printf("validation %s HEAD %s\nartifacts: %s\n", r.ID, s.Head, runDir)
-	private, err := os.MkdirTemp("", "servef-validation-")
-	if err != nil {
-		finish("failed")
+	fail := func(err error) (record, error) {
+		status := "failed"
+		if ctx.Err() != nil {
+			status = "cancelled"
+		}
+		if saveErr := finish(status); saveErr != nil {
+			return r, errors.Join(err, saveErr)
+		}
 		return r, err
+	}
+	fmt.Printf("validation %s HEAD %s committed=%t\nartifacts: %s\n", r.ID, s.Head, r.Committed, runDir)
+	private := filepath.Join(runDir, "private")
+	if err = os.MkdirAll(private, 0700); err != nil {
+		return fail(err)
 	}
 	defer os.RemoveAll(private)
-	if err = os.MkdirAll(filepath.Join(private, "client-home"), 0700); err != nil {
-		finish("failed")
-		return r, err
-	}
 	moduleDir := filepath.Join(private, "module")
 	var moduleFiles []entry
 	for _, e := range s.Entries {
@@ -240,119 +278,170 @@ func (a app) validate(ctx context.Context, o options) (record, error) {
 		}
 	}
 	if err = materialize(moduleDir, moduleFiles); err != nil {
-		finish("failed")
-		return r, err
+		return fail(err)
 	}
-	var slot *os.File
-	var daggerBinary string
-	defer func() {
-		if slot != nil {
-			slot.Close()
-		}
-	}()
+	// Worktree-local snapshots live under ignored .dev. Give Dagger its own
+	// repository boundary so it cannot resolve the parent workspace/ignore rules.
+	if _, err = git(moduleDir, "init", "-q"); err != nil {
+		return fail(err)
+	}
 	for _, group := range chosen(o) {
+		if err = ctx.Err(); err != nil {
+			return fail(err)
+		}
 		m, key, err := manifest(s, group, o.Task, o.Args)
 		if err != nil {
-			finish("failed")
-			return r, err
+			return fail(err)
 		}
-		value := result{Group: group, Key: key, Manifest: m}
-		if cached, ok := a.receipt(key); ok && !o.Force {
-			value.Status = "reused"
-			value.Origin = cached.Run
-			r.Results = append(r.Results, value)
-			fmt.Printf("reuse %s %s\n", group, key)
-			_ = writeJSON(recordPath, r)
-			continue
-		}
-		if slot == nil {
-			if err = checkEngine(); err != nil {
-				finish("failed")
-				return r, err
-			}
-			daggerBinary, err = resolveDagger(a.Root)
-			if err != nil {
-				finish("failed")
-				return r, err
-			}
-			slot, err = acquireSlot(ctx, a.Global)
-			if err != nil {
-				finish("cancelled")
-				return r, err
-			}
-		}
-		if ctx.Err() != nil {
-			finish("cancelled")
-			return r, ctx.Err()
-		}
-		source := filepath.Join(private, group)
-		if err = materialize(source, m.Files); err != nil {
-			finish("failed")
-			return r, err
-		}
-		out := filepath.Join(runDir, group)
-		if err = os.MkdirAll(out, 0700); err != nil {
-			finish("failed")
-			return r, err
-		}
-		log, err := os.Create(filepath.Join(out, "dagger.log"))
-		if err != nil {
-			finish("failed")
-			return r, err
-		}
-		arguments, _ := json.Marshal(o.Args)
-		if o.Args == nil {
-			arguments = []byte("[]")
-		}
-		cmdArgs := []string{"-m", moduleDir, "call", "run", "--source", source, "--group", group, "--attempt", newID(), fmt.Sprintf("--force=%t", o.Force), "--args-json", string(arguments), "--task", o.Task, "export", "--path", filepath.Join(out, "output")}
-		err = commandWithFiles(ctx, moduleDir, runnerEnvironment(filepath.Join(private, "client-home")), log, []*os.File{slot}, daggerBinary, cmdArgs...)
-		log.Close()
-		value.Status = "executed"
-		value.Origin = r.ID
-		var state struct {
-			ExitCode *int `json:"exitCode"`
-		}
-		raw, readErr := os.ReadFile(filepath.Join(out, "output", "status.json"))
-		if err == nil {
-			if readErr != nil {
-				err = readErr
-			} else if e := json.Unmarshal(raw, &state); e != nil {
-				err = e
-			} else if state.ExitCode == nil {
-				err = errors.New("missing check exit status")
-			} else {
-				value.ExitCode = *state.ExitCode
-				if value.ExitCode != 0 {
-					err = fmt.Errorf("%s failed with status %d", group, value.ExitCode)
-				}
-			}
-		}
-		if err != nil {
-			value.Status = "failed"
-			r.Results = append(r.Results, value)
-			status := "failed"
-			if ctx.Err() != nil {
-				status = "cancelled"
-			}
-			finish(status)
-			return r, fmt.Errorf("%w; log: %s", err, filepath.Join(out, "dagger.log"))
-		}
+		value, err := a.checkGroup(ctx, o, s, m, key, runDir, private, moduleDir, lease)
 		r.Results = append(r.Results, value)
-		environment, err := os.ReadFile(filepath.Join(out, "output", "environment.txt"))
 		if err != nil {
-			finish("failed")
-			return r, fmt.Errorf("missing execution environment evidence: %w", err)
+			return fail(err)
 		}
-		proof := receipt{Policy: policy, Key: key, Head: s.Head, Run: r.ID, Finished: time.Now().UTC(), Complete: o.Task == "" && len(o.Args) == 0, Environment: string(environment)}
-		if err = writeJSON(filepath.Join(a.Cache, "receipts", key+".json"), proof); err != nil {
-			finish("failed")
-			return r, err
+		if err = writeJSON(recordPath, r); err != nil {
+			return fail(err)
 		}
-		fmt.Printf("ok %s %s\n", group, key)
-		_ = writeJSON(recordPath, r)
 	}
-	finish("success")
+	if err = ctx.Err(); err != nil {
+		return fail(err)
+	}
+	if !o.Working {
+		if err = unchangedSnapshot(a.Root, s); err != nil {
+			return fail(err)
+		}
+	}
+	if err = finish("success"); err != nil {
+		return r, err
+	}
 	return r, nil
+}
+
+func unchangedSnapshot(root string, original snapshot) error {
+	current, err := readSnapshot(root)
+	if err != nil {
+		return err
+	}
+	if current.Head != original.Head || current.Tree != original.Tree {
+		return errors.New("HEAD changed during validation; no aggregate certification")
+	}
+	return nil
+}
+
+func (a app) checkGroup(ctx context.Context, o options, s snapshot, m inputManifest, key, runDir, private, moduleDir string, lease *os.File) (result, error) {
+	v := result{Group: m.Group, Key: key, Manifest: m, Origin: runDir}
+	// Editing runs never read or publish committed certificates. They remain
+	// independent executions even when their source happens to match HEAD.
+	var keyLock *os.File
+	var err error
+	if !o.Working {
+		keyLock, err = acquireFile(ctx, filepath.Join(a.Cache, "locks", key+".lock"))
+		if err != nil {
+			return v, err
+		}
+		defer keyLock.Close()
+		if cached, ok := a.receipt(key); ok && !o.Force && (cached.Complete || o.Task != "" || len(o.Args) > 0) {
+			if err = ctx.Err(); err != nil {
+				return v, err
+			}
+			v.Status = "reused"
+			v.Origin = cached.Run
+			fmt.Printf("reuse %s %s\n", m.Group, key)
+			return v, nil
+		}
+	}
+	if !isHostGroup(m.Group) {
+		if err = checkEngine(); err != nil {
+			return v, err
+		}
+	}
+	slot, err := acquireSlot(ctx, a.Global)
+	if err != nil {
+		return v, err
+	}
+	defer slot.Close()
+	if err = ctx.Err(); err != nil {
+		return v, err
+	}
+	if !o.Working {
+		if err = a.invalidate(key, runDir); err != nil {
+			return v, err
+		}
+	}
+	v.Status = "failed"
+	source := filepath.Join(private, m.Group)
+	if err = materialize(source, m.Files); err != nil {
+		return v, err
+	}
+	out := filepath.Join(runDir, m.Group)
+	if err = os.MkdirAll(out, 0700); err != nil {
+		return v, err
+	}
+	files := []*os.File{lease, slot}
+	if keyLock != nil {
+		files = append(files, keyLock)
+	}
+	if isHostGroup(m.Group) {
+		err = a.executeHost(ctx, source, out, filepath.Join(private, "host-"+m.Group), m, files)
+	} else {
+		err = a.executeDagger(ctx, o, source, out, private, moduleDir, m.Group, files)
+	}
+	if err != nil {
+		return v, fmt.Errorf("%w; artifacts: %s", err, out)
+	}
+	var state struct {
+		ExitCode *int `json:"exitCode"`
+	}
+	raw, err := os.ReadFile(filepath.Join(out, "output", "status.json"))
+	if err != nil {
+		return v, err
+	}
+	if err = json.Unmarshal(raw, &state); err != nil {
+		return v, err
+	}
+	if state.ExitCode == nil {
+		return v, errors.New("missing check exit status")
+	}
+	v.ExitCode = *state.ExitCode
+	if v.ExitCode != 0 {
+		return v, fmt.Errorf("%s failed with status %d; artifacts: %s", m.Group, v.ExitCode, out)
+	}
+	environment, err := os.ReadFile(filepath.Join(out, "output", "environment.txt"))
+	if err != nil {
+		return v, fmt.Errorf("missing environment evidence: %w", err)
+	}
+	if err = ctx.Err(); err != nil {
+		return v, err
+	}
+	if !o.Working {
+		proof := receipt{Policy: policy, Key: key, Head: s.Head, Run: runDir, Finished: time.Now().UTC(), Complete: o.Task == "" && len(o.Args) == 0, Environment: string(environment)}
+		if err = a.certify(proof); err != nil {
+			return v, err
+		}
+	}
+	v.Status = "executed"
+	fmt.Printf("ok %s %s\n", m.Group, key)
+	return v, nil
+}
+
+func (a app) executeDagger(ctx context.Context, o options, source, out, private, moduleDir, group string, files []*os.File) error {
+	if err := os.MkdirAll(filepath.Join(private, "client-home"), 0700); err != nil {
+		return err
+	}
+	binary, err := resolveDagger(a.Root)
+	if err != nil {
+		return err
+	}
+	log, err := os.Create(filepath.Join(out, "dagger.log"))
+	if err != nil {
+		return err
+	}
+	defer log.Close()
+	args, _ := json.Marshal(o.Args)
+	if len(o.Args) == 0 {
+		args = []byte("[]")
+	}
+	argv := []string{"-m", moduleDir, "call", "run", "--source", source, "--group", group, "--attempt", newID(), fmt.Sprintf("--force=%t", o.Force), "--args-json", string(args), "--task", o.Task, "export", "--path", filepath.Join(out, "output")}
+	return commandWithFiles(ctx, moduleDir, runnerEnvironment(filepath.Join(private, "client-home")), log, files, binary, argv...)
 }
 
 func runnerEnvironment(home string) []string {
@@ -435,143 +524,6 @@ func acquireSlot(ctx context.Context, dir string) (*os.File, error) {
 		case <-ticker.C:
 		}
 	}
-}
-
-func (a app) prune() error {
-	entries, err := os.ReadDir(filepath.Join(a.Cache, "runs"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	cutoff := time.Now().Add(-30 * 24 * time.Hour)
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		dir := filepath.Join(a.Cache, "runs", entry.Name())
-		raw, err := os.ReadFile(filepath.Join(dir, "run.json"))
-		if err != nil {
-			continue
-		}
-		var r record
-		if json.Unmarshal(raw, &r) != nil || r.Finished == nil || !r.Finished.Before(cutoff) {
-			continue
-		}
-		if err = os.RemoveAll(dir); err != nil {
-			return err
-		}
-		fmt.Println("pruned", r.ID)
-	}
-	return nil
-}
-
-func (a app) pr(ctx context.Context, operation string, args []string) error {
-	if operation == "pr-update" && len(args) > 0 {
-		return errors.New("pr-update accepts no arguments")
-	}
-	forwarded, err := prArguments(args)
-	if err != nil {
-		return err
-	}
-	r, err := a.validate(ctx, options{})
-	if err != nil {
-		return err
-	}
-	s, err := readSnapshot(a.Root)
-	if err != nil {
-		return err
-	}
-	if s.Head != r.Head {
-		return errors.New("HEAD changed during validation; refusing PR operation")
-	}
-	branch, err := git(a.Root, "symbolic-ref", "--quiet", "--short", "HEAD")
-	if err != nil {
-		return errors.New("PR operation requires a branch")
-	}
-	if branch == "main" {
-		return errors.New("PR operation requires a feature branch")
-	}
-	if err = command(ctx, a.Root, gitEnvironment(), os.Stdout, "git", "push", "origin", r.Head+":refs/heads/"+branch); err != nil {
-		return err
-	}
-	remote, err := git(a.Root, "ls-remote", "--heads", "origin", "refs/heads/"+branch)
-	if err != nil {
-		return err
-	}
-	if len(strings.Fields(remote)) != 2 || strings.Fields(remote)[0] != r.Head {
-		return errors.New("remote HEAD does not match validated commit")
-	}
-	current, err := readSnapshot(a.Root)
-	if err != nil {
-		return err
-	}
-	if current.Head != r.Head {
-		return errors.New("HEAD changed after push; refusing PR creation")
-	}
-	if operation == "pr-update" {
-		return nil
-	}
-	origin, err := git(a.Root, "remote", "get-url", "origin")
-	if err != nil {
-		return err
-	}
-	create := []string{"pr", "create", "--repo", origin, "--base", "main", "--head", branch}
-	create = append(create, forwarded...)
-	return command(ctx, a.Root, os.Environ(), os.Stdout, "gh", create...)
-}
-
-func taskBelongsToGroup(task, group string) bool {
-	owners := map[string]string{
-		"fmt:check": "go", "tidy:check": "go", "vet": "go", "test:go": "go", "test:race": "go",
-		"test:web": "frontend", "typecheck:web": "frontend", "lint": "frontend",
-		"test:release": "tooling", "typecheck:root": "tooling", "mise:check": "tooling",
-		"typecheck:site": "docs", "build:site": "docs", "test:browser": "browser",
-	}
-	name, ok := strings.CutPrefix(task, "_validate:")
-	return ok && group != "" && owners[name] == group
-}
-
-// Parse values as values, never as flags. An allowlist also rejects attached
-// gh target shorthands such as -Hother and -Rowner/repository before any push.
-func prArguments(args []string) ([]string, error) {
-	values := map[string]bool{"--title": true, "-t": true, "--body": true, "-b": true, "--body-file": true, "-F": true, "--reviewer": true, "-r": true, "--assignee": true, "-a": true, "--label": true, "-l": true, "--milestone": true, "-m": true, "--project": true, "-p": true}
-	switches := map[string]bool{"--fill": true, "--fill-first": true, "--fill-verbose": true, "--draft": true, "-d": true, "--no-maintainer-edit": true}
-	var out []string
-	ready, draft := false, false
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--ready" {
-			ready = true
-			continue
-		}
-		name, value, equals := strings.Cut(arg, "=")
-		if values[name] {
-			if !equals {
-				i++
-				if i == len(args) {
-					return nil, fmt.Errorf("%s requires a value", name)
-				}
-				value = args[i]
-			}
-			out = append(out, name, value)
-			continue
-		}
-		if !equals && switches[arg] {
-			draft = draft || arg == "--draft" || arg == "-d"
-			out = append(out, arg)
-			continue
-		}
-		return nil, fmt.Errorf("unsupported PR argument %q; repository/head/base are fixed", arg)
-	}
-	if ready && draft {
-		return nil, errors.New("choose --ready or --draft")
-	}
-	if !ready && !draft {
-		out = append(out, "--draft")
-	}
-	return out, nil
 }
 
 func resolveDagger(root string) (string, error) {

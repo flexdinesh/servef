@@ -61,35 +61,47 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Type-check TypeScript | `mise run typecheck` |
 | Lint (oxlint: React Hooks, UI primitives; stylelint: design tokens) | `mise run lint` |
 | Check Go formatting and module tidiness | `mise run fmt:check`, `mise run tidy:check` |
-| Validate everything in local containers | `mise run validate` |
-| Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
+| Validate committed HEAD before PR work | `mise run check:pr` |
 | Run browser tests | `mise run test:browser` |
-| Run selected browser coverage | `mise run validate -- --group browser -- tests/browser/live-updates.spec.ts` |
-| Inspect current validation coverage | `mise run validate:status` |
+| Run selected browser coverage | `mise run test:browser -- tests/browser/live-updates.spec.ts` |
+| Inspect current validation coverage | `mise run check:status` |
 | Run full checks, including race tests and docs build | `mise run check:full` |
+| Prune completed validation artifacts | `mise run check:prune` |
 
-Validation uses committed HEAD with a clean tracked tree. Run
-`mise run validate` explicitly before PR creation and each PR update; `check`
-and `check:full` are aliases. Five isolated local Dagger groups cover Go
-(including race), frontend, tooling, docs build, and browsers. Public targeted
-check commands use the same isolation. Native commands remain optional editing
-checks and do not establish snapshot validation evidence.
+Targeted mise tasks capture current edits and relevant unignored new files in
+immutable snapshots. All tests run in Dagger, including unit and runner tests;
+test prerequisites and Go vet build their embedded frontend there. Formatting,
+development, and safe static checks stay on the host. Static checks use private
+worktree-local snapshots, homes, temporary directories, and dependency state.
+
+Commit first, then run `mise run check:pr` before creating or updating a PR.
+It requires clean committed HEAD and covers all nine host/container groups.
+`check`, `check:full`, and `validate` are compatibility aliases. Immediately
+before the separate push/PR operation, run `mise run check:status` and confirm
+HEAD still matches its reported commit. Targeted working-copy checks do not
+establish PR evidence. `check:pr -- --force` reruns checks and builds; an active
+rerun revokes earlier success until it completes successfully.
 
 See [local validation](validation.md) for explicit engine setup, source/cache
-identities, resource limits, force reruns, artifacts, status, and PR wrappers.
+identities, resource limits, force reruns, artifacts, and status.
 There is no mandatory pre-push suite and no remote validation gate. Existing
-CI edge publication and release builds remain unchanged.
+CI edge publication and release builds remain unchanged. Validation never
+publishes a PR; local conventions are bypassable.
 
 Browser validation uses a prepared Go binary, ordinary and Git fixture servers,
 Vite, and private per-test live-update servers inside one container. Each run
-owns its writable fixtures, homes, caches, and outputs. Native browser runs can
-still use `mise run build:web` followed by
-`pnpm exec node scripts/test-browser.ts`; this optional path uses automatic
-ports and conditional Linux namespace protection.
+owns its writable fixtures, homes, caches, and outputs. Dagger installs the
+matching Chromium version. Native macOS tests remain explicit optional
+supplements for filesystem watching, process, and browser behavior; routine
+tests stay in Dagger.
 
 Go builds, tests, and vet need `internal/web/dist/`; the isolated graph supplies
-it. Before running Go directly in a fresh worktree, run `mise run build:web`.
+it. Before host development builds in a fresh worktree, run `mise run build:web`.
 Build outputs are ignored and never copied from the host into validation.
+
+Public mise tasks orchestrate validation; hidden `_host:*` and `_container:*`
+leaves contain commands and never call public wrappers. Do not run those leaves
+directly as an alternative to isolated test execution.
 
 ## Web development
 

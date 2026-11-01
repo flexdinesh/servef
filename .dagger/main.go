@@ -6,6 +6,7 @@ import (
 	"dagger/servef-validation/internal/dagger"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -31,12 +32,11 @@ func (m *ServefValidation) Run(ctx context.Context,
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
 	owners := map[string]string{
-		"fmt:check": "go", "tidy:check": "go", "vet": "go", "test:go": "go", "test:race": "go",
-		"test:web": "frontend", "typecheck:web": "frontend", "lint": "frontend",
-		"test:release": "tooling", "typecheck:root": "tooling", "mise:check": "tooling",
-		"typecheck:site": "docs", "build:site": "docs", "test:browser": "browser",
+		"vet": "go", "test:go": "go", "test:race": "go",
+		"test:web": "frontend", "test:release": "tooling",
+		"build:site": "docs", "test:browser": "browser",
 	}
-	task = strings.TrimPrefix(task, "_validate:")
+	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
 		return nil, fmt.Errorf("task %q does not belong to group %q", task, group)
 	}
@@ -44,26 +44,34 @@ func (m *ServefValidation) Run(ctx context.Context,
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return nil, fmt.Errorf("args-json: %w", err)
 	}
-	prepared := dependencies(source)
+	tools, err := toolchain(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	prepared := dependencies(tools, source)
 	runner := prepared.WithDirectory("/src", source)
 	if group == "go" || group == "browser" {
-		web := prepared.WithDirectory("/src", subset(source, []string{"web/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "site/package.json"}))
+		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
+			Include: []string{"web/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "site/package.json"},
+			Exclude: []string{"web/**/*.test.ts", "web/**/*.test.tsx", "web/test-fixtures/**"},
+		})
+		web := prepared.WithDirectory("/src", webSource)
 		if force {
 			web = web.WithEnvVariable("SERVEF_BUILD_ATTEMPT", attempt)
 		}
 		web = web.WithExec([]string{"mise", "run", "--force", "build:web"})
 		runner = runner.WithDirectory("/src/internal/web/dist", web.Directory("/src/internal/web/dist"))
-		modules := toolchain(source).WithDirectory("/src", subset(source, []string{"go.mod", "go.sum"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
+		modules := tools.WithDirectory("/src", subset(source, []string{"go.mod", "go.sum"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	if group == "browser" {
-		binary := prepared.WithDirectory("/src", subset(source, []string{"*.go", "go.mod", "go.sum", "cmd/**", "internal/**"})).
+		binary := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "*.go", "go.mod", "go.sum", "cmd/**", "internal/**"})).
 			WithDirectory("/src/internal/web/dist", runner.Directory("/src/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
 		if force {
 			binary = binary.WithEnvVariable("SERVEF_BUILD_ATTEMPT", attempt)
 		}
-		binary = binary.WithExec([]string{"mise", "run", "--force", "_validate:binary"})
+		binary = binary.WithExec([]string{"mise", "run", "--force", "_container:binary"})
 		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", "chromium"})
 		runner = browser.WithDirectory("/src", source).WithDirectory("/src/internal/web/dist", runner.Directory("/src/internal/web/dist")).
 			WithFile("/opt/servef", binary.File("/out/servef")).
@@ -72,14 +80,14 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("PORT", "18090").WithEnvVariable("SERVEF_BROWSER_WEB_PORT", "15183")
 	}
 	// The baseline index is private and independent of host Git metadata.
-	baseline := toolchain(source).WithDirectory("/src", source).WithExec([]string{"sh", "-ec", "git init -q; git add --force --all; git -c user.name=validation -c user.email=validation@example.invalid commit -qm baseline"})
+	baseline := tools.WithDirectory("/src", source).WithExec([]string{"sh", "-ec", "git init -q; git add --force --all; git -c user.name=validation -c user.email=validation@example.invalid commit -qm baseline"})
 	runner = runner.WithDirectory("/src/.git", baseline.Directory("/src/.git")).WithExec([]string{"mkdir", "-p", "/out/logs"}).
 		WithEnvVariable("SERVEF_CHECK_LOG_DIR", "/out/logs").WithEnvVariable("SERVEF_VALIDATION_ATTEMPT", attempt).
 		WithEnvVariable("SERVEF_VALIDATION_FORCE", fmt.Sprint(force))
 	if task == "" {
 		task = group
 	}
-	command := []string{"bash", "-c", capture, "capture", "mise", "run", "--force", "--skip-deps", "_validate:" + task}
+	command := []string{"bash", "-c", capture, "capture", "mise", "run", "--force", "--skip-deps", "_container:" + task}
 	command = append(command, args...)
 	return runner.WithExec(command).Directory("/out"), nil
 }
@@ -88,19 +96,73 @@ func subset(source *dagger.Directory, patterns []string) *dagger.Directory {
 	return dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{Include: patterns})
 }
 
-func toolchain(source *dagger.Directory) *dagger.Container {
+func toolchain(ctx context.Context, source *dagger.Directory) (*dagger.Container, error) {
+	lock, err := source.File("mise.lock").Contents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	config, installLock, err := preparationTools(lock)
+	if err != nil {
+		return nil, err
+	}
 	c := dag.Container(dagger.ContainerOpts{Platform: "linux/amd64"}).From(baseImage)
 	env := [][2]string{{"HOME", "/home/runner"}, {"XDG_CACHE_HOME", "/home/runner/.cache"}, {"XDG_CONFIG_HOME", "/home/runner/.config"}, {"XDG_DATA_HOME", "/home/runner/.local/share"}, {"TMPDIR", "/tmp"}, {"LANG", "C.UTF-8"}, {"TZ", "UTC"}, {"CI", "1"}, {"GOMAXPROCS", "2"}, {"GOFLAGS", "-p=2 -buildvcs=false"}, {"GOTOOLCHAIN", "local"}, {"MISE_JOBS", "2"}, {"MISE_YES", "1"}, {"MISE_TRUSTED_CONFIG_PATHS", "/src"}, {"GIT_CONFIG_GLOBAL", "/dev/null"}, {"GIT_CONFIG_NOSYSTEM", "1"}, {"GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z"}, {"GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z"}}
 	for _, entry := range env {
 		c = c.WithEnvVariable(entry[0], entry[1])
 	}
 	return c.WithEnvVariable("MISE_JOBS", "1").WithExec([]string{"sh", "-ec", installBase}).WithWorkdir("/src").
-		WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "package.json"})).
-		WithExec([]string{"mise", "install", "go", "node", "pnpm"})
+		WithNewFile("/src/mise.toml", config).WithNewFile("/src/mise.lock", installLock).
+		WithExec([]string{"mise", "install", "go", "node", "pnpm"}), nil
 }
 
-func dependencies(source *dagger.Directory) *dagger.Container {
-	return toolchain(source).WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "web/package.json", "site/package.json", "patches/**"})).
+// Preparation depends on locked tools, not unrelated task definitions. Preserve
+// mise's backend/checksum records while selecting exact installed versions.
+func preparationTools(lock string) (string, string, error) {
+	var config, selected strings.Builder
+	config.WriteString("[settings]\nlockfile = true\n[tools]\n")
+	selected.WriteString("lockfile_version = 3\n")
+	seen := map[string]bool{}
+	for _, block := range strings.Split(lock, "[[tools.")[1:] {
+		name, body, ok := strings.Cut(block, "]]\n")
+		if !ok || (name != "go" && name != "node" && name != "pnpm") {
+			continue
+		}
+		if seen[name] {
+			return "", "", fmt.Errorf("multiple locked versions for %s are unsupported", name)
+		}
+		lines := strings.Split(body, "\n")
+		version := ""
+		for _, line := range lines {
+			if value, ok := strings.CutPrefix(line, "version = "); ok {
+				var err error
+				version, err = strconv.Unquote(value)
+				if err != nil || version == "" {
+					return "", "", fmt.Errorf("invalid locked version for %s", name)
+				}
+				break
+			}
+		}
+		if version == "" {
+			return "", "", fmt.Errorf("missing locked version for %s", name)
+		}
+		seen[name] = true
+		fmt.Fprintf(&config, "%s = %q\n", name, version)
+		fmt.Fprintf(&selected, "\n[[tools.%s]]\n", name)
+		for _, line := range lines {
+			if strings.HasPrefix(line, "specifiers = ") {
+				line = fmt.Sprintf("specifiers = [%q]", version)
+			}
+			selected.WriteString(line + "\n")
+		}
+	}
+	if len(seen) != 3 {
+		return "", "", fmt.Errorf("mise.lock must pin go, node and pnpm")
+	}
+	return config.String(), selected.String(), nil
+}
+
+func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
+	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "web/package.json", "site/package.json", "patches/**"})).
 		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
 }
 

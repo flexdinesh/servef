@@ -62,4 +62,5 @@ rewriting history; update `Status` on the old record.
 | [0054](0054-worktree-checks.md) | Queued worktree checks and critical browser coverage | Accepted; supersedes 0032/0038 check execution; check output superseded by 0057 |
 | [0055](0055-scrollbars.md) | Thin, hover-revealed scrollbars with reserved gutters | Accepted |
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
-| [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Accepted; supersedes 0054/0057 execution policy |
+| [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
+| [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |

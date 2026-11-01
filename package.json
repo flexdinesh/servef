@@ -5,7 +5,7 @@
   "scripts": {
     "build:site": "pnpm --filter @servef/site build",
     "build:web": "pnpm --filter @servef/web build",
-    "check": "mise run check",
+    "check": "mise run check:pr",
     "dev:site": "pnpm --filter @servef/site dev",
     "dev:web": "pnpm --filter @servef/web dev",
     "dev:mock": "pnpm --filter @servef/web dev:mock",
