@@ -57,6 +57,7 @@ func newRootCommandWith(runApp, runBrowser runner) *cobra.Command {
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
 	command.AddCommand(newDaemonCommand())
 	command.AddCommand(newRemoteCommand(runRemote))
+	command.AddCommand(newControlCommand(""))
 	return command
 }
 
