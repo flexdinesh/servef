@@ -19,18 +19,19 @@ export function agentExample(project: string) {
 
 // agentInstructions is the prompt the Walkthroughs view copies (decision
 // 0049): where servef runs, how to prepare a walkthrough, its format, and
-// where to publish it. It ends with "Walk me through: " for the user's topic.
+// how to publish it: the CLI first (decision 0065), then curl to origin. It
+// ends with "Walk me through: " for the user's topic.
 export function agentInstructions(origin: string, project: string): string {
   // One step per line keeps the example short enough to read.
   const { steps, ...fields } = agentExample(project)
   const example = JSON.stringify(fields, null, 2)
     .replace(/\n}$/, `,\n  "steps": [\n${steps.map((step) => `    ${JSON.stringify(step)}`).join(",\n")}\n  ]\n}`)
-  return `Write a servef walkthrough of the topic at the end, and publish it to my running servef.
+  return `Write a servef walkthrough of the topic at the end, and publish it with servef.
 
 servef: ${origin}
 Project: ${project}
-Publish: POST ${origin}/api/walkthroughs (Content-Type: application/json)
-Format: GET ${origin}/api/walkthrough-schema (JSON Schema; authoritative if anything below is unclear)
+Publish: servef walkthrough publish walkthrough.json (no server needed)
+Format: GET ${origin}/api/walkthrough-schema, or: servef walkthrough schema (JSON Schema; authoritative if anything below is unclear)
 
 ## What a walkthrough is
 
@@ -54,15 +55,20 @@ Paths are project-relative with forward slashes. Lines are 1-based and inclusive
 
 Write the JSON to walkthrough.json, then:
 
+servef walkthrough publish walkthrough.json
+
+If servef isn't on PATH or lacks "walkthrough publish":
+
 curl -q -sS -X POST -H 'Content-Type: application/json' --data @walkthrough.json ${origin}/api/walkthroughs
 
 \`\`\`json
 ${example}
 \`\`\`
 
-- 201 creates, 200 replaces. Reuse "id" to revise rather than publishing again; omit it to derive one from the title.
-- The response is {"id", "url", "created"}. Give me the url; "open": true also opens it in my browser.
-- A 400 lists every problem as "field: message", e.g. "steps[3].diff.path: is not changed in this compare". Fix them all and post again.
+- Reuse "id" to revise (it replaces) rather than publishing again; omit it to derive one from the title.
+- The CLI prints the url; exit 1 lists every problem. Over HTTP, 201 creates, 200 replaces, the response is {"id", "url", "created"}, and a 400 lists every problem.
+- Give me the url; "open": true also opens it in my browser.
+- Problems read "field: message", e.g. "steps[3].diff.path: is not changed in this compare". Fix them all and publish again.
 - Limits: 200 steps, 200-character titles, 32 KiB per body and summary, 1 MiB per request.
 
 Walk me through: `

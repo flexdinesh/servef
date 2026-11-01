@@ -17,17 +17,14 @@ servef opens each target in an ordinary tab, selects the lines, and inserts
 the narration right after them. The user steps with Ctrl/Cmd+Right and
 Ctrl/Cmd+Left.
 
-## 1. Find servef and the project
+## 1. Find the project and the format
 
-- If the user gave a servef URL, use its origin. Otherwise probe ports 7971
-  to 7980 for `GET /api/walkthrough-schema` and use the first that answers
-  200.
-- `project` is the absolute path of the repository or worktree root (use
-  `git rev-parse --show-toplevel`), or the folder servef serves. Folders
-  inside a repository are rejected. `GET /api/projects` lists what servef
-  serves.
-- Read `GET /api/walkthrough-schema` once if anything below is unclear; it is
-  authoritative.
+- `project` is the absolute path of the repository or worktree root: run
+  `git rev-parse --show-toplevel`. A plain folder outside any repository
+  works too. Folders inside a repository are rejected.
+- `servef walkthrough schema` prints the JSON Schema. Read it once if
+  anything below is unclear; it is authoritative.
+- No running server is needed to publish.
 
 ## 2. Plan the story
 
@@ -79,11 +76,18 @@ Guidelines:
 ## 4. Publish
 
 ```sh
-curl -q -sS -X POST -H 'Content-Type: application/json' \
-  --data @walkthrough.json "$SERVEF/api/walkthroughs"
+servef walkthrough publish walkthrough.json
 ```
 
-`-q` skips `~/.curlrc`; settings such as `continue-at` break uploads.
+Or pass the JSON on standard input with `-`:
+
+```sh
+servef walkthrough publish - <<'EOF'
+{"project": "…", "title": "…", "steps": […]}
+EOF
+```
+
+For example:
 
 ```json
 {
@@ -100,20 +104,37 @@ curl -q -sS -X POST -H 'Content-Type: application/json' \
 }
 ```
 
-- 201 creates, 200 replaces: reuse `id` to revise a walkthrough rather than
-  publishing a new one. Without `id`, servef derives one from the title.
-- The response is `{"id", "url", "created"}`. Give the user the `url`.
-  `"open": true` opens it in their browser unless servef runs with
-  `--no-open`.
-- A 400 lists every problem as `field: message`, for example
-  `steps[3].diff.path: is not changed in this compare`. Fix them all and post
-  again; servef checks every path, line, and commit against the repository.
+- Reuse `id` to revise a walkthrough (it replaces) rather than publishing a
+  new one. Without `id`, servef derives one from the title.
+- servef prints `published <id> (created|replaced) for <project>`, then
+  `url: …` when a running servef shows the project. Give the user the `url`.
+  `--json` prints `{"id", "project", "created", "url"}` instead (`url` only
+  when a server shows it). `"open": true` opens the url in their browser
+  unless `--no-open` is passed or the session is over SSH. With no running
+  servef, it prints how to view the walkthrough and exits 0.
+- Exit 1 lists every problem as `field: message`, for example
+  `steps[3].diff.path: is not changed in this compare`. Fix them all and
+  publish again; servef checks every path, line, and commit against the
+  repository. `--depth` (default 5) bounds how deep working-tree files may
+  be.
+- Fallback: if `servef walkthrough` is an unknown command (an older servef)
+  and you know a running server's URL, post the same JSON:
+
+  ```sh
+  curl -q -sS -X POST -H 'Content-Type: application/json' \
+    --data @walkthrough.json "$SERVEF/api/walkthroughs"
+  ```
+
+  `-q` skips `~/.curlrc`; settings such as `continue-at` break uploads. 201
+  creates, 200 replaces, the response is `{"id", "url", "created"}`, and a
+  400 lists every problem.
 - Limits: 200 steps, 32 KiB per body, 200 characters per title, 1 MiB per
   request, 100 walkthroughs per project (the least recently updated go
   first).
 
 ## 5. Check it
 
-`GET /api/walkthrough?project=…&id=…` returns what servef stored, with each
-body rendered. Open the URL and step through once if you can; a narration
-that sits after the wrong lines means the range is off.
+Open the printed URL and step through once if you can; a narration that
+sits after the wrong lines means the range is off. Optionally,
+`GET /api/walkthrough?project=…&id=…` on a running servef returns what it
+stored, with each body rendered.

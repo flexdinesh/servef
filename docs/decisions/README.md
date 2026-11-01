@@ -52,9 +52,9 @@ rewriting history; update `Status` on the old record.
 | [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Servef Light values amended by 0046 |
 | [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
 | [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
-| [0047](0047-walkthroughs.md) | Walkthroughs | Accepted |
+| [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065 |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
-| [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted |
+| [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted; CLI publish added by 0065 |
 | [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted |
 | [0051](0051-branch-review-with-uncommitted.md) | Branch review with uncommitted changes | Accepted |
 | [0052](0052-welcome-tab-and-contextual-empty-state.md) | Welcome tab and an empty pane that follows the sidebar view | Accepted |
@@ -69,3 +69,4 @@ rewriting history; update `Status` on the old record.
 | [0062](0062-desktop-app.md) | Desktop app | Proposed |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Proposed |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Proposed |
+| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted |
