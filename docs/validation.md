@@ -18,7 +18,10 @@ mise run test:race
 mise run test:web
 mise run test:release
 mise run test:browser -- tests/browser/live-updates.spec.ts
+mise run test:desktop
+mise run test:desktop -- test/smoke/app.spec.ts
 mise run lint
+mise run lint:desktop
 mise run typecheck
 mise run fmt:check
 mise run tidy:check
@@ -26,7 +29,8 @@ mise run mise:check
 ```
 
 Before creating or updating a PR, commit changes and validate clean committed
-HEAD. Verify status immediately before the separate push/PR operation:
+HEAD across all eleven groups. Verify status immediately before the separate
+push/PR operation:
 
 ```sh
 mise run check:pr
@@ -55,16 +59,44 @@ container execution from recursively launching the host coordinator.
 | web-static | Host | Web typecheck, oxlint, stylelint |
 | tooling-static | Host | Root TypeScript check for scripts and tests |
 | site-static | Host | Site TypeScript check |
+| desktop-static | Host | Desktop TypeScript check and oxlint |
 | go | Dagger | Vet, ordinary Go tests, race tests |
 | frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
 | tooling | Dagger | Release, runner, and browser harness tests |
 | docs | Dagger | Production site build and internal-link validation |
 | browser | Dagger | Chromium integration tests and fixture servers |
+| desktop | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
 architecture or validation tooling remain tests and run there too. Git, Ruby,
 and repository-local TypeScript are prerequisites: missing tooling must fail
 preparation rather than silently skip formula or navigation coverage.
+
+### Desktop
+
+`desktop-static` reads `desktop/` and the shared `web/src/api/` contracts.
+`desktop` also reads the server sources (`cmd/`, `internal/`, root Go files),
+`web/`, and `testdata/`: its smoke drives the real daemon. pnpm never downloads
+Electron (`allowBuilds: electron: false`). Desktop preparation alone runs
+`desktop/node_modules/electron/install.js`, which verifies the archive against
+the package's checksums, installs Xvfb and Electron's shared libraries from the
+pinned Debian snapshot, and fails if `ldd` reports a missing library. It builds
+the embedded UI and the servef binary as the browser group does.
+
+`_container:test:desktop` runs the unit tests, bundles the app, then runs the
+Playwright `_electron` smoke under `xvfb-run -a` with `--no-sandbox` (the
+container runs as root). Each run gets its own short temporary socket, roots
+file, user data, walkthrough cache, notification log, and git fixtures; nothing
+reaches the user's daemon. Traces, window screenshots, and daemon, app, and
+notification logs survive failures under the group's `playwright/` output.
+
+The smoke covers Linux only. Headless Chromium reports hidden pages and closes
+the UI's live stream, so the smoke always needs a display: Xvfb in Dagger, or a
+real or virtual compositor on a host (`SERVEF_DESKTOP_BINARY`, plus
+`SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland). macOS
+shell behavior stays a manual check (`mise run dev:desktop`), as does
+`mise run measure:desktop`, which prints Electron, daemon, and language-server
+memory for decision 0067 and gates nothing.
 
 ## Engine ownership
 

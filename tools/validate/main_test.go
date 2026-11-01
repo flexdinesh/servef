@@ -233,6 +233,49 @@ func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
 	}
 }
 
+func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
+	if !isHostGroup("desktop-static") || isHostGroup("desktop") {
+		t.Fatal("desktop-static runs on the host; desktop tests run in Dagger")
+	}
+	for _, task := range []string{"_host:typecheck:desktop", "_host:lint:desktop"} {
+		if !taskBelongsToGroup(task, "desktop-static") || taskBelongsToGroup(task, "web-static") {
+			t.Fatalf("wrong owner for %s", task)
+		}
+	}
+	if !taskBelongsToGroup("_container:test:desktop", "desktop") || taskBelongsToGroup("_container:test:desktop", "browser") {
+		t.Fatal("wrong owner for desktop tests")
+	}
+	for _, name := range []string{"desktop/src/main/proxy.ts", "web/src/api/events-contract.ts"} {
+		if !selected("desktop-static", name) {
+			t.Fatalf("desktop-static misses %s", name)
+		}
+	}
+	for _, name := range []string{"internal/daemon/daemon.go", "web/src/App.tsx", "main.go"} {
+		if selected("desktop-static", name) {
+			t.Fatalf("desktop-static selected unrelated %s", name)
+		}
+	}
+	for _, name := range []string{"desktop/test/smoke/app.spec.ts", "internal/daemon/daemon.go", "cmd/daemon.go", "web/src/App.tsx", "testdata/markdown/README.md", "main.go"} {
+		if !selected("desktop", name) {
+			t.Fatalf("desktop misses %s", name)
+		}
+	}
+	if selected("desktop", "site/src/pages/index.mdx") || selected("desktop", "tests/browser/app.spec.ts") {
+		t.Fatal("desktop selected unrelated inputs")
+	}
+	// Every group installs the whole workspace from the frozen lockfile.
+	for _, group := range groups {
+		if !selected(group, "desktop/package.json") {
+			t.Fatalf("%s lacks the desktop workspace manifest", group)
+		}
+	}
+	for _, name := range []string{"desktop/build/main.mjs", "desktop/test-results/trace.zip", "desktop/node_modules/electron/index.js"} {
+		if !excluded(name) {
+			t.Fatalf("generated %s entered snapshots", name)
+		}
+	}
+}
+
 func TestCapacityCancellationDoesNotReleaseOtherRuns(t *testing.T) {
 	dir := t.TempDir()
 	first, err := acquireSlot(context.Background(), dir)
