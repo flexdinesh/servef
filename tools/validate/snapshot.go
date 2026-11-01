@@ -112,6 +112,9 @@ func excluded(name string) bool {
 }
 
 func selected(group, name string) bool {
+	if group == "frontend" && name == "internal/walkthrough/schema.json" {
+		return true
+	}
 	switch name {
 	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "web/package.json", "site/package.json", "dagger.json", "go.mod", "go.sum", ".gitignore", ".npmrc", ".pnpmfile.cjs":
 		return true

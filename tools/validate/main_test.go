@@ -201,7 +201,7 @@ func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 		t.Fatal("partial and full identities match")
 	}
 	a := app{Cache: t.TempDir()}
-	if err := writeJSON(filepath.Join(a.Cache, "receipts", partial+".json"), receipt{policy, partial, "head", "run", time.Now(), false}); err != nil {
+	if err := writeJSON(filepath.Join(a.Cache, "receipts", partial+".json"), receipt{Policy: policy, Key: partial, Head: "head", Run: "run", Finished: time.Now(), Complete: false}); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := a.receipt(full); ok {
@@ -236,6 +236,15 @@ func TestTargetedTasksRequireTheirCompleteSourceGroup(t *testing.T) {
 		if taskBelongsToGroup(task, "frontend") {
 			t.Fatalf("task accepted against incomplete frontend source: %s", task)
 		}
+	}
+}
+
+func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
+	if !selected("frontend", "internal/walkthrough/schema.json") {
+		t.Fatal("frontend example validation requires server schema")
+	}
+	if selected("frontend", "internal/walkthrough/store.go") {
+		t.Fatal("unrelated Go implementation entered frontend inputs")
 	}
 }
 

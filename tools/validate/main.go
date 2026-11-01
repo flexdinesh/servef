@@ -50,12 +50,13 @@ type record struct {
 	Results  []result
 }
 type receipt struct {
-	Policy   string
-	Key      string
-	Head     string
-	Run      string
-	Finished time.Time
-	Complete bool
+	Policy      string
+	Key         string
+	Head        string
+	Run         string
+	Finished    time.Time
+	Complete    bool
+	Environment string
 }
 type app struct {
 	Root   string
@@ -337,7 +338,12 @@ func (a app) validate(ctx context.Context, o options) (record, error) {
 			return r, fmt.Errorf("%w; log: %s", err, filepath.Join(out, "dagger.log"))
 		}
 		r.Results = append(r.Results, value)
-		proof := receipt{policy, key, s.Head, r.ID, time.Now().UTC(), o.Task == "" && len(o.Args) == 0}
+		environment, err := os.ReadFile(filepath.Join(out, "output", "environment.txt"))
+		if err != nil {
+			finish("failed")
+			return r, fmt.Errorf("missing execution environment evidence: %w", err)
+		}
+		proof := receipt{Policy: policy, Key: key, Head: s.Head, Run: r.ID, Finished: time.Now().UTC(), Complete: o.Task == "" && len(o.Args) == 0, Environment: string(environment)}
 		if err = writeJSON(filepath.Join(a.Cache, "receipts", key+".json"), proof); err != nil {
 			finish("failed")
 			return r, err
