@@ -46,11 +46,23 @@ func Execute() error {
 }
 
 func newRootCommand(runCommand runner) *cobra.Command {
+	command := newBrowserCommand("servef [path]", runCommand)
+	command.Version = version.String()
+	command.SetVersionTemplate("{{.Version}}\n")
+	command.CompletionOptions.DisableDefaultCmd = true
+	// Bare servef keeps browser behavior until the desktop app ships (decision 0060).
+	command.AddCommand(newBrowserCommand("browser [path]", runCommand))
+	return command
+}
+
+// newBrowserCommand builds a command that serves directories in a web browser.
+// The root command and the browser subcommand share it so both accept the
+// same flags and run the same validation.
+func newBrowserCommand(use string, runCommand runner) *cobra.Command {
 	var opts options
 	command := &cobra.Command{
-		Use:           "servef [path]",
+		Use:           use,
 		Short:         "Browse local files in a web browser",
-		Version:       version.String(),
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -76,15 +88,18 @@ func newRootCommand(runCommand runner) *cobra.Command {
 			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
-	command.SetVersionTemplate("{{.Version}}\n")
-
-	command.Flags().StringArrayVar(&opts.paths, "path", nil, "add a directory to serve (repeatable); a positional path is shorthand for one")
-	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
-	command.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
-	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
-	command.Flags().IntVar(&opts.port, "port", 0, "port (0 asks the OS); defaults to the first free port from 7971 to 7980")
-	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
+	addBrowserFlags(command, &opts)
 	return command
+}
+
+func addBrowserFlags(command *cobra.Command, opts *options) {
+	flags := command.Flags()
+	flags.StringArrayVar(&opts.paths, "path", nil, "add a directory to serve (repeatable); a positional path is shorthand for one")
+	flags.IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
+	flags.IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
+	flags.StringVar(&opts.host, "host", defaultHost, "IP address to bind")
+	flags.IntVar(&opts.port, "port", 0, "port (0 asks the OS); defaults to the first free port from 7971 to 7980")
+	flags.BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
 }
 
 func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.Writer) error {

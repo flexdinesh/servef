@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -393,5 +394,109 @@ func TestRunServesEveryPathAndRejectsOverlap(t *testing.T) {
 	err := run(context.Background(), options{paths: []string{parent, work}, depth: 5, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "overlap") || stdout.Len() != 0 {
 		t.Fatalf("run(nested roots) = %v, stdout %q; want overlap error before serving", err, stdout.String())
+	}
+}
+
+func executeCommand(t *testing.T, args []string) (options, error) {
+	t.Helper()
+	var got options
+	command := newRootCommand(func(_ context.Context, opts options, _ io.Reader, _, _ io.Writer) error {
+		got = opts
+		return nil
+	})
+	command.SetArgs(args)
+	return got, command.Execute()
+}
+
+func TestBrowserCommandMatchesRoot(t *testing.T) {
+	for _, args := range [][]string{
+		nil,
+		{"docs"},
+		{"docs", "--path", "work", "--path", "personal", "--depth", "3", "--scan-depth", "2", "--host", "192.0.2.10", "--port", "8080", "--no-open"},
+		{"--port", "0"},
+	} {
+		root, rootErr := executeCommand(t, args)
+		browser, browserErr := executeCommand(t, append([]string{"browser"}, args...))
+		if rootErr != nil || browserErr != nil {
+			t.Fatalf("Execute(%v) errors = %v, %v", args, rootErr, browserErr)
+		}
+		if !reflect.DeepEqual(root, browser) {
+			t.Errorf("Execute(%v) root = %+v, browser = %+v", args, root, browser)
+		}
+	}
+}
+
+func TestBrowserCommandDefaultsToCurrentDirectory(t *testing.T) {
+	got, err := executeCommand(t, []string{"browser"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.portSet || got.noOpen {
+		t.Fatalf("browser options = %+v", got)
+	}
+}
+
+func TestRootCommandServesPositionalDirectories(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"somedir"}, "somedir"},
+		{[]string{"./browser"}, "./browser"},
+		{[]string{"browser", "browser"}, "browser"},
+	} {
+		got, err := executeCommand(t, test.args)
+		if err != nil {
+			t.Fatalf("Execute(%v) error = %v", test.args, err)
+		}
+		if paths := strings.Join(got.paths, ","); paths != test.want {
+			t.Errorf("Execute(%v) paths = %s, want %s", test.args, paths, test.want)
+		}
+	}
+}
+
+func TestBrowserCommandValidatesArgumentsLikeRoot(t *testing.T) {
+	for _, args := range [][]string{
+		{"one", "two"},
+		{"--depth", "-1"},
+		{"--scan-depth", "-1"},
+		{"--host", "example.com"},
+		{"--port", "65536"},
+		{"--filename", "*.md"},
+	} {
+		command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("runner called for invalid arguments")
+			return nil
+		})
+		command.SetArgs(args)
+		rootErr := command.Execute()
+		command = newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("runner called for invalid arguments")
+			return nil
+		})
+		command.SetArgs(append([]string{"browser"}, args...))
+		browserErr := command.Execute()
+		if rootErr == nil || browserErr == nil {
+			t.Fatalf("Execute(%v) errors = %v, %v", args, rootErr, browserErr)
+		}
+		if rootErr.Error() != browserErr.Error() {
+			t.Errorf("Execute(%v) root error = %q, browser error = %q", args, rootErr, browserErr)
+		}
+	}
+}
+
+func TestBrowserCommandHelp(t *testing.T) {
+	var output bytes.Buffer
+	command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+		t.Fatal("runner called for help")
+		return nil
+	})
+	command.SetOut(&output)
+	command.SetArgs([]string{"browser", "--help"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); !strings.Contains(got, "Usage:\n  servef browser [path] [flags]") {
+		t.Fatalf("help output = %q", got)
 	}
 }
