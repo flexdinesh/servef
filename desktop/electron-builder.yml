@@ -1,0 +1,53 @@
+# Desktop packaging (decision 0068). Run through scripts/package.ts, which sets
+# the target, arch, version, and artifact name per invocation.
+appId: io.github.flexdinesh.servef
+productName: servef
+asar: true
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - build/**
+  - "!build/**/*.map"
+  - package.json
+# The release-style Go binary scripts/package.ts copies in (mode 0755). Not on PATH.
+extraResources:
+  - from: .build/bin/servef
+    to: bin/servef
+# No runtime dependencies: nothing to rebuild for Electron.
+npmRebuild: false
+extraMetadata:
+  # app.name (menus, notifications); the package name is the scoped npm name.
+  productName: servef
+  # Electron's Linux app_id; matches the deb's servef-desktop.desktop entry.
+  desktopName: servef-desktop.desktop
+# Registers servef:// with the OS on install (Info.plist CFBundleURLTypes; Linux
+# MimeType). The app never calls setAsDefaultProtocolClient.
+protocols:
+  - name: servef
+    schemes: [servef]
+
+# Desktop entry: Exec=... %U (electron-builder default), so servef:// links
+# arrive as argv; protocols adds MimeType=x-scheme-handler/servef (linux.mimeTypes
+# would repeat it); Comment is package.json description.
+linux:
+  # No clash with the servef CLI on PATH.
+  executableName: servef-desktop
+  category: Development
+  maintainer: Dinesh Pandiyan <flexdinesh@users.noreply.github.com>
+  target: [AppImage, deb]
+deb:
+  # The scoped npm name is not a valid Debian package name.
+  packageName: servef-desktop
+
+# Signing and notarization are deferred: builds are ad-hoc signed and users
+# clear Gatekeeper by hand (docs). Signing needs an Apple Developer ID
+# Application cert (CSC_LINK, CSC_KEY_PASSWORD), an App Store Connect API key
+# (APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER), hardenedRuntime: true with
+# com.apple.security.cs.allow-jit, the bundled servef signed (mac.binaries), and
+# a notarized, stapled dmg.
+mac:
+  identity: "-"
+  hardenedRuntime: false
+  category: public.app-category.developer-tools
+  target: [dmg, zip]

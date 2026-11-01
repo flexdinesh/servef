@@ -35,7 +35,8 @@ process.on("unhandledRejection", (reason) => console.error("servef: unhandled re
 function main(): void {
   // The single-instance lock is per userData directory: set it first.
   const userData = process.env.SERVEF_DESKTOP_USER_DATA
-  if (userData !== undefined && userData !== "") app.setPath("userData", path.resolve(userData))
+  // The default <appData>/servef is the CLI's config directory (daemon roots.json).
+  app.setPath("userData", userData !== undefined && userData !== "" ? path.resolve(userData) : path.join(app.getPath("appData"), "servef-desktop"))
   if (!app.requestSingleInstanceLock()) {
     app.quit()
     return

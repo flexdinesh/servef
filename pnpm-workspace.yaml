@@ -20,6 +20,8 @@ minimumReleaseAgeExclude:
 allowBuilds:
   # Electron downloads its binary only where needed: node desktop/node_modules/electron/install.js.
   electron: false
+  # Squirrel.Windows helper (electron-builder dep); its install picks a 7z binary for Windows builds only.
+  electron-winstaller: false
   es5-ext: false
   esbuild: true
   vue-demi: false
