@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -144,6 +145,35 @@ func (r Registry) Lookup(host string, port int) (Remote, error) {
 	return Remote{record: entry}, nil
 }
 
+// List returns every registered process's record; malformed records are
+// skipped. A missing directory lists none. Callers verify with Running.
+func (r Registry) List() ([]Remote, error) {
+	names, err := filepath.Glob(filepath.Join(r.directory, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	remotes := make([]Remote, 0, len(names))
+	for _, name := range names {
+		contents, err := os.ReadFile(name)
+		if err != nil {
+			continue
+		}
+		var entry record
+		if err := json.Unmarshal(contents, &entry); err != nil || entry.Host == "" || entry.Port <= 0 || entry.Token == "" {
+			continue
+		}
+		remotes = append(remotes, Remote{record: entry})
+	}
+	sort.Slice(remotes, func(a, b int) bool {
+		left, right := remotes[a].record, remotes[b].record
+		if left.Port != right.Port {
+			return left.Port < right.Port
+		}
+		return left.Host < right.Host
+	})
+	return remotes, nil
+}
+
 // Running reports whether the registered process responds as servef.
 func (r Remote) Running(ctx context.Context) bool {
 	return r.request(ctx, http.MethodGet) == nil
@@ -188,7 +218,9 @@ func (r Remote) request(ctx context.Context, method string) error {
 	return nil
 }
 
-func (r Remote) url() string {
+// Origin is the server's HTTP origin, with unspecified hosts dialed on
+// loopback, as the control endpoint is.
+func (r Remote) Origin() string {
 	host := r.record.Host
 	if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
 		host = "127.0.0.1"
@@ -196,7 +228,11 @@ func (r Remote) url() string {
 			host = "::1"
 		}
 	}
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(r.record.Port)) + endpointPath
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(r.record.Port))
+}
+
+func (r Remote) url() string {
+	return r.Origin() + endpointPath
 }
 
 func (r Registry) recordPath(host string, port int) string {

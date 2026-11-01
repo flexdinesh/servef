@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/spf13/cobra"
 )
 
 func TestRootCommandDefaults(t *testing.T) {
@@ -443,6 +445,7 @@ func TestRootCommandServesPositionalDirectories(t *testing.T) {
 	}{
 		{[]string{"somedir"}, "somedir"},
 		{[]string{"./browser"}, "./browser"},
+		{[]string{"./walkthrough"}, "./walkthrough"},
 		{[]string{"browser", "browser"}, "browser"},
 	} {
 		got, err := executeCommand(t, test.args)
@@ -498,5 +501,41 @@ func TestBrowserCommandHelp(t *testing.T) {
 	}
 	if got := output.String(); !strings.Contains(got, "Usage:\n  servef browser [path] [flags]") {
 		t.Fatalf("help output = %q", got)
+	}
+}
+
+func TestWalkthroughSubcommandIsNotServed(t *testing.T) {
+	newCommand := func() *cobra.Command {
+		return newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("browser runner called for walkthrough")
+			return nil
+		})
+	}
+	command := newCommand()
+	command.SetOut(io.Discard)
+	command.SetErr(io.Discard)
+	command.SetArgs([]string{"walkthrough", "publish", filepath.Join(t.TempDir(), "missing.json")})
+	if err := command.Execute(); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("publish missing file error = %v", err)
+	}
+
+	var output bytes.Buffer
+	command = newCommand()
+	command.SetOut(&output)
+	command.SetArgs([]string{"walkthrough", "--help"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"servef walkthrough [command]", "publish", "schema"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("help lacks %q:\n%s", want, output.String())
+		}
+	}
+
+	command = newCommand()
+	command.SetOut(io.Discard)
+	command.SetArgs([]string{"walkthrough", "publsh"})
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), `unknown command "publsh"`) {
+		t.Errorf("unknown walkthrough subcommand error = %v", err)
 	}
 }

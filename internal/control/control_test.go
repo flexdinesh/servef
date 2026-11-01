@@ -4,6 +4,9 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -78,3 +81,45 @@ func (r *responseRecorder) Header() http.Header { return r.header }
 func (r *responseRecorder) Write(contents []byte) (int, error) { return len(contents), nil }
 
 func (r *responseRecorder) WriteHeader(status int) { r.status = status }
+
+func TestRegistryList(t *testing.T) {
+	directory := t.TempDir()
+	registry := NewRegistry(directory)
+	if remotes, err := NewRegistry(filepath.Join(directory, "missing")).List(); err != nil || len(remotes) != 0 {
+		t.Fatalf("missing directory = %v, %v; want none", remotes, err)
+	}
+	for _, address := range []struct {
+		host string
+		port int
+	}{{"localhost", 9000}, {"0.0.0.0", 7971}, {"::", 7971}} {
+		instance, err := registry.Register(address.host, address.port)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = instance.Close() })
+	}
+	for name, contents := range map[string]string{
+		"broken.json":    "{",
+		"empty.json":     `{"host":"localhost","port":8000}`,
+		"noport.json":    `{"host":"localhost","token":"x"}`,
+		"foreign.txt":    `{"host":"localhost","port":8001,"token":"x"}`,
+		"emptyhost.json": `{"port":8002,"token":"x"}`,
+	} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	remotes, err := registry.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var origins []string
+	for _, remote := range remotes {
+		origins = append(origins, remote.Origin())
+	}
+	want := []string{"http://127.0.0.1:7971", "http://[::1]:7971", "http://localhost:9000"}
+	if !slices.Equal(origins, want) {
+		t.Errorf("origins = %v, want %v", origins, want)
+	}
+}

@@ -173,6 +173,27 @@ func Resolve(roots []string, id string) (string, error) {
 	return resolved, nil
 }
 
+// ResolveStandalone returns the symlink-evaluated directory for a project ID
+// when no roots are served: the directory is its own root (servef
+// walkthrough publish). It applies Resolve's ID rules (absolute, clean,
+// existing directory). A directory inside a repository, not a repository or
+// worktree itself, returns ErrInsideRepository, as Resolve does for folders
+// inside a served repository.
+func ResolveStandalone(id string) (string, error) {
+	resolved, err := existingDirectory(id)
+	if err != nil || hasGit(resolved) {
+		return resolved, err
+	}
+	for dir := filepath.Dir(resolved); ; dir = filepath.Dir(dir) {
+		if hasGit(dir) {
+			return "", ErrInsideRepository
+		}
+		if dir == filepath.Dir(dir) {
+			return resolved, nil
+		}
+	}
+}
+
 // Directories lists the child directories of a folder for browsing; an empty
 // ID lists the roots. Repositories and their contents are not browsed: they
 // open whole. Hidden directories are listed; excluded names (files.Excluded)
@@ -219,19 +240,9 @@ func Directories(roots []string, id string) ([]Directory, error) {
 // The root is empty for a linked worktree outside every root whose repository
 // lies in one; any other directory outside the roots escapes.
 func locate(roots []string, id string) (string, string, error) {
-	if id == "" || !filepath.IsAbs(id) || filepath.Clean(id) != id {
-		return "", "", fmt.Errorf("%w: invalid project id %q", ErrUnavailable, id)
-	}
-	resolved, err := filepath.EvalSymlinks(id)
+	resolved, err := existingDirectory(id)
 	if err != nil {
-		return "", "", fmt.Errorf("%w: %v", ErrUnavailable, err)
-	}
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return "", "", fmt.Errorf("%w: %v", ErrUnavailable, err)
-	}
-	if !info.IsDir() {
-		return "", "", fmt.Errorf("%w: not a directory", ErrUnavailable)
+		return "", "", err
 	}
 	for _, root := range roots {
 		canonicalRoot := canonical(root)
@@ -253,6 +264,26 @@ func locate(roots []string, id string) (string, string, error) {
 		return resolved, "", nil
 	}
 	return "", "", files.ErrPathEscape
+}
+
+// existingDirectory checks a project ID's form (absolute and clean) and
+// returns the existing directory it names, symlinks evaluated.
+func existingDirectory(id string) (string, error) {
+	if id == "" || !filepath.IsAbs(id) || filepath.Clean(id) != id {
+		return "", fmt.Errorf("%w: invalid project id %q", ErrUnavailable, id)
+	}
+	resolved, err := filepath.EvalSymlinks(id)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%w: not a directory", ErrUnavailable)
+	}
+	return resolved, nil
 }
 
 // insideRepository reports whether a directory from root down to dir's parent
