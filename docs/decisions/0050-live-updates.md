@@ -1,6 +1,6 @@
 # 0050: Live updates for the projects browsers show
 
-- Status: Accepted
+- Status: Accepted; revised by [0066](0066-lease-levels-and-desktop-events.md) (lease levels, open-only cap, `head` event)
 - Date: 2026-10-27
 - Supersedes: the "No polling" refresh clauses of [0024](0024-source-control-view-and-working-tree-diffs.md) and [0027](0027-commit-history-in-source-control.md)
 

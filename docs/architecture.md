@@ -35,7 +35,10 @@ The daemon (decision 0061) has no TCP listener. Its trust boundary is the
 socket: 0600 in a 0700 directory owned by the user, so only that user
 connects and browsers cannot. Web routes keep the same `Host` check (clients
 send `Host: localhost`); `/_daemon/*` control requests never reach the web
-app and are refused when they carry `Origin` or `Sec-Fetch-Site`.
+app and are refused when they carry `Origin` or `Sec-Fetch-Site`. Clients
+open paths (`/_daemon/open`, which may replace served roots inside the path)
+and hold a control event stream (`/_daemon/events`) for walkthrough
+announcements; project event streams take a `lease` level (decision 0066).
 
 ## Dependency direction
 
