@@ -77,6 +77,72 @@ digits, `.`, `_`, and `-`.
 Run outside an SSH session, `servef remote` still prints the link, with a
 warning that the hints may not identify the host.
 
+## Connecting from the app
+
+Opening a `servef://ssh/…` link makes the app run your computer's `ssh` to
+that host, start servef's daemon there, and forward it to a private socket.
+Files, git, and language servers stay on the host.
+
+- **First contact is confirmed.** The app asks before connecting to a host it
+  does not know, with the user, host name, and port `ssh` will use, and lists
+  up to four matching `~/.ssh/config` entries (or `user@address` when none
+  match). Your answer is remembered; later links to that host open at once.
+- **No prompts, ever.** The app connects in batch mode: it never asks for a
+  password, a one-time code, or to accept a host key. The host must accept a
+  key from your SSH agent (or an unencrypted key), and its host key must
+  already be in your `known_hosts`. Check both with:
+
+  ```sh
+  ssh -o BatchMode=yes <host> true
+  ```
+
+- **Your SSH configuration applies:** `ProxyJump`, keys, the agent,
+  `known_hosts`, and `SetEnv`. The app opens its own connection per host
+  and ignores your configured port forwards.
+- **Nothing is installed or uploaded** on the host. The app only runs
+  `servef daemon ensure` (and `servef daemon stop` when you ask).
+- A host stays connected while a window shows it, and disconnects 30
+  seconds after its last window closes. The host's daemon then stops on its
+  own after 30 idle minutes.
+- Windows of a host show its name in the title, for example
+  `README.md - devbox (SSH)`, and `(SSH, reconnecting)` while the connection
+  recovers. The app reconnects on its own after network drops.
+- Remote windows have no **Open folder…**: add directories with
+  `servef remote` on the host.
+
+### Notifications
+
+Branch switches, commits, settled edits, and walkthroughs published on the
+host (`servef walkthrough publish`) notify you only while a window for that
+host is open.
+
+### Connect page
+
+**File > Connect…** lists the local daemon and the hosts the app knows, with
+their state, and the `Host` entries from your `~/.ssh/config`. Click one to
+open it (new hosts are confirmed first). **Forget** disconnects a host and
+removes it; its next link asks again.
+
+## Troubleshooting
+
+When a connection fails, the window shows what happened and what to run.
+Reload or click **Retry** after fixing it.
+
+| Page | Fix |
+| --- | --- |
+| OpenSSH is missing or too old | Install the OpenSSH client (6.7 or later); the app uses the system `ssh` |
+| Host key not verified | Run `ssh <host>` in a terminal once and accept the key there |
+| Authentication failed | Load your key with `ssh-add` until `ssh -o BatchMode=yes <host> true` works |
+| Host unreachable | Check the network or VPN; the app keeps retrying while the window is open |
+| servef is not installed | [Install servef on the host](#install-servef-on-the-host); the page names the command for its OS and architecture |
+| servef is too old | Upgrade servef on the host |
+| Incompatible daemon | Upgrade the older side, then **Stop the running daemon and retry** |
+| Socket forwarding refused | The host's sshd needs `AllowStreamLocalForwarding yes` (and no `DisableForwarding`) and OpenSSH 6.7 or later |
+
+`servef remote` and the app must reach the same daemon, which needs the same
+`XDG_RUNTIME_DIR` in interactive and non-interactive SSH sessions. When they
+differ, the link's project shows as unavailable until that daemon restarts.
+
 ## Walkthroughs
 
 Agents on the host publish with `servef walkthrough publish`

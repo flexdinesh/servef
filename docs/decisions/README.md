@@ -66,11 +66,12 @@ rewriting history; update `Status` on the old record.
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |
 | [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
 | [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
-| [0062](0062-desktop-app.md) | Desktop app | Accepted in part (0067, 0068); CLI-server and ssh connections Proposed |
+| [0062](0062-desktop-app.md) | Desktop app | Accepted in part (0067, 0068, 0070); CLI-server connections Proposed |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted in part (0065, 0068, 0069); pasted URLs Proposed |
-| [0064](0064-ssh-remotes.md) | SSH remotes | Accepted in part (0069); app connections Proposed |
+| [0064](0064-ssh-remotes.md) | SSH remotes | Accepted (0069, 0070) |
 | [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069 |
 | [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted |
-| [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted |
+| [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted; revised by 0070 |
 | [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0069 |
 | [0069](0069-servef-remote-and-ssh-links.md) | `servef remote` and ssh links | Accepted |
+| [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Accepted |

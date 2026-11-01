@@ -1,6 +1,6 @@
 # 0062: Desktop app
 
-- Status: Accepted in part (via [0067](0067-desktop-shell-and-protocol-proxy.md), [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)); CLI-server and ssh connections Proposed
+- Status: Accepted in part (via [0067](0067-desktop-shell-and-protocol-proxy.md), [0068](0068-cli-opens-desktop-app-and-desktop-releases.md), [0070](0070-desktop-ssh-connections.md)); CLI-server connections Proposed
 - Date: 2026-11-01
 
 ## Context

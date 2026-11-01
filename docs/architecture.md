@@ -45,11 +45,20 @@ The desktop app proxies renderer requests to the socket, refuses `/_daemon`
 paths itself, and adds `Sec-Fetch-Site: same-origin` so proxied requests
 never pass as control requests (decision 0067).
 
+ssh connections (decision 0070) reach a host's daemon socket through the
+system `ssh`: one app-owned ControlMaster per host, constant remote commands,
+and a Unix-socket forward in a private 0700 runtime directory (symlinks and
+other owners refused). The forwarded socket is as trusted as the local one,
+so first contact with a host is always confirmed, unconfirmed `ssh-*`
+origins are 404, and each host's pages stay in their own origin without the
+preload bridge.
+
 ## Dependency direction
 
 ```text
 CLI -> daemon -> runtime -> web -> document, files, git, lsp, projects
 desktop -> daemon socket -> runtime
+desktop -> ssh -> remote daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
 React -> HTTP API -> HTTP application
