@@ -1,6 +1,6 @@
 # 0001: Filename globs define CLI scope
 
-- Status: Accepted
+- Status: Superseded by [0060](0060-scope-flags-removed.md)
 - Date: 2026-10-12
 
 ## Context
