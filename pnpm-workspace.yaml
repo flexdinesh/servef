@@ -1,6 +1,7 @@
 packages:
   - "web"
   - "site"
+  - "desktop"
 
 engineStrict: true
 includeWorkspaceRoot: true
@@ -17,6 +18,8 @@ minimumReleaseAgeExclude:
   - "@pierre/theming@1.0.2"
 
 allowBuilds:
+  # Electron downloads its binary only where needed: node desktop/node_modules/electron/install.js.
+  electron: false
   es5-ext: false
   esbuild: true
   vue-demi: false
