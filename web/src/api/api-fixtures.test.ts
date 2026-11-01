@@ -89,8 +89,6 @@ test("page fixtures follow document-shape invariants", async () => {
 test("contract validators reject removed and malformed fields", async () => {
   const value = await fixture("page-document.json")
   assert.ok(isPageData(value))
-  const { filenamePatterns: _patterns, ...withoutPatterns } = value
-  assert.equal(isPageData(withoutPatterns), false)
   assert.equal(isPageData({ ...value, binary: "no" }), false)
   const { tooLarge: _tooLarge, ...withoutTooLarge } = value
   assert.equal(isPageData(withoutTooLarge), false)

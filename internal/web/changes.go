@@ -27,7 +27,7 @@ const (
 )
 
 // Source Control is repository-scoped: it lists every change in the
-// project's checkout, whatever the CLI filename scope, and reads worktree
+// project's checkout, whatever the browse depth, and reads worktree
 // files only after the git package validates them as changes.
 
 type changesResponse struct {

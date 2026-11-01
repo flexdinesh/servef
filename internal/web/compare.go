@@ -24,7 +24,7 @@ const (
 )
 
 // Compares, like changes and history, are repository-scoped: refs and stats
-// cover every change whatever the CLI filename scope.
+// cover every change whatever the browse depth.
 
 type refsResponse struct {
 	Repository  bool            `json:"repository"`

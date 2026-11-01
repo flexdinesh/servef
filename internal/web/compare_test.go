@@ -90,7 +90,7 @@ func TestRefsListBranchesAndDefaultBase(t *testing.T) {
 	if err := gitRepo.Storer.SetReference(plumbing.NewSymbolicReference("refs/remotes/origin/HEAD", "refs/remotes/origin/main")); err != nil {
 		t.Fatal(err)
 	}
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var got refsResponse
 	if status := requestJSON(t, app, "/api/refs?project=.", &got); status != http.StatusOK {
@@ -130,7 +130,7 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 	if err := gitRepo.Storer.SetReference(plumbing.NewHashReference("refs/remotes/origin/feature", change)); err != nil {
 		t.Fatal(err)
 	}
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("doc.md").Type()
 
 	// Naming the default base answers exactly as the heuristic does.
@@ -202,7 +202,7 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 
 func TestCompareStatsCountWorkingTreeChanges(t *testing.T) {
 	root := changesRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	got := compareStats(t, app, "compare=working")
 	assertStats(t, "working", got, compareStatsResponse{Files: []fileStats{
@@ -228,7 +228,7 @@ func TestCompareStatsCountWorkingTreeChanges(t *testing.T) {
 
 func TestCompareStatsCountHistoryChanges(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	large := blobHash(strings.Repeat("b", document.PreviewLimit+1))
 
 	commitStats := compareStatsResponse{Files: []fileStats{

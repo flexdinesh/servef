@@ -23,7 +23,7 @@ func newLiveApp(t *testing.T, root string) *App {
 	options := watch.DefaultOptions()
 	options.Debounce = 30 * time.Millisecond
 	options.MaxWait = 200 * time.Millisecond
-	app, err := New(Config{Roots: []string{root}, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}, LiveUpdates: watch.NewHub(options)})
+	app, err := New(Config{Roots: []string{root}, Depth: 5, LiveUpdates: watch.NewHub(options)})
 	if err != nil {
 		t.Fatal(err)
 	}

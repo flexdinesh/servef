@@ -12,7 +12,7 @@ import (
 
 func TestScanSharedMarkdownFixtures(t *testing.T) {
 	root := filepath.Join("..", "..", "testdata", "markdown")
-	index, err := Scan(root, -1, []string{"vendor"}, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -54,7 +54,7 @@ func TestScanBuildsOrderedDepthLimitedTree(t *testing.T) {
 	writeFile(t, filepath.Join(root, "Zoo", "z.md"))
 	writeFile(t, filepath.Join(root, "node_modules", "excluded.md"))
 
-	index, err := Scan(root, 1, []string{"some/path/node_modules"}, markdownFile)
+	index, err := Scan(root, 1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -78,7 +78,7 @@ func TestScanDepthZeroIncludesOnlyRootMarkdown(t *testing.T) {
 	writeFile(t, filepath.Join(root, "root.md"))
 	writeFile(t, filepath.Join(root, "child", "child.md"))
 
-	index, err := Scan(root, 0, nil, markdownFile)
+	index, err := Scan(root, 0, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -98,7 +98,7 @@ func TestScanPrunesDirectoriesWithoutIndexedMarkdown(t *testing.T) {
 	writeFile(t, filepath.Join(root, "only-text", "notes.txt"))
 	writeFile(t, filepath.Join(root, "kept", "nested", "readme.md"))
 
-	index, err := Scan(root, -1, nil, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -110,12 +110,12 @@ func TestScanPrunesDirectoriesWithoutIndexedMarkdown(t *testing.T) {
 	}
 }
 
-func TestScanNegativeDepthIsUnlimitedAndExcludesNamesAnywhere(t *testing.T) {
+func TestScanNegativeDepthIsUnlimitedAndSkipsExcludedNamesAnywhere(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "a", "b", "deep.markdown"))
 	writeFile(t, filepath.Join(root, "a", "vendor", "skip.md"))
 
-	index, err := Scan(root, -1, []string{"vendor"}, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -140,7 +140,7 @@ func TestScanSkipsFileAndDirectorySymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	index, err := Scan(root, -1, nil, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -153,7 +153,7 @@ func TestResolveAllowsIndexedFilesAndRejectsUnsafePaths(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "docs", "readme.md"))
 
-	index, err := Scan(root, -1, nil, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -191,7 +191,7 @@ func TestResolveDetectsFileReplacedByEscapingSymlink(t *testing.T) {
 	writeFile(t, indexed)
 	writeFile(t, filepath.Join(outside, "outside.md"))
 
-	index, err := Scan(root, 0, nil, markdownFile)
+	index, err := Scan(root, 0, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -208,14 +208,14 @@ func TestResolveDetectsFileReplacedByEscapingSymlink(t *testing.T) {
 }
 
 func TestScanRejectsInvalidRoots(t *testing.T) {
-	if _, err := Scan(filepath.Join(t.TempDir(), "missing"), 1, nil, markdownFile); err == nil {
+	if _, err := Scan(filepath.Join(t.TempDir(), "missing"), 1, markdownFile); err == nil {
 		t.Fatal("Scan(missing) error = nil, want error")
 	}
 
 	root := t.TempDir()
 	file := filepath.Join(root, "file.md")
 	writeFile(t, file)
-	if _, err := Scan(file, 1, nil, markdownFile); err == nil {
+	if _, err := Scan(file, 1, markdownFile); err == nil {
 		t.Fatal("Scan(file) error = nil, want error")
 	}
 }
@@ -248,7 +248,7 @@ func TestScanUsesComposedFilePolicy(t *testing.T) {
 	for _, name := range []string{"readme.md", "config.json", "nested/other.json", "other/skip.yaml"} {
 		writeFile(t, filepath.Join(root, name))
 	}
-	index, err := Scan(root, 1, nil, func(name string) bool { return filepath.Ext(name) == ".json" })
+	index, err := Scan(root, 1, func(name string) bool { return filepath.Ext(name) == ".json" })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestScanUsesComposedFilePolicy(t *testing.T) {
 	if _, err := index.Resolve("readme.md"); !errors.Is(err, ErrNotIndexed) {
 		t.Fatalf("disallowed resolve = %v", err)
 	}
-	if _, err := Scan(root, 1, nil, nil); err == nil {
+	if _, err := Scan(root, 1, nil); err == nil {
 		t.Fatal("implicit policy accepted")
 	}
 }

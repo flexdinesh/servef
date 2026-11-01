@@ -128,11 +128,12 @@ Git.
 
 ## Adding a file type
 
-Every in-scope file is browsable; registration only decides how it is shown.
+Every served file is browsable; registration only decides how it is shown.
 Families are composed in `internal/document.Builtins()`:
 
-- `internal/files` owns directory traversal, exclusions, depth, the filename
-  glob filter, and safe path resolution. It knows no file formats.
+- `internal/files` owns directory traversal, the always-skipped `.git`,
+  `node_modules`, and `vendor` directories, depth, base-name globs, and safe
+  path resolution. It knows no file formats.
 - `internal/document` owns the registry, type metadata, escaped highlighting,
   previews, formatting, and binary/size policy. Handlers
   receive bytes and navigation context; they never read the filesystem.

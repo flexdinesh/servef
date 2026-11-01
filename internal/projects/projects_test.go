@@ -11,8 +11,6 @@ import (
 	"github.com/flexdinesh/servef/internal/files"
 )
 
-var defaultExcluded = []string{".git", "node_modules", "vendor"}
-
 func TestDiscoverFindsRepositoriesAndStopsAtThem(t *testing.T) {
 	root := canonicalTemp(t)
 	makeRepo(t, filepath.Join(root, "alpha"))
@@ -26,7 +24,7 @@ func TestDiscoverFindsRepositoriesAndStopsAtThem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	discovery, err := Discover([]string{root}, 3, defaultExcluded)
+	discovery, err := Discover([]string{root}, 3)
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
 	}
@@ -45,7 +43,7 @@ func TestDiscoverScanDepthZeroChecksRootOnly(t *testing.T) {
 	root := canonicalTemp(t)
 	makeRepo(t, filepath.Join(root, "alpha"))
 
-	discovery, err := Discover([]string{root}, 0, defaultExcluded)
+	discovery, err := Discover([]string{root}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +57,7 @@ func TestDiscoverRootRepositoryIsTheOnlyProject(t *testing.T) {
 	makeRepo(t, root)
 	makeRepo(t, filepath.Join(root, "vendored"))
 
-	discovery, err := Discover([]string{root}, 10, defaultExcluded)
+	discovery, err := Discover([]string{root}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +74,7 @@ func TestDiscoverListsEveryRootInOrder(t *testing.T) {
 	makeRepo(t, personal)
 	makeRepo(t, filepath.Join(parent, "between"))
 
-	discovery, err := Discover([]string{work, personal}, 10, defaultExcluded)
+	discovery, err := Discover([]string{work, personal}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +95,7 @@ func TestDiscoverGroupsWorktreesWherever(t *testing.T) {
 	inside := linkWorktree(t, main, "inside", filepath.Join(main, ".worktrees", "inside"))
 	outside := linkWorktree(t, main, "outside", filepath.Join(parent, "elsewhere", "outside"))
 
-	discovery, err := Discover([]string{root}, 10, defaultExcluded)
+	discovery, err := Discover([]string{root}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +112,7 @@ func TestDiscoverGroupsWorktreesWherever(t *testing.T) {
 
 	// A root holding only a linked worktree still lists its group; members
 	// outside that root, and repositories outside every root, do not open.
-	worktreeOnly, err := Discover([]string{sibling}, 10, defaultExcluded)
+	worktreeOnly, err := Discover([]string{sibling}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +136,7 @@ func TestDiscoverGroupsWorktreesAcrossRoots(t *testing.T) {
 	makeRepo(t, main)
 	feature := linkWorktree(t, main, "feature", filepath.Join(second, "feature"))
 
-	discovery, err := Discover([]string{second, first}, 10, defaultExcluded)
+	discovery, err := Discover([]string{second, first}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +151,7 @@ func TestDiscoverGroupsWorktreesAcrossRoots(t *testing.T) {
 	if got := len(discovery.Projects); got != 4 {
 		t.Fatalf("projects = %#v, want two roots and two members", discovery.Projects)
 	}
-	if _, err := Resolve([]string{first, second}, feature, defaultExcluded); err != nil {
+	if _, err := Resolve([]string{first, second}, feature); err != nil {
 		t.Fatalf("Resolve(feature) error = %v", err)
 	}
 }
@@ -169,7 +167,7 @@ func TestDiscoverIgnoresWorktreesWithoutBacklink(t *testing.T) {
 	writeFile(t, filepath.Join(admin, "gitdir"), filepath.Join(secret, ".git")+"\n")
 	writeFile(t, filepath.Join(admin, "commondir"), "../..\n")
 
-	discovery, err := Discover([]string{root}, 10, defaultExcluded)
+	discovery, err := Discover([]string{root}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,14 +177,14 @@ func TestDiscoverIgnoresWorktreesWithoutBacklink(t *testing.T) {
 	if discovery.Projects[1].Group != "" {
 		t.Fatalf("lone repository group = %q, want empty", discovery.Projects[1].Group)
 	}
-	if _, err := Resolve([]string{root}, secret, defaultExcluded); !errors.Is(err, files.ErrPathEscape) {
+	if _, err := Resolve([]string{root}, secret); !errors.Is(err, files.ErrPathEscape) {
 		t.Fatalf("Resolve(forged) error = %v, want escape", err)
 	}
 	// A .git file claiming another worktree's admin directory, which does not
 	// link back, does not open either.
 	linkWorktree(t, main, "real", filepath.Join(root, "real"))
 	writeFile(t, filepath.Join(secret, ".git"), "gitdir: "+filepath.Join(main, ".git", "worktrees", "real")+"\n")
-	if _, err := Resolve([]string{root}, secret, defaultExcluded); !errors.Is(err, files.ErrPathEscape) {
+	if _, err := Resolve([]string{root}, secret); !errors.Is(err, files.ErrPathEscape) {
 		t.Fatalf("Resolve(claimed worktree) error = %v, want escape", err)
 	}
 }
@@ -204,7 +202,7 @@ func TestDiscoverWithGitWorktrees(t *testing.T) {
 	runGit(t, gitPath, main, "worktree", "add", "-q", "-b", "feature-x", filepath.Join(root, "feature"))
 	runGit(t, gitPath, main, "worktree", "add", "-q", "--detach", filepath.Join(parent, "outside"))
 
-	discovery, err := Discover([]string{root}, 10, defaultExcluded)
+	discovery, err := Discover([]string{root}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +219,7 @@ func TestDiscoverWithGitWorktrees(t *testing.T) {
 	if branches["main"] != "trunk" || branches["feature"] != "feature-x" || len(branches["outside"]) != 7 {
 		t.Fatalf("branches = %v, want trunk, feature-x, and a short detached commit", branches)
 	}
-	if _, err := Resolve([]string{root}, filepath.Join(parent, "outside"), defaultExcluded); err != nil {
+	if _, err := Resolve([]string{root}, filepath.Join(parent, "outside")); err != nil {
 		t.Fatalf("Resolve(outside worktree) error = %v", err)
 	}
 }
@@ -249,7 +247,7 @@ func TestResolveOpensReposAndFoldersOutsideRepos(t *testing.T) {
 		repo,
 		filepath.Join(repo, "packages", "submodule"),
 	} {
-		got, err := Resolve(roots, id, defaultExcluded)
+		got, err := Resolve(roots, id)
 		if err != nil || got != id {
 			t.Errorf("Resolve(%q) = %q, %v; want it", id, got, err)
 		}
@@ -269,17 +267,17 @@ func TestResolveOpensReposAndFoldersOutsideRepos(t *testing.T) {
 		filepath.Join(repo, "packages"):        ErrInsideRepository,
 		filepath.Join(repo, "packages", "app"): ErrInsideRepository,
 	} {
-		if _, err := Resolve(roots, id, defaultExcluded); !errors.Is(err, want) {
+		if _, err := Resolve(roots, id); !errors.Is(err, want) {
 			t.Errorf("Resolve(%q) error = %v, want %v", id, err, want)
 		}
 	}
 
 	// A repository root opens only whole.
 	makeRepo(t, root)
-	if _, err := Resolve(roots, filepath.Join(root, "docs"), defaultExcluded); !errors.Is(err, ErrInsideRepository) {
+	if _, err := Resolve(roots, filepath.Join(root, "docs")); !errors.Is(err, ErrInsideRepository) {
 		t.Fatalf("Resolve(folder in repository root) error = %v", err)
 	}
-	if _, err := Resolve(roots, root, defaultExcluded); err != nil {
+	if _, err := Resolve(roots, root); err != nil {
 		t.Fatalf("Resolve(repository root) error = %v", err)
 	}
 }
@@ -296,7 +294,7 @@ func TestDirectoriesListsBrowsableChildren(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := Directories([]string{root}, work, defaultExcluded)
+	got, err := Directories([]string{root}, work)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,11 +306,11 @@ func TestDirectoriesListsBrowsableChildren(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Directories() = %#v\nwant %#v", got, want)
 	}
-	top, err := Directories([]string{root}, root, defaultExcluded)
+	top, err := Directories([]string{root}, root)
 	if err != nil || !reflect.DeepEqual(top, []Directory{{Name: "work", Path: work}}) {
 		t.Fatalf("root Directories() = %#v, %v", top, err)
 	}
-	roots, err := Directories([]string{root}, "", defaultExcluded)
+	roots, err := Directories([]string{root}, "")
 	if err != nil || !reflect.DeepEqual(roots, []Directory{{Name: filepath.Base(root), Path: root}}) {
 		t.Fatalf("roots Directories() = %#v, %v", roots, err)
 	}
@@ -322,7 +320,7 @@ func TestDirectoriesListsBrowsableChildren(t *testing.T) {
 		filepath.Join(work, "api"):         ErrInsideRepository,
 		filepath.Join(work, "api", ".git"): ErrUnavailable,
 	} {
-		if _, err := Directories([]string{root}, id, defaultExcluded); !errors.Is(err, want) {
+		if _, err := Directories([]string{root}, id); !errors.Is(err, want) {
 			t.Errorf("Directories(%q) error = %v, want %v", id, err, want)
 		}
 	}
@@ -336,12 +334,12 @@ func TestDiscoveredProjectsResolve(t *testing.T) {
 	linkWorktree(t, filepath.Join(root, "a"), "wt", filepath.Join(root, "a-wt"))
 	linkWorktree(t, filepath.Join(root, "a"), "far", filepath.Join(parent, "far"))
 
-	discovery, err := Discover([]string{root}, 10, defaultExcluded)
+	discovery, err := Discover([]string{root}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, project := range discovery.Projects {
-		if _, err := Resolve([]string{root}, project.ID, defaultExcluded); err != nil {
+		if _, err := Resolve([]string{root}, project.ID); err != nil {
 			t.Errorf("Resolve(%q) error = %v", project.ID, err)
 		}
 	}
@@ -437,7 +435,7 @@ func TestInspectNamesRepositoryByOriginURL(t *testing.T) {
 }
 
 func TestDiscoverRejectsMissingRoot(t *testing.T) {
-	if _, err := Discover([]string{filepath.Join(t.TempDir(), "missing")}, 10, nil); err == nil {
+	if _, err := Discover([]string{filepath.Join(t.TempDir(), "missing")}, 10); err == nil {
 		t.Fatal("Discover() error = nil, want missing root error")
 	}
 }

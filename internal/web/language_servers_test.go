@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/lsp/lsptest"
 )
@@ -243,13 +242,8 @@ func TestNavigationRefreshNeverStartsServer(t *testing.T) {
 	}
 }
 
-func TestWorkspaceConfigurationChangesOutsideBrowseScopeNotifyServer(t *testing.T) {
+func TestWorkspaceConfigurationChangesNotifyServer(t *testing.T) {
 	app := serverApp(t, true)
-	filter, err := files.NewNameFilter([]string{"*.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	app.config.Filenames = filter
 	server := fakeServer
 	server.WorkspaceFiles = []string{"go.mod"}
 	app.servers.Close()
@@ -271,10 +265,6 @@ func TestWorkspaceConfigurationChangesOutsideBrowseScopeNotifyServer(t *testing.
 	}
 	if !strings.Contains(string(content), "watched go.mod 2") {
 		t.Fatalf("config change not sent: %s", content)
-	}
-	response, _ := requestPageData(t, app, "/api/page?project=.&path=go.mod")
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("config outside browse scope became accessible: %d", response.Code)
 	}
 }
 

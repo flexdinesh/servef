@@ -285,32 +285,21 @@ func TestSourceLanguageCanBeComposedWithoutPreview(t *testing.T) {
 	}
 }
 
-func TestMarkdownLinksTargetInScopeFiles(t *testing.T) {
+func TestMarkdownLinksTargetFiles(t *testing.T) {
 	handler := Builtins().Lookup("docs/readme.md")
 	source := []byte("[config](../config.json) [code](main.go) [dir](guides/) ![image](image.png)")
-	for _, entry := range []struct {
-		name     string
-		supports func(string) bool
-		code     bool
-	}{
-		{name: "all files", supports: func(string) bool { return true }, code: true},
-		{name: "markdown only", supports: func(name string) bool { return strings.HasSuffix(name, ".md") }},
-	} {
-		t.Run(entry.name, func(t *testing.T) {
-			rendered, err := handler.Preview(source, Context{Path: "docs/readme.md", Supports: entry.supports})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if entry.code != strings.Contains(rendered, `href="/view?path=docs%2Fmain.go"`) || entry.code != strings.Contains(rendered, `href="/view?path=config.json"`) {
-				t.Fatalf("link policy = %s", rendered)
-			}
-			if !strings.Contains(rendered, `href="guides/"`) {
-				t.Fatalf("directory link rewritten: %s", rendered)
-			}
-			if !strings.Contains(rendered, `/api/image?path=docs%2Fimage.png`) {
-				t.Fatalf("image lost: %s", rendered)
-			}
-		})
+	rendered, err := handler.Preview(source, Context{Path: "docs/readme.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered, `href="/view?path=docs%2Fmain.go"`) || !strings.Contains(rendered, `href="/view?path=config.json"`) {
+		t.Fatalf("link policy = %s", rendered)
+	}
+	if !strings.Contains(rendered, `href="guides/"`) {
+		t.Fatalf("directory link rewritten: %s", rendered)
+	}
+	if !strings.Contains(rendered, `/api/image?path=docs%2Fimage.png`) {
+		t.Fatalf("image lost: %s", rendered)
 	}
 }
 

@@ -16,7 +16,7 @@ Browse and search any local file in a directory through a Go CLI and embedded Re
 - Runtime fonts, icons, diagrams, and other assets are bundled locally.
 - Project switching: discovered git repositories and worktrees, or any folder under the served root, loaded fresh on each switch.
 - File browsing, Markdown/image preview, on-demand formatting, highlighted source, document tabs, deep links, and browser history.
-- `--filename` globs set CLI scope; the explorer filename filter limits visibility only. File types decide presentation, not availability.
+- Every file within `--depth` is served; `.git`, `node_modules`, and `vendor` directories are always skipped. The explorer filename filter limits visibility only. File types decide presentation, not availability.
 - Separate file/path search and document-content search.
 - File-tree selection follows editor conventions rather than native browser links.
 - Desktop and mobile web; theme and UI settings (font size) persist locally.

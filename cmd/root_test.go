@@ -29,7 +29,7 @@ func TestRootCommandDefaults(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen || len(got.exclusions) != 0 {
+	if strings.Join(got.paths, ",") != "." || got.depth != 5 || got.scanDepth != 10 || got.host != defaultHost || got.port != 0 || got.noOpen {
 		t.Fatalf("default options = %+v", got)
 	}
 }
@@ -72,15 +72,12 @@ func TestRootCommandParsesAdditiveFlags(t *testing.T) {
 		got = opts
 		return nil
 	})
-	command.SetArgs([]string{"docs", "--depth", "3", "--host", "192.0.2.10", "--port", "8080", "--no-open", "--exclude", "drafts", "--exclude", "generated"})
+	command.SetArgs([]string{"docs", "--depth", "3", "--host", "192.0.2.10", "--port", "8080", "--no-open"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Join(got.paths, ",") != "docs" || got.depth != 3 || got.host != "192.0.2.10" || got.port != 8080 || !got.portSet || !got.noOpen {
 		t.Fatalf("parsed options = %+v", got)
-	}
-	if strings.Join(got.exclusions, ",") != "drafts,generated" {
-		t.Fatalf("exclusions = %v", got.exclusions)
 	}
 }
 
@@ -340,70 +337,16 @@ func disableColor(t *testing.T) {
 	t.Cleanup(func() { color.NoColor = previous })
 }
 
-func TestRootCommandFilenameScope(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		patterns []string
-		included []string
-		excluded []string
-	}{
-		{name: "implicit all", patterns: []string{"*"}, included: []string{"README.md", "main.go", ".env", "Dockerfile", "data.bin"}},
-		{name: "explicit all", args: []string{"--filename", "*"}, patterns: []string{"*"}, included: []string{"notes.txt"}},
-		{name: "one glob", args: []string{"--filename", "*.md"}, patterns: []string{"*.md"}, included: []string{"README.md", "docs/guide.MD"}, excluded: []string{"main.go", "README.markdown"}},
-		{name: "multiple globs and names", args: []string{"--filename", "*.md,*.go,Dockerfile"}, patterns: []string{"*.md", "*.go", "Dockerfile"}, included: []string{"a.md", "b.go", "deploy/Dockerfile"}, excluded: []string{"Makefile", "c.ts"}},
-		{name: "case-insensitive and trimmed", args: []string{"--filename= *.GO , dockerFILE "}, patterns: []string{"*.GO", "dockerFILE"}, included: []string{"main.go", "Dockerfile"}, excluded: []string{"README.md"}},
-		{name: "character class", args: []string{"--filename", "[mn]*.txt"}, patterns: []string{"[mn]*.txt"}, included: []string{"notes.txt"}, excluded: []string{"other.txt"}},
-	}
-	for _, entry := range tests {
-		t.Run(entry.name, func(t *testing.T) {
-			var got options
-			command := newRootCommand(func(_ context.Context, opts options, _ io.Reader, _, _ io.Writer) error { got = opts; return nil })
-			command.SetArgs(append([]string{"docs"}, entry.args...))
-			if err := command.Execute(); err != nil {
-				t.Fatal(err)
-			}
-			if strings.Join(got.filenames.Patterns(), "|") != strings.Join(entry.patterns, "|") {
-				t.Fatalf("patterns = %v, want %v", got.filenames.Patterns(), entry.patterns)
-			}
-			for _, name := range entry.included {
-				if !got.filenames.Match(name) {
-					t.Errorf("%s excluded", name)
-				}
-			}
-			for _, name := range entry.excluded {
-				if got.filenames.Match(name) {
-					t.Errorf("%s included", name)
-				}
-			}
+func TestRootCommandRejectsRemovedFlags(t *testing.T) {
+	for _, args := range [][]string{{"--file-type", "md"}, {"--filename", "*.md"}, {"--exclude", "drafts"}} {
+		command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
+			t.Fatal("runner called for removed flag")
+			return nil
 		})
-	}
-}
-
-func TestRootCommandRejectsInvalidFilenameLists(t *testing.T) {
-	for _, value := range []string{"", " ", ",*.md", "*.md,", "*.md,,*.go", "[a-", "*.md,[", "docs/*.md"} {
-		t.Run(value, func(t *testing.T) {
-			command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
-				t.Fatal("runner called for invalid filename scope")
-				return nil
-			})
-			command.SetArgs([]string{"--filename", value})
-			err := command.Execute()
-			if err == nil || !strings.Contains(err.Error(), "--filename") {
-				t.Fatalf("Execute() error = %v", err)
-			}
-		})
-	}
-}
-
-func TestRootCommandRemovesFileTypeFlag(t *testing.T) {
-	command := newRootCommand(func(context.Context, options, io.Reader, io.Writer, io.Writer) error {
-		t.Fatal("runner called for removed flag")
-		return nil
-	})
-	command.SetArgs([]string{"--file-type", "md"})
-	if err := command.Execute(); err == nil {
-		t.Fatal("--file-type accepted")
+		command.SetArgs(args)
+		if err := command.Execute(); err == nil {
+			t.Fatalf("%s accepted", args[0])
+		}
 	}
 }
 

@@ -23,7 +23,7 @@ var branchWorkingChanges = []git.Change{
 
 func TestBranchFilesWithUncommittedListMergeBaseToWorkingTree(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var got branchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.&uncommitted=1", &got); status != http.StatusOK {
@@ -42,7 +42,7 @@ func TestBranchFilesWithUncommittedListMergeBaseToWorkingTree(t *testing.T) {
 
 func TestBranchDiffWithUncommittedReadsMergeBaseAndWorktree(t *testing.T) {
 	root, _, _ := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var modified diffResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&uncommitted=1&path=doc.md", &modified); status != http.StatusOK {
@@ -79,7 +79,7 @@ func TestBranchDiffWithUncommittedReadsMergeBaseAndWorktree(t *testing.T) {
 
 func TestCompareStatsWithUncommittedCountWorktreeSides(t *testing.T) {
 	root, _, _ := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	assertStats(t, "branch uncommitted", compareStats(t, app, "compare=branch&uncommitted=1"), compareStatsResponse{Files: []fileStats{
 		counted("added.go", 1, 0, blobHash("package main\n")),

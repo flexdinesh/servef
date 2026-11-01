@@ -723,7 +723,7 @@ func TestServerRefusesOtherHosts(t *testing.T) {
 
 func newTestApp(t *testing.T, root string) *App {
 	t.Helper()
-	app, err := New(Config{Roots: []string{root}, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}})
+	app, err := New(Config{Roots: []string{root}, Depth: 5})
 	if err != nil {
 		t.Fatal(err)
 	}

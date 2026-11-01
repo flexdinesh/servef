@@ -6,7 +6,7 @@ as one Go binary.
 ## System boundaries
 
 - `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
-- `internal/files/`: file discovery, filename-glob scope, and safe path resolution.
+- `internal/files/`: file discovery, always-skipped directories, and safe path resolution.
 - `internal/projects/`: root validation, repository/worktree discovery, project resolution.
 - `internal/git/`: go-git reads for Source Control; go-git types stay inside it.
 - `internal/document/`: file families, previews, formatting, media types, binary/size policy.
@@ -22,7 +22,8 @@ as one Go binary.
 - `tests/browser/`: browser tests across the Go/React boundary.
 
 The filesystem root passed to the CLI is the primary runtime trust boundary.
-The server indexes paths matching `--filename` and resolves requests only through
+The server indexes every file within `--depth`, always skipping `.git`,
+`node_modules`, and `vendor` directories, and resolves requests only through
 that index. It binds localhost by default and selects the first free port from
 7971 through 7980; exposing it requires an explicit `--host` IP address.
 Requests must name `localhost` or an IP literal in `Host`; other hostnames get

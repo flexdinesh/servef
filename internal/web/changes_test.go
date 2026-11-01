@@ -47,7 +47,7 @@ func changesRepo(t *testing.T) string {
 		"old.md":       "# Moved\n",
 		"data.bin":     "head\x00binary",
 		"large.txt":    strings.Repeat("a", document.PreviewLimit+1),
-		"scope/x.zzz":  "outside the filename scope\n",
+		"scope/x.zzz":  "unregistered extension\n",
 		"docs/keep.md": "# Keep\n",
 	}
 	for name, content := range committed {
@@ -96,9 +96,9 @@ func requestJSON(t *testing.T, app *App, target string, value any) int {
 	return response.Code
 }
 
-func TestChangesListsRepositoryChangesBeyondFilenameScope(t *testing.T) {
+func TestChangesListsRepositoryChanges(t *testing.T) {
 	root := changesRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var changes changesResponse
 	if status := requestJSON(t, app, "/api/changes?project=.", &changes); status != http.StatusOK {
@@ -163,7 +163,7 @@ func text(content string) *diffSide {
 
 func TestDiffReadsBothSidesUnderSizeLimits(t *testing.T) {
 	root := changesRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("doc.md").Type()
 
 	for _, test := range []struct {

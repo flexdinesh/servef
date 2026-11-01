@@ -120,10 +120,6 @@ func rewriteDocumentLink(destination []byte, context Context) []byte {
 	if err != nil || target.Scheme != "" || target.Host != "" || target.Path == "" || strings.HasSuffix(target.Path, "/") {
 		return destination
 	}
-	if context.Supports == nil || !context.Supports(target.Path) {
-		return destination
-	}
-
 	markdownPath := target.Path
 	if strings.HasPrefix(markdownPath, "/") {
 		markdownPath = strings.TrimPrefix(markdownPath, "/")

@@ -22,7 +22,6 @@ func walkthroughApp(t *testing.T, root string) (*App, chan string) {
 	app, err := New(Config{
 		Roots:                []string{root},
 		Depth:                5,
-		Exclusions:           []string{".git", "node_modules", "vendor"},
 		WalkthroughDirectory: filepath.Join(t.TempDir(), "walkthroughs"),
 		OpenBrowser:          func(target string) error { opened <- target; return nil },
 	})

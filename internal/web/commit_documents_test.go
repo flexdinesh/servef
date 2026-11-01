@@ -14,7 +14,7 @@ import (
 
 func TestPageReadsDocumentAtCommit(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	at := "&at=" + initial.String()
 
 	response, data := requestPageData(t, app, "/api/page?project=.&path=doc.md"+at)
@@ -37,12 +37,12 @@ func TestPageReadsDocumentAtCommit(t *testing.T) {
 		query  string
 		source string
 	}{
-		// Deleted in the working tree, renamed away, or outside the
-		// filename scope: commits are repository-scoped.
+		// Deleted in the working tree, renamed away, or of an unregistered
+		// type: commits are repository-scoped.
 		{"path=gone.md" + at, "# Gone\n"},
 		{"path=old.md" + at, "# Moved\n"},
 		{"path=moved.md&at=" + change.String(), "# Moved\n"},
-		{"path=scope/x.zzz" + at, "outside the filename scope\n"},
+		{"path=scope/x.zzz" + at, "unregistered extension\n"},
 	} {
 		if response, data := requestPageData(t, app, "/api/page?project=.&"+test.query); response.Code != http.StatusOK || data.Source != test.source {
 			t.Errorf("%s = %d %q", test.query, response.Code, data.Source)

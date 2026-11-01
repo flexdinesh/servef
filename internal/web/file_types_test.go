@@ -11,21 +11,7 @@ import (
 	"testing"
 
 	"github.com/flexdinesh/servef/internal/document"
-	"github.com/flexdinesh/servef/internal/files"
 )
-
-func newScopedApp(t *testing.T, root string, patterns ...string) *App {
-	t.Helper()
-	filter, err := files.NewNameFilter(patterns)
-	if err != nil {
-		t.Fatal(err)
-	}
-	app, err := New(Config{Roots: []string{root}, Depth: 5, Filenames: filter})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return app
-}
 
 func searchDocuments(t *testing.T, app *App) searchDocumentsResponse {
 	t.Helper()
@@ -40,41 +26,25 @@ func searchDocuments(t *testing.T, app *App) searchDocumentsResponse {
 	return search
 }
 
-func TestFilenameScopeControlsTreePagesAndSearch(t *testing.T) {
+func TestEveryFileOpensInTreePagesAndSearch(t *testing.T) {
 	root := t.TempDir()
 	names := []string{"readme.md", "config.JSON", "nested/app.yml", "main.go", "Dockerfile", "broken.json", "notes"}
 	for _, name := range names {
 		writeMarkdown(t, filepath.Join(root, name), "token: search-"+strings.ReplaceAll(name, "/", "-")+"\n")
 	}
-	for _, patterns := range [][]string{{"*"}, {"*.MD"}, {"*.json", "*.yml"}, {"dockerfile", "*.go"}} {
-		filter, err := files.NewNameFilter(patterns)
-		if err != nil {
-			t.Fatal(err)
+	app := newTestApp(t, root)
+	_, index := requestPageData(t, app, "/api/page?project=.")
+	if index.FileCount != len(names) {
+		t.Fatalf("file count = %d, want %d", index.FileCount, len(names))
+	}
+	for _, name := range names {
+		response, page := requestPageData(t, app, "/api/page?project=.&path="+name)
+		if response.Code != http.StatusOK || !page.HasFile || page.DocumentType == nil || page.Source == "" || page.HighlightDisabled {
+			t.Fatalf("%s = %d, incomplete document contract: %+v", name, response.Code, page)
 		}
-		app := newScopedApp(t, root, patterns...)
-		_, index := requestPageData(t, app, "/api/page?project=.")
-		if !reflect.DeepEqual(index.FilenamePatterns, patterns) {
-			t.Fatalf("filenamePatterns = %v, want %v", index.FilenamePatterns, patterns)
-		}
-		for _, name := range names {
-			response, page := requestPageData(t, app, "/api/page?project=.&path="+name)
-			allowed := filter.Match(name)
-			if allowed != (response.Code == http.StatusOK) {
-				t.Fatalf("%v %s status = %d", patterns, name, response.Code)
-			}
-			if allowed && (!page.HasFile || page.DocumentType == nil || page.Source == "" || page.HighlightDisabled) {
-				t.Fatalf("incomplete document contract: %+v", page)
-			}
-		}
-		search := searchDocuments(t, app)
-		if len(search.Documents) != index.FileCount {
-			t.Fatalf("search %d differs from discovery %d", len(search.Documents), index.FileCount)
-		}
-		for _, entry := range search.Documents {
-			if !filter.Match(entry.Path) {
-				t.Fatalf("out-of-scope search result: %s", entry.Path)
-			}
-		}
+	}
+	if search := searchDocuments(t, app); len(search.Documents) != index.FileCount {
+		t.Fatalf("search %d differs from discovery %d", len(search.Documents), index.FileCount)
 	}
 }
 
@@ -86,12 +56,12 @@ func TestPageContractShape(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &contract); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"filenamePatterns", "binary", "previewDisabled", "highlightDisabled", "searchExcluded", "documentType", "navigationSupported"} {
+	for _, key := range []string{"binary", "previewDisabled", "highlightDisabled", "searchExcluded", "documentType", "navigationSupported"} {
 		if _, ok := contract[key]; !ok {
 			t.Errorf("missing %q", key)
 		}
 	}
-	for _, key := range []string{"fileTypes", "sourceLines"} {
+	for _, key := range []string{"fileTypes", "sourceLines", "filenamePatterns"} {
 		if _, ok := contract[key]; ok {
 			t.Errorf("legacy %s present", key)
 		}
@@ -111,9 +81,6 @@ func TestPageContractShape(t *testing.T) {
 		if string(fileType[key]) != value {
 			t.Errorf("documentType.%s = %s, want %s", key, fileType[key], value)
 		}
-	}
-	if string(contract["filenamePatterns"]) != `["*"]` {
-		t.Errorf("filenamePatterns = %s", contract["filenamePatterns"])
 	}
 }
 
@@ -323,8 +290,7 @@ func TestFormatEndpoint(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "binary.json"), []byte("{\x00}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	app := newScopedApp(t, root, "*.json", "*.yml", "*.go", "*.html", "*.css", "*.js")
-	writeMarkdown(t, filepath.Join(root, "outside.md"), "# outside")
+	app := newTestApp(t, root)
 
 	response := request(t, app, "/api/format?project=.&path=config.json")
 	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/json; charset=utf-8" {
@@ -356,7 +322,6 @@ func TestFormatEndpoint(t *testing.T) {
 		"/api/format?project=.&path=main.go":       http.StatusBadRequest,
 		"/api/format?project=.&path=large.json":    http.StatusRequestEntityTooLarge,
 		"/api/format?project=.&path=missing.json":  http.StatusNotFound,
-		"/api/format?project=.&path=outside.md":    http.StatusNotFound,
 		"/api/format?project=.&path=..%2Fetc.json": http.StatusNotFound,
 		"/api/format?project=.":                    http.StatusNotFound,
 	} {
@@ -382,7 +347,7 @@ func TestRawEndpointServesOnlyImagePreviews(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "main.go"), "package main\n")
 	writeMarkdown(t, filepath.Join(root, "README.md"), "# readme\n")
 	writeMarkdown(t, filepath.Join(root, "hidden", "secret.png"), "secret")
-	app := newScopedApp(t, root, "*.png", "*.svg", "*.go", "README.md")
+	app := newTestApp(t, root)
 
 	for name, want := range map[string]struct {
 		contentType string
@@ -417,21 +382,15 @@ func TestRawEndpointServesOnlyImagePreviews(t *testing.T) {
 			t.Errorf("%s = %d, want %d", target, response.Code, status)
 		}
 	}
-	scoped := newScopedApp(t, root, "*.svg")
-	if response := request(t, scoped, "/api/raw?project=.&path=image.PNG"); response.Code != http.StatusNotFound {
-		t.Fatalf("out-of-scope raw = %d", response.Code)
-	}
 }
 
-func TestMarkdownLinksTargetInScopeFiles(t *testing.T) {
+func TestMarkdownLinksTargetFiles(t *testing.T) {
 	root := t.TempDir()
 	writeMarkdown(t, filepath.Join(root, "README.md"), "[code](src/main.go) [conf](Dockerfile)")
 	writeMarkdown(t, filepath.Join(root, "src", "main.go"), "package main\n")
-	for patterns, want := range map[string]bool{"*": true, "*.md": false} {
-		_, page := requestPageData(t, newScopedApp(t, root, strings.Split(patterns, ",")...), "/api/page?project=.&path=README.md")
-		if strings.Contains(page.Content, `href="/view?project=.&amp;path=src%2Fmain.go"`) != want || strings.Contains(page.Content, `href="/view?project=.&amp;path=Dockerfile"`) != want {
-			t.Fatalf("%s links = %s", patterns, page.Content)
-		}
+	_, page := requestPageData(t, newTestApp(t, root), "/api/page?project=.&path=README.md")
+	if !strings.Contains(page.Content, `href="/view?project=.&amp;path=src%2Fmain.go"`) || !strings.Contains(page.Content, `href="/view?project=.&amp;path=Dockerfile"`) {
+		t.Fatalf("links = %s", page.Content)
 	}
 }
 

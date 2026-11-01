@@ -20,13 +20,11 @@ import (
 // request. Roots confine every project; ScanDepth bounds repository discovery;
 // Depth bounds the file scan within a project.
 type Config struct {
-	Roots      []string
-	ScanDepth  int
-	Depth      int
-	Exclusions []string
-	// Types decides presentation; Filenames decides which files are in scope.
-	Types     *document.Registry
-	Filenames files.NameFilter
+	Roots     []string
+	ScanDepth int
+	Depth     int
+	// Types decides presentation; every file within Depth is in scope.
+	Types *document.Registry
 	// LanguageServers runs language servers for requests that opt in; nil
 	// uses the built-in servers for Types' text families. The App
 	// closes it.
@@ -87,9 +85,6 @@ func New(config Config) (*App, error) {
 
 	if config.Types == nil {
 		config.Types = document.Builtins()
-	}
-	if len(config.Filenames.Patterns()) == 0 {
-		config.Filenames = files.AllNames()
 	}
 	roots, err := projects.CanonicalRoots(config.Roots)
 	if err != nil {
@@ -185,7 +180,7 @@ func (a *App) project(id string) (workspace, int, string) {
 	if id == "" {
 		return workspace{}, http.StatusBadRequest, noProjectMessage
 	}
-	root, err := projects.Resolve(a.roots, id, a.config.Exclusions)
+	root, err := projects.Resolve(a.roots, id)
 	if errors.Is(err, files.ErrPathEscape) {
 		return workspace{}, http.StatusBadRequest, projectUnavailableMessage
 	}
@@ -199,7 +194,7 @@ func (a *App) project(id string) (workspace, int, string) {
 }
 
 func (a *App) scan(root string) (*files.Index, error) {
-	return files.Scan(root, a.config.Depth, a.config.Exclusions, a.config.Filenames.Match)
+	return files.Scan(root, a.config.Depth, func(string) bool { return true })
 }
 
 func warningStrings(warnings []files.Warning) []string {

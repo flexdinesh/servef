@@ -141,7 +141,7 @@ func (a *App) serveWalkthrough(w http.ResponseWriter, projectID, id string) {
 		return
 	}
 	// Narration links resolve from the project root, like a root README's.
-	context := document.Context{Project: stored.Project, Supports: a.config.Filenames.Match}
+	context := document.Context{Project: stored.Project}
 	render := func(source string) string {
 		if source == "" {
 			return ""
@@ -184,8 +184,8 @@ func (a *App) serveDeleteWalkthrough(w http.ResponseWriter, r *http.Request, pro
 type walkthroughTargets struct{ app *App }
 
 // Check resolves the project, then checks every step's target as the
-// browser will open it: working-tree files through the scanned index (the
-// CLI scope), commit files and diffs through git. Abbreviated hashes become
+// browser will open it: working-tree files through the scanned index
+// (within Depth), commit files and diffs through git. Abbreviated hashes become
 // full; missing Expect prefixes are recorded for targets that can drift
 // (the working tree and branches).
 func (t walkthroughTargets) Check(ctx context.Context, projectID string, steps []walkthrough.Step) (string, []walkthrough.Step, error) {
@@ -319,7 +319,7 @@ func (c *stepChecker) file(field string, file *walkthrough.FileTarget) error {
 	}
 	resolved, err := c.index.Resolve(file.Path)
 	if err != nil {
-		c.problem(field+".path", "is not a file servef shows in the project (missing, excluded, too deep, or outside --filename)")
+		c.problem(field+".path", "is not a file servef shows in the project (missing, excluded, or too deep)")
 		return nil
 	}
 	if file.Lines == nil {

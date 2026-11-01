@@ -312,7 +312,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
         {mobile && <IconButton label="Close files" icon={<XIcon aria-hidden="true" />} onClick={onDismiss} />}
       </div>
       <div className="explorer-shelf">
-        {hasData && !page.projectUnavailable && <FilenameFilter filter={filter} scopePatterns={page.filenamePatterns}
+        {hasData && !page.projectUnavailable && <FilenameFilter filter={filter}
           totalCount={totalCount} visibleCount={visibleCount} onFocusTree={focusFirstRow} />}
         <div className="file-search" hidden={!search.isOpen}>
           <TextField className="file-search-field" inputClassName="file-search-input" inputRef={searchInput}

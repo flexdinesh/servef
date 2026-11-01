@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { countFiles, filterTreeByFilename, isDefaultFilenameScope, parseFilenameFilter } from "./filename-filter.ts"
+import { countFiles, filterTreeByFilename, parseFilenameFilter } from "./filename-filter.ts"
 import type { TreeNode } from "../../api/page-contract.ts"
 
 function matches(pattern: string, name: string): boolean {
@@ -103,11 +103,4 @@ test("tree filtering matches file base names, prunes empty folders, and preserve
   assert.deepEqual(filterTreeByFilename(tree, null), tree)
   assert.equal(countFiles(tree), 4)
   assert.equal(countFiles(visible), 3)
-})
-
-test("default CLI scope is a single star", () => {
-  assert.equal(isDefaultFilenameScope(["*"]), true)
-  assert.equal(isDefaultFilenameScope([]), true)
-  assert.equal(isDefaultFilenameScope(["*.md"]), false)
-  assert.equal(isDefaultFilenameScope(["*", "*.md"]), false)
 })

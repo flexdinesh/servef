@@ -14,8 +14,8 @@ import (
 // every regular file and symlink below root that rules do not ignore, in
 // directory order. Symlinks are reported, never followed. Ignored
 // directories, .git entries, and nested repositories (directories other than
-// root holding a .git entry) are pruned. No depth, filename, or exclusion
-// scope applies.
+// root holding a .git entry) are pruned. No depth, filename, or excluded
+// directory scope applies.
 //
 // root must be absolute and symlink-evaluated. Failure to read root, a visit
 // error, or ctx ending stops the walk with that error; unreadable directories

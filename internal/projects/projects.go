@@ -126,9 +126,9 @@ func Roots(roots []string) []Root {
 // Discover finds repositories up to maxDepth directories below each root (a
 // root is depth zero) and every worktree of those repositories, wherever it
 // lives. It stops descending at a repository, skips hidden and excluded
-// directory names, and does not follow symlinks. A root that is not a
+// (files.Excluded) directory names, and does not follow symlinks. A root that is not a
 // repository is listed as a folder project.
-func Discover(roots []string, maxDepth int, excluded []string) (Discovery, error) {
+func Discover(roots []string, maxDepth int) (Discovery, error) {
 	canonicalRoots := make([]string, len(roots))
 	for i, root := range roots {
 		canonicalRoot, err := canonicalDir(root)
@@ -137,7 +137,7 @@ func Discover(roots []string, maxDepth int, excluded []string) (Discovery, error
 		}
 		canonicalRoots[i] = canonicalRoot
 	}
-	d := discoverer{roots: canonicalRoots, excluded: excludedNames(excluded), projects: make(map[string]Project), groups: make(map[string]bool)}
+	d := discoverer{roots: canonicalRoots, projects: make(map[string]Project), groups: make(map[string]bool)}
 	for _, root := range canonicalRoots {
 		if err := d.walk(root, 0, maxDepth); err != nil {
 			return Discovery{}, fmt.Errorf("read discovery root: %w", err)
@@ -181,11 +181,11 @@ func Discover(roots []string, maxDepth int, excluded []string) (Discovery, error
 
 // Resolve returns the symlink-evaluated directory for a project ID, an
 // absolute path. Below a root, a directory opens when it is a repository or
-// worktree, or when no directory from the root down to it is one; .git and
-// excluded names never open. Outside every root, only a linked worktree whose
+// worktree, or when no directory from the root down to it is one; excluded
+// names (files.Excluded) never open. Outside every root, only a linked worktree whose
 // repository lies in a root opens.
-func Resolve(roots []string, id string, excluded []string) (string, error) {
-	resolved, root, err := locate(roots, id, excludedNames(excluded))
+func Resolve(roots []string, id string) (string, error) {
+	resolved, root, err := locate(roots, id)
 	if err != nil {
 		return "", err
 	}
@@ -200,9 +200,9 @@ func Resolve(roots []string, id string, excluded []string) (string, error) {
 
 // Directories lists the child directories of a folder for browsing; an empty
 // ID lists the roots. Repositories and their contents are not browsed: they
-// open whole. Hidden directories are listed; .git, excluded names, and
-// symlinks are not.
-func Directories(roots []string, id string, excluded []string) ([]Directory, error) {
+// open whole. Hidden directories are listed; excluded names (files.Excluded)
+// and symlinks are not.
+func Directories(roots []string, id string) ([]Directory, error) {
 	if id == "" {
 		result := make([]Directory, 0, len(roots))
 		for _, root := range Roots(roots) {
@@ -210,8 +210,7 @@ func Directories(roots []string, id string, excluded []string) ([]Directory, err
 		}
 		return result, nil
 	}
-	skip := excludedNames(excluded)
-	dir, root, err := locate(roots, id, skip)
+	dir, root, err := locate(roots, id)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +224,7 @@ func Directories(roots []string, id string, excluded []string) ([]Directory, err
 	result := make([]Directory, 0, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		if !entry.IsDir() || name == ".git" || skip[name] {
+		if !entry.IsDir() || files.Excluded(name) {
 			continue
 		}
 		child := filepath.Join(dir, name)
@@ -244,7 +243,7 @@ func Directories(roots []string, id string, excluded []string) ([]Directory, err
 // locate resolves an ID to an existing directory and the root containing it.
 // The root is empty for a linked worktree outside every root whose repository
 // lies in one; any other directory outside the roots escapes.
-func locate(roots []string, id string, excluded map[string]bool) (string, string, error) {
+func locate(roots []string, id string) (string, string, error) {
 	if id == "" || !filepath.IsAbs(id) || filepath.Clean(id) != id {
 		return "", "", fmt.Errorf("%w: invalid project id %q", ErrUnavailable, id)
 	}
@@ -269,7 +268,7 @@ func locate(roots []string, id string, excluded map[string]bool) (string, string
 			return "", "", files.ErrPathEscape
 		}
 		for _, segment := range strings.Split(filepath.ToSlash(rel), "/") {
-			if segment == ".git" || excluded[segment] {
+			if files.Excluded(segment) {
 				return "", "", fmt.Errorf("%w: %q is excluded", ErrUnavailable, id)
 			}
 		}
@@ -297,7 +296,6 @@ func insideRepository(root, dir string) bool {
 
 type discoverer struct {
 	roots    []string
-	excluded map[string]bool
 	projects map[string]Project
 	groups   map[string]bool
 	warnings []files.Warning
@@ -322,7 +320,7 @@ func (d *discoverer) walk(dir string, depth, maxDepth int) error {
 	for _, entry := range entries {
 		name := entry.Name()
 		// DirEntry types come from Lstat, so symlinked directories are not IsDir.
-		if !entry.IsDir() || strings.HasPrefix(name, ".") || d.excluded[name] {
+		if !entry.IsDir() || strings.HasPrefix(name, ".") || files.Excluded(name) {
 			continue
 		}
 		if err := d.walk(filepath.Join(dir, name), depth+1, maxDepth); err != nil {
@@ -644,15 +642,4 @@ func containsPath(paths []string, name string) bool {
 		}
 	}
 	return false
-}
-
-func excludedNames(excluded []string) map[string]bool {
-	names := make(map[string]bool, len(excluded))
-	for _, name := range excluded {
-		name = filepath.Base(filepath.Clean(name))
-		if name != "." && name != string(filepath.Separator) && name != "" {
-			names[name] = true
-		}
-	}
-	return names
 }

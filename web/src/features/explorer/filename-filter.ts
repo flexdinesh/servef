@@ -1,7 +1,7 @@
 import type { TreeNode } from "../../api/page-contract.ts"
 
-// Filename filters mirror the CLI's --filename semantics: comma-separated Go
-// path.Match globs, matched case-insensitively against the file base name.
+// Filename filters are comma-separated Go path.Match globs, matched
+// case-insensitively against the file base name.
 
 type Token =
   | { kind: "star" }
@@ -154,8 +154,4 @@ export function filterTreeByFilename(nodes: readonly TreeNode[], matcher: Filena
 
 export function countFiles(nodes: readonly TreeNode[]): number {
   return nodes.reduce((total, node) => total + (node.isDir ? countFiles(node.children) : 1), 0)
-}
-
-export function isDefaultFilenameScope(patterns: readonly string[]): boolean {
-  return patterns.length === 0 || (patterns.length === 1 && patterns[0] === "*")
 }

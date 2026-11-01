@@ -14,12 +14,6 @@ type NameFilter struct {
 	folded   []string
 }
 
-// AllNames is the default filter, equivalent to the single pattern "*".
-func AllNames() NameFilter {
-	filter, _ := NewNameFilter([]string{"*"})
-	return filter
-}
-
 // NewNameFilter validates patterns. Empty patterns, malformed globs, and
 // patterns containing "/" (which can never match a base name) are rejected.
 func NewNameFilter(patterns []string) (NameFilter, error) {

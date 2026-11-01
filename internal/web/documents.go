@@ -40,7 +40,6 @@ type pageData struct {
 	Empty               bool           `json:"empty"`
 	Error               string         `json:"error"`
 	Warnings            []string       `json:"warnings"`
-	FilenamePatterns    []string       `json:"filenamePatterns"`
 	DocumentType        *document.Type `json:"documentType"`
 	NavigationSupported bool           `json:"navigationSupported"`
 	Binary              bool           `json:"binary"`
@@ -367,7 +366,6 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 			ProjectKind:        projects.KindFolder,
 			Selected:           selected,
 			Tree:               []treeNode{},
-			FilenamePatterns:   a.config.Filenames.Patterns(),
 			Error:              message,
 			Warnings:           []string{},
 		}, status
@@ -376,32 +374,30 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 	index, err := a.scan(project.root)
 	if err != nil {
 		return pageData{
-			Roots:            a.roots,
-			Project:          project.id,
-			RootName:         filepath.Base(project.root),
-			Repository:       checkout.Repository,
-			ProjectKind:      checkout.Kind,
-			Branch:           checkout.Branch,
-			Worktrees:        checkout.Worktrees,
-			Tree:             []treeNode{},
-			FilenamePatterns: a.config.Filenames.Patterns(),
-			Error:            err.Error(),
-			Warnings:         []string{},
+			Roots:       a.roots,
+			Project:     project.id,
+			RootName:    filepath.Base(project.root),
+			Repository:  checkout.Repository,
+			ProjectKind: checkout.Kind,
+			Branch:      checkout.Branch,
+			Worktrees:   checkout.Worktrees,
+			Tree:        []treeNode{},
+			Error:       err.Error(),
+			Warnings:    []string{},
 		}, http.StatusInternalServerError
 	}
 	data := pageData{
-		Roots:            a.roots,
-		Project:          project.id,
-		RootName:         filepath.Base(index.RootPath()),
-		Repository:       checkout.Repository,
-		ProjectKind:      checkout.Kind,
-		Branch:           checkout.Branch,
-		Worktrees:        checkout.Worktrees,
-		Selected:         selected,
-		FileCount:        len(index.Files),
-		Empty:            len(index.Files) == 0,
-		Warnings:         warningStrings(index.Warnings),
-		FilenamePatterns: a.config.Filenames.Patterns(),
+		Roots:       a.roots,
+		Project:     project.id,
+		RootName:    filepath.Base(index.RootPath()),
+		Repository:  checkout.Repository,
+		ProjectKind: checkout.Kind,
+		Branch:      checkout.Branch,
+		Worktrees:   checkout.Worktrees,
+		Selected:    selected,
+		FileCount:   len(index.Files),
+		Empty:       len(index.Files) == 0,
+		Warnings:    warningStrings(index.Warnings),
 	}
 	// A commit document selects no working-tree file.
 	treeSelected := selected
@@ -461,7 +457,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 			return data, http.StatusOK
 		}
 		var err error
-		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id, Supports: a.config.Filenames.Match})
+		data.Content, err = family.Preview(file.source, document.Context{Path: selected, Project: project.id})
 		if err != nil {
 			data.PreviewError = err.Error()
 		}

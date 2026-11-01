@@ -27,7 +27,7 @@ func newProjectsApp(t *testing.T) (*App, string) {
 	writeMarkdown(t, filepath.Join(root, "web", ".git", "HEAD"), "ref: refs/heads/main\n")
 	writeMarkdown(t, filepath.Join(root, "web", "secret.md"), "# Web only\n")
 	writeMarkdown(t, filepath.Join(root, "web", "logo.png"), "png")
-	app, err := New(Config{Roots: []string{root}, ScanDepth: 10, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}})
+	app, err := New(Config{Roots: []string{root}, ScanDepth: 10, Depth: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
