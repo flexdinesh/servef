@@ -109,7 +109,9 @@ For example:
 - servef prints `published <id> (created|replaced) for <project>`, then
   `url: …` when the desktop app or a running servef shows the project. Give
   the user the `url`; it may be a `servef://local/view?…` link (desktop app)
-  or an `http://` one. `--json` prints `{"id", "project", "created", "url"}`
+  or an `http://` one. Inside an SSH session it may be a
+  `servef://ssh/<host>/view?…` link: tell the user to open it on their
+  computer, where the servef desktop app connects to this host. `--json` prints `{"id", "project", "created", "url"}`
   instead (`url` only when something shows it). `"open": true` opens the url
   in the app or their browser unless `--no-open` is passed or the session is
   over SSH. With no running

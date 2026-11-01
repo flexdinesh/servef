@@ -1,6 +1,6 @@
 # 0068: CLI opens the desktop app; desktop releases
 
-- Status: Accepted
+- Status: Accepted; revised by [0069](0069-servef-remote-and-ssh-links.md) (SSH sessions)
 - Date: 2026-11-01
 - Implements: [0063](0063-cli-commands-and-url-scheme.md) `servef [path]` and
   the local scheme; [0062](0062-desktop-app.md) Revisions when accepted
