@@ -23,10 +23,6 @@ dagger = "0.21.10"
 # Local overrides such as dev ports; see .env.example. Missing is fine.
 _.file = ".env"
 
-# Checks shared by check, check:push, and check:full.
-[vars]
-shared_checks = "fmt:check tidy:check mise:check vet test:web test:release typecheck lint"
-
 [tasks.setup]
 description = "Install dependencies and build embedded frontend assets"
 run = ["go mod download", "pnpm install", { task = "build:web" }]
@@ -108,92 +104,63 @@ description = "Install the local CLI with go install"
 depends = ["build:web"]
 run = "go install ."
 
-# Checks
+# Checks validate committed snapshots; hidden leaves run in containers.
 
 [tasks."fmt:check"]
-description = "Check Go formatting"
-shell = "bash -e -o pipefail -c"
-run = '''
-unformatted=$(git ls-files -z '*.go' | xargs -0 gofmt -l)
-if [ -n "$unformatted" ]; then
-  printf '%s\n' "$unformatted" >&2
-  echo "Run gofmt -w on these files." >&2
-  exit 1
-fi
-'''
+description = "Run fmt:check in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group go --task _validate:fmt:check"
 
 [tasks."tidy:check"]
-description = "Check go.mod and go.sum are tidy"
-run = "go mod tidy -diff"
+description = "Run tidy:check in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group go --task _validate:tidy:check"
 
 [tasks."mise:check"]
-description = "Validate and format-check mise.toml"
-run = ["mise tasks validate", "mise fmt --check"]
+description = "Run mise:check in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group tooling --task _validate:mise:check"
 
-[tasks.vet]
-description = "Run go vet"
-depends = ["build:web"]
-run = "go vet ./..."
+[tasks."vet"]
+description = "Run vet in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group go --task _validate:vet"
 
 [tasks."test:go"]
-description = "Run Go tests"
-depends = ["build:web"]
-run = "go test ./..."
+description = "Run test:go in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group go --task _validate:test:go"
 
 [tasks."test:race"]
-description = "Run Go tests with the race detector (needs CGO)"
-depends = ["build:web"]
-run = "go test -race ./..."
+description = "Run test:race in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group go --task _validate:test:race"
 
 [tasks."test:web"]
-description = "Run frontend tests"
-run = "pnpm test:web"
+description = "Run test:web in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group frontend --task _validate:test:web"
 
 [tasks."test:release"]
-description = "Test release tooling"
-run = "pnpm test:release"
+description = "Run test:release in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group tooling --task _validate:test:release"
 
 [tasks."test:browser"]
-description = "Run browser tests"
-depends = ["build:web"]
-run = "pnpm exec node scripts/test-browser.ts"
+description = "Run test:browser in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group browser --task _validate:test:browser"
+
+[tasks."lint"]
+description = "Run lint in an isolated committed snapshot"
+run = "go run ./tools/validate validate --group frontend --task _validate:lint"
 
 [tasks.typecheck]
-description = "Type-check TypeScript"
-run = "pnpm typecheck"
+description = "Type-check all TypeScript workspaces in isolated snapshots"
+run = [
+  "go run ./tools/validate validate --group frontend --task _validate:typecheck:web",
+  "go run ./tools/validate validate --group tooling --task _validate:typecheck:root",
+  "go run ./tools/validate validate --group docs --task _validate:typecheck:site",
+]
 
-[tasks.lint]
-description = "Lint with oxlint and stylelint"
-run = "pnpm lint"
-
-# scripts/check.ts runs `:::`-separated groups in order, logs each task to
-# .dev/check-logs, and prints one line per task (decision 0057).
 [tasks.check]
-description = "Run non-browser checks, including the docs build"
-quiet = true
-run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:go build:site"
-
-# The shared Git directory gives all worktrees the same OS-backed lock.
-[tasks."check:push"]
-description = "Queue pre-push checks across worktrees"
-quiet = true
-run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run -q check:push:run"
-
-[tasks."check:push:run"]
-description = "Run ordinary checks, then critical browser tests"
-hide = true
-quiet = true
-run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:go ::: test:browser"
+description = "Validate everything in local Dagger containers"
+run = "go run ./tools/validate validate"
 
 [tasks."check:full"]
-description = "Queue full checks, including race tests and the docs build"
-quiet = true
-run = "GOMAXPROCS=${GOMAXPROCS:-2} MISE_JOBS=${MISE_JOBS:-2} go run ./tools/check-lock mise run -q check:full:run"
-
-[tasks."check:full:run"]
-hide = true
-quiet = true
-run = "node scripts/check.ts build:web ::: {{vars.shared_checks}} test:race build:site ::: test:browser"
+description = "Validate everything in local Dagger containers"
+run = "go run ./tools/validate validate"
 
 # Container leaves. Dagger supplies immutable preparation and private state.
 [tasks."_validate:go"]

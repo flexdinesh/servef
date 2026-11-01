@@ -9,6 +9,7 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 ## Boundaries
 
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
+- Local validation: `tools/validate/` owns committed snapshots, input identities, receipts, admission, and PR wrappers; `.dagger/` owns isolated execution and immutable preparation. Leaf commands stay in mise. This tooling is not part of the shipped application.
 - `cmd/` owns CLI validation, session configuration, and application startup.
 - `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. It also exports the 0023 ignore rules (`IgnoreRules`), an unscoped walk of non-ignored files (`WalkUnignored`), root-confined `ResolveFile` for changed paths, and the directories a scan reads (`Directories`) for live updates. Accept an explicit matcher; know no file formats.
 - `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, where git state lives (`ReadGitState`: HEAD, index, refs), and the `origin` remote URL only.
@@ -145,19 +146,24 @@ For every addition:
 
 Use `testdata/markdown` and `mise run dev` while iterating; it also serves the browser tests' git fixture, rebuilt in the gitignored `.dev/git-fixture`, for Source Control, and publishes sample walkthroughs (`scripts/dev-walkthroughs.ts`) into `.dev/cache`. mise is required: `mise.toml` declares tools (locked in `mise.lock`), loads the gitignored `.env` (dev ports: `SERVEF_DEV_SERVER_PORT`, `SERVEF_DEV_WEB_PORT`), and owns every composite task; `package.json` keeps single JS steps (`docs/decisions/0038-mise-dev-tooling-and-env-ports.md`).
 
-Check output stays in the conversation, so verify with the narrowest command for what changed (decision 0057):
+While editing, use the narrowest native check below. These checks do not establish
+PR validation evidence. Commit first, then run `mise run validate` before creating
+or updating a PR (decision 0058; see `docs/validation.md`). Public targeted mise
+check tasks validate the same isolated committed snapshots as the aggregate.
 
 | Change | Command |
 | --- | --- |
 | One Go package | `go test ./internal/<pkg>` (`mise run build:web` once per worktree first; it skips when unchanged) |
 | Frontend logic | `pnpm --filter @servef/web exec node --test --test-reporter=dot <file>.test.ts` |
 | TypeScript types | `pnpm --filter @servef/web typecheck`; `pnpm exec tsc --noEmit` for `scripts/` and `tests/` |
-| CSS, components, Hooks | `mise run lint` |
+| CSS, components, Hooks | `pnpm lint` |
 | Release tooling, `scripts/` | `node --test --test-reporter=dot tests/<file>.test.ts` |
-| `mise.toml` | `mise run mise:check` |
+| `mise.toml` | `mise tasks validate` and `mise fmt --check` |
 | Docs site | `pnpm --filter @servef/site typecheck`; `mise run build:site` |
-| Browser behavior | `mise run test:browser -- tests/browser/<spec>.ts` |
+| Browser behavior | `mise run build:web`, then `pnpm exec node scripts/test-browser.ts tests/browser/<spec>.ts` |
 
-- The pre-push hook runs `mise run check:push` and is the full-check gate. Do not run `check` or `check:push` separately before pushing.
-- `check`, `check:push`, and `check:full` print one line per task and log output to `.dev/check-logs/`. On failure, read the printed tail or log and rerun only the printed `mise run <task>`. `SERVEF_CHECK_VERBOSE=1` streams output.
+- No mandatory checks run on push. `validate`, `check`, and `check:full` mean all five groups, including race and docs builds. `validate:status` checks current input coverage; `--force` reruns checks and builds. Partial, failed, or cancelled runs never qualify as full validation.
+- Prefer `mise run pr:create` and `mise run pr:update`: they validate committed HEAD, recheck it, and push that exact commit. These wrappers are bypassable; Git has no standard pre-PR hook. Existing CI and releases remain unchanged.
+- Run only against the explicitly managed `servef-validation-engine-v0.21.10`. Never automatically bootstrap, remove, restart, or prune another engine. Preserve other repositories' engines and volumes; cancellation stops only the current invocation.
+- Validation prints per-group execution/reuse and a unique local artifact directory. Read failure logs there; browser traces/screenshots and diagnostics survive failure. Rerun only the failed isolated group while iterating, then establish aggregate coverage before PR work.
 - Run long checks in the background and wait for the completion notification. Never poll logs or `sleep` in loops.
