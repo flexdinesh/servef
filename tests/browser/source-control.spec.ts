@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
-import { expect, test, type Page } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
+import { test } from "./live-test.ts"
 
 import {
   featureSubject, gitFixtureChanges, gitFixtureRoot, lowerBranch, lowerSubject, upperBranch,
@@ -10,6 +11,7 @@ import { gitApiOrigin } from "./ports.ts"
 
 // The fixture repository is built by the git server's webServer command.
 test.skip(() => !existsSync(path.join(gitFixtureRoot, ".git")), "git is not installed")
+test.use({ seed: gitFixtureRoot })
 
 const project = encodeURIComponent(gitFixtureRoot)
 // Uncommitted changes in review order: folders first, then root files.
@@ -779,11 +781,11 @@ test("a failed switch to all history never lists the branch as all history", asy
   await expect(commitsList(page).getByRole("option")).toHaveCount(3)
 })
 
-test("Viewed marks collapse files, survive reloads, and clear when the file changes", async ({ page }) => {
-  const file = path.join(gitFixtureRoot, "untracked.txt")
+test("Viewed marks collapse files, survive reloads, and clear when the file changes", async ({ page, live }) => {
+  const file = path.join(live.root, "untracked.txt")
   const original = readFileSync(file, "utf8")
   try {
-    await openReview(page, "review=working#f=untracked.txt")
+    await page.goto(`${live.origin}/view?project=${encodeURIComponent(live.root)}&review=working#f=untracked.txt`)
     const viewed = reviewFile(page, "untracked.txt").getByRole("button", { name: "Viewed" })
     // Marks wait for the file's content hash.
     await expect(viewed).toBeEnabled()
