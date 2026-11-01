@@ -126,3 +126,51 @@ func TestPruneProtectsActiveArtifactsAndBoundsCompletedBytes(t *testing.T) {
 		t.Fatal("abandoned execution not recovered")
 	}
 }
+
+func TestPruneIgnoresChangingActiveFiles(t *testing.T) {
+	a := app{Root: t.TempDir(), Cache: t.TempDir()}
+	dir := filepath.Join(a.artifactRoot(), "active")
+	lease, err := acquireFile(context.Background(), filepath.Join(dir, "active.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Close()
+	if err = writeJSON(filepath.Join(dir, "run.json"), record{ID: "active", Started: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	stop, done := make(chan struct{}), make(chan error, 1)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				done <- nil
+				return
+			default:
+			}
+			tmp, e := os.MkdirTemp(dir, "changing-")
+			if e != nil {
+				done <- e
+				return
+			}
+			if e = os.WriteFile(filepath.Join(tmp, "output"), []byte("private"), 0600); e != nil {
+				done <- e
+				return
+			}
+			if e = os.RemoveAll(tmp); e != nil {
+				done <- e
+				return
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
+	for range 20 {
+		if err = a.pruneArtifacts(0, 0); err != nil {
+			t.Fatalf("active file churn interrupted pruning: %v", err)
+		}
+	}
+}

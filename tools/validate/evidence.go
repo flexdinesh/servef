@@ -126,6 +126,17 @@ func (a app) pruneArtifacts(age time.Duration, budget int64) error {
 			continue
 		}
 		dir := filepath.Join(root, entry.Name())
+		f, e := os.OpenFile(filepath.Join(dir, "active.lock"), os.O_CREATE|os.O_RDWR, 0600)
+		if e != nil {
+			return e
+		}
+		if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
+			f.Close()
+			if errors.Is(e, syscall.EWOULDBLOCK) {
+				continue
+			}
+			return e
+		}
 		var size int64
 		err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -141,20 +152,10 @@ func (a app) pruneArtifacts(age time.Duration, budget int64) error {
 			return nil
 		})
 		if err != nil {
+			f.Close()
 			return err
 		}
 		total += size
-		f, e := os.OpenFile(filepath.Join(dir, "active.lock"), os.O_CREATE|os.O_RDWR, 0600)
-		if e != nil {
-			return e
-		}
-		if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
-			f.Close()
-			if errors.Is(e, syscall.EWOULDBLOCK) {
-				continue
-			}
-			return e
-		}
 		var r record
 		raw, e := os.ReadFile(filepath.Join(dir, "run.json"))
 		if e != nil || json.Unmarshal(raw, &r) != nil {
