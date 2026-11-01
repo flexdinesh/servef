@@ -101,6 +101,7 @@ func (a *App) servePublishWalkthrough(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.notices.announce(WalkthroughNotice{Project: published.Walkthrough.Project, ID: published.Walkthrough.ID, Title: published.Walkthrough.Title, Created: published.Created})
 	query := url.Values{"project": {published.Walkthrough.Project}, "wt": {published.Walkthrough.ID}}
 	target := (&url.URL{Scheme: "http", Host: r.Host, Path: "/view", RawQuery: query.Encode()}).String()
 	if draft.Open && a.config.OpenBrowser != nil {

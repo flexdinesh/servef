@@ -15,6 +15,10 @@ import (
 	"testing"
 	"time"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+
 	"github.com/flexdinesh/servef/internal/watch"
 )
 
@@ -59,7 +63,12 @@ type eventStream struct {
 
 func openEvents(t *testing.T, server *httptest.Server, project string) *eventStream {
 	t.Helper()
-	response, err := http.Get(server.URL + "/api/events?project=" + url.QueryEscape(project))
+	return openEventsQuery(t, server, url.Values{"project": {project}})
+}
+
+func openEventsQuery(t *testing.T, server *httptest.Server, query url.Values) *eventStream {
+	t.Helper()
+	response, err := http.Get(server.URL + "/api/events?" + query.Encode())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,6 +124,84 @@ func (s *eventStream) next(name string, into any) {
 	}
 }
 
+// take returns the stream's next event of any name.
+func (s *eventStream) take() serverSentEvent {
+	s.t.Helper()
+	select {
+	case event, ok := <-s.events:
+		if !ok {
+			s.t.Fatal("stream ended")
+		}
+		return event
+	case <-time.After(3 * time.Second):
+		s.t.Fatal("no event")
+	}
+	return serverSentEvent{}
+}
+
+// nextHead skips to the next head event, checking that it follows a git
+// change or, for the first, the status.
+func (s *eventStream) nextHead() headEvent {
+	s.t.Helper()
+	var previous serverSentEvent
+	for {
+		event := s.take()
+		if event.name != "head" {
+			previous = event
+			continue
+		}
+		var head headEvent
+		if err := json.Unmarshal([]byte(event.data), &head); err != nil {
+			s.t.Fatal(err)
+		}
+		var change changeEvent
+		switch {
+		case head.Previous == nil && previous.name == "status":
+		case previous.name == "change" && json.Unmarshal([]byte(previous.data), &change) == nil && change.Git:
+		default:
+			s.t.Fatalf("head %s follows %+v, want the status or a git change", event.data, previous)
+		}
+		return head
+	}
+}
+
+// liveRepo is a repository with one commit on master, its git config
+// isolated from the host's.
+func liveRepo(t *testing.T) (string, *gogit.Repository, plumbing.Hash) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo, err := gogit.PlainInit(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "README.md"), "# One\n")
+	return root, repo, commitAll(t, repo, "Initial commit\n\nBody.")
+}
+
+func commitAll(t *testing.T, repo *gogit.Repository, message string) plumbing.Hash {
+	t.Helper()
+	worktree, err := repo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := worktree.AddWithOptions(&gogit.AddOptions{All: true}); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := worktree.Commit(message, &gogit.CommitOptions{Author: &object.Signature{Name: "servef", Email: "servef@example.com", When: time.Unix(1700000000, 0)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hash
+}
+
 func TestEventsStreamStatusThenChanges(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "README.md"), "# One\n")
@@ -157,6 +244,124 @@ func TestEventsStreamGitStateChanges(t *testing.T) {
 	stream.next("change", &change)
 	if !change.Git || len(change.Paths) != 0 {
 		t.Fatalf("change = %+v, want git only", change)
+	}
+}
+
+func TestEventsSendHeadFirstThenWhenItMoves(t *testing.T) {
+	root, repo, initial := liveRepo(t)
+	app := newLiveApp(t, root)
+	server := liveServer(t, app, 0)
+
+	stream := openEvents(t, server, app.roots.List()[0])
+	if event := stream.take(); event.name != "status" {
+		t.Fatalf("first event = %+v, want status", event)
+	}
+	event := stream.take()
+	if event.name != "head" {
+		t.Fatalf("second event = %+v, want head", event)
+	}
+	want := `{"branch":"master","commit":"` + initial.String() + `","subject":"Initial commit","previous":null}`
+	if event.data != want {
+		t.Fatalf("baseline head = %s, want %s", event.data, want)
+	}
+
+	worktree, err := repo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := worktree.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("feature"), Create: true}); err != nil {
+		t.Fatal(err)
+	}
+	switched := headEvent{Branch: "feature", Commit: initial.String(), Subject: "Initial commit", Previous: &headRef{Branch: "master", Commit: initial.String()}}
+	if got := stream.nextHead(); !reflect.DeepEqual(got, switched) {
+		t.Fatalf("head after switch = %+v (previous %+v), want %+v", got, got.Previous, switched)
+	}
+
+	writeTestFile(t, filepath.Join(root, "README.md"), "# Two\n")
+	next := commitAll(t, repo, "Second commit")
+	committed := headEvent{Branch: "feature", Commit: next.String(), Subject: "Second commit", Previous: &headRef{Branch: "feature", Commit: initial.String()}}
+	if got := stream.nextHead(); !reflect.DeepEqual(got, committed) {
+		t.Fatalf("head after commit = %+v (previous %+v), want %+v", got, got.Previous, committed)
+	}
+}
+
+func TestEventsSendNoHeadForFolders(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "README.md"), "# One\n")
+	app := newLiveApp(t, root)
+	server := liveServer(t, app, 0)
+
+	stream := openEvents(t, server, app.roots.List()[0])
+	if event := stream.take(); event.name != "status" {
+		t.Fatalf("first event = %+v, want status", event)
+	}
+	writeTestFile(t, filepath.Join(root, "README.md"), "# Two\n")
+	if event := stream.take(); event.name != "change" {
+		t.Fatalf("event after status = %+v, want the change and no head", event)
+	}
+}
+
+func TestEventsWatchedLeaseFollowsGitStateOnly(t *testing.T) {
+	root, repo, initial := liveRepo(t)
+	app := newLiveApp(t, root)
+	server := liveServer(t, app, 0)
+
+	stream := openEventsQuery(t, server, url.Values{"project": {app.roots.List()[0]}, "lease": {"watched"}})
+	event := stream.take()
+	var status statusEvent
+	if event.name != "status" || json.Unmarshal([]byte(event.data), &status) != nil || status.Mode != watch.ModeWatching {
+		t.Fatalf("first event = %+v, want watching status", event)
+	}
+	if event := stream.take(); event.name != "head" || !strings.Contains(event.data, initial.String()) || !strings.HasSuffix(event.data, `"previous":null}`) {
+		t.Fatalf("second event = %+v, want the baseline head", event)
+	}
+
+	// A working-tree edit alone sends nothing to a watched stream.
+	writeTestFile(t, filepath.Join(root, "notes.md"), "x")
+	time.Sleep(200 * time.Millisecond)
+	next := commitAll(t, repo, "Add notes")
+	for {
+		event := stream.take()
+		if event.name == "head" {
+			var head headEvent
+			if err := json.Unmarshal([]byte(event.data), &head); err != nil {
+				t.Fatal(err)
+			}
+			if head.Commit != next.String() {
+				t.Fatalf("head = %+v, want %s", head, next)
+			}
+			return
+		}
+		var change changeEvent
+		if event.name != "change" || json.Unmarshal([]byte(event.data), &change) != nil || !change.Git || change.Tree || change.Overflow || len(change.Paths) != 0 {
+			t.Fatalf("event = %+v, want git-only changes", event)
+		}
+	}
+}
+
+func TestEventsRejectInvalidLeases(t *testing.T) {
+	root := t.TempDir()
+	app := newLiveApp(t, root)
+
+	// The lease is checked before the project.
+	for _, project := range []string{app.roots.List()[0], filepath.Join(root, "missing")} {
+		response := request(t, app, "/api/events?lease=forever&project="+url.QueryEscape(project))
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("%s status = %d, want 400", project, response.Code)
+		}
+		if got := response.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+			t.Fatalf("Content-Type = %q", got)
+		}
+		if body := decodeError(t, response); body.Code != "invalidLease" || body.Error == "" {
+			t.Fatalf("body = %+v, want invalidLease", body)
+		}
+	}
+
+	server := liveServer(t, app, 0)
+	for _, lease := range []string{"open", "watched"} {
+		stream := openEventsQuery(t, server, url.Values{"project": {app.roots.List()[0]}, "lease": {lease}})
+		var status statusEvent
+		stream.next("status", &status)
 	}
 }
 
