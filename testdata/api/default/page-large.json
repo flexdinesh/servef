@@ -2,6 +2,7 @@
   "roots": [
     "/home/user/markdown"
   ],
+  "sessionKey": "/home/user/markdown",
   "project": "/home/user/markdown",
   "projectUnavailable": false,
   "rootName": "markdown",

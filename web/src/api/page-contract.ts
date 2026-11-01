@@ -27,8 +27,10 @@ export interface TreeNode {
 }
 
 export interface PageData {
-  // roots are the served roots; browser memory is keyed by them.
+  // roots are the served roots.
   roots: string[]
+  // sessionKey keys browser workspace memory: "daemon", or the roots joined.
+  sessionKey: string
   project: string
   projectUnavailable: boolean
   documentType: FileType | null
@@ -113,6 +115,7 @@ function isTreeNode(value: unknown): value is TreeNode {
 export function isPageData(value: unknown): value is PageData {
   return isRecord(value)
     && isStringArray(value.roots)
+    && typeof value.sessionKey === "string"
     && typeof value.project === "string"
     && typeof value.projectUnavailable === "boolean"
     && typeof value.navigationSupported === "boolean"

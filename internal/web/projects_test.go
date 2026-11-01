@@ -297,6 +297,40 @@ func projectIDs(list []projects.Project) []string {
 	return ids
 }
 
+// Projects and pages name the session whose browser memory they read.
+func TestProjectsSessionKey(t *testing.T) {
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, second := filepath.Join(parent, "first"), filepath.Join(parent, "second")
+	writeMarkdown(t, filepath.Join(first, "notes.md"), "# First\n")
+	writeMarkdown(t, filepath.Join(second, "notes.md"), "# Second\n")
+	for _, test := range []struct {
+		name, configured, want string
+	}{
+		{"served roots", "", first + "\n" + second},
+		{"configured", "daemon", "daemon"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, err := New(Config{Roots: testRoots(t, first, second), ScanDepth: 10, Depth: 5, SessionKey: test.configured})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(app.Close)
+			if got := requestProjects(t, app).SessionKey; got != test.want {
+				t.Fatalf("sessionKey = %q, want %q", got, test.want)
+			}
+			// Pages carry the same key, also for an unavailable project.
+			for _, project := range []string{second, filepath.Join(parent, "missing")} {
+				if _, page := requestPageData(t, app, "/api/page?project="+url.QueryEscape(project)); page.SessionKey != test.want {
+					t.Fatalf("page %s sessionKey = %q, want %q", project, page.SessionKey, test.want)
+				}
+			}
+		})
+	}
+}
+
 // Frontend project fixtures must decode into the server's response types.
 func TestProjectFixturesMatchServerContract(t *testing.T) {
 	for name, target := range map[string]any{

@@ -5,6 +5,7 @@ import type { ProjectsResponse } from "../../api/projects-contract.ts"
 import { guideEntries, listsProjects, projectLines, startEntries, welcomeSections, type ProjectFacts } from "./welcome-model.ts"
 
 const response: ProjectsResponse = {
+  sessionKey: "/work",
   roots: [{ path: "/work", name: "work", isRepo: false }],
   projects: [
     { id: "/work", name: "work", path: "/work", kind: "folder", group: "", root: "/work", branch: "", repository: "", available: true },

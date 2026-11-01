@@ -7,6 +7,7 @@ import type { FileType, PageData } from "../../api/page-contract.ts"
 
 const emptyPage: PageData = {
   roots: ["/root"],
+  sessionKey: "/root",
   branch: "",
   project: ".",
   projectUnavailable: false,

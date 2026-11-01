@@ -3,15 +3,18 @@ package web
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/projects"
 )
 
 type projectsResponse struct {
-	Roots    []projects.Root    `json:"roots"`
-	Projects []projects.Project `json:"projects"`
-	Warnings []string           `json:"warnings"`
+	// SessionKey keys the browser's last-project memory (App.sessionKey).
+	SessionKey string             `json:"sessionKey"`
+	Roots      []projects.Root    `json:"roots"`
+	Projects   []projects.Project `json:"projects"`
+	Warnings   []string           `json:"warnings"`
 }
 
 type directoriesResponse struct {
@@ -24,10 +27,20 @@ func (a *App) serveProjects(w http.ResponseWriter) {
 	// A root removed while serving is a warning, not a failure for every root.
 	discovery := projects.Discover(roots, a.config.ScanDepth)
 	writeJSON(w, http.StatusOK, projectsResponse{
-		Roots:    projects.Roots(roots),
-		Projects: discovery.Projects,
-		Warnings: warningStrings(append(discovery.Skipped, discovery.Warnings...)),
+		SessionKey: a.sessionKey(roots),
+		Roots:      projects.Roots(roots),
+		Projects:   discovery.Projects,
+		Warnings:   warningStrings(append(discovery.Skipped, discovery.Warnings...)),
 	})
+}
+
+// sessionKey names the session whose browser memory a page reads:
+// Config.SessionKey, else the served roots joined by newlines.
+func (a *App) sessionKey(roots []string) string {
+	if a.config.SessionKey != "" {
+		return a.config.SessionKey
+	}
+	return strings.Join(roots, "\n")
 }
 
 func (a *App) serveDirectories(w http.ResponseWriter, id string) {

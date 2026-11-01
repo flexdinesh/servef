@@ -31,6 +31,9 @@ export interface Project {
 }
 
 export interface ProjectsResponse {
+  // sessionKey keys the last project remembered for this session: "daemon"
+  // under the daemon, else the served roots joined by newlines.
+  sessionKey: string
   roots: Root[]
   projects: Project[]
   warnings: string[]
@@ -77,6 +80,7 @@ function isRoot(value: unknown): value is Root {
 
 export function isProjectsResponse(value: unknown): value is ProjectsResponse {
   return isRecord(value)
+    && typeof value.sessionKey === "string"
     && Array.isArray(value.roots)
     && value.roots.every(isRoot)
     && Array.isArray(value.projects)

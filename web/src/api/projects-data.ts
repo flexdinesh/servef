@@ -29,10 +29,10 @@ export function defaultProject(projects: ProjectsResponse): string {
 }
 
 // landingProject picks the project for a URL without one: the last project
-// remembered for these served roots, or the first root.
+// remembered for this session, or the first root.
 export function landingProject(projects: ProjectsResponse, memory: WorkspaceMemory, welcome: boolean): Landing {
   const fallback = defaultProject(projects)
-  const last = lastProject(memory, projects.roots.map((root) => root.path))
+  const last = lastProject(memory, projects.sessionKey)
   if (!last) {
     const choices = projects.projects.filter((project) => project.available).length
     return { project: fallback, listed: true, pick: !welcome && choices > 1, fallback }

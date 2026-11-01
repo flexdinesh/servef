@@ -9,7 +9,7 @@ const customType = {
 function customPage(source: string) {
   return {
     content: "", source, highlightDisabled: false,
-    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, roots: ["/example"], repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "sample.custom",
+    empty: false, error: "", fileCount: 1, fileSize: source.length, hasFile: true, roots: ["/example"], sessionKey: "/example", repository: "", projectKind: "folder", branch: "", worktrees: 0, project: fixtureRoot, projectUnavailable: false, rootName: "example", selected: "sample.custom",
     warnings: [], previewError: "", documentType: customType,
     navigationSupported: false, binary: false, tooLarge: false, previewDisabled: false, searchExcluded: false, at: "",
     tree: [{ name: "sample.custom", path: "sample.custom", fileType: "custom", isDir: false, open: false, selected: true, children: [] }],

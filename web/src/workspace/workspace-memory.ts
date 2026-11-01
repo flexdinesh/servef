@@ -1,6 +1,6 @@
 // Browser memory of project workspaces. Projects are absolute paths, so each
 // project's tabs and folder expansion are shared by sessions that serve it; the last
-// project is kept per set of served roots. Pure functions return new values;
+// project is kept per session key (/api/projects sessionKey). Pure functions return new values;
 // readMemory/writeMemory are the only storage access and never throw.
 
 import { isRecord } from "../api/http.ts"
@@ -21,7 +21,7 @@ export interface ProjectMemory {
 }
 
 export interface WorkspaceMemory {
-  // last maps a rootsKey to the project last open in that session shape.
+  // last maps a session key to the project last open in that session.
   last: Record<string, string>
   projects: Record<string, ProjectMemory>
 }
@@ -58,8 +58,8 @@ function entries(value: unknown): [string, unknown][] {
 export function parseMemory(value: unknown): WorkspaceMemory {
   if (!isRecord(value)) return emptyMemory
   const last: Record<string, string> = {}
-  for (const [roots, project] of entries(value.last)) {
-    if (typeof project === "string") last[roots] = project
+  for (const [key, project] of entries(value.last)) {
+    if (typeof project === "string") last[key] = project
   }
   const projects: Record<string, ProjectMemory> = {}
   for (const [id, entry] of entries(value.projects)) {
@@ -69,13 +69,7 @@ export function parseMemory(value: unknown): WorkspaceMemory {
   return { last, projects }
 }
 
-// rootsKey identifies a session by its served roots.
-export function rootsKey(roots: readonly string[]): string {
-  return roots.join("\n")
-}
-
-export function lastProject(memory: WorkspaceMemory, roots: readonly string[]): string {
-  const key = rootsKey(roots)
+export function lastProject(memory: WorkspaceMemory, key: string): string {
   return Object.hasOwn(memory.last, key) ? memory.last[key] ?? "" : ""
 }
 
@@ -89,9 +83,9 @@ function withEntry<T>(record: Record<string, T>, key: string, value: T, max: num
   return { ...Object.fromEntries(Object.entries(rest).slice(-(max - 1))), [key]: value }
 }
 
-export function rememberProject(memory: WorkspaceMemory, roots: readonly string[], project: string, tabs: readonly WorkspaceTab[], active: WorkspaceTab | null): WorkspaceMemory {
+export function rememberProject(memory: WorkspaceMemory, key: string, project: string, tabs: readonly WorkspaceTab[], active: WorkspaceTab | null): WorkspaceMemory {
   return {
-    last: withEntry(memory.last, rootsKey(roots), project, maxSessions),
+    last: withEntry(memory.last, key, project, maxSessions),
     projects: withEntry(memory.projects, project, {
       ...projectMemory(memory, project),
       tabs: tabs.map(storedTab),
