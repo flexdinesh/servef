@@ -1,12 +1,17 @@
-// Main process composition (decision 0067): lifecycle, routing, menu, and wiring.
+// Main process composition (decisions 0067, 0070): lifecycle, routing, menu, and wiring.
 import { app, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type MessageBoxOptions, type OpenDialogOptions } from "electron"
+import { existsSync } from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { CONNECT_PATH, createAppPages } from "./app-pages.ts"
 import { findOnPath, locateServef } from "./binary.ts"
-import { APP_SCHEME, isAppFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
-import { createConnections, LOCAL_CONNECTION, type ConnectionLookup } from "./connections.ts"
+import { APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
+import { createFileStore } from "./connection-store.ts"
+import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
-import { devFlags, ensureDaemon, nodeExecFile, openPath, stopDaemon, type EnsureResult } from "./daemon.ts"
+import { devFlags, ensureDaemon, nodeExecFile, openPath, probeDaemon, stopDaemon, type EnsureResult } from "./daemon.ts"
+import { confirmConnect, type ConnectChoice } from "./electron-dialogs.ts"
 import { createNotifier } from "./electron-notify.ts"
 import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
 import { createWindowManager, type WindowManager } from "./electron-windows.ts"
@@ -20,14 +25,23 @@ import {
   SETTLE_QUIET_MS,
   walkthroughNotice,
   type Notice,
+  type NoticeSource,
 } from "./notifications.ts"
 import { createProxy } from "./proxy.ts"
+import { chooseRuntimeDir, prepareRuntimeDir, sweepRuntimeDir } from "./runtime-dir.ts"
 import { routeSchemeURL, schemeArgument } from "./scheme.ts"
-import { createSubscriptions, type SubscriptionEvent } from "./subscriptions.ts"
+import { muxControlArgs } from "./ssh-args.ts"
+import { listHostAliases, nodeConfigReader, resolveAliases } from "./ssh-config.ts"
+import { createSshConnector, EXIT_TIMEOUT_MS, nodeSpawn, type SshTarget } from "./ssh-connection.ts"
+import { resolveSshLink, sshTargetURL, type ResolvedAlias, type SshLink } from "./ssh-links.ts"
+import { createSubscriptions, type SubscriptionEvent, type Subscriptions } from "./subscriptions.ts"
 import { systemTimers } from "./timers.ts"
+import { windowTitle } from "./titles.ts"
+import { connectionOfOrigin, targetOfURL } from "./windows.ts"
 
 const ORIGIN = `${APP_SCHEME}://${LOCAL_CONNECTION}`
 const HOME = `${ORIGIN}/`
+const CONNECT_URL = `${APP_SCHEME}://${APP_HOST}${CONNECT_PATH}`
 const DOCS_URL = "https://github.com/flexdinesh/servef"
 
 process.on("unhandledRejection", (reason) => console.error("servef: unhandled rejection:", reason))
@@ -66,8 +80,10 @@ function main(): void {
 // window), and returns the servef:// link handler.
 function start(launch: readonly string[]): (url: string) => void {
   const env = process.env
+  const packaged = app.isPackaged
+  const userData = app.getPath("userData")
   const located = locateServef({
-    packaged: app.isPackaged,
+    packaged,
     resourcesPath: process.resourcesPath,
     env,
     onPath: (name) => findOnPath(name, env),
@@ -77,22 +93,113 @@ function start(launch: readonly string[]): (url: string) => void {
     return Promise.resolve({ ok: false, kind: "missing", detail: located.missing })
   }
   const forwarder = createForwarder()
-  const connections = createConnections(ensure)
-  const lookup = (id: string): Promise<ConnectionLookup> => connections.lookup(id)
-  const reensure = (id: string): Promise<boolean> => connections.reensure(id)
-  const stopAndRetry = async (id: string): Promise<boolean> => {
-    const current = await connections.lookup(id)
-    if (current.kind !== "failed" || current.failure.status === undefined) return false
-    await stopDaemon(forwarder.forward, current.failure.status.socket)
-    return connections.reensure(id)
+
+  // ssh (decision 0070). Dev seams are honored only in unpackaged builds.
+  const ssh = (packaged ? null : nonEmpty(env.SERVEF_DESKTOP_SSH)) ?? findOnPath("ssh", env) ?? "/usr/bin/ssh"
+  const config = packaged ? null : nonEmpty(env.SERVEF_DESKTOP_SSH_CONFIG)
+  const sshEnv: NodeJS.ProcessEnv = { ...env, SSH_ASKPASS_REQUIRE: "never" }
+  const runtimeEnv: NodeJS.ProcessEnv = { ...env }
+  if (packaged) delete runtimeEnv.SERVEF_DESKTOP_RUNTIME_DIR
+  const runtime = prepareRuntimeDir(chooseRuntimeDir({
+    platform: process.platform,
+    env: runtimeEnv,
+    tmpdir: os.tmpdir(),
+    userData,
+    uid: process.getuid?.() ?? 0,
+  }))
+  if (!runtime.ok) console.error(`servef: runtime directory ${runtime.dir}: ${runtime.detail}`)
+  // Single instance: every entry left in the runtime dir is stale. ssh
+  // connections wait for the sweep (see gated) so it never touches live files.
+  const swept: Promise<void> = runtime.ok
+    ? sweepRuntimeDir(runtime.runtime, async (controlPath) => {
+      await nodeExecFile(ssh, muxControlArgs({ id: "", destination: "servef-sweep", port: null }, controlPath, { op: "exit" }), { timeoutMs: EXIT_TIMEOUT_MS, env: sshEnv })
+    }).catch((error: unknown) => console.error("servef: runtime sweep:", error))
+    : Promise.resolve()
+  const connector = createSshConnector({
+    ssh,
+    config,
+    runtime,
+    env: sshEnv,
+    spawn: nodeSpawn,
+    run: nodeExecFile,
+    probe: (socket) => probeDaemon(forwarder.forward, socket),
+    timers: systemTimers,
+    exists: existsSync,
+  })
+  const connections = createConnections({
+    ensureLocal: ensure,
+    stopLocal: (socket) => stopDaemon(forwarder.forward, socket),
+    ssh: connector,
+    store: createFileStore(path.join(userData, "connections.json")),
+    timers: systemTimers,
+  })
+  const isKnown = (id: string): boolean => connections.known().some((entry) => entry.id === id)
+  // listAliases reads Host aliases from the ssh config on each call.
+  const listAliases = (): string[] => {
+    try {
+      return listHostAliases(config ?? path.join(os.homedir(), ".ssh", "config"), nodeConfigReader(os.homedir()))
+    } catch (error) {
+      console.error("servef: ssh config:", error)
+      return []
+    }
   }
-  handleAppScheme(createProxy({ packaged: app.isPackaged, lookup, forward: forwarder.forward, reensure, stopAndRetry }))
+
+  // Only ssh connections wait for the startup sweep; local never does.
+  const gated = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
+    if (id !== LOCAL_CONNECTION) await swept
+    return run()
+  }
+  const lookup = (id: string): Promise<ConnectionLookup> => gated(id, () => connections.lookup(id))
+  const reensure = (id: string): Promise<boolean> => gated(id, () => connections.reensure(id))
+  const stopAndRetry = (id: string): Promise<boolean> => gated(id, () => connections.stopAndRetry(id))
+  const appPages = createAppPages({
+    model: async () => {
+      const destinations = new Set(connections.known().map((entry) => entry.destination.toLowerCase()))
+      return {
+        connections: connections.summaries(),
+        aliases: listAliases().filter((alias) => !destinations.has(alias.toLowerCase())),
+      }
+    },
+    forget: (id) => connections.forget(id),
+  })
+  handleAppScheme(createProxy({
+    packaged,
+    release: packaged ? app.getVersion() : null,
+    lookup,
+    forward: forwarder.forward,
+    reensure,
+    stopAndRetry,
+    appPages,
+  }))
+
+  const title = (origin: string, page: string): string => {
+    const id = connectionOfOrigin(origin)
+    if (id === null) return page
+    if (id === APP_HOST) return windowTitle(page, { kind: "app", label: "", ready: true })
+    const summary = connections.describe(id)
+    if (summary === null) return page
+    if (summary.kind === "daemon") return windowTitle(page, { kind: "local", label: summary.label, ready: summary.state === "ready" })
+    return windowTitle(page, { kind: "ssh", label: summary.label, ready: summary.state === "ready" })
+  }
+
+  // openConnectionURL routes a servef-app:// link on another origin: local,
+  // app pages, and known ssh hosts only.
+  const openConnectionURL = (url: string): void => {
+    const target = targetOfURL(url)
+    const id = target === null ? null : connectionOfOrigin(target.origin)
+    if (id !== null && (id === LOCAL_CONNECTION || id === APP_HOST || isKnown(id))) {
+      windows.route(url)
+      return
+    }
+    console.error(`servef: denied navigation to unknown connection ${url}`)
+  }
 
   const windows = createWindowManager({
-    origin: ORIGIN,
     preload: fileURLToPath(new URL("preload.cjs", import.meta.url)),
-    stateFile: path.join(app.getPath("userData"), "window-state.json"),
+    stateFile: path.join(userData, "window-state.json"),
     onScheme: (url) => openSchemeURL(url),
+    onConnection: (url) => openConnectionURL(url),
+    title,
   })
 
   const notifier = createNotifier({
@@ -101,55 +208,124 @@ function start(launch: readonly string[]): (url: string) => void {
   })
   const gate = createNoticeGate(NOTICE_INTERVAL_MS, systemTimers)
   const notify = (notice: Notice): void => {
-    if (gate.allow(notice, windows.focusedProject())) notifier.show(notice)
+    if (gate.allow(notice, windows.focused())) notifier.show(notice)
   }
+  // sources maps a connection id to its notice source (label "" for local).
+  const sources = new Map<string, NoticeSource>([[LOCAL_CONNECTION, { connection: LOCAL_CONNECTION, label: "" }]])
   const settle = createSettleTracker(
     SETTLE_QUIET_MS,
-    (project, files, overflow) => notify(settledNotice(project, files, overflow)),
+    (connection, project, files, overflow) => {
+      const source = sources.get(connection)
+      if (source !== undefined) notify(settledNotice(source, project, files, overflow))
+    },
     systemTimers,
   )
-  const onEvent = (event: SubscriptionEvent): void => {
+  const onEvent = (source: NoticeSource, event: SubscriptionEvent): void => {
     switch (event.kind) {
       case "head": {
-        const notice = headNotice(event.project, event.head)
+        const notice = headNotice(source, event.project, event.head)
         if (notice !== null) notify(notice)
         break
       }
       case "walkthrough":
-        notify(walkthroughNotice(event.announcement))
+        notify(walkthroughNotice(source, event.announcement))
         break
       case "change":
-        if (event.lease === "open") settle.change(event.project, event.change)
+        if (event.lease === "open") settle.change(source.connection, event.project, event.change)
         break
       case "control":
         if (event.status.protocol !== EXPECTED_PROTOCOL) {
-          console.error(`servef: daemon control protocol ${event.status.protocol}, app expects ${EXPECTED_PROTOCOL}`)
+          console.error(`servef: ${source.connection} daemon control protocol ${event.status.protocol}, app expects ${EXPECTED_PROTOCOL}`)
         }
         break
       case "status":
         break
     }
   }
-  const subs = createSubscriptions({
-    connection: async () => {
-      const local = await connections.lookup(LOCAL_CONNECTION)
-      return local.kind === "ready" ? local.connection : null
-    },
-    reensure: () => connections.reensure(LOCAL_CONNECTION),
-    forward: forwarder.forward,
-    timers: systemTimers,
-    onEvent,
-  })
-  let shown = new Set<string>()
-  windows.onProjectsChanged(() => {
-    const next = windows.shownProjects()
+
+  // Feeds: one subscription set per daemon-like connection (local, each ready
+  // ssh connection), fed the projects its origin's windows show.
+  interface Feed {
+    subs: Subscriptions
+    shown: Set<string>
+  }
+  const feeds = new Map<string, Feed>()
+  const feedShown = (id: string, feed: Feed): void => {
+    const next = windows.shownProjects(connectionOrigin(id))
     // A project no window shows any more leaves its open lease: drop its burst.
-    for (const project of shown) if (!next.includes(project)) settle.forget(project)
-    shown = new Set(next)
-    subs.shown(next)
+    for (const project of feed.shown) if (!next.includes(project)) settle.forget(id, project)
+    feed.shown = new Set(next)
+    feed.subs.shown(next)
+  }
+  const closeFeed = (id: string): void => {
+    const feed = feeds.get(id)
+    if (feed === undefined) return
+    feeds.delete(id)
+    feed.subs.close()
+    for (const project of feed.shown) settle.forget(id, project)
+  }
+  const localSource: NoticeSource = { connection: LOCAL_CONNECTION, label: "" }
+  feeds.set(LOCAL_CONNECTION, {
+    subs: createSubscriptions({
+      connection: async () => {
+        const local = await connections.lookup(LOCAL_CONNECTION)
+        return local.kind === "ready" ? local.connection : null
+      },
+      reensure: () => connections.reensure(LOCAL_CONNECTION),
+      forward: forwarder.forward,
+      timers: systemTimers,
+      onEvent: (event) => onEvent(localSource, event),
+    }),
+    shown: new Set(),
+  })
+  const openSshFeed = (id: string, label: string): void => {
+    const source: NoticeSource = { connection: id, label }
+    sources.set(id, source)
+    const feed: Feed = {
+      subs: createSubscriptions({
+        // Streams never start a connection: windows hold it.
+        connection: async () => {
+          const current = connections.peek(id)
+          return current?.kind === "ready" ? current.connection : null
+        },
+        // Re-ensure only a ready session whose forward refused; a reconnecting
+        // or failed session keeps its own backoff and waits for Retry.
+        reensure: async () => connections.peek(id)?.kind === "ready" ? connections.reensure(id) : false,
+        forward: forwarder.forward,
+        timers: systemTimers,
+        onEvent: (event) => onEvent(source, event),
+      }),
+      shown: new Set(),
+    }
+    feeds.set(id, feed)
+    feedShown(id, feed)
+  }
+
+  // Holds: an ssh connection is held while any window shows its origin.
+  const held = new Set<string>()
+  const syncHolds = (): void => {
+    const shown = new Set<string>()
+    for (const origin of windows.shownOrigins()) {
+      const id = connectionOfOrigin(origin)
+      if (id !== null && connections.describe(id)?.kind === "ssh") shown.add(id)
+    }
+    for (const id of shown) {
+      if (held.has(id)) continue
+      held.add(id)
+      connections.hold(id)
+    }
+    for (const id of held) {
+      if (shown.has(id)) continue
+      held.delete(id)
+      connections.release(id)
+    }
+  }
+  windows.onWindowsChanged(() => {
+    syncHolds()
+    for (const [id, feed] of feeds) feedShown(id, feed)
   })
 
-  // About shows the app and, once known, the daemon release.
+  // About shows the app and, once known, the local daemon release.
   const appVersion = app.getVersion()
   const about = (daemonVersion: string | null): void => {
     let version = appVersion
@@ -160,24 +336,69 @@ function start(launch: readonly string[]): (url: string) => void {
   }
   about(null)
   connections.subscribe((id, current) => {
-    if (id !== LOCAL_CONNECTION) return
-    if (current.kind === "ready") about(current.connection.status.version)
-    else if (current.kind === "failed" && current.failure.status !== undefined) about(current.failure.status.version)
+    windows.retitle(connectionOrigin(id))
+    if (id === LOCAL_CONNECTION) {
+      if (current?.kind === "ready") about(current.connection.status.version)
+      else if (current?.kind === "failed" && current.connection === "daemon" && current.failure.status !== undefined) about(current.failure.status.version)
+      return
+    }
+    if (current === null) {
+      closeFeed(id)
+      sources.delete(id)
+      return
+    }
+    if (current.kind === "ready" && !feeds.has(id)) openSshFeed(id, current.connection.label)
   })
+
+  // ensureWindow never leaves the app running with no window.
+  const ensureWindow = (): void => {
+    if (windows.infos().length === 0) windows.route(HOME)
+  }
+
+  // openSshLink resolves a servef://ssh/ link: known hosts open at once; first
+  // contact is confirmed and remembered.
+  const openSshLink = async (link: SshLink): Promise<void> => {
+    const known = connections.known()
+    let resolution = resolveSshLink(link, known, [])
+    let aliases: ResolvedAlias[] = []
+    if (resolution.kind !== "known") {
+      aliases = await resolveAliases(listAliases(), ssh, config, nodeExecFile)
+      resolution = resolveSshLink(link, connections.known(), aliases)
+    }
+    if (resolution.kind === "known") {
+      windows.route(sshTargetURL(resolution.id, link))
+      return
+    }
+    const targets = resolution.candidates.length > 0 ? resolution.candidates : resolution.fallbacks
+    if (targets.length === 0) {
+      await message(windows, "error", `No SSH host for ${link.host}`,
+        `Add a Host entry for ${link.host} to your SSH config, or run servef remote --alias <alias> on the host so its links name an alias you can reach.`)
+      return
+    }
+    const choices = targets.slice(0, 4)
+    const prompt = { host: link.host, choices: choices.map((target) => choiceOf(target, aliases)) }
+    const chosen = await confirmConnect(windows.focusedWindow(), prompt, { packaged, env })
+    const target = chosen === null ? undefined : choices[chosen]
+    if (target === undefined) return
+    const entry = connections.remember({ destination: target.destination, port: target.port }, link.hints)
+    windows.route(sshTargetURL(entry.id, link))
+  }
 
   const openSchemeURL = (raw: string): void => {
     const routed = routeSchemeURL(raw)
-    if ("target" in routed) {
-      windows.route(routed.target)
-      return
+    switch (routed.kind) {
+      case "local":
+        windows.route(routed.target)
+        return
+      case "ssh":
+        openSshLink(routed.link)
+          .catch((error: unknown) => console.error(`servef: ssh link ${raw}:`, error))
+          .finally(ensureWindow)
+        return
+      case "invalid":
+        console.error(`servef: ignored invalid link ${raw}`)
+        ensureWindow()
     }
-    if (routed.reject === "remote") {
-      void message(windows, "Remote links arrive in a later servef", raw)
-    } else {
-      console.error(`servef: ignored invalid link ${raw}`)
-    }
-    // Never leave the app running with no window.
-    if (windows.infos().length === 0) windows.route(HOME)
   }
 
   const openFolder = async (): Promise<void> => {
@@ -204,13 +425,15 @@ function start(launch: readonly string[]): (url: string) => void {
       dialog.showErrorBox("Could not open folder", String(error))
     })
   }
+  // Only servef-app://local frames have the bridge (decision 0070).
   ipcMain.on(OPEN_FOLDER_CHANNEL, (event) => {
-    if (isAppFrame(event.senderFrame?.url ?? "")) runOpenFolder()
+    if (isLocalFrame(event.senderFrame?.url ?? "")) runOpenFolder()
   })
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate({
     newWindow: () => windows.newWindow(HOME),
     openFolder: runOpenFolder,
+    connect: () => windows.route(CONNECT_URL),
   })))
 
   app.on("second-instance", (_event, argv) => {
@@ -227,31 +450,50 @@ function start(launch: readonly string[]): (url: string) => void {
   })
   let closed = false
   app.on("before-quit", () => {
-    // The daemon outlives the app; only this process's streams close.
+    // The local daemon outlives the app; only this process's streams close.
     if (closed) return
     closed = true
     settle.dispose()
-    subs.close()
+    for (const feed of feeds.values()) feed.subs.close()
+    feeds.clear()
     forwarder.close()
   })
+  // ssh masters and runtime files go with the app (synchronous on quit).
+  app.on("will-quit", () => connections.closeSync())
 
   if (launch.length === 0) windows.route(HOME)
   for (const url of launch) openSchemeURL(url)
   return openSchemeURL
 }
 
-function message(windows: WindowManager, text: string, detail: string): Promise<unknown> {
-  const options: MessageBoxOptions = { type: "info", message: text, detail }
+// choiceOf describes a confirmation choice: the destination and port, plus
+// the alias's `ssh -G` user, hostname, and port when it came from an alias.
+function choiceOf(target: SshTarget, aliases: readonly ResolvedAlias[]): ConnectChoice {
+  const label = target.port === null ? target.destination : `${target.destination} (port ${target.port})`
+  const alias = aliases.find((entry) => entry.alias === target.destination)
+  const detail = alias === undefined
+    ? `${label}: ssh ${target.destination}${target.port === null ? "" : ` -p ${target.port}`}`
+    : `${label}: user ${alias.user}, hostname ${alias.hostname}, port ${target.port ?? alias.port}`
+  return { label, detail }
+}
+
+function nonEmpty(value: string | undefined): string | null {
+  return value === undefined || value === "" ? null : value
+}
+
+function message(windows: WindowManager, type: "info" | "error", text: string, detail: string): Promise<unknown> {
+  const options: MessageBoxOptions = { type, message: text, detail }
   const parent = windows.focusedWindow()
   return parent === null ? dialog.showMessageBox(options) : dialog.showMessageBox(parent, options)
 }
 
-function menuTemplate(actions: { newWindow(): void; openFolder(): void }): MenuItemConstructorOptions[] {
+function menuTemplate(actions: { newWindow(): void; openFolder(): void; connect(): void }): MenuItemConstructorOptions[] {
   const mac = process.platform === "darwin"
   // No accelerators on keys the UI binds (P, F, Shift-F, C).
   const file: MenuItemConstructorOptions[] = [
     { label: "New Window", accelerator: "CmdOrCtrl+N", click: actions.newWindow },
     { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: actions.openFolder },
+    { label: "Connect…", click: actions.connect },
     { type: "separator" },
     { label: "Close Window", accelerator: "CmdOrCtrl+W", role: "close" },
   ]

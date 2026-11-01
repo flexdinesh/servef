@@ -1,5 +1,7 @@
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
 import type { EnsureFailure } from "./daemon.ts"
+import { REMOTE_PATH_DIRS } from "./ssh-args.ts"
+import type { SshFailure } from "./ssh-errors.ts"
 
 export interface Instructions {
   title: string
@@ -45,4 +47,167 @@ export function failureInstructions(failure: EnsureFailure, packaged: boolean): 
       }
     }
   }
+}
+
+const RELEASES = "https://github.com/flexdinesh/servef/releases"
+const BREW_INSTALL = "brew install flexdinesh/tap/servef"
+const BREW_UPGRADE = "brew upgrade flexdinesh/tap/servef"
+const GO_INSTALL = "go install github.com/flexdinesh/servef@latest"
+// DETAIL_LIMIT bounds the failure detail shown on a page (the stderr tail).
+const DETAIL_LIMIT = 2048
+
+// sshFailureInstructions explains an ssh connection failure (decision 0070).
+// release is the app's servef release, or null for a dev build (links the
+// latest release). Commands are shown text only; the app never runs them,
+// and remote ones are labelled with the host they belong on.
+export function sshFailureInstructions(failure: SshFailure, release: string | null): Instructions {
+  const dest = failure.destination
+  const detail = tail(failure.detail)
+  const lead = detail === "" ? [] : [detail]
+  const page = release === null ? `${RELEASES}/latest` : `${RELEASES}/tag/v${release}`
+  const base = { commands: [], stopAndRetry: false }
+  switch (failure.kind) {
+    case "sshMissing":
+      return {
+        ...base,
+        title: "OpenSSH is not installed",
+        paragraphs: [...lead, "The app connects through the system ssh client. Install the OpenSSH client on this computer, then Retry."],
+      }
+    case "sshTooOld":
+      return {
+        ...base,
+        title: "OpenSSH is too old",
+        paragraphs: [...lead, "SSH connections need OpenSSH 6.7 or newer on this computer for Unix socket forwarding. Upgrade the OpenSSH client, then Retry."],
+        commands: ["ssh -V"],
+      }
+    case "hostKey":
+      return {
+        ...base,
+        title: `The host key of ${dest} is not verified`,
+        paragraphs: [...lead, `Run ssh ${dest} in a terminal once to verify the host key, then Retry.`, "The app never accepts host keys for you."],
+        commands: [`ssh ${dest}`],
+      }
+    case "auth":
+      return {
+        ...base,
+        title: `SSH authentication to ${dest} failed`,
+        paragraphs: [
+          ...lead,
+          "The app uses your SSH configuration in batch mode and never asks for passwords or passphrases.",
+          `Load a key into your SSH agent with ssh-add, and make the second command succeed in a terminal, then Retry.`,
+        ],
+        commands: ["ssh-add", `ssh -o BatchMode=yes ${dest} true`],
+      }
+    case "unreachable":
+      return {
+        ...base,
+        title: `Cannot reach ${dest}`,
+        paragraphs: [...lead, "servef retries while a window for this host is open."],
+      }
+    case "servefMissing":
+      return servefMissing(failure, lead, release, page)
+    case "servefTooOld":
+      return {
+        ...base,
+        title: `servef on ${dest} is too old`,
+        paragraphs: [...lead, `This app needs a newer servef on ${dest}. Upgrade it there with the command matching how it was installed, or download a release from ${page}, then Retry.`],
+        commands: [onHost(dest, BREW_UPGRADE), onHost(dest, GO_INSTALL)],
+      }
+    case "mismatch": {
+      const status = failure.status
+      const daemon = status === undefined
+        ? `The servef daemon on ${dest} speaks a different protocol`
+        : `The servef daemon on ${dest} (version ${status.version}) speaks protocol ${status.protocol}`
+      const advice = status === undefined
+        ? [`Use the same servef release on ${dest} and in this app (${page}).`]
+        : status.protocol < EXPECTED_PROTOCOL
+          ? [`servef on ${dest} is older than this app. Upgrade servef on ${dest}.`]
+          : [`servef on ${dest} is newer than this app. Update the servef app (${page}).`]
+      const upgrade = status !== undefined && status.protocol < EXPECTED_PROTOCOL ? [onHost(dest, BREW_UPGRADE), onHost(dest, GO_INSTALL)] : []
+      return {
+        title: `The servef daemon on ${dest} is incompatible`,
+        paragraphs: [`${daemon}; this app needs protocol ${EXPECTED_PROTOCOL}.`, ...advice, "Then stop the running daemon and retry."],
+        commands: [...upgrade, onHost(dest, "servef daemon stop")],
+        stopAndRetry: true,
+      }
+    }
+    case "forwardDenied":
+      return {
+        ...base,
+        title: `${dest} refused the socket forward`,
+        paragraphs: [
+          ...lead,
+          `The SSH server on ${dest} must allow Unix socket forwarding: AllowStreamLocalForwarding yes and no DisableForwarding in its sshd_config. It also needs OpenSSH 6.7 or newer.`,
+        ],
+      }
+    case "runtimeDir":
+      return {
+        ...base,
+        title: "The app's private runtime directory is not safe",
+        paragraphs: [...lead, "The app keeps its SSH control sockets in a directory only you can use. Fix or remove the directory, then Retry."],
+      }
+    case "failed": {
+      const socket = failure.status?.socket ?? ""
+      return {
+        ...base,
+        title: `Connecting to ${dest} failed`,
+        paragraphs: [
+          detail === "" ? "The SSH connection failed." : detail,
+          ...(socket === "" ? [] : [`See ${socket}.log on ${dest} for the daemon's log.`]),
+        ],
+      }
+    }
+  }
+}
+
+function servefMissing(failure: SshFailure, lead: string[], release: string | null, page: string): Instructions {
+  const dest = failure.destination
+  const always = [
+    `servef must be on PATH for non-interactive SSH commands or in one of: ${REMOTE_PATH_DIRS.join(", ")}.`,
+    `The app never installs anything on ${dest}. Install servef there, then Retry.`,
+  ]
+  const title = `servef is not installed on ${dest}`
+  if (failure.os === "Darwin") {
+    return { title, paragraphs: [...lead, `Install servef on ${dest} with Homebrew:`, ...always], commands: [onHost(dest, BREW_INSTALL)], stopAndRetry: false }
+  }
+  const arch = failure.os === "Linux" ? linuxArch(failure.arch) : null
+  if (arch === null) {
+    return {
+      title,
+      paragraphs: [...lead, `Install servef on ${dest} with Homebrew or Go, or download a release from ${page}.`, ...always],
+      commands: [onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL)],
+      stopAndRetry: false,
+    }
+  }
+  const archive = `servef_${release ?? "<version>"}_linux_${arch}`
+  const download = release === null
+    ? []
+    : [onHost(dest, "mkdir -p ~/.local/bin", `curl -fsSL ${RELEASES}/download/v${release}/${archive}.tar.gz | tar -xz -C ~/.local/bin --strip-components=1 ${archive}/servef`)]
+  return {
+    title,
+    paragraphs: [
+      ...lead,
+      `Install servef on ${dest} with Homebrew or Go, or download ${archive}.tar.gz from ${page} and put its servef binary in ~/.local/bin.`,
+      ...always,
+    ],
+    commands: [onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL), ...download],
+    stopAndRetry: false,
+  }
+}
+
+// linuxArch maps `uname -m` to a release archive architecture.
+function linuxArch(machine: string | undefined): "amd64" | "arm64" | null {
+  if (machine === "x86_64" || machine === "amd64") return "amd64"
+  if (machine === "aarch64" || machine === "arm64") return "arm64"
+  return null
+}
+
+// onHost labels a remote command block with the host it belongs on.
+function onHost(dest: string, ...lines: string[]): string {
+  return [`# on ${dest}`, ...lines].join("\n")
+}
+
+function tail(detail: string): string {
+  const trimmed = detail.trim()
+  return trimmed.length <= DETAIL_LIMIT ? trimmed : trimmed.slice(-DETAIL_LIMIT)
 }

@@ -19,9 +19,9 @@ export function createNotifier(options: NotifierOptions): Notifier {
   return {
     show(notice) {
       if (options.logFile !== undefined && options.logFile !== "") {
-        const { kind, project, title, body, target } = notice
+        const { connection, kind, project, title, body, target } = notice
         try {
-          appendFileSync(options.logFile, JSON.stringify({ kind, project, title, body, target }) + "\n")
+          appendFileSync(options.logFile, JSON.stringify({ connection, kind, project, title, body, target }) + "\n")
         } catch (error) {
           console.error("servef: notice log:", error)
         }

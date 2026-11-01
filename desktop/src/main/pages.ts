@@ -9,7 +9,8 @@ const PAGE_HEADERS = {
   "cache-control": "no-store",
 }
 
-const STYLE = `
+// PAGE_STYLE is the shared stylesheet of app-rendered pages (no external assets).
+export const PAGE_STYLE = `
 :root { color-scheme: light dark; --fg: #1f2328; --muted: #59636e; --bg: #ffffff; --code: #f6f8fa; --accent: #0969da; }
 @media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --muted: #9198a1; --bg: #0d1117; --code: #161b22; --accent: #4493f8; } }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
@@ -23,14 +24,14 @@ button { background: none; border: 1px solid currentColor; border-radius: 6px; p
 form { margin: 0; }
 `
 
-function escapeHTML(text: string): string {
+export function escapeHTML(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;")
 }
 
-function page(title: string, content: string, actions: string): Response {
+function page(title: string, content: string, actions: string, head = ""): Response {
   const html = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>${escapeHTML(title)}</title><style>${STYLE}</style></head>
+<head><meta charset="utf-8">${head}<title>${escapeHTML(title)}</title><style>${PAGE_STYLE}</style></head>
 <body><main>
 <h1>${escapeHTML(title)}</h1>
 ${content}
@@ -56,6 +57,20 @@ export function failurePage(instructions: Instructions): Response {
 // unavailablePage renders a daemon that stopped answering.
 export function unavailablePage(detail: string): Response {
   return page("The servef daemon stopped answering", `<p>${escapeHTML(detail)}</p>`, "")
+}
+
+// RECONNECT_REFRESH_SECONDS is how often the reconnecting page reloads itself
+// (a meta refresh; the page has no scripts).
+export const RECONNECT_REFRESH_SECONDS = 3
+
+// reconnectingPage renders an ssh connection waiting to reconnect (503): it
+// reloads every RECONNECT_REFRESH_SECONDS and shows the last failure.
+export function reconnectingPage(title: string, detail: string): Response {
+  const content = [
+    detail === "" ? "" : `<p>${escapeHTML(detail)}</p>`,
+    "<p>servef keeps trying while this window is open. This page reloads on its own.</p>",
+  ].filter((part) => part !== "").join("\n")
+  return page(title, content, "", `<meta http-equiv="refresh" content="${RECONNECT_REFRESH_SECONDS}">`)
 }
 
 export function jsonError(status: number, code: string, error: string): Response {
