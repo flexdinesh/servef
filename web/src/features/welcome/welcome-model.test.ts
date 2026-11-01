@@ -17,14 +17,24 @@ const response: ProjectsResponse = {
 }
 
 test("start and guide entries run actions and show the platform's shortcuts", () => {
-  assert.deepEqual(startEntries(false).map((entry) => [entry.label, entry.shortcut]),
+  assert.deepEqual(startEntries(false, false).map((entry) => [entry.label, entry.shortcut]),
     [["Open project…", "Ctrl+O"], ["Find a file", "Ctrl+K"], ["Show all commands", "Ctrl+Shift+P"]])
-  assert.deepEqual(startEntries(true).map((entry) => entry.shortcut), ["⌘O", "⌘K", "⇧⌘P"])
+  assert.deepEqual(startEntries(true, false).map((entry) => entry.shortcut), ["⌘O", "⌘K", "⇧⌘P"])
   const guide = guideEntries(false)
   assert.deepEqual(guide.map((entry) => entry.action),
     ["find-in-files", "source-control", "walkthroughs", "language-servers", "color-theme", "font-size"])
   assert.ok(guide.every((entry) => entry.description))
   assert.equal(guideEntries(true).find((entry) => entry.action === "find-in-files")?.shortcut, "⇧⌘F")
+})
+
+test("Open folder… starts a session only where folders can be opened", () => {
+  assert.deepEqual(startEntries(false, true).map((entry) => [entry.action, entry.label, entry.shortcut]), [
+    ["open-project", "Open project…", "Ctrl+O"],
+    ["open-folder", "Open folder…", undefined],
+    ["find-file", "Find a file", "Ctrl+K"],
+    ["show-commands", "Show all commands", "Ctrl+Shift+P"],
+  ])
+  assert.ok(!startEntries(true, false).some((entry) => entry.action === "open-folder"))
 })
 
 test("project lines name the branch, changes, and walkthroughs, linking where to review them", () => {

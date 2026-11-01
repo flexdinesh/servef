@@ -20,18 +20,30 @@ export function agentExample(project: string) {
 // agentInstructions is the prompt the Walkthroughs view copies (decision
 // 0049): where servef runs, how to prepare a walkthrough, its format, and
 // how to publish it: the CLI first (decision 0065), then curl to origin. It
-// ends with "Walk me through: " for the user's topic.
+// ends with "Walk me through: " for the user's topic. An origin that is not
+// http(s), such as the desktop app's servef://local, takes no HTTP
+// requests, so the prompt names the CLI only.
 export function agentInstructions(origin: string, project: string): string {
   // One step per line keeps the example short enough to read.
   const { steps, ...fields } = agentExample(project)
   const example = JSON.stringify(fields, null, 2)
     .replace(/\n}$/, `,\n  "steps": [\n${steps.map((step) => `    ${JSON.stringify(step)}`).join(",\n")}\n  ]\n}`)
+  const http = /^https?:\/\//.test(origin)
+  const format = http ? `GET ${origin}/api/walkthrough-schema, or: servef walkthrough schema` : "servef walkthrough schema"
+  const fallback = http
+    ? `If servef isn't on PATH or lacks "walkthrough publish":
+
+curl -q -sS -X POST -H 'Content-Type: application/json' --data @walkthrough.json ${origin}/api/walkthroughs
+
+`
+    : ""
+  const responses = http ? ` Over HTTP, 201 creates, 200 replaces, the response is {"id", "url", "created"}, and a 400 lists every problem.` : ""
   return `Write a servef walkthrough of the topic at the end, and publish it with servef.
 
 servef: ${origin}
 Project: ${project}
 Publish: servef walkthrough publish walkthrough.json (no server needed)
-Format: GET ${origin}/api/walkthrough-schema, or: servef walkthrough schema (JSON Schema; authoritative if anything below is unclear)
+Format: ${format} (JSON Schema; authoritative if anything below is unclear)
 
 ## What a walkthrough is
 
@@ -57,16 +69,12 @@ Write the JSON to walkthrough.json, then:
 
 servef walkthrough publish walkthrough.json
 
-If servef isn't on PATH or lacks "walkthrough publish":
-
-curl -q -sS -X POST -H 'Content-Type: application/json' --data @walkthrough.json ${origin}/api/walkthroughs
-
-\`\`\`json
+${fallback}\`\`\`json
 ${example}
 \`\`\`
 
 - Reuse "id" to revise (it replaces) rather than publishing again; omit it to derive one from the title.
-- The CLI prints the url; exit 1 lists every problem. Over HTTP, 201 creates, 200 replaces, the response is {"id", "url", "created"}, and a 400 lists every problem.
+- The CLI prints the url; exit 1 lists every problem.${responses}
 - Give me the url; "open": true also opens it in my browser.
 - Problems read "field: message", e.g. "steps[3].diff.path: is not changed in this compare". Fix them all and publish again.
 - Limits: 200 steps, 200-character titles, 32 KiB per body and summary, 1 MiB per request.

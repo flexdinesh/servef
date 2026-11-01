@@ -9,6 +9,7 @@ import {
   canDrill,
   currentGroup,
   matchScore,
+  offersOpenFolder,
   parentInput,
   projectSections,
   selectableRows,
@@ -149,4 +150,12 @@ test("browse rows open the folder first, then matching children; repositories op
 test("the root list offers no folder to open", () => {
   const sections = browseRows("", "", [{ name: "w", path: "/w", isProject: false }, { name: "repo", path: "/repo", isProject: true }])
   assert.deepEqual(sections.map((section) => [section.title, section.rows.map((row) => row.kind)]), [["Served folders", ["directory", "directory"]]])
+})
+
+test("with no served folder, only the desktop app offers Open folder…", async () => {
+  const response = await projects()
+  assert.equal(offersOpenFolder(response, true), false)
+  const empty: ProjectsResponse = { ...response, roots: [], projects: [], warnings: [] }
+  assert.equal(offersOpenFolder(empty, true), true)
+  assert.equal(offersOpenFolder(empty, false), false)
 })

@@ -1,5 +1,5 @@
 import {
-  ALargeSmallIcon, ArrowUpRightIcon, BracesIcon, FileSearchIcon, FolderGit2Icon, FunnelIcon, GitBranchIcon, PaletteIcon, RouteIcon,
+  ALargeSmallIcon, ArrowUpRightIcon, BracesIcon, FileSearchIcon, FolderGit2Icon, FolderOpenIcon, FunnelIcon, GitBranchIcon, PaletteIcon, RouteIcon,
   SearchIcon, SquareTerminalIcon, XIcon,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
@@ -13,6 +13,7 @@ import { TextField } from "../../components/ui/text-field.tsx"
 import { isAbort } from "../../api/http.ts"
 import type { ProjectsResponse } from "../../api/projects-contract.ts"
 import { fetchProjects } from "../../api/projects-data.ts"
+import { desktopBridge } from "../../lib/desktop-bridge.ts"
 import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
 import { readMemory, rememberedProjects } from "../../workspace/workspace-memory.ts"
 import { OptionIcon, OptionText } from "../projects/ProjectPicker.tsx"
@@ -26,6 +27,7 @@ const mac = typeof navigator !== "undefined" && navigator.platform.includes("Mac
 
 const icons: Record<WelcomeAction, ReactNode> = {
   "open-project": <FolderGit2Icon aria-hidden="true" />,
+  "open-folder": <FolderOpenIcon aria-hidden="true" />,
   "find-file": <FileSearchIcon aria-hidden="true" />,
   "show-commands": <SquareTerminalIcon aria-hidden="true" />,
   "find-in-files": <SearchIcon aria-hidden="true" />,
@@ -58,9 +60,15 @@ interface WelcomeTabProps {
 
 // WelcomeTab (decision 0052) starts a session: open a project, a file, or a
 // command; see the open project's branch, changes, and walkthroughs; switch
-// among the served projects; and learn what servef does by doing it.
+// among the served projects; and learn what servef does by doing it. The
+// desktop app also offers Open folder…, which its bridge runs.
 export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, project, roots }: WelcomeTabProps) {
   const lines = projectLines(facts)
+  const bridge = desktopBridge()
+  const run = (action: WelcomeAction) => {
+    if (action === "open-folder") bridge?.openFolder()
+    else onAction(action)
+  }
   return (
     <div className="welcome">
       <header className="welcome-header">
@@ -72,7 +80,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
         <div className="welcome-column">
           <section className="welcome-section" aria-labelledby="welcome-start">
             <h2 id="welcome-start">Start</h2>
-            <EntryList entries={startEntries(mac)} onAction={onAction} />
+            <EntryList entries={startEntries(mac, bridge !== null)} onAction={run} />
           </section>
           {lines.length > 0 && (
             <section className="welcome-section" aria-labelledby="welcome-project">

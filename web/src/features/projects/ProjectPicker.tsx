@@ -27,6 +27,7 @@ import {
   canDrill,
   currentGroup,
   groupName,
+  offersOpenFolder,
   parentInput,
   projectSections,
   selectableRows,
@@ -36,6 +37,7 @@ import {
 } from "./project-picker.ts"
 import type { DirectoriesResponse, ProjectsResponse } from "../../api/projects-contract.ts"
 import { fetchDirectories, fetchProjects, takeLandingPick } from "../../api/projects-data.ts"
+import { desktopBridge } from "../../lib/desktop-bridge.ts"
 import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
 import { forgetProject, readMemory, rememberedProjects, updateMemory } from "../../workspace/workspace-memory.ts"
 
@@ -179,10 +181,13 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
   const remembered = useMemo(() => memoryVersion >= 0 ? rememberedProjects(readMemory()) : [], [memoryVersion])
   const listedGroup = followCurrent ? projectList ? currentGroup(projectList, project) : "" : group
   const folderLoad = directories.get(folder) ?? null
+  const bridge = desktopBridge()
+  const openFolderOffered = mode === "projects" && projectList !== null && offersOpenFolder(projectList, bridge !== null)
   const sections: PickerSection[] = useMemo(() => {
     if (mode === "browse") return browseRows(folder, partial, loaded(folderLoad)?.directories ?? [])
+    if (openFolderOffered) return []
     return projectList ? projectSections(projectList, remembered, project, query, listedGroup) : []
-  }, [folder, folderLoad, listedGroup, mode, partial, project, projectList, query, remembered])
+  }, [folder, folderLoad, listedGroup, mode, openFolderOffered, partial, project, projectList, query, remembered])
   const rows = useMemo(() => selectableRows(sections), [sections])
   const active = rows.find((row) => row.key === activeKey) ?? rows[0]
   const scanning = useDelayedFlag(open && mode === "projects" && projects?.kind === "loading", 150)
@@ -196,6 +201,11 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
   function openProject(id: string) {
     close()
     if (id !== project) onOpen(id)
+  }
+
+  function openFolder() {
+    close()
+    bridge?.openFolder()
   }
 
   function startBrowse() {
@@ -265,7 +275,8 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
       setActiveKey(rows[(index + step + rows.length) % rows.length]?.key ?? "")
     } else if (event.key === "Enter") {
       event.preventDefault()
-      activate(active)
+      if (!active && openFolderOffered) openFolder()
+      else activate(active)
     } else if (event.key === "Escape") {
       event.preventDefault()
       close()
@@ -300,9 +311,11 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
       ? { tone: "error", text: projects.message }
       : scanning
         ? { tone: "muted", text: "Scanning for projects…" }
-        : projectList && query.trim() && !sections.some((section) => section.title)
-          ? { tone: "muted", text: listedGroup ? `No worktrees match “${query.trim()}”.` : `No projects match “${query.trim()}”.` }
-          : null
+        : openFolderOffered
+          ? { tone: "empty", text: "No projects yet." }
+          : projectList && query.trim() && !sections.some((section) => section.title)
+            ? { tone: "muted", text: listedGroup ? `No worktrees match “${query.trim()}”.` : `No projects match “${query.trim()}”.` }
+            : null
     : folderLoad?.kind === "error"
       ? { tone: "error", text: folderLoad.message }
       : listing
@@ -360,6 +373,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
             {status?.tone === "error" && mode === "projects" && (
               <Button variant="outline" onClick={loadProjects}>Retry</Button>
             )}
+            {status?.tone === "empty" && <Button variant="outline" onClick={openFolder}>Open folder…</Button>}
             {!status && warnings.length > 0 && (
               <span title={warnings.join("\n")}>
                 {warnings.length === 1 ? "1 folder couldn't be read." : `${warnings.length} folders couldn't be read.`}
