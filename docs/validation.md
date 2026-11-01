@@ -83,12 +83,26 @@ the package's checksums, installs Xvfb and Electron's shared libraries from the
 pinned Debian snapshot, and fails if `ldd` reports a missing library. It builds
 the embedded UI and the servef binary as the browser group does.
 
-`_container:test:desktop` runs the unit tests, bundles the app, then runs the
-Playwright `_electron` smoke under `xvfb-run -a` with `--no-sandbox` (the
+`_container:test:desktop` runs the unit tests, the ssh integration tests, bundles
+the app, then runs the Playwright `_electron` smoke under `xvfb-run -a` with `--no-sandbox` (the
 container runs as root). Each run gets its own short temporary socket, roots
 file, user data, walkthrough cache, notification log, and git fixtures; nothing
 reaches the user's daemon. Traces, window screenshots, and daemon, app, and
 notification logs survive failures under the group's `playwright/` output.
+
+The ssh tests (`desktop/test/ssh/`, `pnpm --filter @servef/desktop test:ssh`)
+and `remote.spec.ts` start a private `/usr/sbin/sshd` on 127.0.0.1 from
+OpenSSH in the same pinned snapshot. Each run owns a short temp dir with host
+and client keys, known hosts, and a client `ssh_config` (passed to the app as
+`SERVEF_DESKTOP_SSH_CONFIG`) whose aliases each set one remote environment
+through `SetEnv`: `GOPATH` reaches the copied `SERVEF_DESKTOP_BINARY`, and
+private `XDG_*` directories isolate the remote daemon. The tests drive the real
+connector and app: connect, re-ensure, reconnect, every failure kind, and
+teardown. As root (Dagger) a second user covers `servefMissing` and
+`forwardDenied`; elsewhere `forwardDenied` skips and `servefMissing` uses the
+current user, skipping when its remote `PATH` already finds servef. Hosts without `sshd` skip the ssh
+tests; the Dagger runner sets `SERVEF_DESKTOP_SSH_TESTS=require`, which turns
+every skip into a failure.
 
 The smoke covers Linux only. Headless Chromium reports hidden pages and closes
 the UI's live stream, so the smoke always needs a display: Xvfb in Dagger, or a

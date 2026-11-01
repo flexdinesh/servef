@@ -80,7 +80,8 @@ func (m *ServefValidation) Run(ctx context.Context,
 		runner = desktopRuntime(prepared).WithDirectory("/src", source).
 			WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef").
 			WithEnvVariable("SERVEF_DESKTOP_OUTPUT_DIR", "/out/playwright").
-			WithEnvVariable("SERVEF_DESKTOP_ELECTRON_ARGS", "--disable-dev-shm-usage --disable-gpu")
+			WithEnvVariable("SERVEF_DESKTOP_ELECTRON_ARGS", "--disable-dev-shm-usage --disable-gpu").
+			WithEnvVariable("SERVEF_DESKTOP_SSH_TESTS", "require")
 	}
 	if group == "browser" {
 		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", "chromium"})
@@ -177,9 +178,10 @@ func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Con
 		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
 }
 
-// desktopRuntime adds Xvfb, Electron's shared libraries from the pinned
-// snapshot, and the checksum-verified Electron binary. ldd fails preparation
-// on a missing library instead of a later opaque launch failure.
+// desktopRuntime adds Xvfb, Electron's shared libraries and OpenSSH (the ssh
+// tests' sshd and client) from the pinned snapshot, and the checksum-verified
+// Electron binary. ldd fails preparation on a missing library instead of a
+// later opaque launch failure.
 func desktopRuntime(prepared *dagger.Container) *dagger.Container {
 	return prepared.WithExec([]string{"sh", "-ec", desktopPackages}).
 		WithExec([]string{"mise", "exec", "--", "node", "desktop/node_modules/electron/install.js"}).
@@ -191,7 +193,8 @@ apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   xvfb xauth fonts-dejavu-core libgtk-3-0 libnss3 libnspr4 libgbm1 libasound2 libxss1 libxtst6 \
   libcups2 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libdrm2 libxkbcommon0 libxcomposite1 \
-  libxdamage1 libxrandr2 libxfixes3 libpango-1.0-0 libcairo2 libdbus-1-3 libexpat1 libx11-xcb1
+  libxdamage1 libxrandr2 libxfixes3 libpango-1.0-0 libcairo2 libdbus-1-3 libexpat1 libx11-xcb1 \
+  openssh-server openssh-client
 rm -rf /var/lib/apt/lists/*
 `
 

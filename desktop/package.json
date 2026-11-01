@@ -15,6 +15,7 @@
     "start": "node node_modules/electron/install.js && node build.ts && electron .",
     "test": "node --test --test-concurrency=2 --test-reporter=dot 'test/*.test.ts'",
     "test:smoke": "playwright test",
+    "test:ssh": "node --test --test-concurrency=1 --test-reporter=dot 'test/ssh/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
