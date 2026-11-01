@@ -1,21 +1,6 @@
 import { spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
-
-// liveFixtureRoot is a throwaway repository the live-update specs change on
-// disk (decision 0050). It has its own server so other specs never see those
-// changes. Each run gets its own folder, through the environment so the
-// runner, its workers, and the server command agree.
-function fixtureRoot(): string {
-  const existing = process.env.SERVEF_BROWSER_LIVE_ROOT
-  if (existing) return existing
-  const created = mkdtempSync(path.join(tmpdir(), "servef-browser-live-"))
-  process.env.SERVEF_BROWSER_LIVE_ROOT = created
-  return created
-}
-
-export const liveFixtureRoot = fixtureRoot()
 
 // longLines is long.md's line count: enough to scroll.
 export const longLines = 400
@@ -29,7 +14,7 @@ export function longDocument(marker: string): string {
 // servef's own repository instead of the fixture.
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
 
-function git(...args: string[]): boolean {
+function git(liveFixtureRoot: string, ...args: string[]): boolean {
   const result = spawnSync("git", ["-c", "user.name=servef", "-c", "user.email=servef@example.invalid", "-c", "commit.gpgsign=false", ...args], {
     cwd: liveFixtureRoot,
     env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
@@ -38,17 +23,15 @@ function git(...args: string[]): boolean {
   return result.status === 0
 }
 
-export function createLiveFixture() {
+export function createLiveFixture(liveFixtureRoot: string) {
   rmSync(liveFixtureRoot, { recursive: true, force: true })
   mkdirSync(path.join(liveFixtureRoot, "docs"), { recursive: true })
   writeFileSync(path.join(liveFixtureRoot, "long.md"), longDocument("original"))
   writeFileSync(path.join(liveFixtureRoot, "docs", "guide.md"), "# Guide\n")
-  if (!git("init", "--quiet", "--initial-branch=main")) {
-    rmSync(path.join(liveFixtureRoot, ".git"), { recursive: true, force: true })
-    return
+  if (!git(liveFixtureRoot, "init", "--quiet", "--initial-branch=main")) {
+    throw new Error("Could not initialize live fixture repository")
   }
-  git("add", "--all")
-  git("commit", "--quiet", "--message", "Initial")
+  if (!git(liveFixtureRoot, "add", "--all") || !git(liveFixtureRoot, "commit", "--quiet", "--message", "Initial")) {
+    throw new Error("Could not commit live fixture repository")
+  }
 }
-
-if (process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname) createLiveFixture()

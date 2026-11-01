@@ -5,7 +5,7 @@
   "scripts": {
     "build:site": "pnpm --filter @servef/site build",
     "build:web": "pnpm --filter @servef/web build",
-    "check": "mise run check",
+    "check": "mise run check:pr",
     "dev:site": "pnpm --filter @servef/site dev",
     "dev:web": "pnpm --filter @servef/web dev",
     "dev:mock": "pnpm --filter @servef/web dev:mock",
@@ -13,9 +13,8 @@
     "generate:homebrew": "node scripts/generate-homebrew-formula.ts",
     "link:local": "mise run install",
     "lint": "pnpm --filter @servef/web lint",
-    "prepare": "[ -n \"$CI\" ] || git config core.hooksPath .githooks || true",
     "test:browser": "mise run test:browser",
-    "test:release": "node --test --test-concurrency=2 --test-reporter=dot tests/*.test.ts",
+    "test:release": "node --test --test-concurrency=2 --test-reporter=dot tests/*.test.ts tests/browser/live-fixture.test.ts",
     "test:web": "pnpm --filter @servef/web test",
     "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck"
   },

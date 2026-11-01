@@ -61,78 +61,47 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Type-check TypeScript | `mise run typecheck` |
 | Lint (oxlint: React Hooks, UI primitives; stylelint: design tokens) | `mise run lint` |
 | Check Go formatting and module tidiness | `mise run fmt:check`, `mise run tidy:check` |
-| Run non-browser checks and the docs build | `mise run check` |
-| Install browser-test dependencies | `pnpm exec playwright install --with-deps chromium` |
+| Validate committed HEAD before PR work | `mise run check:pr` |
 | Run browser tests | `mise run test:browser` |
-| Run browser tests on explicit ports | `PORT=18090 SERVEF_BROWSER_WEB_PORT=15183 mise run test:browser` |
-| Run pre-push checks | `mise run check:push` |
+| Run selected browser coverage | `mise run test:browser -- tests/browser/live-updates.spec.ts` |
+| Inspect current validation coverage | `mise run check:status` |
 | Run full checks, including race tests and docs build | `mise run check:full` |
+| Prune completed validation artifacts | `mise run check:prune` |
 
-`mise run check` builds the embedded frontend once, then runs Go formatting,
-tidiness, vet, tests, mise config validation, web and tooling tests,
-typecheck, lint, and the docs build in parallel. `build:web` and `build:site`
-declare their inputs, so mise skips them when none changed;
-`mise run --force build:web` (or `build:site`) rebuilds anyway.
+Targeted mise tasks capture current edits and relevant unignored new files in
+immutable snapshots. All tests run in Dagger, including unit and runner tests;
+test prerequisites and Go vet build their embedded frontend there. Formatting,
+development, and safe static checks stay on the host. Static checks use private
+worktree-local snapshots, homes, temporary directories, and dependency state.
 
-`check`, `check:push`, and `check:full` run `scripts/check.ts`, which takes
-`:::`-separated groups of mise tasks from `mise.toml`. Groups run in order;
-each group runs its tasks in parallel, up to `MISE_JOBS` (default 8). Each
-task's stdout and stderr go to `.dev/check-logs/NN-<task>.log`, cleared at the
-start of each run, and the terminal shows one `ok <task> 4.2s` line per task.
-A failed task prints its last 100 log lines, the log path, and the
-`mise run <task>` command that reruns it alone. The rest of its group
-finishes, later groups print `skip`, and the run exits with the first failing
-status. Set `SERVEF_CHECK_VERBOSE=1` to stream task output instead of writing
-logs. Node tests use the dot reporter, Playwright uses dots unless stdout is a
-terminal, and the app build prints only warnings and errors (decision 0057).
+Commit first, then run `mise run check:pr` before creating or updating a PR.
+It requires clean committed HEAD and covers all nine host/container groups.
+`check`, `check:full`, and `validate` are compatibility aliases. Immediately
+before the separate push/PR operation, run `mise run check:status` and confirm
+HEAD still matches its reported commit. Targeted working-copy checks do not
+establish PR evidence. `check:pr -- --force` reruns checks and builds; an active
+rerun revokes earlier success until it completes successfully.
 
-`mise run test:browser` builds the embedded frontend first, since some specs load
-the Go-served UI. The runner compiles one Go binary, starts three API servers
-and Vite on OS-assigned ports, and runs Chromium with two workers. Each run
-owns its fixtures, cache, and binary in a temporary directory and cleans them
-up on exit. `PORT` selects the main API port, with git and live-update servers
-on `PORT+2` and `PORT+3`; `SERVEF_BROWSER_WEB_PORT` selects Vite's port. Unset
-or zero means automatic. `mise run test:browser -- --workers=1` reduces
-Chromium concurrency further.
+See [local validation](validation.md) for explicit engine setup, source/cache
+identities, resource limits, force reruns, artifacts, and status.
+There is no mandatory pre-push suite and no remote validation gate. Existing
+CI edge publication and release builds remain unchanged. Validation never
+publishes a PR; local conventions are bypassable.
 
-Checks run locally. Outside CI, `pnpm install` points Git at `.githooks/`, whose
-`pre-push` hook runs `mise run check:push`: formatting, module tidiness, mise
-validation, vet, ordinary Go tests, web/tooling tests, typechecks, and lint,
-then critical browser tests. Go tests already compile every package, so no
-duplicate Go build runs. Race tests and the docs production build move to
-`mise run check:full`; race tests need a C compiler. CI only publishes embedded
-assets on `edge`; release builds packages and smoke-tests the shipped binary.
-Skip the hook once with `git push --no-verify`. The hook is the full-check
-gate: do not also run `check:push` by hand before pushing.
+Browser validation uses a prepared Go binary, ordinary and Git fixture servers,
+Vite, and private per-test live-update servers inside one container. Each run
+owns its writable fixtures, homes, caches, and outputs. Dagger installs the
+matching Chromium version. Native macOS tests remain explicit optional
+supplements for filesystem watching, process, and browser behavior; routine
+tests stay in Dagger.
 
-On Linux and macOS, `check:push` and `check:full` hold an OS-backed lock in
-`git rev-parse --git-common-dir` for the complete run. All linked worktrees
-wait on the same lock; independent clones and dev servers do not. The waiting
-message means another worktree is checking. Cancellation/exit releases the
-lock after its inheriting check processes exit; the empty lock file stays and
-must not be deleted. This is mutual exclusion, not a FIFO queue. Set
-`GOMAXPROCS` or `MISE_JOBS` to override their conservative default of two;
-Node test files and Chromium also default to two concurrent workers.
+Go builds, tests, and vet need `internal/web/dist/`; the isolated graph supplies
+it. Before host development builds in a fresh worktree, run `mise run build:web`.
+Build outputs are ignored and never copied from the host into validation.
 
-Direct individual test commands do not acquire the shared lock. Prefer the
-queued commands while other agents are checking. Browser coverage decisions
-and intentionally omitted cases are recorded in [the test audit](browser-test-audit.md).
-
-On Linux with unprivileged user namespaces, `mise run test:browser` runs Playwright,
-its servers, and Chromium in a private loopback-only network namespace. Host
-interface changes, such as Docker creating container links, otherwise make
-Chromium abort in-flight requests with `ERR_NETWORK_CHANGED` and leave pages
-blank. The namespace also keeps test ports from colliding with host servers.
-Elsewhere the runner uses ordinary networking with the same automatic ports.
-Run browser tests through `mise run test:browser`; direct Playwright execution
-does not start servers (`pnpm exec playwright test --list` still lists cases).
-
-`mise run install` rebuilds the embedded frontend when needed and installs the
-current checkout with `go install`.
-
-Go builds, tests, and vet need `internal/web/dist/`; mise tasks that need it
-build it first. Before running `go` directly in a fresh clone or worktree, run
-`mise run build:web`.
+Public mise tasks orchestrate validation; hidden `_host:*` and `_container:*`
+leaves contain commands and never call public wrappers. Do not run those leaves
+directly as an alternative to isolated test execution.
 
 ## Web development
 

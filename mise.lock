@@ -2,6 +2,21 @@
 
 lockfile_version = 3
 
+[[tools.dagger]]
+version = "0.21.10"
+backend = "aqua:dagger/dagger"
+specifiers = ["0.21.10"]
+
+[tools.dagger."platforms.linux-x64"]
+checksum = "sha256:f9ee083767dd12cdac583f9db3fedbebbbb3064f69152998be1f121d1a6cc103"
+url = "https://github.com/dagger/dagger/releases/download/v0.21.10/dagger_v0.21.10_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/dagger/dagger/releases/assets/601343850"
+
+[tools.dagger."platforms.macos-arm64"]
+checksum = "sha256:4c9412e6f05c9ff2645dec2018f302dd9ba144badf9ea762d8ff3c0b1dd1259c"
+url = "https://github.com/dagger/dagger/releases/download/v0.21.10/dagger_v0.21.10_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/dagger/dagger/releases/assets/601343852"
+
 [[tools.go]]
 version = "1.26.10"
 backend = "core:go"

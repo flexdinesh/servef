@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import test from "node:test"
@@ -95,4 +95,17 @@ test("arguments split into groups at ::: and job counts follow mise", () => {
   assert.equal(jobCount("2"), 2)
   assert.equal(jobCount("0"), 1)
   assert.equal(jobCount("x"), 8)
+})
+
+test("container leaf failures direct users to isolated public tasks", (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "servef-rerun-"))
+  t.after(() => { rmSync(root, { recursive: true, force: true }) })
+  writeFileSync(path.join(root, "mise"), "#!/bin/sh\nexit 3\n", { mode: 0o755 })
+  const result = spawnSync(process.execPath, ["scripts/check.ts", "_container:test:go"], {
+    encoding: "utf8",
+    env: { ...process.env, PATH: `${root}${path.delimiter}${process.env.PATH ?? ""}`, SERVEF_CHECK_LOG_DIR: path.join(root, "logs") },
+  })
+  assert.equal(result.status, 3, result.stderr)
+  assert.match(result.stdout, /^rerun: mise run test:go$/m)
+  assert.doesNotMatch(result.stdout, /^rerun:.*_container:/m)
 })
