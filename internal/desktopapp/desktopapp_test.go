@@ -99,7 +99,7 @@ func TestInstallHintPerOS(t *testing.T) {
 	footer := []string{
 		"curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh",
 		"`servef browser` serves in a web browser",
-		"https://github.com/flexdinesh/servef/blob/main/site/src/pages/desktop.mdx",
+		"https://github.com/flexdinesh/servef/blob/main/site/src/pages/docs/desktop.mdx",
 	}
 	for _, test := range []struct {
 		goos string

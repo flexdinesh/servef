@@ -72,7 +72,7 @@ Other branches and commits do not include it and fail to build with
 
 Optional: macOS and Linux packages on
 [GitHub Releases](https://github.com/flexdinesh/servef/releases). See
-[desktop](site/src/pages/desktop.mdx) for install and Gatekeeper steps.
+[desktop](site/src/pages/docs/desktop.mdx) for install and Gatekeeper steps.
 
 ## Usage
 
@@ -85,7 +85,7 @@ servef .
 With the desktop app installed, `servef [path]` opens it there and exits;
 otherwise (or with `--host`/`--port`) it serves in a browser. Over SSH,
 `servef remote [path]` (and `servef [path]`) prints a `servef://ssh/…` link
-for the app on your computer ([remote hosts](site/src/pages/remote.mdx)).
+for the app on your computer ([remote hosts](site/src/pages/docs/remote.mdx)).
 `servef browser [path]` always serves in a browser and takes the same flags.
 To open a directory named `browser`, run `servef ./browser`.
 
@@ -98,6 +98,6 @@ servef --help
 ## Documentation
 
 Usage, desktop app, browsing, code navigation, and walkthrough guides live in
-[`site/src/pages`](https://github.com/flexdinesh/servef/tree/main/site/src/pages).
+[`site/src/pages/docs`](https://github.com/flexdinesh/servef/tree/main/site/src/pages/docs).
 Contributors: see [development](docs/development.md) and
 [architecture](docs/architecture.md).

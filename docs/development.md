@@ -268,7 +268,13 @@ exercise the same development and browser workflows.
 ## Docs site
 
 User docs are a static [Vocs](https://vocs.dev) site in the `site` workspace.
-Pages live in `site/src/pages`; navigation lives in `site/vocs.config.ts`.
+The marketing landing is `/`: `site/src/pages/index.mdx` (`layout: blank`)
+renders `site/src/landing/Landing.tsx`. Its styles are scoped under `.landing`
+in `landing.css`; animated SVG scenes live in `site/src/landing/svg/` and show
+their final frame under reduced motion. Docs pages live in
+`site/src/pages/docs` (served at `/docs`); navigation lives in
+`site/vocs.config.ts`. The landing theme toggle shares Vocs' `vocs-theme`
+storage, so the landing and docs keep one theme.
 
 | Purpose | Command |
 | --- | --- |
@@ -277,7 +283,23 @@ Pages live in `site/src/pages`; navigation lives in `site/vocs.config.ts`.
 | Preview the built site | `pnpm --filter @servef/site preview` |
 
 `pnpm build:site` fails on dead internal links. Static HTML is written to
-`site/dist/public`, which Git ignores. The site is not deployed yet.
+`site/dist/public`, which Git ignores.
+
+### Cloudflare Pages
+
+The site deploys as plain static files through Cloudflare Pages Git
+integration (decision 0074). Project settings:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | repository root (CF reads `.node-version`, Node 26) |
+| Build command | `pnpm install --frozen-lockfile --filter @servef/site... && pnpm build:site` |
+| Build output directory | `site/dist/public` |
+| Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
+
+The filtered install skips the web and desktop workspaces. Cloudflare serves
+`404.html` for unknown paths. There is no `wrangler.toml`: Pages build
+settings live in the dashboard.
 
 ## Release
 

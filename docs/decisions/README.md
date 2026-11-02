@@ -31,7 +31,7 @@ rewriting history; update `Status` on the old record.
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050 |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
-| [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Accepted |
+| [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Partially superseded by 0074 |
 | [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030; UI superseded by 0035; no-polling refresh by 0050 |
 | [0028](0028-diff-line-links-and-copy.md) | Diff line links and copy | No-scroll consequence superseded by 0034; routes by 0035 |
 | [0029](0029-highlights-syntax-highlighting.md) | Pierre Highlights for syntax highlighting | Accepted |
@@ -78,3 +78,4 @@ rewriting history; update `Status` on the old record.
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Accepted |
 | [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Accepted |
 | [0073](0073-install-scripts.md) | Install scripts | Accepted |
+| [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted |
