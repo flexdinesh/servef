@@ -182,10 +182,11 @@ smoke on a host with a display: `mise run build:desktop`, then
 (add `SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland).
 Headless Chromium hides the page, which stops live updates; do not use it.
 
-To try ssh connections (decision 0070) in dev, install servef on a host you
-reach with `ssh -o BatchMode=yes <host> true`, run `servef remote <path>`
-there, and open the printed link with `mise run dev:desktop` running (or use
-File > Connect…). Dev-only seams: `SERVEF_DESKTOP_SSH` (ssh binary),
+To try ssh connections (decisions 0070, 0075) in dev, install servef on a
+host you reach with `ssh -o BatchMode=yes <host> true` and listed as a
+`Host` alias in `~/.ssh/config`, run `mise run dev:desktop`, and pick the
+host in File > Connect…. A `servef .` run on that host prints `web:` and
+`desktop:` links to open directly. Dev-only seams: `SERVEF_DESKTOP_SSH` (ssh binary),
 `SERVEF_DESKTOP_SSH_CONFIG` (`-F` for the master and the alias list),
 `SERVEF_DESKTOP_RUNTIME_DIR`, and `SERVEF_DESKTOP_AUTO_CONFIRM=1` with
 `SERVEF_DESKTOP_DIALOG_LOG`. `mise run test:desktop` also runs
