@@ -48,8 +48,21 @@ chmod +x servef-desktop_<version>_linux_amd64.AppImage
 ```
 
 An AppImage registers `servef://` only through desktop integration (for
-example AppImageLauncher). Without it, `servef .` cannot find the app and
-serves in a browser instead.
+example AppImageLauncher, or the entry below). Without it, `servef .` cannot
+find the app and serves in a browser instead. To register it yourself, keep
+the AppImage where it is and create
+`~/.local/share/applications/servef-desktop.desktop`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=servef
+Exec=/home/you/Applications/servef-desktop_<version>_linux_amd64.AppImage %U
+MimeType=x-scheme-handler/servef;
+Terminal=false
+```
+
+then run `update-desktop-database ~/.local/share/applications`.
 
 The app bundles its own `servef` binary, so it needs no separate install. The
 `servef` CLI ([Getting started](/getting-started)) is what opens it from a
@@ -85,6 +98,64 @@ fails.
 **File › Open Folder…** do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
 
+## Open folders from your file manager
+
+Folders opened this way are added to the daemon, as `servef [path]` adds
+them. Each folder's project opens in its own window (a window already
+showing it comes forward), up to 8 folders at a time. A file, or a folder
+servef cannot open, shows why.
+
+### macOS
+
+- Drop a folder on **servef** in the Dock or in Applications.
+- From a terminal: `open -a servef ~/code/project`.
+- For a Finder right-click entry, create a Quick Action once:
+  1. Open **Automator**, choose **New Document**, then **Quick Action**.
+  2. Set **Workflow receives current** to **folders** in **Finder**.
+  3. Add **Run Shell Script**, set **Pass input** to **as arguments**, and
+     replace the script with:
+
+     ```sh
+     open -a servef "$@"
+     ```
+
+  4. Save it as `Open in servef`. It appears under **Quick Actions** when you
+     right-click a folder.
+
+### Linux
+
+The `.deb` adds **Open in servef** to the folder context menu in Dolphin
+(KDE) and Nemo (Cinnamon). For other file managers, add an entry yourself.
+With the AppImage, use its path instead of `servef-desktop`.
+
+- Nautilus (GNOME Files): create
+  `~/.local/share/nautilus/scripts/Open in servef`, make it executable
+  (`chmod +x`), and pick it under **Scripts** when you right-click folders:
+
+  ```sh
+  #!/bin/sh
+  exec servef-desktop --open-path "$@"
+  ```
+
+- Thunar: **Edit › Configure custom actions…**, add an action named
+  `Open in servef` with the command `servef-desktop --open-path %F`, and
+  check **Directories** under **Appearance Conditions**.
+
+The deb does not make servef the default app for folders, so opening a
+folder elsewhere never adds it to the daemon.
+
+## Open at Login
+
+Check **Open at Login** in the **servef** menu (macOS) or the **File** menu
+(Linux) to start the app, with a window, when you log in. It is off until you
+check it, and unchecking removes it.
+
+- macOS adds servef to **System Settings › General › Login Items**. If macOS
+  asks for approval, servef offers to open that page; allow servef there.
+- Linux writes `~/.config/autostart/servef-desktop.desktop` (or under
+  `$XDG_CONFIG_HOME`). For an AppImage it points at the AppImage file: after
+  moving it, uncheck and check **Open at Login** again.
+
 ## Servers in a terminal
 
 A server you start in a terminal (`servef browser`, or `servef` with
@@ -115,8 +186,12 @@ every 30 seconds per project. Turn notifications off in your system settings.
 
 ## Uninstall
 
-Quit the app and remove `/Applications/servef.app` (macOS), or run
-`sudo apt remove servef-desktop` (Linux). App data lives in
+Uncheck **Open at Login** first, or remove servef from **Login Items**
+(macOS) or delete `~/.config/autostart/servef-desktop.desktop` (Linux)
+afterwards: uninstalling leaves it behind. Then quit the app and remove
+`/Applications/servef.app` (macOS), or run `sudo apt remove servef-desktop`
+(Linux). Remove any Quick Action, Nautilus script, or Thunar action you
+created. App data lives in
 `servef-desktop` under `~/Library/Application Support` or `~/.config`. The
 daemon's remembered directories are in `servef/roots.json` in the same
 place; `servef daemon stop` stops a running daemon.
