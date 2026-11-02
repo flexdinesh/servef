@@ -5,7 +5,9 @@ as one Go binary.
 
 ## System boundaries
 
-- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch.
+- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning.
+- `internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
+- `internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
 - `internal/files/`: file discovery, always-skipped directories, and safe path resolution.
 - `internal/projects/`: root validation, repository/worktree discovery, project resolution.
 - `internal/git/`: go-git reads for Source Control; go-git types stay inside it.
@@ -29,10 +31,17 @@ that index. It binds localhost by default and selects the first free port from
 Requests must name `localhost` or an IP literal in `Host`; other hostnames get
 403, which blocks DNS rebinding.
 
+The daemon (decision 0061) has no TCP listener. Its trust boundary is the
+socket: 0600 in a 0700 directory owned by the user, so only that user
+connects and browsers cannot. Web routes keep the same `Host` check (clients
+send `Host: localhost`); `/_daemon/*` control requests never reach the web
+app and are refused when they carry `Origin` or `Sec-Fetch-Site`.
+
 ## Dependency direction
 
 ```text
-CLI -> web -> document, files, git, lsp, projects
+CLI -> daemon -> runtime -> web -> document, files, git, lsp, projects
+CLI -> runtime
 git, projects -> files
 React -> HTTP API -> HTTP application
 web source -> Vite -> internal/web/dist -> go:embed -> servef binary

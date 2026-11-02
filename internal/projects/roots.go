@@ -10,7 +10,8 @@ import (
 
 // RootSet is the ordered set of canonical served roots (decision 0060). Roots
 // are absolute, symlink-evaluated directories; none lies inside another
-// (decision 0009). It is safe for concurrent use.
+// (decision 0009). It is safe for concurrent use. The zero value is an empty
+// set.
 type RootSet struct {
 	mu    sync.RWMutex
 	roots []string

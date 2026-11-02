@@ -1,6 +1,6 @@
 # 0061: Daemon, runtime roots, and project leases
 
-- Status: Proposed
+- Status: Accepted in part (Process, Roots); Project leases Proposed
 - Date: 2026-11-01
 
 ## Context
@@ -52,12 +52,96 @@ A project holds the highest level any lease grants:
 When the last lease at a level ends, the project keeps that level for a grace
 period, then drops to the next held level.
 
-### Revisions when accepted
+### Revisions
 
-- Revises 0009: roots are no longer fixed at startup for the daemon; the CLI
-  keeps fixed roots.
-- Revises 0050: lease levels replace subscription-only following; the
-  8-project cap applies to open projects, not watched ones.
+- Revises 0009 (applied with Process and Roots): roots are no longer fixed at
+  startup for the daemon; the CLI keeps fixed roots.
+- Revises 0050 when project leases are accepted: lease levels replace
+  subscription-only following; the 8-project cap applies to open projects,
+  not watched ones.
+
+## Details (accepted)
+
+Process and Roots are implemented in `internal/runtime/` (web app, HTTP
+server, and shutdown order shared with the CLI), `internal/daemon/`, and
+`servef daemon run|ensure|stop|status` (`cmd/daemon.go`).
+
+### Socket
+
+- Linux: `$XDG_RUNTIME_DIR/servef/daemon.sock` when that variable is set and
+  absolute; otherwise `${TMPDIR:-/tmp}/servef-<uid>/daemon.sock`. macOS:
+  `$TMPDIR/servef/daemon.sock` (`$TMPDIR` is per-user). A path over the
+  `sun_path` limit (Linux 107 bytes, macOS 103) falls back to
+  `/tmp/servef-<uid>/daemon.sock`. `--socket` overrides it on every
+  subcommand.
+- The directory is created 0700 or verified: a symlink or a directory owned
+  by another user is refused; an owned directory open to group or others is
+  tightened to 0700. The socket is 0600.
+
+### Single instance and stale sockets
+
+- The daemon holds `flock(LOCK_EX|LOCK_NB)` on `<socket>.lock` for its
+  lifetime. A held lock means a daemon is running (`ErrRunning`). With the
+  lock taken, a leftover socket file is a crashed daemon's and is replaced;
+  a non-socket file at the path is refused. The kernel releases the lock on
+  a crash. On stop the socket is unlinked before the lock is released.
+
+### Control API
+
+Requests under `/_daemon/` never reach the web app. Any with `Origin` or
+`Sec-Fetch-Site` gets 403 (`browserRequest`), so a proxy that forwards
+browser requests cannot reach them. JSON errors are `{error, code?}`.
+
+| Route | Response |
+| --- | --- |
+| `GET /_daemon/status` | 200 `{protocol, version, pid, socket, roots, depth, scanDepth, idleExit, startedAt}` |
+| `GET /_daemon/roots` | 200 `{roots, skipped}` |
+| `POST /_daemon/roots` `{"path":"/abs"}` (JSON, 4 KiB) | 201 `{root, added: true}`; 200 `added: false` for an existing root; 400 `invalidRoot` (relative, missing, not a directory, overlapping); 415 non-JSON; 500 `rootsNotSaved` (served until the daemon stops) |
+| `POST /_daemon/stop` | 202, then the daemon stops |
+
+There is no root removal.
+
+### Protocol
+
+- `ProtocolVersion` is 1. Clients block only on a protocol mismatch, with
+  instructions to run `servef daemon stop` or use a matching build; a release
+  mismatch is reported, never blocking.
+- `/_daemon/status` and `/_daemon/stop` keep their shape across protocol
+  versions, so any client can report and stop any daemon.
+
+### Roots file
+
+- `os.UserConfigDir()/servef/roots.json` (`$XDG_CONFIG_HOME` on Linux,
+  `~/Library/Application Support` on macOS): `{"version":1,"roots":[...]}`,
+  file 0600 in a 0700 directory, written atomically (temporary file, fsync,
+  rename).
+- At start, a saved root that is missing or overlaps another is skipped,
+  logged, listed as `skipped`, and kept on the next save, so an unmounted
+  drive is not forgotten. A malformed file or unknown version stops the
+  daemon before it listens; it is never overwritten.
+- A root removed while serving is a discovery warning in `/api/projects`,
+  not a failure for every root. The CLI still refuses a missing or
+  unreadable root at startup.
+
+### Idle exit
+
+- Idle means no request in flight, event streams included, for
+  `--idle-exit` (default 30 minutes; 0 disables). The timer is armed at
+  start.
+
+### Host and Origin
+
+- Web routes keep the local `Host` check over the socket; clients send
+  `Host: localhost`. `internal/web` stays transport-agnostic.
+- Publishing a walkthrough through the daemon never opens a browser.
+
+### Process
+
+- `servef daemon ensure` starts `servef daemon run` in its own session
+  (`setsid`), working directory `/`, stdin `/dev/null`, output to
+  `<socket>.log` (truncated per start), and waits up to 10 seconds for it to
+  answer. Depth flags apply only to a daemon it starts.
+- Other operating systems compile; daemon commands return an error.
 
 ## Consequences
 

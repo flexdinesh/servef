@@ -16,7 +16,8 @@ servef path/to/markdown
 
 `servef browser [path]` is equivalent to `servef [path]` and takes the same
 flags. Subcommand names take precedence over directories, so serve a directory
-named `browser` or `walkthrough` as `servef ./browser` or `servef ./walkthrough`.
+named `browser`, `walkthrough`, or `daemon` as `servef ./browser`,
+`servef ./walkthrough`, or `servef ./daemon`.
 
 Serve several directories with a repeatable `--path` (a positional path is
 shorthand for one); overlapping directories fail before starting:
@@ -93,8 +94,29 @@ the tree filter. Markdown image dependencies remain available within the
 served root. Source Control lists and diffs every change and commit in the
 repository checkout, regardless of `--depth` and skipped folders.
 
+## Daemon
+
+`servef daemon` is plumbing for the upcoming desktop app: one long-lived
+servef per user, reachable only through a private Unix socket (macOS and
+Linux), whose directories are added while it runs and remembered across
+restarts. Clients start it on demand; it stops after 30 minutes without
+requests. To check on it or stop it:
+
+```sh
+servef daemon status
+servef daemon stop
+```
+
+`servef daemon ensure` starts it unless it is running; `--json` prints status
+as JSON.
+
 ## All options
 
 ```sh
 servef --help
+servef daemon run --help
 ```
+
+`servef daemon` subcommands take `--socket` to use another socket path;
+`run` and `ensure` also take `--depth`, `--scan-depth`, and `--idle-exit`
+(`0` never stops).

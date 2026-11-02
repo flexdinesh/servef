@@ -182,3 +182,19 @@ func TestRootSetConcurrentAddAndList(t *testing.T) {
 		seen[root] = true
 	}
 }
+
+func TestRootSetZeroValueIsEmptyAndGrows(t *testing.T) {
+	_, a, b := rootsFixture(t)
+	var set RootSet
+	if got := set.List(); len(got) != 0 {
+		t.Fatalf("zero RootSet List() = %v, want empty", got)
+	}
+	for _, path := range []string{a, b, a} {
+		if _, _, err := set.Add(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := set.List(); !reflect.DeepEqual(got, []string{a, b}) {
+		t.Fatalf("List() = %v, want %v", got, []string{a, b})
+	}
+}

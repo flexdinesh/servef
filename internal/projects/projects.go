@@ -82,10 +82,12 @@ type Directory struct {
 	IsProject bool   `json:"isProject"`
 }
 
-// Discovery is the result of Discover. Warnings hold recoverable errors below
-// the roots.
+// Discovery is the result of Discover. Skipped holds roots that no longer
+// resolve to a readable directory; Warnings hold recoverable errors below the
+// roots.
 type Discovery struct {
 	Projects []Project
+	Skipped  []files.Warning
 	Warnings []files.Warning
 }
 
@@ -102,27 +104,32 @@ func Roots(roots []string) []Root {
 // root is depth zero) and every worktree of those repositories, wherever it
 // lives. It stops descending at a repository, skips hidden and excluded
 // (files.Excluded) directory names, and does not follow symlinks. A root that is not a
-// repository is listed as a folder project.
-func Discover(roots []string, maxDepth int) (Discovery, error) {
-	canonicalRoots := make([]string, len(roots))
-	for i, root := range roots {
+// repository is listed as a folder project. A root that no longer resolves
+// to a directory, or cannot be read, is reported in Skipped; the other roots
+// are still discovered.
+func Discover(roots []string, maxDepth int) Discovery {
+	var skipped []files.Warning
+	canonicalRoots := make([]string, 0, len(roots))
+	for _, root := range roots {
 		canonicalRoot, err := canonicalDir(root)
 		if err != nil {
-			return Discovery{}, err
+			skipped = append(skipped, files.Warning{Path: root, Err: err})
+			continue
 		}
-		canonicalRoots[i] = canonicalRoot
+		canonicalRoots = append(canonicalRoots, canonicalRoot)
 	}
 	d := discoverer{roots: canonicalRoots, projects: make(map[string]Project), groups: make(map[string]bool)}
 	for _, root := range canonicalRoots {
 		if err := d.walk(root, 0, maxDepth); err != nil {
-			return Discovery{}, fmt.Errorf("read discovery root: %w", err)
+			skipped = append(skipped, files.Warning{Path: root, Err: fmt.Errorf("read discovery root: %w", err)})
+			continue
 		}
 		if _, ok := d.projects[root]; !ok {
 			d.projects[root] = Project{ID: root, Name: filepath.Base(root), Path: root, Kind: KindFolder, Root: root, Available: true}
 		}
 	}
 
-	result := Discovery{Projects: make([]Project, 0, len(d.projects)), Warnings: d.warnings}
+	result := Discovery{Projects: make([]Project, 0, len(d.projects)), Skipped: skipped, Warnings: d.warnings}
 	for _, project := range d.projects {
 		result.Projects = append(result.Projects, project)
 	}
@@ -151,7 +158,7 @@ func Discover(roots []string, maxDepth int) (Discovery, error) {
 		}
 		return left.Path < right.Path
 	})
-	return result, nil
+	return result
 }
 
 // Resolve returns the symlink-evaluated directory for a project ID, an

@@ -314,3 +314,28 @@ func TestProjectFixturesMatchServerContract(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectsSurviveARootRemovedWhileServing(t *testing.T) {
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone, kept := filepath.Join(parent, "gone"), filepath.Join(parent, "kept")
+	writeMarkdown(t, filepath.Join(gone, "notes.md"), "# Gone\n")
+	writeMarkdown(t, filepath.Join(kept, "notes.md"), "# Kept\n")
+	app, err := New(Config{Roots: testRoots(t, gone, kept), ScanDepth: 10, Depth: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	payload := requestProjects(t, app)
+	if got := projectIDs(payload.Projects); !reflect.DeepEqual(got, []string{kept}) {
+		t.Fatalf("projects = %v, want only %s", got, kept)
+	}
+	if len(payload.Warnings) != 1 || !strings.HasPrefix(payload.Warnings[0], gone+": ") {
+		t.Fatalf("warnings = %q, want one naming %s", payload.Warnings, gone)
+	}
+}

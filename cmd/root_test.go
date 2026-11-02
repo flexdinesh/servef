@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/flexdinesh/servef/internal/control"
 	"github.com/spf13/cobra"
 )
 
@@ -537,5 +538,80 @@ func TestWalkthroughSubcommandIsNotServed(t *testing.T) {
 	command.SetArgs([]string{"walkthrough", "publsh"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), `unknown command "publsh"`) {
 		t.Errorf("unknown walkthrough subcommand error = %v", err)
+	}
+}
+
+func TestRunStopsOnControlRequest(t *testing.T) {
+	disableColor(t)
+	controlDir := t.TempDir()
+	root := t.TempDir()
+	reader, writer := io.Pipe()
+	urls := make(chan string, 1)
+	go func() {
+		defer reader.Close()
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			if address, ok := strings.CutPrefix(scanner.Text(), "  url:  "); ok {
+				urls <- address
+			}
+		}
+	}()
+	done := make(chan error, 1)
+	go func() {
+		err := run(context.Background(), options{paths: []string{root}, depth: 5, host: "127.0.0.1", port: 0, portSet: true, noOpen: true, controlDir: controlDir}, strings.NewReader(""), writer, io.Discard)
+		writer.Close()
+		done <- err
+	}()
+	var address string
+	select {
+	case address = <-urls:
+	case <-time.After(10 * time.Second):
+		t.Fatal("server did not start")
+	}
+	parsed, err := url.Parse(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := strconv.Atoi(parsed.Port())
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, err := control.NewRegistry(controlDir).Lookup("127.0.0.1", port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := remote.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("run() = %v, want nil after control stop", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("server did not stop on control request")
+	}
+	if _, err := control.NewRegistry(controlDir).Lookup("127.0.0.1", port); err == nil {
+		t.Fatal("control record remains after stop")
+	}
+}
+
+func TestRunRejectsUnreadableRootBeforeServing(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	root := t.TempDir()
+	if err := os.Chmod(root, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(root, 0o700) })
+	var stdout bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := run(ctx, options{paths: []string{root}, depth: 5, scanDepth: 3, noOpen: true, controlDir: t.TempDir()}, strings.NewReader(""), &stdout, &bytes.Buffer{})
+	if err == nil || !strings.HasPrefix(err.Error(), "read discovery root: ") || stdout.Len() != 0 {
+		t.Fatalf("run(unreadable root) = %v, stdout %q; want read discovery root error before serving", err, stdout.String())
 	}
 }

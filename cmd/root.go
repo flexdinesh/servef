@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -16,10 +15,9 @@ import (
 
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
-	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/projects"
+	"github.com/flexdinesh/servef/internal/runtime"
 	"github.com/flexdinesh/servef/internal/version"
-	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -53,6 +51,7 @@ func newRootCommand(runCommand runner) *cobra.Command {
 	// Bare servef keeps browser behavior until the desktop app ships (decision 0060).
 	command.AddCommand(newBrowserCommand("browser [path]", runCommand))
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
+	command.AddCommand(newDaemonCommand())
 	return command
 }
 
@@ -112,10 +111,11 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 
 	// Validate the root before binding a port or opening a browser.
 	discoveryStarted := time.Now()
-	discovery, err := projects.Discover(roots, opts.scanDepth)
+	discovery := projects.Discover(roots, opts.scanDepth)
 	discoveryDuration := time.Since(discoveryStarted)
-	if err != nil {
-		return err
+	// NewRootSet rejected missing roots; an unreadable root still fails startup.
+	if len(discovery.Skipped) > 0 {
+		return discovery.Skipped[0].Err
 	}
 
 	// Published walkthroughs open the browser only when startup may (decision 0047).
@@ -129,12 +129,12 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 			return err
 		}
 	}
-	app, err := webui.New(webui.Config{Roots: rootSet, ScanDepth: opts.scanDepth, Depth: opts.depth, Types: document.Builtins(), OpenBrowser: openBrowser})
+	rt, err := runtime.New(runtime.Config{Roots: rootSet, ScanDepth: opts.scanDepth, Depth: opts.depth, OpenBrowser: openBrowser})
 	if err != nil {
-		return fmt.Errorf("create web interface: %w", err)
+		return err
 	}
 	// Stops language servers after the HTTP server shuts down.
-	defer app.Close()
+	defer rt.Close()
 	controlDir := opts.controlDir
 	if controlDir == "" {
 		controlDir, err = control.DefaultDirectory()
@@ -181,19 +181,6 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return err
 	}
 	defer func() { _ = instance.Close() }()
-	server := &http.Server{
-		Handler:           instance.Handler(app),
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-	// Event streams never end on their own; shutdown ends them first.
-	server.RegisterOnShutdown(app.StopLiveUpdates)
-	serveErrors := make(chan error, 1)
-	go func() {
-		serveErrors <- server.Serve(listener)
-	}()
-
 	url := serverURL(host, port)
 	writeStartup(stdout, startupInfo{
 		Version:      "servef " + version.Number(),
@@ -210,21 +197,16 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		}()
 	}
 
-	select {
-	case err := <-serveErrors:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve files: %w", err)
-		}
-		return nil
-	case <-ctx.Done():
-	case <-instance.StopRequested():
-	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	serveCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("stop local server: %w", err)
-	}
-	return nil
+	go func() {
+		select {
+		case <-instance.StopRequested():
+			cancel()
+		case <-serveCtx.Done():
+		}
+	}()
+	return rt.Serve(serveCtx, listener, instance.Handler(rt.Handler()))
 }
 
 func listen(host string, port int) (net.Listener, error) {
