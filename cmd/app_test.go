@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func newAppFake() (*appFake, *appDeps) {
 	fake := &appFake{}
 	return fake, &appDeps{
 		goos:   "linux",
-		getenv: func(string) string { return "" },
+		getenv: desktopEnv,
 		socket: fakeSocket,
 		installed: func(context.Context) (bool, error) {
 			fake.installedCalls++
@@ -57,10 +58,17 @@ func newAppFake() (*appFake, *appDeps) {
 			fake.served = append(fake.served, opts)
 			return nil
 		},
-		hostname: func() (string, error) { return "devbox", nil },
-		username: func() string { return "dee" },
 		terminal: func(io.Writer) bool { return false },
+		route:    func() net.IP { return net.ParseIP("192.168.1.20") },
 	}
+}
+
+// desktopEnv is a Linux desktop session's environment.
+func desktopEnv(name string) string {
+	if name == "WAYLAND_DISPLAY" {
+		return "wayland-0"
+	}
+	return ""
 }
 
 func appRoot(t *testing.T) string {
@@ -95,7 +103,7 @@ func TestAppOpensProjectInDesktopApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "servef://local/?project=%2Fwork%2Fmy+repo"
-	if stdout != "opened /work/my repo in servef\nurl: "+want+"\n" || stderr != "" {
+	if stdout != "opened /work/my repo in servef\ndesktop: "+want+"\n" || stderr != "" {
 		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
 	}
 	if !reflect.DeepEqual(fake.openedURLs, []string{want}) {
@@ -343,6 +351,8 @@ func TestAppWarnsWhenTheRunningDaemonUsesOtherDepths(t *testing.T) {
 	}
 }
 
+const testSSHConnection = "10.0.0.9 51234 10.0.0.5 22"
+
 func sshEnv(name string) string {
 	if name == "SSH_CONNECTION" {
 		return testSSHConnection
@@ -350,63 +360,75 @@ func sshEnv(name string) string {
 	return ""
 }
 
-func TestAppInsideSSHPrintsTheRemoteLink(t *testing.T) {
-	root := appRoot(t)
-	fake, deps := newAppFake()
-	deps.getenv = sshEnv
-
-	stdout, stderr, err := runAppWith(appOptions(root), deps)
-	if err != nil {
-		t.Fatal(err)
-	}
-	link := "servef://ssh/devbox/?project=" + url.QueryEscape(root) + "&ssh-hostname=devbox&ssh-user=dee&ssh-addr=10.0.0.5"
-	if want := "serving " + root + " on devbox\n" + link + "\nopen the link on your computer; it needs the servef desktop app\n"; stdout != want || stderr != "" {
-		t.Errorf("stdout = %q, stderr = %q; want %q", stdout, stderr, want)
-	}
-	if want := []daemonOptions{{socket: fakeSocket, depth: 5, scanDepth: 10, idleExit: daemon.DefaultIdleExit}}; !reflect.DeepEqual(fake.ensured, want) {
-		t.Errorf("ensured %+v, want %+v", fake.ensured, want)
-	}
-	if fake.installedCalls != 0 || len(fake.openedURLs) != 0 || len(fake.served) != 0 {
-		t.Errorf("fake = %+v; want no local app and no browser mode", fake)
-	}
-}
-
-func TestAppInsideSSHFallsBackToBrowserWhenRemoteFails(t *testing.T) {
+func TestAppWithoutAUIServesOnThisMachinesAddress(t *testing.T) {
 	root := appRoot(t)
 	for _, test := range []struct {
-		name string
-		deps func(*appDeps)
-		want string
+		name   string
+		goos   string
+		getenv func(string) string
+		route  net.IP
+		host   string
+		notice string
 	}{
-		{"unsupported OS", func(d *appDeps) { d.goos = "windows" }, daemon.ErrUnsupported.Error() + "; serving in browser mode\n"},
-		{"ensure failure", func(d *appDeps) {
-			d.ensure = func(context.Context, daemonOptions) (daemon.Status, bool, error) {
-				return daemon.Status{}, true, errors.New("servef daemon did not start")
+		{name: "SSH connection address", goos: "linux", getenv: sshEnv, route: net.ParseIP("192.168.1.20"), host: "10.0.0.5"},
+		{name: "SSH on macOS", goos: "darwin", getenv: sshEnv, host: "10.0.0.5"},
+		{name: "SSH TTY uses the route", goos: "darwin", getenv: func(name string) string {
+			if name == "SSH_TTY" {
+				return "/dev/pts/1"
 			}
-		}, "servef daemon is unavailable (servef daemon did not start; see " + fakeSocket + ".log); serving in browser mode\n"},
+			return ""
+		}, route: net.ParseIP("192.168.1.20"), host: "192.168.1.20"},
+		{name: "Linux without a display", goos: "linux", getenv: func(string) string { return "" }, route: net.ParseIP("fd00::5"), host: "fd00::5"},
+		{name: "unparsable SSH address", goos: "linux", getenv: func(name string) string {
+			if name == "SSH_CONNECTION" {
+				return "10.0.0.9 51234 fe80::1 22"
+			}
+			return ""
+		}, route: net.ParseIP("192.168.1.20"), host: "192.168.1.20"},
+		{name: "no address", goos: "linux", getenv: func(string) string { return "" }, route: net.ParseIP("127.0.0.1"), host: defaultHost, notice: "could not detect this machine's address; serving on localhost\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fake, deps := newAppFake()
-			deps.getenv = sshEnv
-			test.deps(deps)
-			opts := appOptions(root)
-			stdout, stderr, err := runAppWith(opts, deps)
+			deps.goos, deps.getenv = test.goos, test.getenv
+			deps.route = func() net.IP { return test.route }
+			stdout, stderr, err := runAppWith(appOptions(root), deps)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if stdout != "" || stderr != test.want {
-				t.Errorf("stdout = %q, stderr = %q; want %q", stdout, stderr, test.want)
+			if stdout != "" || stderr != test.notice {
+				t.Errorf("stdout = %q, stderr = %q; want notice %q", stdout, stderr, test.notice)
 			}
-			if !reflect.DeepEqual(fake.served, []options{opts}) {
-				t.Errorf("served %+v, want %+v", fake.served, opts)
+			want := appOptions(root)
+			want.host, want.noOpen = test.host, true
+			if !reflect.DeepEqual(fake.served, []options{want}) {
+				t.Errorf("served %+v, want %+v", fake.served, want)
+			}
+			if fake.installedCalls != 0 || len(fake.ensured) != 0 || len(fake.openedURLs) != 0 {
+				t.Errorf("fake = %+v; want the app and daemon untouched", fake)
 			}
 		})
 	}
+}
 
-	// Invalid paths exit instead of falling back.
-	fake, deps := newAppFake()
-	deps.getenv = sshEnv
-	if _, _, err := runAppWith(appOptions(filepath.Join(root, "missing")), deps); err == nil || len(fake.served) != 0 || len(fake.ensured) != 0 {
-		t.Errorf("missing path: err = %v, fake = %+v; want an error and nothing else", err, fake)
+func TestAppHyperlinksTheDesktopURLInTerminals(t *testing.T) {
+	root := appRoot(t)
+	_, deps := newAppFake()
+	deps.terminal = func(io.Writer) bool { return true }
+	stdout, _, err := runAppWith(appOptions(root), deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "servef://local/?project=" + url.QueryEscape(root)
+	if want := "opened " + root + " in servef\ndesktop: " + hyperlink(target, true) + "\n"; stdout != want {
+		t.Errorf("stdout = %q, want %q", stdout, want)
+	}
+	deps.getenv = func(name string) string {
+		if name == "TERM" {
+			return "dumb"
+		}
+		return desktopEnv(name)
+	}
+	if stdout, _, _ := runAppWith(appOptions(root), deps); strings.Contains(stdout, "\x1b") {
+		t.Errorf("TERM=dumb stdout = %q, want no escape sequences", stdout)
 	}
 }

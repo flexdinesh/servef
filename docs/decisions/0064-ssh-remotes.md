@@ -1,6 +1,6 @@
 # 0064: SSH remotes
 
-- Status: Accepted (via [0069](0069-servef-remote-and-ssh-links.md), [0070](0070-desktop-ssh-connections.md)); transport revised by 0070 (app-owned ControlMaster, runtime forward, slug origins)
+- Status: Accepted (via [0069](0069-servef-remote-and-ssh-links.md), [0070](0070-desktop-ssh-connections.md)); transport revised by 0070 (app-owned ControlMaster, runtime forward, slug origins); host identity removed and forwards to TCP servers added by [0076](0076-remote-servers-over-http.md)
 - Date: 2026-11-01
 
 ## Context

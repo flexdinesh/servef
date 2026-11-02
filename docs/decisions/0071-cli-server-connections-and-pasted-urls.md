@@ -1,6 +1,6 @@
 # 0071: CLI-server connections and pasted URLs
 
-- Status: Accepted
+- Status: Accepted; scheme form of server URLs and non-loopback servers added by [0076](0076-remote-servers-over-http.md)
 - Date: 2026-11-02
 - Implements: [0062](0062-desktop-app.md) CLI-server connections;
   [0063](0063-cli-commands-and-url-scheme.md) pasted localhost URLs

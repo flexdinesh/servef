@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"runtime"
@@ -25,18 +26,13 @@ type appDeps struct {
 	ensure    func(context.Context, daemonOptions) (daemon.Status, bool, error)
 	openRoot  func(ctx context.Context, socket, path string) (daemon.OpenResult, error)
 	browser   runner
-	// Inside SSH (servef remote).
-	hostname func() (string, error)
-	username func() string
-	terminal func(io.Writer) bool
+	terminal  func(io.Writer) bool
+	// route is the default route's local address on no-UI machines.
+	route func() net.IP
 }
 
 func (d appDeps) daemonRoots() daemonRootsDeps {
 	return daemonRootsDeps{socket: d.socket, ensure: d.ensure, openRoot: d.openRoot}
-}
-
-func (d appDeps) remote() remoteDeps {
-	return remoteDeps{goos: d.goos, getenv: d.getenv, hostname: d.hostname, username: d.username, terminal: d.terminal, daemon: d.daemonRoots()}
 }
 
 func defaultAppDeps() appDeps {
@@ -48,9 +44,8 @@ func defaultAppDeps() appDeps {
 		ensure:    ensureAppDaemon,
 		openRoot:  openDaemonRoot,
 		browser:   run,
-		hostname:  os.Hostname,
-		username:  currentUsername,
 		terminal:  isTerminal,
+		route:     outboundAddress,
 	}
 }
 
@@ -72,14 +67,16 @@ func openInApp(ctx context.Context, opts options, stdin io.Reader, stdout, stder
 	if opts.hostSet || opts.portSet {
 		return serveInBrowser()
 	}
-	// Inside SSH, bare servef is servef remote (decision 0069).
-	if inSSHSession(deps.getenv) {
-		_, err := openRemote(ctx, remoteOptions{paths: opts.paths, depth: opts.depth, scanDepth: opts.scanDepth}, stdout, stderr, deps.remote())
-		var unavailable *remoteUnavailableError
-		if errors.As(err, &unavailable) {
-			return fallback(unavailable.Error(), "")
+	// Without a UI here, serve on this machine's address so another machine
+	// can open the printed links (decision 0076).
+	if noUI(deps.goos, deps.getenv) {
+		opts.host = detectHost(deps.getenv, deps.route)
+		if opts.host == "" {
+			opts.host = defaultHost
+			_, _ = fmt.Fprintln(stderr, "could not detect this machine's address; serving on localhost")
 		}
-		return err
+		opts.noOpen = true
+		return serveInBrowser()
 	}
 	if deps.goos != "darwin" && deps.goos != "linux" {
 		return serveInBrowser()
@@ -107,8 +104,9 @@ func openInApp(ctx context.Context, opts options, stdin io.Reader, stdout, stder
 	}
 
 	target := "servef://local/?" + url.Values{"project": {project}}.Encode()
+	link := hyperlink(target, deps.terminal(stdout) && deps.getenv("TERM") != "dumb")
 	if opts.noOpen {
-		_, _ = fmt.Fprintln(stdout, target)
+		_, _ = fmt.Fprintln(stdout, link)
 		return nil
 	}
 	if err := deps.openApp(ctx, target); err != nil {
@@ -117,7 +115,7 @@ func openInApp(ctx context.Context, opts options, stdin io.Reader, stdout, stder
 		}
 		return fallback(fmt.Sprintf("could not open the servef desktop app (%v)", err), hint)
 	}
-	_, _ = fmt.Fprintf(stdout, "opened %s in servef\nurl: %s\n", project, target)
+	_, _ = fmt.Fprintf(stdout, "opened %s in servef\ndesktop: %s\n", project, link)
 	return nil
 }
 
@@ -150,7 +148,7 @@ func validateRoots(paths []string, scanDepth int) ([]string, error) {
 	return roots, nil
 }
 
-// daemonRootsDeps are the daemon effects bare servef and servef remote share.
+// daemonRootsDeps are the daemon effects bare servef uses.
 type daemonRootsDeps struct {
 	socket   string // "" uses daemon.DefaultSocket()
 	ensure   func(context.Context, daemonOptions) (daemon.Status, bool, error)

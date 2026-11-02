@@ -1,6 +1,6 @@
 # 0070: Desktop ssh connections
 
-- Status: Accepted
+- Status: Accepted; links, resolution, confirmation, and Connect page revised by [0076](0076-remote-servers-over-http.md)
 - Date: 2026-11-02
 - Implements: [0064](0064-ssh-remotes.md) Transport, Host identity, Missing
   or mismatched servef, Notifications; [0062](0062-desktop-app.md) ssh

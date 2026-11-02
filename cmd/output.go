@@ -14,7 +14,9 @@ import (
 type startupInfo struct {
 	Version      string
 	Directories  []string
-	URL          string
+	URL          string // web URL; the desktop URL swaps its scheme
+	Exposed      bool   // bound to an address other machines may reach
+	Links        bool   // write URLs as OSC 8 hyperlinks
 	ProjectCount int
 	Discovery    time.Duration
 }
@@ -40,7 +42,12 @@ func writeStartup(output io.Writer, info startupInfo) {
 		}
 		writeStartupValue(output, label, path, name, directory)
 	}
-	writeStartupValue(output, label, url, "url:  ", info.URL)
+	writeStartupValue(output, label, url, "web:      ", hyperlink(info.URL, info.Links))
+	writeStartupValue(output, label, url, "desktop:  ", hyperlink(desktopURL(info.URL), info.Links))
+	if info.Exposed {
+		_, _ = fmt.Fprint(output, "  ")
+		_, _ = color.New(color.FgHiYellow).Fprintln(output, "no authentication: anyone who can reach this address can read the served files.")
+	}
 	_, _ = fmt.Fprintln(output)
 	writeDiscovery(output, label, count, duration, info)
 	_, _ = fmt.Fprint(output, "  ")

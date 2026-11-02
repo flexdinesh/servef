@@ -83,10 +83,13 @@ servef .
 ```
 
 With the desktop app installed, `servef [path]` opens it there and exits;
-otherwise (or with `--host`/`--port`) it serves in a browser. Over SSH,
-`servef remote [path]` (and `servef [path]`) prints a `servef://ssh/…` link
-for the app on your computer ([remote hosts](site/src/pages/docs/remote.mdx)).
-`servef browser [path]` always serves in a browser and takes the same flags.
+otherwise (or with `--host`/`--port`) it serves in a browser. On a machine
+without a UI (an SSH session, or Linux without a display) it serves on that
+machine's address and prints a `web:` URL and a `desktop:` `servef://` URL to
+open from another computer; that server has no authentication
+([remote hosts](site/src/pages/docs/remote.mdx)). The desktop app can also
+connect to SSH hosts itself. `servef browser [path]` always serves on
+localhost and takes the same flags.
 To open a directory named `browser`, run `servef ./browser`.
 
 See all options:
