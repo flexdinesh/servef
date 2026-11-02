@@ -81,3 +81,4 @@ rewriting history; update `Status` on the old record.
 | [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted |
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Accepted |
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted |
+| [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
