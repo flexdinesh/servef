@@ -29,6 +29,11 @@ Each release publishes `checksums.txt`, four archives, and eight desktop package
 - `servef-desktop_<version>_darwin_<amd64|arm64>.dmg` and `.zip`
 - `servef-desktop_<version>_linux_<amd64|arm64>.AppImage` and `.deb`
 
+`scripts/install.sh` and `scripts/install-desktop.sh` (decision 0073) install
+the release `github.com/flexdinesh/servef/releases/latest` redirects to, by
+these names, and fetch the desktop icon from the tag; renaming an asset or
+moving `desktop/resources/icon.png` breaks them for every user at once.
+
 Each archive contains the native `servef` binary, README, and license. The frontend is built into `internal/web/dist/` before Go compilation and embedded in the binary. Node.js and pnpm are build-time dependencies only; installed releases need no JavaScript runtime, external assets, or sidecar server.
 
 Desktop packages bundle the same Go binary as the archive for their OS and arch, at `resources/bin/servef` (not on `PATH`), plus Electron. macOS builds are ad-hoc signed, not notarized, so Gatekeeper blocks the first launch until the user allows it. There is no auto-update; upgrade by installing the newer package. `edge` carries no desktop builds. To package locally for the host OS and arch, run `mise run package:desktop` (installers) or `mise run package:desktop:dir` (unpacked app); output lands in `desktop/dist/`.

@@ -53,6 +53,16 @@ const RELEASES = "https://github.com/flexdinesh/servef/releases"
 const BREW_INSTALL = "brew install flexdinesh/tap/servef"
 const BREW_UPGRADE = "brew upgrade flexdinesh/tap/servef"
 const GO_INSTALL = "go install github.com/flexdinesh/servef@latest"
+// INSTALL_SCRIPT installs the latest release's CLI in ~/.local/bin or ~/bin (decision 0073).
+const INSTALL_SCRIPT = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh"
+const STABLE_RELEASE = /^\d+\.\d+\.\d+$/
+
+// releaseOf is the servef release whose page and downloads the app links: its
+// version when packaged as a stable release; null in dev and edge builds
+// (0.0.0-dev), which have no release.
+export function releaseOf(version: string, packaged: boolean): string | null {
+  return packaged && STABLE_RELEASE.test(version) ? version : null
+}
 // DETAIL_LIMIT bounds the failure detail shown on a page (the stderr tail).
 const DETAIL_LIMIT = 2048
 
@@ -168,7 +178,12 @@ function servefMissing(failure: SshFailure, lead: string[], release: string | nu
   ]
   const title = `servef is not installed on ${dest}`
   if (failure.os === "Darwin") {
-    return { title, paragraphs: [...lead, `Install servef on ${dest} with Homebrew:`, ...always], commands: [onHost(dest, BREW_INSTALL)], stopAndRetry: false }
+    return {
+      title,
+      paragraphs: [...lead, `Install servef on ${dest} with the install script or Homebrew:`, ...always],
+      commands: [onHost(dest, INSTALL_SCRIPT), onHost(dest, BREW_INSTALL)],
+      stopAndRetry: false,
+    }
   }
   const arch = failure.os === "Linux" ? linuxArch(failure.arch) : null
   if (arch === null) {
@@ -187,10 +202,10 @@ function servefMissing(failure: SshFailure, lead: string[], release: string | nu
     title,
     paragraphs: [
       ...lead,
-      `Install servef on ${dest} with Homebrew or Go, or download ${archive}.tar.gz from ${page} and put its servef binary in ~/.local/bin.`,
+      `Install servef on ${dest} with the install script, Homebrew, or Go, or download ${archive}.tar.gz from ${page} and put its servef binary in ~/.local/bin.`,
       ...always,
     ],
-    commands: [onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL), ...download],
+    commands: [onHost(dest, INSTALL_SCRIPT), onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL), ...download],
     stopAndRetry: false,
   }
 }

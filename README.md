@@ -20,6 +20,22 @@ else.
 
 ## Install
 
+### Install script
+
+macOS and Linux, no sudo; installs `servef` in `~/.local/bin` (or `~/bin`):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
+```
+
+The desktop app and the CLI:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+```
+
+Remove either with `scripts/uninstall.sh` the same way.
+
 ### Homebrew
 
 ```sh

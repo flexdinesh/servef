@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
 
@@ -79,6 +79,46 @@ const STUBS: Record<string, string[]> = {
   'xdg-mime': ['echo "xdg-mime $*" >> "$STUB_LOG"'],
   'update-desktop-database': ['echo "update-desktop-database $*" >> "$STUB_LOG"'],
   pgrep: ['exit "${STUB_PGREP:-1}"'],
+  // Serves STUB_RELEASE_DIR/<last URL segment>; -w answers the latest redirect.
+  curl: [
+    'echo "curl $*" >> "$STUB_LOG"',
+    'out=""; write=""; url=""',
+    'while [ $# -gt 0 ]; do',
+    '  case "$1" in',
+    '    -o) out="$2"; shift ;;',
+    '    -w) write="$2"; shift ;;',
+    '    --retry | --connect-timeout) shift ;;',
+    '    -*) ;;',
+    '    *) url="$1" ;;',
+    '  esac',
+    '  shift',
+    'done',
+    'if [ -n "$write" ]; then printf "%s" "$STUB_LATEST"; exit 0; fi',
+    'file="$STUB_RELEASE_DIR/${url##*/}"',
+    '[ -f "$file" ] || exit 22',
+    'cp "$file" "$out"',
+  ],
+  wget: [
+    'echo "wget $*" >> "$STUB_LOG"',
+    'out=""; url=""; headers=""',
+    'while [ $# -gt 0 ]; do',
+    '  case "$1" in',
+    '    -O) out="$2"; shift ;;',
+    '    -S) headers=1 ;;',
+    '    -*) ;;',
+    '    *) url="$1" ;;',
+    '  esac',
+    '  shift',
+    'done',
+    'if [ -n "$headers" ]; then',
+    '  echo "  HTTP/1.1 302 Found" >&2',
+    '  echo "  Location: $STUB_LATEST" >&2',
+    '  exit 8',
+    'fi',
+    'file="$STUB_RELEASE_DIR/${url##*/}"',
+    '[ -f "$file" ] || exit 8',
+    'cp "$file" "$out"',
+  ],
 }
 
 function fakeServef(version: string): string {
@@ -132,7 +172,29 @@ async function createSandbox(
       STUB_FAKE_SERVEF: fake,
       STUB_UNAME_S: 'Linux',
       STUB_UNAME_M: 'x86_64',
+      STUB_RELEASE_DIR: join(root, 'release'),
+      STUB_LATEST: 'https://github.com/flexdinesh/servef/releases/tag/v0.1.7',
     },
+  }
+}
+
+// createRelease writes release 0.1.7's assets for linux/<arch>: the CLI
+// archive, and with desktop the AppImage; plus the icon at the tag.
+async function createRelease(sandbox: Sandbox, options: { arch?: string; desktop?: boolean } = {}): Promise<void> {
+  const arch = options.arch ?? 'amd64'
+  const release = sandbox.env.STUB_RELEASE_DIR ?? ''
+  const name = `servef_0.1.7_linux_${arch}`
+  await writeExecutable(join(release, name, 'servef'), fakeServef('0.1.7 (abc123)'))
+  await new Promise<void>((resolve, reject) => {
+    execFile('tar', ['-czf', join(release, `${name}.tar.gz`), '-C', release, name], (error) => {
+      if (error === null) resolve()
+      else reject(error)
+    })
+  })
+  await rm(join(release, name), { recursive: true })
+  await writeFile(join(release, 'icon.png'), 'png')
+  if (options.desktop === true) {
+    await writeFile(join(release, `servef-desktop_0.1.7_linux_${arch}.AppImage`), 'appimage')
   }
 }
 
@@ -341,6 +403,104 @@ void test('install-desktop-edge.sh stops before building when it cannot install'
   assert.match(missing.stderr, /mise is required .*curl https:\/\/mise\.run \| sh/)
 
   assert.equal(await readFile(sandbox.log, 'utf8'), '', 'nothing cloned or built')
+  assert.equal(await exists(join(sandbox.home, '.local')), false)
+})
+
+// --- install.sh ---
+
+void test('install.sh installs the CLI from the release the latest page redirects to', async (t) => {
+  for (const [machine, arch] of [['x86_64', 'amd64'], ['aarch64', 'arm64']] as const) {
+    const sandbox = await createSandbox(t.after.bind(t))
+    await createRelease(sandbox, { arch })
+
+    const result = await run('install.sh', sandbox, { STUB_UNAME_M: machine })
+
+    assertOk(result)
+    assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7 \(abc123\)\)/)
+    const log = await readFile(sandbox.log, 'utf8')
+    assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+    assert.ok(log.includes(`https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef_0.1.7_linux_${arch}.tar.gz`), log)
+    assert.doesNotMatch(log, /api\.github\.com/)
+  }
+})
+
+// systemPathWithout links every /usr/bin and /bin program except names into
+// one directory, so a real system copy cannot stand in for a removed stub.
+async function systemPathWithout(sandbox: Sandbox, names: string[]): Promise<string> {
+  const dir = join(sandbox.root, 'system')
+  await mkdir(dir, { recursive: true })
+  for (const source of SYSTEM_PATH.split(':')) {
+    for (const name of await readdir(source)) {
+      if (names.includes(name) || (await exists(join(dir, name)))) continue
+      await symlink(join(source, name), join(dir, name))
+    }
+  }
+  return dir
+}
+
+void test('install.sh resolves the latest release with wget when curl is missing', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t), { without: ['curl'] })
+  await createRelease(sandbox)
+  const system = await systemPathWithout(sandbox, ['curl'])
+
+  const result = await run('install.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${system}` })
+
+  assertOk(result)
+  assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7 \(abc123\)\)/)
+  assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /^curl /m)
+  assert.match(await readFile(sandbox.log, 'utf8'), /wget -S --max-redirect=0 -O \/dev\/null https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+})
+
+void test('install.sh stops when the latest release or its archive is missing', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+
+  const noLatest = await run('install.sh', sandbox, { STUB_LATEST: '' })
+  assert.notEqual(noLatest.code, 0)
+  assert.match(noLatest.stderr, /could not find the latest servef release at https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+
+  const noArchive = await run('install.sh', sandbox)
+  assert.notEqual(noArchive.code, 0)
+  assert.match(noArchive.stderr, /could not download servef_0\.1\.7_linux_amd64\.tar\.gz from servef 0\.1\.7/)
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false)
+})
+
+// --- install-desktop.sh ---
+
+void test('install-desktop.sh installs the Linux AppImage, registers it, and installs the CLI', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { desktop: true })
+  const share = join(sandbox.home, '.local', 'share')
+  await writeExecutable(join(share, 'servef-desktop', 'app', 'servef-desktop'), 'edge build')
+
+  const result = await run('install-desktop.sh', sandbox)
+
+  assertOk(result)
+  const appImage = join(share, 'servef-desktop', 'servef-desktop.AppImage')
+  assert.equal(await readFile(appImage, 'utf8'), 'appimage')
+  assert.ok(await isExecutable(appImage))
+  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked edge build')
+  const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
+  assert.ok(entry.includes(`\nExec=${appImage} %U\n`), entry)
+  assert.ok((await readFile(join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'), 'utf8')).includes(`\nExec=${appImage} --open-path %F\n`))
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
+  assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7/)
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-desktop_0.1.7_linux_amd64.AppImage'))
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/desktop/resources/icon.png'))
+  assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+})
+
+void test('install-desktop.sh stops on a release without desktop packages or while the app runs', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox)
+
+  const noPackage = await run('install-desktop.sh', sandbox)
+  assert.notEqual(noPackage.code, 0)
+  assert.match(noPackage.stderr, /servef 0\.1\.7 has no servef-desktop_0\.1\.7_linux_amd64\.AppImage; releases before desktop packages have none/)
+
+  const running = await run('install-desktop.sh', sandbox, { STUB_PGREP: '0' })
+  assert.notEqual(running.code, 0)
+  assert.match(running.stderr, /the servef desktop app is running/)
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
