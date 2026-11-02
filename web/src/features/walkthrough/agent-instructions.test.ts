@@ -68,6 +68,14 @@ test("instructions name the running servef, the project, and the endpoints", () 
   assert.ok(prompt.endsWith("\n\nWalk me through: "))
 })
 
+test("without a shareable origin the prompt names the CLI only and no servef line", () => {
+  const prompt = agentInstructions(null, "/home/me/src/app")
+  assert.doesNotMatch(prompt, /^servef:/m)
+  assert.match(prompt, /Write a servef walkthrough of the topic at the end, and publish it with servef\.\n\nProject: \/home\/me\/src\/app$/m)
+  assert.doesNotMatch(prompt, /curl|\/api\/|Over HTTP|servef-app/)
+  assert.deepEqual(example(prompt), example(agentInstructions("http://localhost:7971", "/home/me/src/app")))
+})
+
 test("an origin that is not http(s) names only the CLI", () => {
   const prompt = agentInstructions("servef://local", "/home/me/src/app")
   assert.match(prompt, /^servef: servef:\/\/local$/m)

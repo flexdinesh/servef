@@ -22,13 +22,14 @@ export function agentExample(project: string) {
 // how to publish it: the CLI first (decision 0065), then curl to origin. It
 // ends with "Walk me through: " for the user's topic. An origin that is not
 // http(s), such as the desktop app's servef://local, takes no HTTP
-// requests, so the prompt names the CLI only.
-export function agentInstructions(origin: string, project: string): string {
+// requests, so the prompt names the CLI only; a null origin (a desktop
+// window over ssh, decision 0075) is not named at all.
+export function agentInstructions(origin: string | null, project: string): string {
   // One step per line keeps the example short enough to read.
   const { steps, ...fields } = agentExample(project)
   const example = JSON.stringify(fields, null, 2)
     .replace(/\n}$/, `,\n  "steps": [\n${steps.map((step) => `    ${JSON.stringify(step)}`).join(",\n")}\n  ]\n}`)
-  const http = /^https?:\/\//.test(origin)
+  const http = origin !== null && /^https?:\/\//.test(origin)
   const format = http ? `GET ${origin}/api/walkthrough-schema, or: servef walkthrough schema` : "servef walkthrough schema"
   const fallback = http
     ? `If servef isn't on PATH or lacks "walkthrough publish":
@@ -40,8 +41,7 @@ curl -q -sS -X POST -H 'Content-Type: application/json' --data @walkthrough.json
   const responses = http ? ` Over HTTP, 201 creates, 200 replaces, the response is {"id", "url", "created"}, and a 400 lists every problem.` : ""
   return `Write a servef walkthrough of the topic at the end, and publish it with servef.
 
-servef: ${origin}
-Project: ${project}
+${origin === null ? "" : `servef: ${origin}\n`}Project: ${project}
 Publish: servef walkthrough publish walkthrough.json (no server needed)
 Format: ${format} (JSON Schema; authoritative if anything below is unclear)
 
