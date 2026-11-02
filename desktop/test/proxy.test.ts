@@ -27,6 +27,7 @@ interface Harness {
   stops: number
   looked: string[]
   app: Request[]
+  dropped: string[]
 }
 
 // harness answers lookups for its connection id (local unless ssh is set)
@@ -43,6 +44,7 @@ function harness(options: { lookups?: ConnectionLookup[]; steps?: Step[]; reensu
     stops: 0,
     looked: [],
     app: [],
+    dropped: [],
   }
   state.proxy = createProxy({
     packaged: true,
@@ -70,6 +72,7 @@ function harness(options: { lookups?: ConnectionLookup[]; steps?: Step[]; reensu
       state.stops += 1
       return true
     },
+    dropCli: (id) => { state.dropped.push(id) },
   })
   return state
 }
@@ -118,7 +121,7 @@ test("forwards the encoded path and filtered headers with Host and Sec-Fetch-Sit
   assert.equal(await response.text(), "ok")
   const [forwarded] = h.forwarded
   assert.ok(forwarded !== undefined)
-  assert.equal(forwarded.socket, "/run/servef.sock")
+  assert.deepEqual(forwarded.target, { socket: "/run/servef.sock" })
   assert.equal(forwarded.method, "GET")
   assert.equal(forwarded.path, "/api/page?project=%2Fsrc%2Fa&path=a%20b.md")
   assert.deepEqual(forwarded.headers, { accept: "application/json", host: "localhost", "sec-fetch-site": "same-origin" })
@@ -257,7 +260,7 @@ test("a ready ssh connection forwards to its local forward socket", async () => 
   const h = harness({ id: "ssh-devbox", lookups: [sshReady] })
   const response = await h.proxy(new Request("servef-app://ssh-devbox/api/projects", { headers: { origin: "servef-app://ssh-devbox" } }))
   assert.equal(await response.text(), "ok")
-  assert.equal(h.forwarded[0]?.socket, "/run/f-1.sock")
+  assert.deepEqual(h.forwarded[0]?.target, { socket: "/run/f-1.sock" })
   assert.equal(h.forwarded[0]?.headers.host, "localhost")
   const foreign = await h.proxy(new Request("servef-app://ssh-devbox/api/projects", { headers: { origin: "servef-app://local" } }))
   assert.equal(foreign.status, 403)
@@ -300,7 +303,7 @@ test("a document reload of a failed ssh connection forwards once it recovers", a
   const response = await h.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))
   assert.equal(response.status, 200)
   assert.equal(h.reensures, 1)
-  assert.equal(h.forwarded[0]?.socket, "/run/f-1.sock")
+  assert.deepEqual(h.forwarded[0]?.target, { socket: "/run/f-1.sock" })
 })
 
 test("a reconnecting ssh connection shows a refreshing page without re-ensuring", async () => {
@@ -338,4 +341,77 @@ test("a reset before the response head re-ensures and retries a GET", async () =
   assert.equal(await response.text(), "again")
   assert.equal(h.reensures, 1)
   assert.equal(h.forwarded.length, 2)
+})
+
+// CLI servers (decision 0071).
+
+const cliReady: ConnectionLookup = { kind: "ready", connection: { id: "cli-7971", kind: "cli", origin: "servef-app://cli-7971", host: "127.0.0.1", port: 7971, label: "localhost:7971" } }
+const reset = () => Object.assign(new Error("socket hang up"), { code: "ECONNRESET" })
+const documentHeaders = { "sec-fetch-dest": "document", accept: "text/html" }
+
+test("a ready CLI server forwards over TCP with Host localhost:<port>", async () => {
+  const h = harness({ id: "cli-7971", lookups: [cliReady] })
+  const response = await h.proxy(new Request("servef-app://cli-7971/api/projects", { headers: { origin: "servef-app://cli-7971", accept: "application/json" } }))
+  assert.equal(await response.text(), "ok")
+  const [forwarded] = h.forwarded
+  assert.ok(forwarded !== undefined)
+  assert.deepEqual(forwarded.target, { host: "127.0.0.1", port: 7971 })
+  assert.deepEqual(forwarded.headers, { accept: "application/json", host: "localhost:7971", "sec-fetch-site": "same-origin" })
+  const foreign = await h.proxy(new Request("servef-app://cli-7971/api/projects", { headers: { origin: "servef-app://local" } }))
+  assert.equal(foreign.status, 403)
+})
+
+test("the CLI control endpoint is refused for every connection", async () => {
+  for (const id of ["cli-7971", "local"]) {
+    const h = harness({ id, lookups: [id === "local" ? ready : cliReady] })
+    for (const path of ["/_servef/control", "/%5Fservef/control", "//_servef/control", "/_servef"]) {
+      const response = await h.proxy(new Request(`servef-app://${id}${path}`, { method: "POST" }))
+      assert.equal(response.status, 403, `${id}${path}`)
+    }
+    assert.equal(h.forwarded.length, 0)
+    assert.equal(h.looked.length, 0)
+  }
+})
+
+test("an unknown CLI port shows a no-server page to documents and 404 JSON to the API", async () => {
+  const h = harness({ id: "cli-7971", lookups: [cliReady] })
+  const page = await h.proxy(new Request("servef-app://cli-8000/?project=%2Fsrc", { headers: documentHeaders }))
+  assert.equal(page.status, 404)
+  assert.match(page.headers.get("content-type") ?? "", /text\/html/)
+  const html = await page.text()
+  assert.match(html, /No servef server is running on port 8000/)
+  assert.match(html, /<a href="">Retry<\/a>/)
+  const api = await h.proxy(new Request("servef-app://cli-8000/api/projects"))
+  assert.equal(api.status, 404)
+  assert.equal(await errorCode(api), "unknownConnection")
+  assert.equal(h.forwarded.length, 0)
+})
+
+test("a stopped CLI server is dropped and shows the stopped page; nothing is re-ensured", async () => {
+  const h = harness({ id: "cli-7971", lookups: [cliReady, { kind: "unknown" }], steps: [gone()] })
+  const page = await h.proxy(new Request("servef-app://cli-7971/", { headers: documentHeaders }))
+  assert.equal(page.status, 503)
+  const html = await page.text()
+  assert.match(html, /The servef server on port 7971 stopped/)
+  assert.match(html, /servef browser --port 7971/)
+  assert.deepEqual(h.dropped, ["cli-7971"])
+  assert.equal(h.reensures, 0)
+  assert.equal(h.forwarded.length, 1)
+})
+
+test("a CLI read retries once when the list still reports the server", async () => {
+  const h = harness({ id: "cli-7971", lookups: [cliReady], steps: [reset(), new Response("again")] })
+  const response = await h.proxy(new Request("servef-app://cli-7971/api/projects"))
+  assert.equal(await response.text(), "again")
+  assert.deepEqual(h.dropped, ["cli-7971"])
+  assert.equal(h.forwarded.length, 2)
+  assert.equal(h.reensures, 0)
+})
+
+test("a CLI write that finds the server gone is not resent", async () => {
+  const h = harness({ id: "cli-7971", lookups: [cliReady], steps: [gone(), new Response("never")] })
+  const response = await h.proxy(new Request("servef-app://cli-7971/api/walkthroughs?project=%2Fsrc", { method: "DELETE" }))
+  assert.equal(response.status, 503)
+  assert.equal(await errorCode(response), "serverStopped")
+  assert.equal(h.forwarded.length, 1)
 })

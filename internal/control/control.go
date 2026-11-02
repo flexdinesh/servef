@@ -174,6 +174,16 @@ func (r Registry) List() ([]Remote, error) {
 	return remotes, nil
 }
 
+// Host is the host the process registered (its --host).
+func (r Remote) Host() string {
+	return r.record.Host
+}
+
+// Port is the port the process listens on.
+func (r Remote) Port() int {
+	return r.record.Port
+}
+
 // Running reports whether the registered process responds as servef.
 func (r Remote) Running(ctx context.Context) bool {
 	return r.request(ctx, http.MethodGet) == nil

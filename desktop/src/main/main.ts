@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url"
 import { CONNECT_PATH, createAppPages } from "./app-pages.ts"
 import { findOnPath, locateServef } from "./binary.ts"
 import { APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
+import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { createFileStore } from "./connection-store.ts"
-import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup } from "./connections.ts"
+import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
 import { devFlags, ensureDaemon, nodeExecFile, openPath, probeDaemon, stopDaemon, type EnsureResult } from "./daemon.ts"
 import { confirmConnect, type ConnectChoice } from "./electron-dialogs.ts"
@@ -16,6 +17,7 @@ import { createNotifier } from "./electron-notify.ts"
 import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
 import { createWindowManager, type WindowManager } from "./electron-windows.ts"
 import { createForwarder } from "./forward.ts"
+import { NOT_A_SERVEF_LINK, parsePastedLocation } from "./location.ts"
 import {
   createNoticeGate,
   createSettleTracker,
@@ -92,6 +94,10 @@ function start(launch: readonly string[]): (url: string) => void {
     if ("path" in located) return ensureDaemon(located.path, devFlags(env), nodeExecFile)
     return Promise.resolve({ ok: false, kind: "missing", detail: located.missing })
   }
+  const listCli = (): Promise<CliList> => {
+    if ("path" in located) return listCliServers(located.path, nodeExecFile)
+    return Promise.resolve({ ok: false, detail: located.missing })
+  }
   const forwarder = createForwarder()
 
   // ssh (decision 0070). Dev seams are honored only in unpackaged builds.
@@ -132,6 +138,7 @@ function start(launch: readonly string[]): (url: string) => void {
     ssh: connector,
     store: createFileStore(path.join(userData, "connections.json")),
     timers: systemTimers,
+    listCli,
   })
   const isKnown = (id: string): boolean => connections.known().some((entry) => entry.id === id)
   // listAliases reads Host aliases from the ssh config on each call.
@@ -144,9 +151,9 @@ function start(launch: readonly string[]): (url: string) => void {
     }
   }
 
-  // Only ssh connections wait for the startup sweep; local never does.
+  // Only ssh connections wait for the startup sweep; local and CLI servers never do.
   const gated = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
-    if (id !== LOCAL_CONNECTION) await swept
+    if (id !== LOCAL_CONNECTION && cliPort(id) === null) await swept
     return run()
   }
   const lookup = (id: string): Promise<ConnectionLookup> => gated(id, () => connections.lookup(id))
@@ -155,12 +162,15 @@ function start(launch: readonly string[]): (url: string) => void {
   const appPages = createAppPages({
     model: async () => {
       const destinations = new Set(connections.known().map((entry) => entry.destination.toLowerCase()))
+      const listed = await connections.refreshCli()
       return {
         connections: connections.summaries(),
         aliases: listAliases().filter((alias) => !destinations.has(alias.toLowerCase())),
+        serversDetail: listed.ok ? "" : listed.detail,
       }
     },
     forget: (id) => connections.forget(id),
+    open: (raw) => openPasted(raw),
   })
   handleAppScheme(createProxy({
     packaged,
@@ -170,6 +180,7 @@ function start(launch: readonly string[]): (url: string) => void {
     reensure,
     stopAndRetry,
     appPages,
+    dropCli: (id) => connections.dropCli(id),
   }))
 
   const title = (origin: string, page: string): string => {
@@ -179,16 +190,24 @@ function start(launch: readonly string[]): (url: string) => void {
     const summary = connections.describe(id)
     if (summary === null) return page
     if (summary.kind === "daemon") return windowTitle(page, { kind: "local", label: summary.label, ready: summary.state === "ready" })
+    if (summary.kind === "cli") return windowTitle(page, { kind: "cli", label: summary.label, ready: true })
     return windowTitle(page, { kind: "ssh", label: summary.label, ready: summary.state === "ready" })
   }
 
   // openConnectionURL routes a servef-app:// link on another origin: local,
-  // app pages, and known ssh hosts only.
+  // app pages, known ssh hosts, and running CLI servers only.
   const openConnectionURL = (url: string): void => {
     const target = targetOfURL(url)
     const id = target === null ? null : connectionOfOrigin(target.origin)
     if (id !== null && (id === LOCAL_CONNECTION || id === APP_HOST || isKnown(id))) {
       windows.route(url)
+      return
+    }
+    if (id !== null && cliPort(id) !== null) {
+      connections.lookup(id).then((current) => {
+        if (current.kind === "ready") windows.route(url)
+        else console.error(`servef: denied navigation to a stopped servef server ${url}`)
+      }).catch((error: unknown) => console.error(`servef: ${url}:`, error))
       return
     }
     console.error(`servef: denied navigation to unknown connection ${url}`)
@@ -267,10 +286,7 @@ function start(launch: readonly string[]): (url: string) => void {
   const localSource: NoticeSource = { connection: LOCAL_CONNECTION, label: "" }
   feeds.set(LOCAL_CONNECTION, {
     subs: createSubscriptions({
-      connection: async () => {
-        const local = await connections.lookup(LOCAL_CONNECTION)
-        return local.kind === "ready" ? local.connection : null
-      },
+      connection: async () => daemonConnection(await connections.lookup(LOCAL_CONNECTION)),
       reensure: () => connections.reensure(LOCAL_CONNECTION),
       forward: forwarder.forward,
       timers: systemTimers,
@@ -286,7 +302,7 @@ function start(launch: readonly string[]): (url: string) => void {
         // Streams never start a connection: windows hold it.
         connection: async () => {
           const current = connections.peek(id)
-          return current?.kind === "ready" ? current.connection : null
+          return current === null ? null : daemonConnection(current)
         },
         // Re-ensure only a ready session whose forward refused; a reconnecting
         // or failed session keeps its own backoff and waits for Retry.
@@ -338,7 +354,7 @@ function start(launch: readonly string[]): (url: string) => void {
   connections.subscribe((id, current) => {
     windows.retitle(connectionOrigin(id))
     if (id === LOCAL_CONNECTION) {
-      if (current?.kind === "ready") about(current.connection.status.version)
+      if (current?.kind === "ready" && current.connection.kind !== "cli") about(current.connection.status.version)
       else if (current?.kind === "failed" && current.connection === "daemon" && current.failure.status !== undefined) about(current.failure.status.version)
       return
     }
@@ -347,7 +363,8 @@ function start(launch: readonly string[]): (url: string) => void {
       sources.delete(id)
       return
     }
-    if (current.kind === "ready" && !feeds.has(id)) openSshFeed(id, current.connection.label)
+    // CLI servers have no control stream (decision 0071): no feed, no notices.
+    if (current.kind === "ready" && current.connection.kind === "ssh" && !feeds.has(id)) openSshFeed(id, current.connection.label)
   })
 
   // ensureWindow never leaves the app running with no window.
@@ -384,6 +401,30 @@ function start(launch: readonly string[]): (url: string) => void {
     windows.route(sshTargetURL(entry.id, link))
   }
 
+  // openPasted opens a link pasted on the Connect page (decision 0071):
+  // servef:// links as the OS handler would, and localhost URLs of running
+  // CLI servers in a servef-app://cli-<port> window.
+  const openPasted = async (raw: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+    const location = parsePastedLocation(raw)
+    switch (location.kind) {
+      case "invalid":
+        return { ok: false, reason: location.reason }
+      case "scheme":
+        if (routeSchemeURL(location.url).kind === "invalid") return { ok: false, reason: NOT_A_SERVEF_LINK }
+        openSchemeURL(location.url)
+        return { ok: true }
+      case "cli": {
+        const listed = await connections.refreshCli()
+        if (!listed.ok) return { ok: false, reason: `Could not list servef servers: ${listed.detail}` }
+        // peek: the list just ran; a lookup would list again.
+        const current = connections.peek(cliId(location.port))
+        if (current?.kind !== "ready") return { ok: false, reason: `No servef server is running on port ${location.port}.` }
+        windows.route(location.target)
+        return { ok: true }
+      }
+    }
+  }
+
   const openSchemeURL = (raw: string): void => {
     const routed = routeSchemeURL(raw)
     switch (routed.kind) {
@@ -407,12 +448,12 @@ function start(launch: readonly string[]): (url: string) => void {
     const picked = parent === null ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(parent, options)
     const [folder] = picked.filePaths
     if (picked.canceled || folder === undefined) return
-    const local = await connections.lookup(LOCAL_CONNECTION)
-    if (local.kind !== "ready") {
+    const local = daemonConnection(await connections.lookup(LOCAL_CONNECTION))
+    if (local === null) {
       dialog.showErrorBox("Could not open folder", "The servef daemon is not running.")
       return
     }
-    const outcome = await openPath(forwarder.forward, local.connection.socket, folder)
+    const outcome = await openPath(forwarder.forward, local.socket, folder)
     if (!outcome.ok) {
       dialog.showErrorBox("Could not open folder", outcome.error)
       return
@@ -475,6 +516,11 @@ function choiceOf(target: SshTarget, aliases: readonly ResolvedAlias[]): Connect
     ? `${label}: ssh ${target.destination}${target.port === null ? "" : ` -p ${target.port}`}`
     : `${label}: user ${alias.user}, hostname ${alias.hostname}, port ${target.port ?? alias.port}`
   return { label, detail }
+}
+
+// daemonConnection is a ready daemon-like (local or ssh) connection; null otherwise.
+function daemonConnection(lookup: ConnectionLookup): DaemonConnection | null {
+  return lookup.kind === "ready" && lookup.connection.kind !== "cli" ? lookup.connection : null
 }
 
 function nonEmpty(value: string | undefined): string | null {

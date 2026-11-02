@@ -1,6 +1,6 @@
 # 0063: CLI commands and the `servef://` URL scheme
 
-- Status: Accepted in part (via [0065](0065-walkthrough-publish-cli.md), [0068](0068-cli-opens-desktop-app-and-desktop-releases.md), [0069](0069-servef-remote-and-ssh-links.md)): `servef [path]`, `servef remote`, walkthrough publish, and the local and ssh link forms; pasted localhost URLs Proposed
+- Status: Accepted (via [0065](0065-walkthrough-publish-cli.md), [0068](0068-cli-opens-desktop-app-and-desktop-releases.md), [0069](0069-servef-remote-and-ssh-links.md), [0071](0071-cli-server-connections-and-pasted-urls.md))
 - Corrected by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md): the open URL is `servef://local/?project=<abs>`; inside SSH, `servef [path]` serves in browser mode with a notice until `servef remote` exists (that interim behavior revised by [0069](0069-servef-remote-and-ssh-links.md)).
 - Implemented in part by [0065](0065-walkthrough-publish-cli.md): servef walkthrough publish (no daemon signal; running servers poll).
 - Date: 2026-11-01

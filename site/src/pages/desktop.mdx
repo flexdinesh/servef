@@ -85,6 +85,22 @@ fails.
 **File › Open Folder…** do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
 
+## Servers in a terminal
+
+A server you start in a terminal (`servef browser`, or `servef` with
+`--host` or `--port`) can open in the app too. **File › Connect…** lists the
+servers running on this computer under **Servers on this computer**; click
+one to open it in its own window, titled `… - localhost:<port>`.
+
+To open a copied browser address, paste it into **Open a link** on the same
+page. It accepts `http://localhost:<port>/…` (or `127.0.0.1`, `[::1]`)
+addresses of a running servef server, and `servef://` links. Anything else
+shows **Not a servef link**.
+
+The app only shows such a server; it never starts or stops it, and sends no
+notifications for it. When the server stops, its window says so: start it
+again in the terminal and click **Retry**.
+
 ## Notifications
 
 While the app runs it notifies for projects it has opened:

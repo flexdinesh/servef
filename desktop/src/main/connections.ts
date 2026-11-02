@@ -1,3 +1,5 @@
+import { cliId, cliPort, dialHost } from "./cli-servers.ts"
+import type { CliList, CliServer } from "./cli-servers.ts"
 import { assignId } from "./connection-store.ts"
 import type { ConnectionStore, KnownConnection } from "./connection-store.ts"
 import type { DaemonStatus } from "./daemon-contract.ts"
@@ -13,11 +15,12 @@ export const APP_HOST = "app"
 // RELEASE_GRACE_MS: an ssh connection no window holds closes after this.
 export const RELEASE_GRACE_MS = 30_000
 
-export type ConnectionKind = "daemon" | "ssh"
+export type ConnectionKind = "daemon" | "ssh" | "cli"
 
-export interface Connection {
+// DaemonConnection is a daemon reached over a Unix socket (local or ssh).
+export interface DaemonConnection {
   id: string
-  kind: ConnectionKind
+  kind: "daemon" | "ssh"
   // origin is the renderer origin, servef-app://<id>.
   origin: string
   // socket is the daemon socket (local) or the local forward socket (ssh).
@@ -26,6 +29,21 @@ export interface Connection {
   // label is "local" or the ssh destination.
   label: string
 }
+
+// CliConnection is a running CLI server (servef browser) on loopback TCP
+// (decision 0071).
+export interface CliConnection {
+  id: string
+  kind: "cli"
+  origin: string
+  // host is the loopback host to dial; port its port.
+  host: string
+  port: number
+  // label is "localhost:<port>".
+  label: string
+}
+
+export type Connection = DaemonConnection | CliConnection
 
 export type ConnectionLookup =
   | { kind: "ready"; connection: Connection }
@@ -73,10 +91,17 @@ export interface Connections {
   remember(target: { destination: string; port: number | null }, hints: SshHints): KnownConnection
   // forget closes the session (no grace) and removes the entry.
   forget(id: string): Promise<void>
-  // describe summarizes local and known ssh ids; null otherwise.
+  // describe summarizes local, known ssh, and registered cli ids; null otherwise.
   describe(id: string): ConnectionSummary | null
-  // summaries lists local first, then known ssh hosts in store order.
+  // summaries lists local first, then known ssh hosts in store order, then
+  // registered CLI servers by port.
   summaries(): ConnectionSummary[]
+  // refreshCli lists the running CLI servers and registers exactly those
+  // (single flight); a failed list keeps the registrations.
+  refreshCli(): Promise<{ ok: true } | { ok: false; detail: string }>
+  // dropCli unregisters a CLI server that stopped answering; the next lookup
+  // lists again.
+  dropCli(id: string): void
   // Listeners hear each lookup change; null when an ssh session closed.
   subscribe(listener: (id: string, lookup: ConnectionLookup | null) => void): () => void
   close(): Promise<void>
@@ -90,6 +115,8 @@ export interface ConnectionsDeps {
   ssh: SshConnector
   store: ConnectionStore
   timers: Timers
+  // listCli runs `servef control list --json` (decision 0071).
+  listCli(): Promise<CliList>
 }
 
 // connectionOrigin is the renderer origin of connection id.
@@ -102,6 +129,8 @@ export function connectionOrigin(id: string): string {
 // outcome differs from the last; ssh listeners hear every session state change
 // that maps to a lookup (ready, reconnecting, failed, and connecting after an
 // earlier failure), and null when a session closes or its host is forgotten.
+// CLI servers register on demand: a lookup of an unregistered cli-<port>
+// lists the running servers once; listeners hear registrations and drops.
 export function createConnections(deps: ConnectionsDeps): Connections {
   const listeners = new Set<(id: string, lookup: ConnectionLookup | null) => void>()
   const emit = (id: string, lookup: ConnectionLookup | null): void => {
@@ -205,6 +234,40 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 
   const save = (): void => deps.store.save(known)
 
+  // Registered CLI servers by id.
+  const cli = new Map<string, CliServer>()
+  let cliInflight: Promise<{ ok: true } | { ok: false; detail: string }> | null = null
+  const refreshCli = (): Promise<{ ok: true } | { ok: false; detail: string }> => {
+    if (cliInflight !== null) return cliInflight
+    const started = deps.listCli().catch((error: unknown): CliList => ({ ok: false, detail: errorMessage(error) })).then((result) => {
+      cliInflight = null
+      if (!result.ok) return { ok: false as const, detail: result.detail }
+      const next = new Map(result.servers.map((server) => [cliId(server.port), server]))
+      for (const id of [...cli.keys()]) {
+        if (next.has(id)) continue
+        cli.delete(id)
+        emit(id, null)
+      }
+      for (const [id, server] of next) {
+        const previous = cli.get(id)
+        if (previous !== undefined && previous.origin === server.origin) continue
+        cli.set(id, server)
+        const current = cliLookup(id, server)
+        if (current !== null) emit(id, current)
+      }
+      return { ok: true as const }
+    })
+    cliInflight = started
+    return started
+  }
+  const lookupCli = async (id: string): Promise<ConnectionLookup> => {
+    const registered = cli.get(id)
+    if (registered === undefined) await refreshCli()
+    const server = cli.get(id)
+    return (server === undefined ? null : cliLookup(id, server)) ?? { kind: "unknown" }
+  }
+  const describeCli = (id: string, server: CliServer): ConnectionSummary => ({ id, kind: "cli", label: cliLabel(server.port), state: "ready", detail: "" })
+
   const describeSsh = (current: KnownConnection): ConnectionSummary => {
     const summary = (state: ConnectionState, detail: string): ConnectionSummary => ({ id: current.id, kind: "ssh", label: current.destination, state, detail })
     const live = sessions.get(current.id)
@@ -233,6 +296,7 @@ export function createConnections(deps: ConnectionsDeps): Connections {
       if (localInflight !== null) return localInflight
       return local ?? ensureLocal()
     }
+    if (cliPort(id) !== null) return lookupCli(id)
     if (id === APP_HOST || entry(id) === undefined) return { kind: "unknown" }
     return lookupSsh(id)
   }
@@ -241,6 +305,10 @@ export function createConnections(deps: ConnectionsDeps): Connections {
     lookup,
     peek(id) {
       if (id === LOCAL_CONNECTION) return local
+      if (cliPort(id) !== null) {
+        const server = cli.get(id)
+        return (server === undefined ? null : cliLookup(id, server)) ?? { kind: "unknown" }
+      }
       if (id === APP_HOST || entry(id) === undefined) return { kind: "unknown" }
       const live = sessions.get(id)
       return live === undefined ? null : sshLookup(id, live, live.session.state())
@@ -310,10 +378,21 @@ export function createConnections(deps: ConnectionsDeps): Connections {
     },
     describe(id) {
       if (id === LOCAL_CONNECTION) return describeLocal()
+      const server = cli.get(id)
+      if (server !== undefined) return describeCli(id, server)
       const current = entry(id)
       return current === undefined ? null : describeSsh(current)
     },
-    summaries: () => [describeLocal(), ...known.map(describeSsh)],
+    summaries: () => [
+      describeLocal(),
+      ...known.map(describeSsh),
+      ...[...cli].sort(([, a], [, b]) => a.port - b.port).map(([id, server]) => describeCli(id, server)),
+    ],
+    refreshCli,
+    dropCli(id) {
+      if (!cli.delete(id)) return
+      emit(id, null)
+    },
     subscribe(listener) {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
@@ -367,6 +446,19 @@ function settled(id: string, live: Live, result: SshReady): ConnectionLookup {
   return sshLookup(id, live, state) ?? { kind: "failed", connection: "ssh", failure: result.failure, label: live.label }
 }
 
+// cliLookup is ready for a server with a loopback origin; null otherwise
+// (parseCliList already drops those).
+function cliLookup(id: string, server: CliServer): ConnectionLookup | null {
+  const host = dialHost(server)
+  if (host === null) return null
+  return { kind: "ready", connection: { id, kind: "cli", origin: connectionOrigin(id), host, port: server.port, label: cliLabel(server.port) } }
+}
+
+// cliLabel names a CLI server as its pasted URLs do: localhost:<port>.
+export function cliLabel(port: number): string {
+  return `localhost:${port}`
+}
+
 function sshConnection(id: string, label: string, socket: string, status: DaemonStatus): Connection {
   return { id, kind: "ssh", origin: connectionOrigin(id), socket, status, label }
 }
@@ -380,7 +472,7 @@ function localLookup(result: EnsureResult): ConnectionLookup {
 }
 
 function sameLocal(a: ConnectionLookup, b: ConnectionLookup): boolean {
-  if (a.kind === "ready" && b.kind === "ready") {
+  if (a.kind === "ready" && b.kind === "ready" && a.connection.kind !== "cli" && b.connection.kind !== "cli") {
     const x = a.connection.status
     const y = b.connection.status
     return x.pid === y.pid && x.socket === y.socket && x.protocol === y.protocol && x.version === y.version

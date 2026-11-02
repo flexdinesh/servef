@@ -63,7 +63,7 @@ after(() => {
 })
 
 function request(overrides: Partial<ForwardRequest>): ForwardRequest {
-  return { socket, method: "GET", path: "/plain", headers: { host: "localhost" }, body: null, stream: false, ...overrides }
+  return { target: { socket }, method: "GET", path: "/plain", headers: { host: "localhost" }, body: null, stream: false, ...overrides }
 }
 
 function armSSEClosed() {
@@ -140,7 +140,7 @@ test("an aborted signal rejects before sending", async () => {
 })
 
 test("a missing socket rejects with a daemon-gone error", async () => {
-  await assert.rejects(forwarder.forward(request({ socket: path.join(dir, "missing.sock") })), (error: unknown) => isDaemonGone(error))
+  await assert.rejects(forwarder.forward(request({ target: { socket: path.join(dir, "missing.sock") } })), (error: unknown) => isDaemonGone(error))
 })
 
 test("a connection closed before the response head is a daemon-gone error", async () => {
@@ -171,4 +171,25 @@ test("isDaemonGone recognizes connect failures, resets, and broken pipes only", 
   assert.equal(isDaemonGone(Object.assign(new Error("x"), { code: "ETIMEDOUT" })), false)
   assert.equal(isDaemonGone(new Error("x")), false)
   assert.equal(isDaemonGone(null), false)
+})
+
+// TCP targets (CLI servers, decision 0071).
+
+test("TCP targets forward to a loopback port with the caller's Host", async () => {
+  const tcp = http.createServer((req, res) => res.end(`${req.method} ${req.url} ${req.headers.host ?? ""}`))
+  await new Promise<void>((resolve) => tcp.listen(0, "127.0.0.1", resolve))
+  const address = tcp.address()
+  assert.ok(address !== null && typeof address === "object")
+  try {
+    for (const host of ["127.0.0.1", "localhost"]) {
+      const response = await forwarder.forward(request({ target: { host, port: address.port }, path: "/api/projects?x=1", headers: { host: `localhost:${address.port}` } }))
+      assert.equal(await response.text(), `GET /api/projects?x=1 localhost:${address.port}`, host)
+    }
+    // The Unix socket target still answers alongside the TCP one.
+    assert.equal(await (await forwarder.forward(request({}))).text(), "hello")
+  } finally {
+    tcp.closeAllConnections()
+    await new Promise<void>((resolve) => tcp.close(() => resolve()))
+  }
+  await assert.rejects(forwarder.forward(request({ target: { host: "127.0.0.1", port: address.port } })), (error: unknown) => isDaemonGone(error))
 })
