@@ -156,7 +156,7 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 
 	// The desktop app on this machine shows walkthroughs of projects the
 	// daemon serves; without a UI here, only http servers can show them
-	// (decision 0075).
+	// (decision 0076).
 	viewerQuery := url.Values{"project": {stored.Project}, "wt": {stored.ID}}
 	viewer := ""
 	announced := announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr)

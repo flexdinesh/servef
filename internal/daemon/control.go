@@ -274,7 +274,7 @@ func (c *control) open(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveDirectories lists a directory's child directories so a client can
-// choose a folder to open (decision 0075); an empty path lists the home
+// choose a folder to open (decision 0076); an empty path lists the home
 // directory.
 func serveDirectories(w http.ResponseWriter, path string) {
 	if path == "" {

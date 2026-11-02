@@ -15,7 +15,7 @@ import (
 var ErrNotDirectory = errors.New("not a directory")
 
 // BrowseEntry is a child directory offered when choosing a folder to serve
-// (decision 0075).
+// (decision 0076).
 type BrowseEntry struct {
 	Name       string `json:"name"`
 	Path       string `json:"path"`

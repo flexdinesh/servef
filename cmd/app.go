@@ -68,7 +68,7 @@ func openInApp(ctx context.Context, opts options, stdin io.Reader, stdout, stder
 		return serveInBrowser()
 	}
 	// Without a UI here, serve on this machine's address so another machine
-	// can open the printed links (decision 0075).
+	// can open the printed links (decision 0076).
 	if noUI(deps.goos, deps.getenv) {
 		opts.host = detectHost(deps.getenv, deps.route)
 		if opts.host == "" {

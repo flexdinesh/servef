@@ -9,7 +9,7 @@ import (
 )
 
 // noUI reports whether this machine cannot show a UI to the user at its
-// terminal (decision 0075): an SSH session, or Linux without a display.
+// terminal (decision 0076): an SSH session, or Linux without a display.
 func noUI(goos string, getenv func(string) string) bool {
 	if inSSHSession(getenv) {
 		return true
@@ -80,7 +80,7 @@ func loopbackHost(host string) bool {
 }
 
 // desktopURL is a server URL's desktop form: the same URL with the servef
-// scheme (decision 0075).
+// scheme (decision 0076).
 func desktopURL(webURL string) string {
 	if rest, ok := strings.CutPrefix(webURL, "http://"); ok {
 		return "servef://" + rest

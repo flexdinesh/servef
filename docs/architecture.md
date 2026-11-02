@@ -5,7 +5,7 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 
 ## System boundaries
 
-- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0075).
+- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0076).
 - `internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
 - `internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
 - `internal/files/`: file discovery, always-skipped directories, and safe path resolution.

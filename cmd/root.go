@@ -235,7 +235,7 @@ func listenerPort(address net.Addr) (int, error) {
 }
 
 // shouldOpenBrowser reports whether servef may open a browser: never with
-// --no-open or on a machine without a UI (decision 0075).
+// --no-open or on a machine without a UI (decision 0076).
 func shouldOpenBrowser(noOpen bool, goos string, getenv func(string) string) bool {
 	return !noOpen && !noUI(goos, getenv)
 }
