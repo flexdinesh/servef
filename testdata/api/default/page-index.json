@@ -115,9 +115,6 @@
   "empty": false,
   "error": "",
   "warnings": [],
-  "filenamePatterns": [
-    "*"
-  ],
   "documentType": null,
   "binary": false,
   "tooLarge": false,

@@ -24,7 +24,7 @@ func TestDirectoriesListsWhatScanReadsIncludingEmptyDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dirs, entries, err := Directories(root, 2, []string{"node_modules"})
+	dirs, entries, err := Directories(root, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestDirectoriesListsWhatScanReadsIncludingEmptyDirectories(t *testing.T) {
 }
 
 func TestDirectoriesRejectsMissingRoot(t *testing.T) {
-	if _, _, err := Directories(filepath.Join(t.TempDir(), "missing"), -1, nil); err == nil {
+	if _, _, err := Directories(filepath.Join(t.TempDir(), "missing"), -1); err == nil {
 		t.Fatal("Directories() error = nil for a missing root")
 	}
 }

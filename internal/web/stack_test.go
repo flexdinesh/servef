@@ -78,7 +78,7 @@ func stackRepo(t *testing.T) (string, plumbing.Hash, plumbing.Hash, plumbing.Has
 
 func TestBranchStackListsLayers(t *testing.T) {
 	root, initial, change, above := stackRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	response := request(t, app, "/api/branch-stack?project=.")
 	want := `{"repository":true,"branch":"feature","base":"master","mergeBase":"` + initial.String() + `","head":"` + change.String() + `","layers":[` +
@@ -126,7 +126,7 @@ func TestBranchStackInFolders(t *testing.T) {
 
 func TestHeadParameterChoosesTheHeadBranch(t *testing.T) {
 	root, initial, change, above := stackRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("above.md").Type()
 
 	// A layer against its parent branch lists only its own changes.

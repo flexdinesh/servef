@@ -23,7 +23,7 @@ func newLiveApp(t *testing.T, root string) *App {
 	options := watch.DefaultOptions()
 	options.Debounce = 30 * time.Millisecond
 	options.MaxWait = 200 * time.Millisecond
-	app, err := New(Config{Roots: []string{root}, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}, LiveUpdates: watch.NewHub(options)})
+	app, err := New(Config{Roots: testRoots(t, root), Depth: 5, LiveUpdates: watch.NewHub(options)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestEventsStreamStatusThenChanges(t *testing.T) {
 	app := newLiveApp(t, root)
 	server := liveServer(t, app, 0)
 
-	stream := openEvents(t, server, app.roots[0])
+	stream := openEvents(t, server, app.roots.List()[0])
 	var status statusEvent
 	stream.next("status", &status)
 	if status.Mode != watch.ModeWatching || status.Reason != "" {
@@ -149,7 +149,7 @@ func TestEventsStreamGitStateChanges(t *testing.T) {
 	app := newLiveApp(t, root)
 	server := liveServer(t, app, 0)
 
-	stream := openEvents(t, server, app.roots[0])
+	stream := openEvents(t, server, app.roots.List()[0])
 	var status statusEvent
 	stream.next("status", &status)
 	writeTestFile(t, filepath.Join(root, ".git", "refs", "heads", "main"), "0123\n")
@@ -165,7 +165,7 @@ func TestEventsOutliveTheServerWriteTimeout(t *testing.T) {
 	app := newLiveApp(t, root)
 	server := liveServer(t, app, 50*time.Millisecond)
 
-	stream := openEvents(t, server, app.roots[0])
+	stream := openEvents(t, server, app.roots.List()[0])
 	var status statusEvent
 	stream.next("status", &status)
 	time.Sleep(200 * time.Millisecond)
@@ -182,7 +182,7 @@ func TestStopLiveUpdatesEndsStreams(t *testing.T) {
 	app := newLiveApp(t, root)
 	server := liveServer(t, app, 0)
 
-	stream := openEvents(t, server, app.roots[0])
+	stream := openEvents(t, server, app.roots.List()[0])
 	var status statusEvent
 	stream.next("status", &status)
 	app.StopLiveUpdates()
@@ -209,7 +209,7 @@ func TestEventsRejectUnknownProjectsAndOtherHosts(t *testing.T) {
 		t.Fatalf("body = %s, want an errorResponse", response.Body.String())
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events?project="+url.QueryEscape(app.roots[0]), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/events?project="+url.QueryEscape(app.roots.List()[0]), nil)
 	req.Host = "evil.example"
 	recorder := httptest.NewRecorder()
 	app.ServeHTTP(recorder, req)

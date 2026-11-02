@@ -20,13 +20,13 @@ import (
 // request. Roots confine every project; ScanDepth bounds repository discovery;
 // Depth bounds the file scan within a project.
 type Config struct {
-	Roots      []string
-	ScanDepth  int
-	Depth      int
-	Exclusions []string
-	// Types decides presentation; Filenames decides which files are in scope.
-	Types     *document.Registry
-	Filenames files.NameFilter
+	// Roots is required; requests read it once each, so it may grow while
+	// serving.
+	Roots     *projects.RootSet
+	ScanDepth int
+	Depth     int
+	// Types decides presentation; every file within Depth is in scope.
+	Types *document.Registry
 	// LanguageServers runs language servers for requests that opt in; nil
 	// uses the built-in servers for Types' text families. The App
 	// closes it.
@@ -46,8 +46,8 @@ type Config struct {
 type App struct {
 	config Config
 	// roots are the canonical served roots; the browser keys stored state by
-	// them.
-	roots    []string
+	// them. Each request takes one List snapshot.
+	roots    *projects.RootSet
 	metrics  metricsCollector
 	openFile func(string) (fs.File, error)
 	// statsBudget bounds the bytes one compare-stats request reads.
@@ -88,14 +88,9 @@ func New(config Config) (*App, error) {
 	if config.Types == nil {
 		config.Types = document.Builtins()
 	}
-	if len(config.Filenames.Patterns()) == 0 {
-		config.Filenames = files.AllNames()
+	if config.Roots == nil {
+		return nil, errors.New("web: no roots")
 	}
-	roots, err := projects.CanonicalRoots(config.Roots)
-	if err != nil {
-		return nil, err
-	}
-	config.Roots = roots
 	if config.LanguageServers == nil {
 		config.LanguageServers = lsp.NewManager(builtinServers(config.Types), lsp.Options{})
 	}
@@ -111,7 +106,7 @@ func New(config Config) (*App, error) {
 	if config.LiveUpdates == nil {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
-	app := &App{config: config, roots: roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
+	app := &App{config: config, roots: config.Roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
 	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{app: app})
 	app.routes = app.newRoutes()
 	return app, nil
@@ -180,12 +175,17 @@ func (a *App) StopLiveUpdates() { a.watches.Close() }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
 
-// project resolves a request's project ID within the roots.
+// project resolves a request's project ID within a snapshot of the roots.
 func (a *App) project(id string) (workspace, int, string) {
+	return projectIn(a.roots.List(), id)
+}
+
+// projectIn resolves a project ID within roots.
+func projectIn(roots []string, id string) (workspace, int, string) {
 	if id == "" {
 		return workspace{}, http.StatusBadRequest, noProjectMessage
 	}
-	root, err := projects.Resolve(a.roots, id, a.config.Exclusions)
+	root, err := projects.Resolve(roots, id)
 	if errors.Is(err, files.ErrPathEscape) {
 		return workspace{}, http.StatusBadRequest, projectUnavailableMessage
 	}
@@ -199,7 +199,7 @@ func (a *App) project(id string) (workspace, int, string) {
 }
 
 func (a *App) scan(root string) (*files.Index, error) {
-	return files.Scan(root, a.config.Depth, a.config.Exclusions, a.config.Filenames.Match)
+	return files.Scan(root, a.config.Depth, func(string) bool { return true })
 }
 
 func warningStrings(warnings []files.Warning) []string {

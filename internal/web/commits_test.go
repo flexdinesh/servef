@@ -63,7 +63,7 @@ func historyRepo(t *testing.T) (string, plumbing.Hash, plumbing.Hash) {
 		"old.md":      "# Moved\n",
 		"data.bin":    "head\x00binary",
 		"large.txt":   strings.Repeat("a", document.PreviewLimit+1),
-		"scope/x.zzz": "outside the filename scope\n",
+		"scope/x.zzz": "unregistered extension\n",
 	} {
 		writeMarkdown(t, filepath.Join(root, filepath.FromSlash(name)), content)
 		add(name)
@@ -99,7 +99,7 @@ func historyRepo(t *testing.T) (string, plumbing.Hash, plumbing.Hash) {
 
 func TestCommitsListsBranchAndFullHistory(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	changeCommit := commitResponse{
 		Hash:       change.String(),
@@ -196,9 +196,9 @@ func TestCommitsReportsFolders(t *testing.T) {
 	}
 }
 
-func TestCommitFilesListsChangesBeyondFilenameScope(t *testing.T) {
+func TestCommitFilesListsChanges(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var got commitFilesResponse
 	if status := requestJSON(t, app, "/api/commit-files?project=.&commit="+change.String(), &got); status != http.StatusOK {
@@ -238,7 +238,7 @@ func TestCommitFilesListsChangesBeyondFilenameScope(t *testing.T) {
 
 func TestCommitDiffReadsParentAndCommitSides(t *testing.T) {
 	root, _, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("doc.md").Type()
 	commit := "commit=" + change.String() + "&"
 
@@ -252,7 +252,7 @@ func TestCommitDiffReadsParentAndCommitSides(t *testing.T) {
 		{"path=moved.md&oldPath=old.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
 		// Commit diff tabs remember only the path; the rename is found again.
 		{"path=moved.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
-		{"path=scope/x.zzz", diffResponse{Path: "scope/x.zzz", Status: git.Modified, DocumentType: app.config.Types.Lookup("scope/x.zzz").Type(), Original: text("outside the filename scope\n"), Modified: text("changed\n")}},
+		{"path=scope/x.zzz", diffResponse{Path: "scope/x.zzz", Status: git.Modified, DocumentType: app.config.Types.Lookup("scope/x.zzz").Type(), Original: text("unregistered extension\n"), Modified: text("changed\n")}},
 		{"path=data.bin", diffResponse{Path: "data.bin", Status: git.Modified, DocumentType: app.config.Types.Lookup("data.bin").Type(),
 			Original: &diffSide{Size: 11, Binary: true}, Modified: &diffSide{Size: 11, Binary: true}}},
 		{"path=large.txt", diffResponse{Path: "large.txt", Status: git.Modified, DocumentType: app.config.Types.Lookup("large.txt").Type(),
@@ -299,7 +299,7 @@ func TestCommitDiffRejectsPathsOutsideTheCommit(t *testing.T) {
 
 func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 
 	var got branchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.", &got); status != http.StatusOK {
@@ -420,7 +420,7 @@ func TestBranchAndRangeFilesInFolders(t *testing.T) {
 
 func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("doc.md").Type()
 	ranged := "from=" + change.String() + "&to=" + change.String() + "&"
 
@@ -478,7 +478,7 @@ func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
 // The branch diff is resolved on every request, so a new commit shows next.
 func TestBranchDiffFollowsNewCommits(t *testing.T) {
 	root, _, _ := historyRepo(t)
-	app := newScopedApp(t, root, "*.md")
+	app := newTestApp(t, root)
 	markdown := app.config.Types.Lookup("doc.md").Type()
 
 	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {

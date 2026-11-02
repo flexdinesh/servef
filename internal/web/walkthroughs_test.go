@@ -20,9 +20,8 @@ func walkthroughApp(t *testing.T, root string) (*App, chan string) {
 	t.Helper()
 	opened := make(chan string, 4)
 	app, err := New(Config{
-		Roots:                []string{root},
+		Roots:                testRoots(t, root),
 		Depth:                5,
-		Exclusions:           []string{".git", "node_modules", "vendor"},
 		WalkthroughDirectory: filepath.Join(t.TempDir(), "walkthroughs"),
 		OpenBrowser:          func(target string) error { opened <- target; return nil },
 	})
@@ -280,7 +279,7 @@ func TestWalkthroughsListGetAndDelete(t *testing.T) {
 	}
 
 	remove := func(target string, origin string) *httptest.ResponseRecorder {
-		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots[0])+"$1")
+		target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 		req := localRequest(http.MethodDelete, target)
 		if origin != "" {
 			req.Header.Set("Origin", origin)

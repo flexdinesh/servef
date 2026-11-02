@@ -20,20 +20,21 @@ type directoriesResponse struct {
 }
 
 func (a *App) serveProjects(w http.ResponseWriter) {
-	discovery, err := projects.Discover(a.roots, a.config.ScanDepth, a.config.Exclusions)
+	roots := a.roots.List()
+	discovery, err := projects.Discover(roots, a.config.ScanDepth)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, projectsResponse{
-		Roots:    projects.Roots(a.roots),
+		Roots:    projects.Roots(roots),
 		Projects: discovery.Projects,
 		Warnings: warningStrings(discovery.Warnings),
 	})
 }
 
 func (a *App) serveDirectories(w http.ResponseWriter, id string) {
-	directories, err := projects.Directories(a.roots, id, a.config.Exclusions)
+	directories, err := projects.Directories(a.roots.List(), id)
 	switch {
 	case errors.Is(err, files.ErrPathEscape):
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "That folder is outside the served folders."})

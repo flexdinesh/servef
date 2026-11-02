@@ -11,21 +11,17 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
 	"github.com/flexdinesh/servef/internal/document"
-	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/version"
 	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
 )
-
-var defaultExclusions = []string{".git", "node_modules", "vendor"}
 
 const defaultHost = "localhost"
 
@@ -37,8 +33,6 @@ type options struct {
 	port       int
 	portSet    bool
 	noOpen     bool
-	exclusions []string
-	filenames  files.NameFilter
 	controlDir string
 }
 
@@ -52,12 +46,23 @@ func Execute() error {
 }
 
 func newRootCommand(runCommand runner) *cobra.Command {
+	command := newBrowserCommand("servef [path]", runCommand)
+	command.Version = version.String()
+	command.SetVersionTemplate("{{.Version}}\n")
+	command.CompletionOptions.DisableDefaultCmd = true
+	// Bare servef keeps browser behavior until the desktop app ships (decision 0060).
+	command.AddCommand(newBrowserCommand("browser [path]", runCommand))
+	return command
+}
+
+// newBrowserCommand builds a command that serves directories in a web browser.
+// The root command and the browser subcommand share it so both accept the
+// same flags and run the same validation.
+func newBrowserCommand(use string, runCommand runner) *cobra.Command {
 	var opts options
-	var filenames string
 	command := &cobra.Command{
-		Use:           "servef [path]",
+		Use:           use,
 		Short:         "Browse local files in a web browser",
-		Version:       version.String(),
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -80,41 +85,33 @@ func newRootCommand(runCommand runner) *cobra.Command {
 				return errors.New("--host must be a valid IP address")
 			}
 			opts.portSet = command.Flags().Changed("port")
-			var err error
-			opts.filenames, err = parseFilenames(filenames)
-			if err != nil {
-				return err
-			}
 			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
-	command.SetVersionTemplate("{{.Version}}\n")
-
-	command.Flags().StringArrayVar(&opts.paths, "path", nil, "add a directory to serve (repeatable); a positional path is shorthand for one")
-	command.Flags().StringVar(&filenames, "filename", "*", "comma-separated, case-insensitive base-name globs to include (e.g. '*.md,*.go,Dockerfile')")
-	command.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
-	command.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
-	command.Flags().StringVar(&opts.host, "host", defaultHost, "IP address to bind")
-	command.Flags().IntVar(&opts.port, "port", 0, "port (0 asks the OS); defaults to the first free port from 7971 to 7980")
-	command.Flags().BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
-	command.Flags().StringArrayVar(&opts.exclusions, "exclude", nil, "add a directory name to exclude (repeatable)")
+	addBrowserFlags(command, &opts)
 	return command
 }
 
+func addBrowserFlags(command *cobra.Command, opts *options) {
+	flags := command.Flags()
+	flags.StringArrayVar(&opts.paths, "path", nil, "add a directory to serve (repeatable); a positional path is shorthand for one")
+	flags.IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
+	flags.IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
+	flags.StringVar(&opts.host, "host", defaultHost, "IP address to bind")
+	flags.IntVar(&opts.port, "port", 0, "port (0 asks the OS); defaults to the first free port from 7971 to 7980")
+	flags.BoolVar(&opts.noOpen, "no-open", false, "do not open the browser automatically")
+}
+
 func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.Writer) error {
-	roots, err := projects.CanonicalRoots(opts.paths)
+	rootSet, err := projects.NewRootSet(opts.paths)
 	if err != nil {
 		return err
 	}
-	exclusions := append(append([]string{}, defaultExclusions...), opts.exclusions...)
+	roots := rootSet.List()
 
 	// Validate the root before binding a port or opening a browser.
 	discoveryStarted := time.Now()
-	filenames := opts.filenames
-	if len(filenames.Patterns()) == 0 {
-		filenames = files.AllNames()
-	}
-	discovery, err := projects.Discover(roots, opts.scanDepth, exclusions)
+	discovery, err := projects.Discover(roots, opts.scanDepth)
 	discoveryDuration := time.Since(discoveryStarted)
 	if err != nil {
 		return err
@@ -131,7 +128,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 			return err
 		}
 	}
-	app, err := webui.New(webui.Config{Roots: roots, ScanDepth: opts.scanDepth, Depth: opts.depth, Exclusions: exclusions, Types: document.Builtins(), Filenames: filenames, OpenBrowser: openBrowser})
+	app, err := webui.New(webui.Config{Roots: rootSet, ScanDepth: opts.scanDepth, Depth: opts.depth, Types: document.Builtins(), OpenBrowser: openBrowser})
 	if err != nil {
 		return fmt.Errorf("create web interface: %w", err)
 	}
@@ -227,22 +224,6 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		return fmt.Errorf("stop local server: %w", err)
 	}
 	return nil
-}
-
-// parseFilenames reads one comma-separated list of base-name globs.
-func parseFilenames(value string) (files.NameFilter, error) {
-	patterns := strings.Split(value, ",")
-	for i, pattern := range patterns {
-		patterns[i] = strings.TrimSpace(pattern)
-		if patterns[i] == "" {
-			return files.NameFilter{}, fmt.Errorf("--filename has an empty pattern in %q", value)
-		}
-	}
-	filter, err := files.NewNameFilter(patterns)
-	if err != nil {
-		return files.NameFilter{}, fmt.Errorf("--filename: %w", err)
-	}
-	return filter, nil
 }
 
 func listen(host string, port int) (net.Listener, error) {

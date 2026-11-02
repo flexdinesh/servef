@@ -14,6 +14,10 @@ Or serve another directory:
 servef path/to/markdown
 ```
 
+`servef browser [path]` is equivalent to `servef [path]` and takes the same
+flags. Subcommand names take precedence over directories, so serve a directory
+named `browser` as `servef ./browser`.
+
 Serve several directories with a repeatable `--path` (a positional path is
 shorthand for one); overlapping directories fail before starting:
 
@@ -26,7 +30,8 @@ servef --path ~/work --path ~/personal
 servef looks for git repositories (including linked worktrees) up to
 `--scan-depth` folders deep in each directory (default `10`; `0` checks only
 the served directories) and lists them in the project picker (Cmd/Ctrl+O). It
-stops descending at a repository and skips hidden and excluded folders. Only
+stops descending at a repository and skips hidden, `node_modules`, and
+`vendor` folders. Only
 one project is read at a time, and every switch reads it from disk. Each switch
 restores that project's tabs and expanded folders, including after reloads.
 `--depth` limits the file tree within a project.
@@ -74,29 +79,19 @@ Open servef by `localhost` or an IP address; other hostnames are refused, so
 websites cannot reach it through DNS rebinding.
 If the range is full, servef can stop all verified instances after confirmation.
 
-## Filename scope
+## Files
 
-By default (`--filename "*"`, implicit), every file is served, whatever its
-type. Restrict the session with one comma-separated list of glob patterns:
+Every file within `--depth` is served, whatever its type. `.git`,
+`node_modules`, and `vendor` folders are always skipped, and `.git` files are
+always hidden.
 
-```sh
-servef . --filename '*.md'
-servef . --filename '*.md,*.go,Dockerfile'
-```
-
-Patterns use Go `path.Match` syntax (`*`, `?`, `[...]`) and match each file's
-base name case-insensitively. Empty entries and malformed patterns fail before
-starting the server. Directory exclusions (`.git`, `node_modules`, `vendor`, and
-`--exclude`) still apply, and `.git` files are always hidden.
-
-The CLI scope applies to discovery, direct document access, Markdown link
-navigation, and content search. The explorer's filename filter accepts the same
-patterns and only changes tree visibility, preserving open documents. Global
-content search covers every in-scope text file regardless of the tree filter.
-Markdown image dependencies remain available within the served root.
-Source Control ignores the CLI scope: it lists and diffs every change and
-commit in the repository checkout, regardless of `--filename`, `--depth`, and
-`--exclude`.
+The explorer's filename filter accepts comma-separated glob patterns in Go
+`path.Match` syntax (`*`, `?`, `[...]`), matched case-insensitively against
+each file's base name. It only changes tree visibility, preserving open
+documents. Global content search covers every served text file regardless of
+the tree filter. Markdown image dependencies remain available within the
+served root. Source Control lists and diffs every change and commit in the
+repository checkout, regardless of `--depth` and skipped folders.
 
 ## All options
 

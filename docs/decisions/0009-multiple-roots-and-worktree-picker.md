@@ -1,6 +1,7 @@
 # 0009: Multiple roots, whole repositories, and worktree picker
 
-- Status: Partially superseded by [0012](0012-repository-names-and-worktree-header.md)
+- Status: Partially superseded by [0012](0012-repository-names-and-worktree-header.md);
+  exclusions (`--exclude`) superseded by [0060](0060-scope-flags-removed.md)
 - Date: 2026-10-15
 - Supersedes parts of: [0007](0007-projects-and-project-picker.md)
 

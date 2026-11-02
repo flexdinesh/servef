@@ -6,15 +6,15 @@ rewriting history; update `Status` on the old record.
 
 | # | Decision | Status |
 | --- | --- | --- |
-| [0001](0001-filename-glob-scope.md) | Filename globs define CLI scope | Accepted |
+| [0001](0001-filename-glob-scope.md) | Filename globs define CLI scope | Superseded by 0060 |
 | [0002](0002-explicit-presentation-registry.md) | Explicit registry decides presentation only | Chroma highlighting superseded by 0029 |
 | [0003](0003-view-modes-and-on-demand-format.md) | Preview for Markdown/images; Format on demand | Partially superseded by 0010 |
 | [0004](0004-binary-and-size-limits.md) | Binary detection and size limits | Accepted |
 | [0005](0005-images-as-documents.md) | Images are browsable documents | Accepted |
 | [0006](0006-explorer-filename-filter.md) | Explorer filename filter and tab icons | Accepted |
-| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Partially superseded by 0009 and 0052 |
+| [0007](0007-projects-and-project-picker.md) | Projects, repo discovery, and project picker | Partially superseded by 0009 and 0052; exclusions by 0060 |
 | [0008](0008-line-links-and-copy-path.md) | Line links and copy path | Accepted |
-| [0009](0009-multiple-roots-and-worktree-picker.md) | Multiple roots, whole repositories, and worktree picker | Partially superseded by 0012 |
+| [0009](0009-multiple-roots-and-worktree-picker.md) | Multiple roots, whole repositories, and worktree picker | Partially superseded by 0012; exclusions by 0060 |
 | [0010](0010-markdown-opens-in-source.md) | Markdown opens in Source | Accepted |
 | [0011](0011-token-preserving-web-formatters.md) | Token-preserving HTML, CSS, and JavaScript formatters | Accepted |
 | [0012](0012-repository-names-and-worktree-header.md) | Repository names and worktree header | Accepted |
@@ -64,3 +64,8 @@ rewriting history; update `Status` on the old record.
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |
+| [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted |
+| [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Proposed |
+| [0062](0062-desktop-app.md) | Desktop app | Proposed |
+| [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Proposed |
+| [0064](0064-ssh-remotes.md) | SSH remotes | Proposed |

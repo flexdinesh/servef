@@ -59,6 +59,9 @@ Serve the current directory:
 servef .
 ```
 
+`servef browser [path]` is equivalent to `servef [path]` and takes the same
+flags. To serve a directory named `browser`, run `servef ./browser`.
+
 See all options:
 
 ```sh

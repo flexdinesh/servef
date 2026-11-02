@@ -327,16 +327,14 @@ The filename filter sits in the shelf, always visible, matching the
 filename search field's width and appearance: funnel icon, placeholder
 “Filter: *.md, *.go”, and, when active, a muted 12px “visible / total” count in a
 polite live region plus a clear action. It accepts comma-separated,
-case-insensitive base-name globs with the CLI's `--filename` semantics (`*`, `?`,
+case-insensitive base-name globs with Go `path.Match` semantics (`*`, `?`,
 `[...]`); empty shows all. Input applies after 150ms. An invalid glob marks the
 field `aria-invalid`, turns its border destructive, adds an “Invalid pattern”
 helper, and keeps the last valid filter. No matches show “No files match …” with
-a Clear filter action. When the CLI narrows `--filename`, a muted “Serving …” line
-sits under the field. Escape clears a value, otherwise blurs; Enter or ArrowDown
+a Clear filter action. Escape clears a value, otherwise blurs; Enter or ArrowDown
 focuses the first visible row. The filter is not persisted and changes tree
 visibility only: tabs, the active document, and expansion are preserved.
-Filename search intersects the filter; content search keeps its session-wide CLI
-scope.
+Filename search intersects the filter; content search covers every served file.
 
 Folder expansion is remembered per absolute project path in browser storage, including a fully collapsed tree. Restore only folders present in the fresh tree. Search and filename filters remain transient; changing them does not overwrite hidden folders' expansion.
 
@@ -346,7 +344,8 @@ which expands matching ancestors. Directory chevrons are 12px within existing ro
 
 Changed files shown in the tree carry Source Control's status letter and color
 (Pierre git decorations). Only paths present in the tree are decorated; changes
-outside the CLI scope appear in Source Control alone.
+outside the tree (below `--depth` or in skipped directories) appear in Source
+Control alone.
 
 ### Project picker
 

@@ -2,7 +2,7 @@
 
 ## Views
 
-How a file is shown depends on its type, not on the [scope](/usage#filename-scope):
+How a file is shown depends on its type; every [served file](/usage#files) opens:
 
 - Markdown opens in Source. Choosing Preview opens other documents in the
   project in Preview until you choose Source, for the rest of the browser tab.
@@ -139,8 +139,8 @@ The status bar shows how the project is followed:
   dropped; the project rereads when you return to its tab.
 
 Only visible tabs follow their project: a background tab catches up when you
-return to it. Folders `--exclude` skips and those below `--depth` are not
-watched.
+return to it. Skipped folders (`.git`, `node_modules`, `vendor`) and those
+below `--depth` are not watched.
 
 ## Settings and commands
 

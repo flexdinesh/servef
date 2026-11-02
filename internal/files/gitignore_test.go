@@ -31,7 +31,7 @@ func isolateGitConfig(t *testing.T) string {
 
 func ignoredFiles(t *testing.T, root string) []string {
 	t.Helper()
-	index, err := Scan(root, -1, []string{".git"}, func(string) bool { return true })
+	index, err := Scan(root, -1, func(string) bool { return true })
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -58,7 +58,7 @@ func TestScanMarksGitignoredFilesButKeepsThemBrowsable(t *testing.T) {
 		writeFile(t, filepath.Join(root, name))
 	}
 
-	index, err := Scan(root, -1, []string{".git"}, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -84,7 +84,7 @@ func TestScanSkipsExcludeFileOutsideRepository(t *testing.T) {
 	writeContent(t, filepath.Join(root, ".git"), "gitdir: /elsewhere\n")
 	writeFile(t, filepath.Join(root, "notes.md"))
 
-	index, err := Scan(root, -1, nil, markdownFile)
+	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
@@ -174,7 +174,7 @@ func TestScanOmitsLinkedWorktreeGitFile(t *testing.T) {
 	writeContent(t, filepath.Join(root, "docs", ".git"), "gitdir: /elsewhere\n")
 	writeFile(t, filepath.Join(root, "docs", "notes.md"))
 
-	index, err := Scan(root, -1, nil, func(string) bool { return true })
+	index, err := Scan(root, -1, func(string) bool { return true })
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}

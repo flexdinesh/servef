@@ -115,9 +115,6 @@
   "empty": false,
   "error": "That file is unavailable. Refresh the index and choose another file.",
   "warnings": [],
-  "filenamePatterns": [
-    "*"
-  ],
   "documentType": null,
   "binary": false,
   "tooLarge": false,

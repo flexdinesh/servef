@@ -11,8 +11,8 @@ Read `docs/decisions/` before changing scope, file types, views, or limits. Reco
 - Go CLI/server: `main.go`, `cmd/`, and Go files under `internal/`.
 - Local validation: `tools/validate/` owns committed/current-edit snapshots, host static checks, input certificates, admission, and artifacts; `.dagger/` owns all test execution and its immutable preparation. Public mise tasks orchestrate; hidden `_host:*` and `_container:*` leaves never invoke public wrappers. PR publishing is separate. This tooling is not part of the shipped application.
 - `cmd/` owns CLI validation, session configuration, and application startup.
-- `internal/files/` owns traversal, exclusions, depth, filename-glob scope, gitignore marking, and safe indexed-path resolution. It also exports the 0023 ignore rules (`IgnoreRules`), an unscoped walk of non-ignored files (`WalkUnignored`), root-confined `ResolveFile` for changed paths, and the directories a scan reads (`Directories`) for live updates. Accept an explicit matcher; know no file formats.
-- `internal/projects/` owns root validation, repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, where git state lives (`ReadGitState`: HEAD, index, refs), and the `origin` remote URL only.
+- `internal/files/` owns traversal, the always-skipped `.git`, `node_modules`, and `vendor` directories (`Excluded`), depth, base-name globs (`NameFilter`), gitignore marking, and safe indexed-path resolution. It also exports the 0023 ignore rules (`IgnoreRules`), an unscoped walk of non-ignored files (`WalkUnignored`), root-confined `ResolveFile` for changed paths, and the directories a scan reads (`Directories`) for live updates. Accept an explicit matcher; know no file formats.
+- `internal/projects/` owns the served-root set (`RootSet`: ordered, concurrency-safe; `Add` enforces 0009 rules), repository/worktree discovery, and project-directory resolution within the roots (repositories open whole). It knows the `.git` marker, git's worktree and `HEAD` files, where git state lives (`ReadGitState`: HEAD, index, refs), and the `origin` remote URL only.
 - `internal/git/` owns go-git repository opening, HEAD tree and index reads, working-tree change detection against HEAD or HEAD's merge base with a base branch, exact rename pairing, HEAD blob reads, base-branch detection and branch listing, bounded commit walks (`base..HEAD` and full history), commit-to-first-parent file changes, bounded merge-base and branch/commit-range tree changes (a branch compare's head may be any local branch), bounded branch-stack detection, commit blob reads, and per-file line counts. It knows git formats only; no HTTP or document policy.
 - `internal/document/` owns file-type metadata (including each family's highlight language and image media types), lookup, previews, formatting, binary/size policy (`Available`), and document-link policy. Handlers receive bytes/context; never perform filesystem or HTTP work.
 - `internal/lsp/` owns language-server data (`Builtins()`), host-specific install guidance, binary discovery, process lifecycle (start on demand, idle stop, failure backoff), and the JSON-RPC client. It knows absolute paths and LSP positions only; `internal/web/` validates indexed project access and maps locations to transport responses. Language servers own all symbol resolution.
@@ -30,7 +30,7 @@ Key files:
 
 | Concern | Files |
 | --- | --- |
-| CLI scope | `cmd/root.go`, `internal/files/names.go` |
+| CLI | `cmd/root.go` |
 | Families and lookup | `internal/document/builtins.go`, `registry.go` |
 | Handlers | `internal/document/code.go` (source/format), `json.go`, `yaml.go`, `html.go`, `css.go`, `javascript.go`, `markdown.go`, `mermaid.go` |
 | Binary/size limits | `internal/document/content.go` |
@@ -51,7 +51,6 @@ Key files:
 
 ## Patterns
 
-- Scope vs presentation: `--filename` decides which files exist; the registry decides how they render. Never couple them.
 - Capabilities over type switches: the server declares `previewKind`, `formattable`, page-level `navigationSupported`, `binary`, `previewDisabled`, `searchExcluded`, `tooLarge`; the UI derives modes and views from them in `document-view.ts`.
 - Optional interfaces: add behavior as a small interface (e.g. `Formatter`) that the registry detects and reports, not as flags handlers must remember.
 - One composition point: `Builtins()` lists every family explicitly; a family's metadata is data, its behavior is its handler.
@@ -71,8 +70,6 @@ Key files:
 
 - Compose families explicitly in `internal/document.Builtins()`. Registration decides presentation only; every in-scope file is browsable. Lookup: exact base name, then extension, then the plain-text fallback. The browser highlights the declared language with Highlights (decision 0029); never guess types.
 - Reuse `CodeHandler` for highlighted source and `FormattedCodeHandler` for formatted text. Implement a specialized handler only when behavior requires it. Source-only additions should need no discovery, HTTP, or frontend format branches.
-- `--filename` is one comma-separated string of case-insensitive base-name globs, defaulting to `*`; do not make it a repeatable flag.
-- Build the filename filter once in `cmd` and pass it through discovery, document access, link navigation, and content search.
 - Prefer cohesive packages, small semantic interfaces, and explicit dependencies. Avoid global registries, scattered file-type switches, and speculative plugin frameworks.
 - Follow the file-type extension guide in `docs/development.md`; preserve the single-binary distribution.
 
@@ -88,12 +85,12 @@ Key files:
 - Source shows original text. Formatting is read-only; preserve meaningful values and presentation, including JSON number precision/key order and YAML comments, scalar styles, anchors/aliases, and multiple documents.
 - Malformed files remain readable and searchable. Highlighting falls back to escaped text when a language is unknown or tokenization fails or panics.
 - Binary files (NUL in the first 8000 bytes) send no source and skip search. Over 4 MiB: no highlighting, format, or non-image preview. Over 8 MiB: also skip search. Over 32 MiB (non-image): not read; `tooLarge` note only.
-- CLI scope limits available documents and search. Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search retains CLI scope.
+- Every file within `--depth` is available; `.git`, `node_modules`, and `vendor` directories are always skipped (decision 0060). Tree filters only change visibility; preserve open tabs, the active document, expansion, and responsive state. Filename search intersects the tree filter; global content search covers every available file.
 - Gitignored files stay browsable in the tree but are excluded from content search and returned navigation locations.
 - Code navigation is Source-only and LSP-only. Follow VS Code bindings. Binary files and files over 4 MiB do not navigate. No local parsing, symbol index, import guesses, or syntax fallback. Keep only indexed, in-scope, non-ignored project locations; preserve UTF-16 ranges.
 - Language servers are enabled by default per browser, authorized per request with `X-Servef-Language-Servers: on`, started only by navigation, stopped after 10 idle minutes, and closed with servef. Status requests never start servers. Show unsupported, missing, disabled, starting, ready, and failed states beside the language label; missing servers show host-specific install instructions.
 - Memory footprint is a priority: measure servef RSS and language-server process-tree RSS separately before and after navigation changes. Bound open documents, response sizes, startup/query time, and cancellation.
-- Source Control is repository-scoped: `--filename`, `--depth`, and `--exclude` do not apply. It reads worktree files only for paths validated against the change set, through `files.ResolveFile`; HEAD sides come from `internal/git/`. Commit history (0027) is repository-scoped too; commit diffs read both sides from git objects, validated against the commit's change set. 0004 limits apply per diff side. Compare stats (0035) count both sides under the same limits within a 64 MiB per-request budget. Never run the `git` binary.
+- Source Control is repository-scoped: `--depth` and the always-skipped directories do not apply. It reads worktree files only for paths validated against the change set, through `files.ResolveFile`; HEAD sides come from `internal/git/`. Commit history (0027) is repository-scoped too; commit diffs read both sides from git objects, validated against the commit's change set. 0004 limits apply per diff side. Compare stats (0035) count both sides under the same limits within a 64 MiB per-request budget. Never run the `git` binary.
 - Live updates (0050) follow only subscribed projects: a visible tab's `/api/events` stream is its interest; the server keeps no current project. Watch what a scan reads plus git state; past 4096 directories (8192 entries on kqueue) or on a watch failure, poll. Bound followed projects (8), paths per change (256), and stop a project 30 s after its last subscriber.
 - Keep Markdown image dependencies separate from browsable-document scope while enforcing root confinement. Serve raw bytes only for image-preview types, sandboxed.
 - Test semantic behavior across boundaries: lookup/scope, direct access, source preservation, preview/format failures, binary/size limits, search, and UI navigation. Include source-only composition coverage when changing extension contracts; avoid tests tied to private implementation details.

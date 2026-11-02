@@ -7,17 +7,16 @@ import (
 )
 
 // Directories lists the absolute paths of the directories a Scan with the
-// same maxDepth and excluded reads, root first, including directories that
+// same maxDepth reads, root first, including directories that
 // hold no in-scope files, and counts the entries they hold other than .git.
 // Watching them sees every change a rescan would. Symlinked directories are
 // not followed. Failure to read root is fatal; unreadable directories below
 // it are skipped.
-func Directories(root string, maxDepth int, excluded []string) ([]string, int, error) {
+func Directories(root string, maxDepth int) ([]string, int, error) {
 	canonicalRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return nil, 0, fmt.Errorf("resolve scan root: %w", err)
 	}
-	excludedNames := excludedNameSet(excluded)
 	var dirs []string
 	entries := 0
 	var walk func(dir string, depth int) error
@@ -35,7 +34,7 @@ func Directories(root string, maxDepth int, excluded []string) ([]string, int, e
 			if !child.IsDir() {
 				continue
 			}
-			if _, skip := excludedNames[child.Name()]; skip || maxDepth >= 0 && depth >= maxDepth {
+			if Excluded(child.Name()) || maxDepth >= 0 && depth >= maxDepth {
 				continue
 			}
 			_ = walk(filepath.Join(dir, child.Name()), depth+1)
@@ -48,14 +47,12 @@ func Directories(root string, maxDepth int, excluded []string) ([]string, int, e
 	return dirs, entries, nil
 }
 
-// excludedNameSet normalizes --exclude values to the base names Scan skips.
-func excludedNameSet(excluded []string) map[string]struct{} {
-	names := make(map[string]struct{}, len(excluded))
-	for _, name := range excluded {
-		name = filepath.Base(filepath.Clean(name))
-		if name != "." && name != string(filepath.Separator) && name != "" {
-			names[name] = struct{}{}
-		}
-	}
-	return names
+// excludedDirectories are the directory base names servef never scans,
+// browses, or discovers projects in.
+var excludedDirectories = map[string]bool{".git": true, "node_modules": true, "vendor": true}
+
+// Excluded reports whether servef always skips a directory with this base
+// name: .git, node_modules, and vendor.
+func Excluded(name string) bool {
+	return excludedDirectories[name]
 }

@@ -27,7 +27,7 @@ func newProjectsApp(t *testing.T) (*App, string) {
 	writeMarkdown(t, filepath.Join(root, "web", ".git", "HEAD"), "ref: refs/heads/main\n")
 	writeMarkdown(t, filepath.Join(root, "web", "secret.md"), "# Web only\n")
 	writeMarkdown(t, filepath.Join(root, "web", "logo.png"), "png")
-	app, err := New(Config{Roots: []string{root}, ScanDepth: 10, Depth: 5, Exclusions: []string{".git", "node_modules", "vendor"}})
+	app, err := New(Config{Roots: testRoots(t, root), ScanDepth: 10, Depth: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestProjectsSpanRoots(t *testing.T) {
 	writeMarkdown(t, filepath.Join(first, "a", "a.md"), "# A\n")
 	writeMarkdown(t, filepath.Join(second, "b", "b.md"), "# B\n")
 	writeMarkdown(t, filepath.Join(parent, "outside", "secret.md"), "# Secret\n")
-	app, err := New(Config{Roots: []string{first, second}, ScanDepth: 10, Depth: 5})
+	app, err := New(Config{Roots: testRoots(t, first, second), ScanDepth: 10, Depth: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,8 +196,36 @@ func TestProjectsSpanRoots(t *testing.T) {
 			t.Errorf("%s = %d, want %d", target, response.Code, want)
 		}
 	}
-	if _, err := New(Config{Roots: []string{parent, first}}); err == nil {
-		t.Fatal("New() with nested roots error = nil")
+	if _, err := New(Config{}); err == nil {
+		t.Fatal("New() without roots error = nil")
+	}
+}
+
+func TestRootAddedAfterStartIsServed(t *testing.T) {
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, second := filepath.Join(parent, "first"), filepath.Join(parent, "second")
+	writeMarkdown(t, filepath.Join(first, "a.md"), "# A\n")
+	writeMarkdown(t, filepath.Join(second, "b.md"), "# B\n")
+	roots := testRoots(t, first)
+	app, err := New(Config{Roots: roots, ScanDepth: 10, Depth: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "/api/page?project=" + url.QueryEscape(second) + "&path=b.md"
+	if response := request(t, app, target); response.Code != http.StatusBadRequest {
+		t.Fatalf("%s before Add = %d, want %d", target, response.Code, http.StatusBadRequest)
+	}
+	if _, _, err := roots.Add(second); err != nil {
+		t.Fatal(err)
+	}
+	if got := projectIDs(requestProjects(t, app).Projects); !reflect.DeepEqual(got, []string{first, second}) {
+		t.Fatalf("projects after Add = %v", got)
+	}
+	if response := request(t, app, target); response.Code != http.StatusOK {
+		t.Fatalf("%s after Add = %d, want %d", target, response.Code, http.StatusOK)
 	}
 }
 

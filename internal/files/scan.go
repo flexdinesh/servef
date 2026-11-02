@@ -58,14 +58,13 @@ type Index struct {
 
 // Scan builds an index rooted at root. The root directory is depth zero, so a
 // maxDepth of zero includes supported files directly within root. Negative
-// maxDepth values scan without a depth limit. Directory names in excluded are
-// matched by base name at every scanned level. .git entries of any type are
-// never indexed.
+// maxDepth values scan without a depth limit. Excluded directory names are
+// skipped at every scanned level. .git entries of any type are never indexed.
 //
 // Symlinks are not included. Failure to open or inspect the root is fatal;
 // failures below it are recorded in Index.Warnings and the rest of the scan is
 // returned.
-func Scan(root string, maxDepth int, excluded []string, accepts func(string) bool) (*Index, error) {
+func Scan(root string, maxDepth int, accepts func(string) bool) (*Index, error) {
 	if accepts == nil {
 		return nil, errors.New("file matcher is required")
 	}
@@ -96,7 +95,7 @@ func Scan(root string, maxDepth int, excluded []string, accepts func(string) boo
 	}
 	index.Tree = Entry{Name: filepath.Base(canonicalRoot), IsDir: true}
 
-	if err := index.scanDirectory(&index.Tree, 0, maxDepth, excludedNameSet(excluded), NewIgnoreRules(canonicalRoot), false); err != nil {
+	if err := index.scanDirectory(&index.Tree, 0, maxDepth, NewIgnoreRules(canonicalRoot), false); err != nil {
 		return nil, fmt.Errorf("read scan root: %w", err)
 	}
 	return index, nil
@@ -159,7 +158,7 @@ func (i *Index) Resolve(name string) (string, error) {
 
 // scanDirectory indexes node's directory. inIgnored reports that it or an
 // ancestor directory is ignored, which git never re-includes below.
-func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[string]struct{}, ignore *IgnoreRules, inIgnored bool) error {
+func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, ignore *IgnoreRules, inIgnored bool) error {
 	dirPath := i.root
 	if node.Path != "" {
 		dirPath = filepath.Join(i.root, filepath.FromSlash(node.Path))
@@ -207,7 +206,7 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		}
 
 		if info.IsDir() {
-			if _, skip := excluded[dirEntry.Name()]; skip {
+			if Excluded(dirEntry.Name()) {
 				continue
 			}
 			if maxDepth >= 0 && depth >= maxDepth {
@@ -243,7 +242,7 @@ func (i *Index) scanDirectory(node *Entry, depth, maxDepth int, excluded map[str
 		if child.isDir {
 			// Nested failures are recorded as warnings so other siblings remain usable.
 			ignored := inIgnored || ignore.ignoredIn(node.Path, child.path, true)
-			_ = i.scanDirectory(childNode, depth+1, maxDepth, excluded, ignore, ignored)
+			_ = i.scanDirectory(childNode, depth+1, maxDepth, ignore, ignored)
 			if len(childNode.Children) == 0 {
 				node.Children = node.Children[:len(node.Children)-1]
 			}

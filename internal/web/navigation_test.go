@@ -33,7 +33,7 @@ func TestNavigationRejectsBadRequests(t *testing.T) {
 
 func TestNavigationAdapterPreservesRangesOrderAndScope(t *testing.T) {
 	app := serverApp(t, true)
-	root := app.roots[0]
+	root := app.roots.List()[0]
 	outside := filepath.Join(t.TempDir(), "outside.go")
 	if err := os.WriteFile(outside, []byte("package outside"), 0o644); err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestNavigationAdapterPreservesRangesOrderAndScope(t *testing.T) {
 
 func TestPageNavigationSupportUsesCatalog(t *testing.T) {
 	app := serverApp(t, false)
-	if err := os.WriteFile(filepath.Join(app.roots[0], "plain.txt"), []byte("hello"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(app.roots.List()[0], "plain.txt"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for path, want := range map[string]bool{"main.go": true, "plain.txt": false, "": false} {
@@ -105,7 +105,7 @@ func TestLanguageServerCompositionUsesTextFamilies(t *testing.T) {
 
 func TestNavigationStatusFixtureMatchesServer(t *testing.T) {
 	servers := lsp.NewManager(lsp.Builtins(), lsp.Options{LookPath: func(string) (string, bool) { return "", false }})
-	app, err := New(Config{Roots: []string{filepath.Join("..", "..", "testdata", "markdown")}, Depth: 5, LanguageServers: servers})
+	app, err := New(Config{Roots: testRoots(t, filepath.Join("..", "..", "testdata", "markdown")), Depth: 5, LanguageServers: servers})
 	if err != nil {
 		t.Fatal(err)
 	}

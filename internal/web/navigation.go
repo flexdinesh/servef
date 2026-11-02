@@ -264,7 +264,7 @@ func (a *App) serveNavigation(w http.ResponseWriter, r *http.Request, references
 			navigationFailure(w, http.StatusInternalServerError, "unavailable", "Invalid language server workspace configuration.")
 			return
 		}
-		contextFiles, err := files.Scan(project.root, a.config.Depth, a.config.Exclusions, contextFilter.Match)
+		contextFiles, err := files.Scan(project.root, a.config.Depth, contextFilter.Match)
 		if err != nil {
 			navigationFailure(w, http.StatusInternalServerError, "unavailable", "Could not scan workspace configuration.")
 			return

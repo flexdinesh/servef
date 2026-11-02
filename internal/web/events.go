@@ -95,7 +95,7 @@ func (a *App) watchTarget(root string) watch.Target {
 	return watch.Target{
 		Root: root,
 		Directories: func() ([]string, int, error) {
-			return files.Directories(root, a.config.Depth, a.config.Exclusions)
+			return files.Directories(root, a.config.Depth)
 		},
 		Git: func() ([]string, func(string) bool) {
 			state, ok := projects.ReadGitState(root)

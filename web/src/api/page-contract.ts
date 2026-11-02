@@ -31,7 +31,6 @@ export interface PageData {
   roots: string[]
   project: string
   projectUnavailable: boolean
-  filenamePatterns: string[]
   documentType: FileType | null
   navigationSupported: boolean
   binary: boolean
@@ -116,7 +115,6 @@ export function isPageData(value: unknown): value is PageData {
     && isStringArray(value.roots)
     && typeof value.project === "string"
     && typeof value.projectUnavailable === "boolean"
-    && isStringArray(value.filenamePatterns)
     && typeof value.navigationSupported === "boolean"
     && typeof value.binary === "boolean"
     && typeof value.tooLarge === "boolean"

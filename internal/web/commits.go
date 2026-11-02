@@ -72,7 +72,7 @@ func writeUnknownHead(w http.ResponseWriter, err error) bool {
 }
 
 // History, like changes, is repository-scoped: commits and their files are
-// listed whatever the CLI filename scope, and file sides are read from git
+// listed whatever the browse depth, and file sides are read from git
 // objects only after the git package validates them as changes.
 
 type commitsResponse struct {

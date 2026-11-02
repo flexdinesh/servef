@@ -1,7 +1,7 @@
 import { FunnelIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 
-import { isDefaultFilenameScope, parseFilenameFilter, type FilenameMatcher } from "./filename-filter.ts"
+import { parseFilenameFilter, type FilenameMatcher } from "./filename-filter.ts"
 
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { TextField } from "../../components/ui/text-field.tsx"
@@ -61,25 +61,21 @@ export function useFilenameFilter(): FilenameFilterState {
 
 interface FilenameFilterProps {
   filter: FilenameFilterState
-  scopePatterns: readonly string[]
   totalCount: number
   visibleCount: number
   onFocusTree(): void
 }
 
-export function FilenameFilter({ filter, scopePatterns, totalCount, visibleCount, onFocusTree }: FilenameFilterProps) {
+export function FilenameFilter({ filter, totalCount, visibleCount, onFocusTree }: FilenameFilterProps) {
   const errorId = useId()
-  const scopeId = useId()
   const input = useRef<HTMLInputElement>(null)
-  const scoped = !isDefaultFilenameScope(scopePatterns)
-  const describedBy = [filter.invalidPattern !== null ? errorId : "", scoped ? scopeId : ""].filter(Boolean).join(" ")
   const active = filter.matcher !== null
 
   return <div className="filename-filter">
     <TextField className="filename-filter-field" inputClassName="filename-filter-input" inputRef={input}
       icon={<FunnelIcon />} invalid={filter.invalidPattern !== null} type="text" aria-label="Filter files by name"
       placeholder="Filter: *.md, *.go" value={filter.text} spellCheck={false} autoComplete="off" autoCapitalize="off"
-      aria-describedby={describedBy || undefined}
+      aria-describedby={filter.invalidPattern !== null ? errorId : undefined}
       onChange={(event) => filter.setText(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -105,6 +101,5 @@ export function FilenameFilter({ filter, scopePatterns, totalCount, visibleCount
           }} />}
       </>} />
     {filter.invalidPattern !== null && <p id={errorId} className="filename-filter-error">Invalid pattern "{filter.invalidPattern}"</p>}
-    {scoped && <p id={scopeId} className="filename-filter-scope" title={scopePatterns.join(", ")}>Serving {scopePatterns.join(", ")}</p>}
   </div>
 }
