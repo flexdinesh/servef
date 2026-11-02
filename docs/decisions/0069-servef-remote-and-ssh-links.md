@@ -1,6 +1,6 @@
 # 0069: `servef remote` and ssh links
 
-- Status: Accepted
+- Status: Superseded by [0076](0076-remote-servers-over-http.md)
 - Date: 2026-11-01
 - Implements: [0063](0063-cli-commands-and-url-scheme.md) `servef remote` and
   the ssh link form; [0064](0064-ssh-remotes.md) Host identity (link hints)
