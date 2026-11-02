@@ -35,7 +35,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"vet": "go", "test:go": "go", "test:race": "go",
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
-		"test:desktop": "desktop",
+		"test:browser:webkit": "browser", "test:desktop": "desktop",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -84,7 +84,12 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("SERVEF_DESKTOP_SSH_TESTS", "require")
 	}
 	if group == "browser" {
-		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", "chromium"})
+		// WebKit installs only for its opt-in task; the gate prepares Chromium alone.
+		engine := "chromium"
+		if task == "test:browser:webkit" {
+			engine = "webkit"
+		}
+		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", engine})
 		runner = browser.WithDirectory("/src", source).WithDirectory("/src/internal/web/dist", runner.Directory("/src/internal/web/dist")).
 			WithFile("/opt/servef", binary).
 			WithEnvVariable("SERVEF_BROWSER_BINARY", "/opt/servef").WithEnvVariable("SERVEF_BROWSER_ISOLATED", "1").

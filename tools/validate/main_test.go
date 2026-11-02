@@ -224,6 +224,15 @@ func TestTargetedTasksRequireTheirCompleteSourceGroup(t *testing.T) {
 	}
 }
 
+func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
+	if !taskBelongsToGroup("_container:test:browser:webkit", "browser") {
+		t.Fatal("WebKit browser task rejected for browser group")
+	}
+	if taskBelongsToGroup("_container:test:browser:webkit", "desktop") {
+		t.Fatal("WebKit browser task accepted for desktop group")
+	}
+}
+
 func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
 	if !selected("frontend", "internal/walkthrough/schema.json") {
 		t.Fatal("frontend example validation requires server schema")
