@@ -213,7 +213,7 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 					t.Fatal(err)
 				}
 				if file == "mise.toml" {
-					original := "[tasks.\"_container:test:release\"]\nhide = true\nrun = \"ruby --version && pnpm test:release\""
+					original := "[tasks.\"_container:test:release\"]\nhide = true\nrun = \"ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release\""
 					quoted, _ := json.Marshal(scenario.script)
 					replacement := "[tasks.\"_container:test:release\"]\nhide = true\nrun = " + string(quoted)
 					if !strings.Contains(string(content), original) {
