@@ -44,7 +44,7 @@ export interface CliConnection {
 }
 
 // HttpConnection is a servef server on another computer over TCP (decision
-// 0075), confirmed or chosen by the user.
+// 0076), confirmed or chosen by the user.
 export interface HttpConnection {
   id: string
   kind: "http"
@@ -58,7 +58,7 @@ export interface HttpConnection {
 }
 
 // PortConnection is a remote TCP server reached through an ssh host's
-// master (decision 0075): socket is the local p-*.sock forward.
+// master (decision 0076): socket is the local p-*.sock forward.
 export interface PortConnection {
   id: string
   kind: "ssh-port"

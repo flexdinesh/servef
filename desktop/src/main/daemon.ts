@@ -143,7 +143,7 @@ export type DirectoriesOutcome =
   | { ok: false; status: number; code: string; error: string; upgrade: boolean }
 
 // listDirectories gets /_daemon/directories?path= over the socket (decision
-// 0075). A daemon that does not answer yields status 0, "daemonUnavailable".
+// 0076). A daemon that does not answer yields status 0, "daemonUnavailable".
 export async function listDirectories(forward: Forward, socket: string, path: string): Promise<DirectoriesOutcome> {
   let response: Response
   try {

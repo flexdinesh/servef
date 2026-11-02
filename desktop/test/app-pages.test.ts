@@ -217,7 +217,7 @@ test("/open refuses POST and opens nothing on HEAD", async () => {
   assert.deepEqual(opened, [])
 })
 
-// ssh hosts from the Connect page (decision 0075).
+// ssh hosts from the Connect page (decision 0076).
 
 test("POST /ssh stores a config alias and opens its host page; others go back to Connect", async () => {
   const { handle, added } = pages()

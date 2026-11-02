@@ -416,7 +416,7 @@ test("a CLI write that finds the server gone is not resent", async () => {
   assert.equal(h.forwarded.length, 1)
 })
 
-// http servers and forwarded remote servers (decision 0075).
+// http servers and forwarded remote servers (decision 0076).
 
 const httpReady: ConnectionLookup = { kind: "ready", connection: { id: "http-10-0-0-5-7971", kind: "http", origin: "servef-app://http-10-0-0-5-7971", host: "10.0.0.5", urlHost: "10.0.0.5", port: 7971, label: "10.0.0.5:7971" } }
 const portReady: ConnectionLookup = { kind: "ready", connection: { id: "ssh-devbox-7971", kind: "ssh-port", origin: "servef-app://ssh-devbox-7971", socket: "/run/p-1.sock", port: 7971, label: "devbox:7971" } }

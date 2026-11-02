@@ -1,4 +1,4 @@
-// Server locations (decisions 0071, 0075): pure mapping of server URLs, from
+// Server locations (decisions 0071, 0076): pure mapping of server URLs, from
 // servef://<host>:<port> links and the Connect page's "Open a link" field, to
 // connections. Links and pasted text are untrusted; the caller verifies cli
 // ports against `servef control list` and confirms http servers.

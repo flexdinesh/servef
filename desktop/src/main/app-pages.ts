@@ -1,4 +1,4 @@
-// App pages on servef-app://app (decisions 0070, 0071, 0075): the Connect
+// App pages on servef-app://app (decisions 0070, 0071, 0076): the Connect
 // page, ssh host pages and the folder picker, their POST actions, and the
 // "Open a link" form. Static HTML, no scripts.
 import { connectionOrigin } from "./connections.ts"
@@ -155,7 +155,7 @@ function serverList(id: string, servers: ServersView, empty: string): string {
   return `<ul>\n${rows.join("\n")}\n</ul>`
 }
 
-// hostPage renders an ssh host's page (decision 0075): served folders,
+// hostPage renders an ssh host's page (decision 0076): served folders,
 // running servers, and Browse folders; a failure shows its instructions.
 export function hostPage(view: HostView, instructions: (failure: SshFailure) => Instructions, error = ""): Response {
   switch (view.kind) {

@@ -207,7 +207,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     },
     forget: (id) => connections.forget(id),
     open: (raw) => openPasted(raw),
-    // ssh starts only here (decision 0075): the user chose the alias.
+    // ssh starts only here (decision 0076): the user chose the alias.
     addSsh: (alias) => listAliases().includes(alias) ? connections.remember({ destination: alias, port: null }).id : null,
     hosts: createRemoteHosts({
       destination: (id) => connections.known().find((entry) => entry.id === id)?.destination ?? null,
@@ -427,7 +427,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
       return
     }
     // CLI, http, and forwarded servers have no control stream (decisions 0071,
-    // 0075): no feed, no notices.
+    // 0076): no feed, no notices.
     if (current.kind === "ready" && current.connection.kind === "ssh" && !feeds.has(id)) openSshFeed(id, current.connection.label)
   })
 
@@ -436,7 +436,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     if (windows.infos().length === 0) windows.route(HOME)
   }
 
-  // openServer opens an http server on another computer (decision 0075). A
+  // openServer opens an http server on another computer (decision 0076). A
   // link's first contact with a host and port is confirmed; a server the user
   // typed or chose opens at once. Either is remembered.
   const openServer = async (host: string, port: number, route: string, confirm: boolean): Promise<void> => {
@@ -449,7 +449,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   }
 
   // openPasted opens a link pasted on the Connect page (decisions 0071,
-  // 0075): servef:// links as the OS handler would, localhost URLs of running
+  // 0076): servef:// links as the OS handler would, localhost URLs of running
   // CLI servers in a servef-app://cli-<port> window, and other http servers
   // without confirmation (the user typed them).
   const openPasted = async (raw: string): Promise<{ ok: true } | { ok: false; reason: string }> => {

@@ -78,7 +78,7 @@ export function isControlErrorBody(value: unknown): value is ControlErrorBody {
 }
 
 // DirectoryEntry and DirectoryListing are GET /_daemon/directories' answer
-// (decision 0075).
+// (decision 0076).
 export interface DirectoryEntry {
   name: string
   path: string

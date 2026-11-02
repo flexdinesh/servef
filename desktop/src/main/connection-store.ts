@@ -1,5 +1,5 @@
 // Known ssh hosts and confirmed http servers in userData/connections.json
-// (decisions 0070, 0075): pure parse and serialize plus an atomic file adapter.
+// (decisions 0070, 0076): pure parse and serialize plus an atomic file adapter.
 import { createHash } from "node:crypto"
 import { closeSync, fchmodSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeSync } from "node:fs"
 import { dirname } from "node:path"
@@ -16,7 +16,7 @@ export interface KnownConnection {
   addedAt: string
 }
 
-// KnownServer is an http server the user confirmed or chose (decision 0075).
+// KnownServer is an http server the user confirmed or chose (decision 0076).
 export interface KnownServer {
   // id is http-<slug of host>-<port> (see assignServerId), never changed.
   id: string

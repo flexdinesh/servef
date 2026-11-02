@@ -594,7 +594,7 @@ test("cli connections are never re-ensured or held open", async () => {
   assert.equal(h.lists(), 1)
 })
 
-// http servers (decision 0075).
+// http servers (decision 0076).
 
 test("a known http server is ready without dialing and labelled host:port", async () => {
   const h = harness({ servers: [lan, { id: "http-2001-db8-5-8080", host: "[2001:db8::5]", port: 8080, addedAt: lan.addedAt }] })
@@ -637,7 +637,7 @@ test("rememberServer stores a server once with an assigned id; findServer and fo
   assert.deepEqual(await h.connections.lookup(added.id), { kind: "unknown" })
 })
 
-// Remote TCP servers through ssh (decision 0075).
+// Remote TCP servers through ssh (decision 0076).
 
 test("an ssh-port id forwards through its ready host and is held with it", async () => {
   const h = harness()

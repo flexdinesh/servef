@@ -703,7 +703,7 @@ test("nodeSpawn pipes stderr and reports the exit code", async () => {
   assert.equal(stderr.join(""), "boom")
 })
 
-// Remote servers (decision 0075).
+// Remote servers (decision 0076).
 
 const PORT_ID = "ssh-devbox-7971"
 

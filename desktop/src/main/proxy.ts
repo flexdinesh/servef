@@ -26,7 +26,7 @@ export interface ProxyDeps {
 // createProxy returns the servef-app:// protocol handler.
 export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Response> {
   // An ssh host that refused the daemon forward links its host page, which
-  // lists the remote servers reachable without it (decision 0075).
+  // lists the remote servers reachable without it (decision 0076).
   const failed = (id: string, lookup: Extract<ConnectionLookup, { kind: "failed" }>): Response => lookup.connection === "daemon"
     ? failurePage(failureInstructions(lookup.failure, deps.packaged))
     : failurePage(sshFailureInstructions(lookup.failure, deps.release), lookup.failure.kind === "forwardDenied" ? hostPageLink(id) : "")

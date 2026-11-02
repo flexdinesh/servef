@@ -23,7 +23,7 @@ export function agentExample(project: string) {
 // ends with "Walk me through: " for the user's topic. An origin that is not
 // http(s), such as the desktop app's servef://local, takes no HTTP
 // requests, so the prompt names the CLI only; a null origin (a desktop
-// window over ssh, decision 0075) is not named at all.
+// window over ssh, decision 0076) is not named at all.
 export function agentInstructions(origin: string | null, project: string): string {
   // One step per line keeps the example short enough to read.
   const { steps, ...fields } = agentExample(project)

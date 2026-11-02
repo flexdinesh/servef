@@ -218,7 +218,7 @@ describe("ssh connections against a real sshd", { skip }, () => {
     })
   })
 
-  test("browses remote folders and opens one through the forwarded daemon (decision 0075)", async () => {
+  test("browses remote folders and opens one through the forwarded daemon (decision 0076)", async () => {
     const opened = open("servef-test")
     await scenario(opened, async () => {
       const connected = ready(await within(opened.session.ready(), LIMIT_MS, "servef-test connect"))
@@ -240,7 +240,7 @@ describe("ssh connections against a real sshd", { skip }, () => {
     })
   })
 
-  test("lists remote servers and forwards a port socket to one (decision 0075)", async () => {
+  test("lists remote servers and forwards a port socket to one (decision 0076)", async () => {
     const opened = open("servef-test")
     const server = await sshd().startServer(project)
     try {

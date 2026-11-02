@@ -1,4 +1,4 @@
-// Pure window titles (decisions 0070, 0071, 0075).
+// Pure window titles (decisions 0070, 0071, 0076).
 
 export interface TitleConnection {
   kind: "local" | "app" | "ssh" | "cli" | "http" | "ssh-port"

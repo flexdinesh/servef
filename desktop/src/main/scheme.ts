@@ -5,7 +5,7 @@ export type SchemeRoute = { kind: "local"; target: string } | ServerLocation | {
 
 // routeSchemeURL maps servef://local/<path>?<query>#<fragment> (path / or
 // /view) to servef-app://local/<path>?<query>#<fragment> (query and fragment
-// kept verbatim), and servef://<host>:<port>/<path>?… (decision 0075), the
+// kept verbatim), and servef://<host>:<port>/<path>?… (decision 0076), the
 // web URL http://<host>:<port>/<path>?… with the scheme swapped, to a server
 // location: a CLI server for loopback hosts, else an http server. The port
 // is required. Anything else (servef://ssh/… included) is invalid.

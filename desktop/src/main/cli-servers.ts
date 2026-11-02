@@ -35,7 +35,7 @@ export async function listCliServers(binary: string, run: ExecFile): Promise<Cli
 
 // parseServerList validates `servef control list --json` output,
 // {"servers":[{host, port, origin}]} (decision 0071; remote hosts, decision
-// 0075); null when the shape is wrong.
+// 0076); null when the shape is wrong.
 export function parseServerList(stdout: string): CliServer[] | null {
   let parsed: unknown
   try {

@@ -3,7 +3,7 @@ const appOrigin = "servef-app://"
 const OCTET = "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
 const PORT = "([1-9][0-9]{0,4})"
 // HTTP_IPV4 matches servef-app://http-<a>-<b>-<c>-<d>-<port>: the desktop app
-// gives only an IPv4 server a four-octet slug (decision 0075).
+// gives only an IPv4 server a four-octet slug (decision 0076).
 const HTTP_IPV4 = new RegExp(`^http-${OCTET}-${OCTET}-${OCTET}-${OCTET}-${PORT}$`)
 const CLI = new RegExp(`^cli-${PORT}$`)
 

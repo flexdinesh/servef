@@ -94,7 +94,7 @@ export const nodeSpawn: Spawn = (file, args, env) => {
 
 export type SshReady = { ok: true; socket: string; status: DaemonStatus } | { ok: false; failure: SshFailure }
 
-// PortForward is a forward to a remote TCP server (decision 0075): socket is
+// PortForward is a forward to a remote TCP server (decision 0076): socket is
 // the local p-*.sock.
 export type PortForward = { ok: true; socket: string } | { ok: false; detail: string }
 
@@ -128,7 +128,7 @@ export interface SshSession {
   // a live master: a mismatch failure keeps the master for this; false
   // without one.
   stopRemoteDaemon(): Promise<boolean>
-  // listServers runs REMOTE_LIST over the mux (decision 0075). It needs a
+  // listServers runs REMOTE_LIST over the mux (decision 0076). It needs a
   // live master: ready, or failed with mismatch or forwardDenied (both keep
   // the master).
   listServers(): Promise<CliList>

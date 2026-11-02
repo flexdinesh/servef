@@ -7,7 +7,7 @@ import { isRecord } from "../../../web/src/api/http.ts"
 export interface RuntimeDir {
   dir: string
   // controlPath is <dir>/c-<h12>; forwardSocket is <dir>/f-<h12>.sock;
-  // portSocket is <dir>/p-<h12>.sock (an ssh-port id, decision 0075);
+  // portSocket is <dir>/p-<h12>.sock (an ssh-port id, decision 0076);
   // <h12> = 12 hex of sha256(id).
   controlPath(id: string): string
   forwardSocket(id: string): string

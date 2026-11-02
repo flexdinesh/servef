@@ -8,7 +8,7 @@ import { findOnPath } from "../../src/main/binary.ts"
 import { REMOTE_PATH_DIRS } from "../../src/main/ssh-args.ts"
 
 // A private sshd on 127.0.0.1 for the ssh integration tests and the remote
-// Electron smoke (decisions 0070, 0075). Each run owns one temp dir: host and client
+// Electron smoke (decisions 0070, 0076). Each run owns one temp dir: host and client
 // keys, known hosts, sshd and client configs, the remote servef binary, and the
 // remote XDG directories. Remote env comes only from the master's SetEnv, so
 // every env variant is its own alias. Nothing reads the user's ssh config,
@@ -102,7 +102,7 @@ export interface Sshd {
   remoteHasServef(alias: string): Promise<boolean>
   // startServer runs `servef browser` for root on 127.0.0.1 in servef-test's
   // remote environment, so REMOTE_LIST over servef-test lists it (decision
-  // 0075); close stops it.
+  // 0076); close stops it.
   startServer(root: string): Promise<RemoteServer>
   log(): string
   close(): Promise<void>

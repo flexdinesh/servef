@@ -1,4 +1,4 @@
-// Native dialogs: first-contact http server confirmation (decision 0075) and
+// Native dialogs: first-contact http server confirmation (decision 0076) and
 // reports (decision 0072). SERVEF_DESKTOP_AUTO_CONFIRM=1 (unpackaged only)
 // confirms or skips the report, and appends the prompt or report as a JSON
 // line to SERVEF_DESKTOP_DIALOG_LOG.

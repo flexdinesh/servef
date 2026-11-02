@@ -24,7 +24,7 @@ export const REMOTE_ENSURE: string = remoteCommand("daemon ensure --json")
 // REMOTE_STOP is REMOTE_ENSURE with `exec servef daemon stop`.
 export const REMOTE_STOP: string = remoteCommand("daemon stop")
 // REMOTE_LIST is REMOTE_ENSURE with `exec servef control list --json`: the
-// running CLI servers on the host (decision 0075).
+// running CLI servers on the host (decision 0076).
 export const REMOTE_LIST: string = remoteCommand("control list --json")
 
 const USER_PART = /^[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/
@@ -59,7 +59,7 @@ export function validRemoteSocket(path: string): boolean {
 }
 
 // portForwardSpec is the `<host>:<port>` side of `-L <socket>:<host>:<port>`
-// for a remote TCP server (decision 0075): host must be an IPv4 or IPv6
+// for a remote TCP server (decision 0076): host must be an IPv4 or IPv6
 // literal (brackets added) or localhost, port an integer 1-65535; null
 // otherwise, so nothing else reaches ssh's argv.
 export function portForwardSpec(host: string, port: number): string | null {

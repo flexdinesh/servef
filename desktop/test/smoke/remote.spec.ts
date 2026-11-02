@@ -11,7 +11,7 @@ import {
   createRepository, createSession, keepDiagnostics, launchApp, readNotices, removeSession, stopDaemon, type Session,
 } from "./harness.ts"
 
-// The app against a private sshd (decisions 0070, 0075), in order: the
+// The app against a private sshd (decisions 0070, 0076), in order: the
 // Connect page connects to a config alias and shows its host page, a remote
 // root opens in an ssh window, a remote walkthrough notifies through the ssh
 // connection, a lost master reconnects, the folder picker opens a new remote

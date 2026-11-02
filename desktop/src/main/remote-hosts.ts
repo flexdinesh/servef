@@ -1,4 +1,4 @@
-// ssh hosts from the Connect page (decision 0075): the host page model, the
+// ssh hosts from the Connect page (decision 0076): the host page model, the
 // folder picker, and opening folders and remote servers. Pure over deps:
 // paths travel only in HTTP requests over the forwarded daemon socket, never
 // in remote commands.
