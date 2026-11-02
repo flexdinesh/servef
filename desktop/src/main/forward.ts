@@ -34,10 +34,14 @@ export function createForwarder(): Forwarder {
   }
 }
 
-// isDaemonGone reports a socket connect failure (ECONNREFUSED, ENOENT).
+// isDaemonGone reports a socket failure before a response head: connect
+// refused or missing (ECONNREFUSED, ENOENT), a reset (ECONNRESET, which
+// Node's "socket hang up" carries), or a close while the request was written
+// (EPIPE: ssh closes a forwarded connection the server refused), so the
+// caller re-ensures.
 export function isDaemonGone(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error
-    && (error.code === "ECONNREFUSED" || error.code === "ENOENT")
+    && (error.code === "ECONNREFUSED" || error.code === "ENOENT" || error.code === "ECONNRESET" || error.code === "EPIPE")
 }
 
 function send(request: ForwardRequest, agent: http.Agent | false): Promise<Response> {

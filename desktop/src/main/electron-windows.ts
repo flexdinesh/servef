@@ -1,19 +1,23 @@
-// BrowserWindow adapter: creation, security handlers, project tracking, and routing.
+// BrowserWindow adapter: creation, security handlers, origin and project
+// tracking, titles, and routing (decisions 0067, 0070).
 import { BrowserWindow, session, shell } from "electron"
 import { readFileSync, writeFileSync } from "node:fs"
 import { navigationPolicy, permissionAllowed } from "./navigation.ts"
 import { parseWindowState, serializeWindowState, type WindowBounds } from "./window-state.ts"
-import { projectOfURL, routeWindow, type WindowInfo } from "./windows.ts"
+import { connectionOfOrigin, routeWindow, targetOfURL, type WindowInfo } from "./windows.ts"
 
 export interface WindowManagerOptions {
-  // origin is the connection origin windows load, servef-app://local.
-  origin: string
   // preload is the absolute path of build/preload.cjs.
   preload: string
   // stateFile is userData/window-state.json.
   stateFile: string
   // onScheme receives servef:// links the renderer navigates to.
   onScheme(url: string): void
+  // onConnection receives servef-app:// links on another origin; main routes
+  // them only for known connections.
+  onConnection(url: string): void
+  // title computes a window title from its origin and page title.
+  title(origin: string, page: string): string
 }
 
 export interface WindowManager {
@@ -22,15 +26,25 @@ export interface WindowManager {
   route(target: string): void
   newWindow(url: string): void
   focusedWindow(): BrowserWindow | null
-  focusedProject(): string | null
-  // shownProjects lists the distinct projects any window shows.
-  shownProjects(): string[]
-  onProjectsChanged(listener: () => void): () => void
+  // focused is the focused window's connection id and project.
+  focused(): { connection: string; project: string | null } | null
+  // shownProjects lists the distinct projects windows of origin show.
+  shownProjects(origin: string): string[]
+  // shownOrigins lists the distinct origins with at least one window.
+  shownOrigins(): string[]
+  // onWindowsChanged fires when a window opens, closes, or changes project.
+  onWindowsChanged(listener: () => void): () => void
+  // retitle recomputes the titles of origin's windows from their last page titles.
+  retitle(origin: string): void
 }
 
 interface Tracked {
   window: BrowserWindow
+  // origin is the origin of the window's first URL, kept for life.
+  origin: string
   project: string | null
+  // page is the last page title; null before the first one.
+  page: string | null
   focused: boolean
   focusedAt: number
 }
@@ -40,7 +54,7 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
   const listeners = new Set<() => void>()
   let bounds = readBounds(options.stateFile)
 
-  const projectsChanged = (): void => {
+  const windowsChanged = (): void => {
     for (const listener of listeners) listener()
   }
 
@@ -51,11 +65,12 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
 
   // decide runs the navigation policy; true when the navigation may proceed.
   // Only main-frame user navigations act on scheme and external links.
-  const decide = (url: string, act: boolean): boolean => {
-    const decision = navigationPolicy(url, options.origin)
+  const decide = (origin: string, url: string, act: boolean): boolean => {
+    const decision = navigationPolicy(url, origin)
     if (decision.kind === "allow") return true
     if (!act) return false
     if (decision.kind === "scheme") options.onScheme(decision.url)
+    if (decision.kind === "connection") options.onConnection(decision.url)
     if (decision.kind === "external") {
       shell.openExternal(decision.url).catch((error: unknown) => console.error("servef: open external:", error))
     }
@@ -63,6 +78,12 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
   }
 
   const newWindow = (url: string): void => {
+    const first = targetOfURL(url)
+    if (first === null) {
+      console.error(`servef: refused window for ${url}`)
+      return
+    }
+    const origin = first.origin
     // A window beside open ones takes the size only; the OS places it.
     const placed: WindowBounds = tracked.size === 0 ? bounds : { width: bounds.width, height: bounds.height }
     const window = new BrowserWindow({
@@ -78,33 +99,40 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
       },
     })
     const id = window.id
-    const entry: Tracked = { window, project: null, focused: false, focusedAt: 0 }
+    const entry: Tracked = { window, origin, project: null, page: null, focused: false, focusedAt: 0 }
     tracked.set(id, entry)
     const contents = window.webContents
 
     const navigated = (target: string): void => {
-      const project = projectOfURL(target)
-      if (project === entry.project) return
-      entry.project = project
-      projectsChanged()
+      // Navigation never leaves the window's origin; ignore anything else.
+      const next = targetOfURL(target)
+      if (next === null || next.origin !== origin || next.project === entry.project) return
+      entry.project = next.project
+      windowsChanged()
     }
+    // The window's own event: preventDefault stops Electron's setTitle.
+    window.on("page-title-updated", (event, page) => {
+      event.preventDefault()
+      entry.page = page
+      window.setTitle(options.title(origin, page))
+    })
     contents.on("did-navigate", (_event, target) => navigated(target))
     contents.on("did-navigate-in-page", (_event, target, isMainFrame) => {
       if (isMainFrame) navigated(target)
     })
     contents.on("will-navigate", (event) => {
-      if (!decide(event.url, true)) event.preventDefault()
+      if (!decide(origin, event.url, true)) event.preventDefault()
     })
     contents.on("will-frame-navigate", (event) => {
       // will-navigate already handled the main frame.
-      if (!event.isMainFrame && !decide(event.url, false)) event.preventDefault()
+      if (!event.isMainFrame && !decide(origin, event.url, false)) event.preventDefault()
     })
     contents.on("will-redirect", (event) => {
-      if (!decide(event.url, false)) event.preventDefault()
+      if (!decide(origin, event.url, false)) event.preventDefault()
     })
     contents.setWindowOpenHandler(({ url: target }) => {
       // Same-origin opens go through window routing, never a new renderer.
-      if (decide(target, true)) route(target)
+      if (decide(origin, target, true)) route(target)
       return { action: "deny" }
     })
     contents.on("render-process-gone", (_event, details) => {
@@ -128,9 +156,10 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
     })
     window.on("closed", () => {
       tracked.delete(id)
-      if (entry.project !== null) projectsChanged()
+      windowsChanged()
     })
 
+    windowsChanged()
     load(window, url)
   }
 
@@ -152,6 +181,7 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
   const infos = (): WindowInfo[] =>
     [...tracked.entries()].map(([id, entry]) => ({
       id,
+      origin: entry.origin,
       project: entry.project,
       focused: entry.focused,
       focusedAt: entry.focusedAt,
@@ -164,12 +194,24 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
     route,
     newWindow,
     focusedWindow: () => focused()?.window ?? null,
-    focusedProject: () => focused()?.project ?? null,
-    shownProjects: () => [...new Set([...tracked.values()].flatMap((entry) => (entry.project === null ? [] : [entry.project])))],
-    onProjectsChanged(listener) {
+    focused: () => {
+      const entry = focused()
+      if (entry === undefined) return null
+      const connection = connectionOfOrigin(entry.origin)
+      return connection === null ? null : { connection, project: entry.project }
+    },
+    shownProjects: (origin) => [...new Set([...tracked.values()].flatMap((entry) => (entry.origin !== origin || entry.project === null ? [] : [entry.project])))],
+    shownOrigins: () => [...new Set([...tracked.values()].map((entry) => entry.origin))],
+    onWindowsChanged(listener) {
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
+      }
+    },
+    retitle(origin) {
+      for (const entry of tracked.values()) {
+        if (entry.origin !== origin || entry.page === null || entry.window.isDestroyed()) continue
+        entry.window.setTitle(options.title(origin, entry.page))
       }
     },
   }

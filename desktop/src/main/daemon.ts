@@ -5,7 +5,8 @@ import { isDaemonGone, type Forward } from "./forward.ts"
 
 // ExecFile runs a binary and resolves with its exit outcome; it never rejects
 // for a non-zero exit. error is set when the process could not run or timed out.
-export type ExecFile = (file: string, args: readonly string[], options: { timeoutMs: number }) => Promise<ExecOutcome>
+// env replaces the inherited environment when set. stdin is never a terminal.
+export type ExecFile = (file: string, args: readonly string[], options: { timeoutMs: number; env?: NodeJS.ProcessEnv }) => Promise<ExecOutcome>
 
 export interface ExecOutcome {
   code: number | null
@@ -42,6 +43,14 @@ export async function ensureDaemon(binary: string, flags: readonly string[], run
   if (error?.code === "ENOENT" || error?.code === "EACCES") {
     return { ok: false, kind: "missing", detail: `Cannot run ${binary}: ${error.message}` }
   }
+  return interpretEnsure(outcome)
+}
+
+// interpretEnsure validates the status `servef daemon ensure --json` printed
+// (locally or over ssh): protocol mismatch, success, or failed with the
+// stderr tail. Callers map spawn errors and timeouts first.
+export function interpretEnsure(outcome: ExecOutcome): EnsureResult {
+  const error = outcome.error
   const status = lastJSONLine(outcome.stdout)
   if (isDaemonStatus(status)) {
     if (status.protocol !== EXPECTED_PROTOCOL) {
@@ -79,7 +88,7 @@ function failureDetail(outcome: ExecOutcome): string {
 
 // nodeExecFile adapts node:child_process.execFile to ExecFile.
 export const nodeExecFile: ExecFile = (file, args, options) => new Promise((resolve) => {
-  execFile(file, [...args], { timeout: options.timeoutMs, maxBuffer: 1 << 20, encoding: "utf8", windowsHide: true }, (error, stdout, stderr) => {
+  const child = execFile(file, [...args], { timeout: options.timeoutMs, maxBuffer: 1 << 20, encoding: "utf8", windowsHide: true, shell: false, env: options.env ?? process.env }, (error, stdout, stderr) => {
     if (error === null) {
       resolve({ code: 0, stdout, stderr })
       return
@@ -96,6 +105,7 @@ export const nodeExecFile: ExecFile = (file, args, options) => new Promise((reso
     }
     resolve({ code: null, stdout, stderr, error: { message: error.message, timedOut: error.killed === true } })
   })
+  child.stdin?.end()
 })
 
 export type OpenOutcome = { ok: true; result: OpenResult } | { ok: false; status: number; code: string; error: string }
@@ -125,6 +135,23 @@ export async function openPath(forward: Forward, socket: string, path: string): 
   if ((response.status === 200 || response.status === 201) && isOpenResult(body)) return { ok: true, result: body }
   if (isControlErrorBody(body)) return { ok: false, status: response.status, code: body.code ?? "", error: body.error }
   return { ok: false, status: response.status, code: "invalidResponse", error: `The servef daemon sent an unexpected answer (HTTP ${response.status}).` }
+}
+
+export type ProbeOutcome = "ok" | "gone" | "failed"
+
+export const PROBE_TIMEOUT_MS = 5_000
+
+// probeDaemon sends GET /_daemon/status over socket: "ok" on HTTP 200, "gone"
+// when no response head arrived (refused, missing, reset, hang up), else
+// "failed" (other status, timeout).
+export async function probeDaemon(forward: Forward, socket: string, timeoutMs = PROBE_TIMEOUT_MS): Promise<ProbeOutcome> {
+  try {
+    const response = await forward({ socket, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false, signal: AbortSignal.timeout(timeoutMs) })
+    await response.arrayBuffer()
+    return response.status === 200 ? "ok" : "failed"
+  } catch (error) {
+    return isDaemonGone(error) ? "gone" : "failed"
+  }
 }
 
 // STOP_WAIT_MS bounds how long stopDaemon waits for the daemon to go away.

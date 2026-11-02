@@ -286,11 +286,11 @@ run = "pnpm build:site"
 hide = true
 run = "pnpm exec node scripts/test-browser.ts"
 
-# Unit tests, bundle, then the Electron smoke under Xvfb. Arguments select
-# smoke specs relative to desktop/.
+# Unit tests, ssh integration tests (real sshd), bundle, then the Electron
+# smoke under Xvfb. Arguments select smoke specs relative to desktop/.
 [tasks."_container:desktop"]
 hide = true
-run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"
+run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop test:ssh && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"
 
 [tasks."_container:binary"]
 hide = true
@@ -318,7 +318,7 @@ run = "pnpm exec node scripts/test-browser.ts"
 
 [tasks."_container:test:desktop"]
 hide = true
-run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"
+run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop test:ssh && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"
 
 [tasks."_container:build:site"]
 hide = true

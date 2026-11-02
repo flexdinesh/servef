@@ -1,14 +1,20 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import type { ConnectionLookup } from "../src/main/connections.ts"
+import type { SshFailure } from "../src/main/ssh-errors.ts"
 import type { ForwardRequest } from "../src/main/forward.ts"
 import { STOP_AND_RETRY_PATH } from "../src/main/pages.ts"
 import { createProxy } from "../src/main/proxy.ts"
 
 const status = { protocol: 1, version: "1", pid: 1, socket: "/run/servef.sock", roots: [] }
-const ready: ConnectionLookup = { kind: "ready", connection: { id: "local", kind: "daemon", origin: "servef-app://local", socket: "/run/servef.sock", status } }
-const failed: ConnectionLookup = { kind: "failed", failure: { ok: false, kind: "failed", detail: "daemon did not start" } }
-const mismatch: ConnectionLookup = { kind: "failed", failure: { ok: false, kind: "mismatch", detail: "protocol 2", status: { ...status, protocol: 2 } } }
+const ready: ConnectionLookup = { kind: "ready", connection: { id: "local", kind: "daemon", origin: "servef-app://local", socket: "/run/servef.sock", status, label: "local" } }
+const failed: ConnectionLookup = { kind: "failed", connection: "daemon", failure: { ok: false, kind: "failed", detail: "daemon did not start" }, label: "local" }
+const mismatch: ConnectionLookup = { kind: "failed", connection: "daemon", failure: { ok: false, kind: "mismatch", detail: "protocol 2", status: { ...status, protocol: 2 } }, label: "local" }
+
+const sshReady: ConnectionLookup = { kind: "ready", connection: { id: "ssh-devbox", kind: "ssh", origin: "servef-app://ssh-devbox", socket: "/run/f-1.sock", status: { ...status, socket: "/remote/servef.sock" }, label: "devbox" } }
+const sshFailure = (kind: SshFailure["kind"], extra: Partial<SshFailure> = {}): ConnectionLookup =>
+  ({ kind: "failed", connection: "ssh", failure: { kind, destination: "devbox", detail: `${kind} detail`, ...extra }, label: "devbox" })
+const sshConnecting: ConnectionLookup = { kind: "connecting", label: "devbox", failure: { kind: "unreachable", destination: "devbox", detail: "Connection <timed> out" } }
 
 const gone = () => Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })
 
@@ -19,23 +25,35 @@ interface Harness {
   forwarded: ForwardRequest[]
   reensures: number
   stops: number
+  looked: string[]
+  app: Request[]
 }
 
-// harness answers lookups from lookups (last repeats) and forwards from steps.
-function harness(options: { lookups?: ConnectionLookup[]; steps?: Step[]; reensure?: boolean[] } = {}): Harness {
+// harness answers lookups for its connection id (local unless ssh is set)
+// from lookups (last repeats), forwards from steps, and app pages with 200.
+function harness(options: { lookups?: ConnectionLookup[]; steps?: Step[]; reensure?: boolean[]; id?: string } = {}): Harness {
   const lookups = [...(options.lookups ?? [ready])]
   const steps = [...(options.steps ?? [new Response("ok")])]
   const reensure = [...(options.reensure ?? [true])]
+  const known = options.id ?? "local"
   const state: Harness = {
     proxy: () => { throw new Error("unset") },
     forwarded: [],
     reensures: 0,
     stops: 0,
+    looked: [],
+    app: [],
   }
   state.proxy = createProxy({
     packaged: true,
+    release: "1.2.3",
+    appPages: async (request) => {
+      state.app.push(request)
+      return new Response("app page")
+    },
     lookup: async (id) => {
-      if (id !== "local") return { kind: "unknown" }
+      state.looked.push(id)
+      if (id !== known) return { kind: "unknown" }
       return (lookups.length > 1 ? lookups.shift() : lookups[0]) ?? ready
     },
     forward: async (request) => {
@@ -207,4 +225,117 @@ test("stop and retry runs only for a mismatched connection", async () => {
   assert.equal(foreign.status, 403)
   assert.equal(h.stops, 1)
   assert.equal(h.forwarded.length + healthy.forwarded.length, 0)
+})
+
+test("app host requests go to app pages after the Origin guard, without a lookup", async () => {
+  const h = harness()
+  const page = await h.proxy(new Request("servef-app://app/connect"))
+  assert.equal(await page.text(), "app page")
+  const same = await h.proxy(new Request("servef-app://app/forget", { method: "POST", body: "id=ssh-devbox", headers: { origin: "servef-app://app", "content-type": "application/x-www-form-urlencoded" } }))
+  assert.equal(same.status, 200)
+  for (const origin of ["servef-app://local", "servef-app://ssh-devbox", "null", "https://example.com"]) {
+    const foreign = await h.proxy(new Request("servef-app://app/forget", { method: "POST", body: "id=ssh-devbox", headers: { origin } }))
+    assert.equal(foreign.status, 403, origin)
+    assert.equal(await errorCode(foreign), "crossOrigin")
+  }
+  assert.equal(h.app.length, 2)
+  assert.deepEqual(h.looked, [])
+  assert.equal(h.forwarded.length, 0)
+})
+
+test("an unknown ssh origin is 404 and reaches nothing", async () => {
+  const h = harness()
+  for (const path of ["/", "/api/projects", "/_desktop/stop-and-retry"]) {
+    const response = await h.proxy(new Request(`servef-app://ssh-stranger${path}`, { method: path.startsWith("/_desktop") ? "POST" : "GET", headers: { "sec-fetch-dest": "document" } }))
+    assert.equal(response.status, 404, path)
+    assert.equal(await errorCode(response), "unknownConnection")
+  }
+  assert.equal(h.forwarded.length + h.reensures + h.stops, 0)
+})
+
+test("a ready ssh connection forwards to its local forward socket", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshReady] })
+  const response = await h.proxy(new Request("servef-app://ssh-devbox/api/projects", { headers: { origin: "servef-app://ssh-devbox" } }))
+  assert.equal(await response.text(), "ok")
+  assert.equal(h.forwarded[0]?.socket, "/run/f-1.sock")
+  assert.equal(h.forwarded[0]?.headers.host, "localhost")
+  const foreign = await h.proxy(new Request("servef-app://ssh-devbox/api/projects", { headers: { origin: "servef-app://local" } }))
+  assert.equal(foreign.status, 403)
+})
+
+test("the daemon control API is refused for ssh connections", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshReady] })
+  for (const path of ["/_daemon/status", "/%5Fdaemon/stop", "//_daemon/events"]) {
+    assert.equal((await h.proxy(new Request(`servef-app://ssh-devbox${path}`))).status, 403, path)
+  }
+  assert.equal(h.forwarded.length, 0)
+})
+
+test("ssh failures show ssh instructions to documents and JSON to APIs", async () => {
+  const hostKey = harness({ id: "ssh-devbox", lookups: [sshFailure("hostKey")], reensure: [false] })
+  const page = await hostKey.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))
+  assert.equal(page.status, 503)
+  assert.equal(page.headers.get("content-security-policy"), "default-src 'none'; style-src 'unsafe-inline'")
+  const html = await page.text()
+  assert.match(html, /hostKey detail/)
+  assert.match(html, /Run ssh devbox in a terminal once to verify the host key, then Retry\./)
+  assert.ok(!html.includes("<form"))
+  assert.equal(hostKey.reensures, 1, "a document reload retries the connection")
+
+  const missing = harness({ id: "ssh-devbox", lookups: [sshFailure("servefMissing", { os: "Linux", arch: "x86_64" })], reensure: [false] })
+  const install = await (await missing.proxy(new Request("servef-app://ssh-devbox/view?project=%2Fa", { headers: { accept: "text/html" } }))).text()
+  assert.match(install, /servef is not installed on devbox/)
+  assert.match(install, /releases\/download\/v1\.2\.3\/servef_1\.2\.3_linux_amd64\.tar\.gz/)
+  assert.match(install, /The app never installs anything on devbox/)
+
+  const api = harness({ id: "ssh-devbox", lookups: [sshFailure("auth")] })
+  const json = await api.proxy(new Request("servef-app://ssh-devbox/api/projects"))
+  assert.equal(json.status, 503)
+  assert.equal(await errorCode(json), "daemonUnavailable")
+  assert.equal(api.reensures, 0)
+})
+
+test("a document reload of a failed ssh connection forwards once it recovers", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshFailure("unreachable"), sshReady] })
+  const response = await h.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))
+  assert.equal(response.status, 200)
+  assert.equal(h.reensures, 1)
+  assert.equal(h.forwarded[0]?.socket, "/run/f-1.sock")
+})
+
+test("a reconnecting ssh connection shows a refreshing page without re-ensuring", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshConnecting] })
+  const page = await h.proxy(new Request("servef-app://ssh-devbox/view?project=%2Fa", { headers: { "sec-fetch-dest": "document" } }))
+  assert.equal(page.status, 503)
+  const html = await page.text()
+  assert.ok(html.includes("<title>Reconnecting to devbox</title>"))
+  assert.ok(html.includes("<meta http-equiv=\"refresh\" content=\"3\">"))
+  assert.ok(html.includes("Connection &lt;timed&gt; out"))
+  const json = await h.proxy(new Request("servef-app://ssh-devbox/api/projects"))
+  assert.equal(json.status, 503)
+  assert.equal(await errorCode(json), "daemonUnavailable")
+  assert.equal(h.reensures, 0)
+  assert.equal(h.forwarded.length, 0)
+})
+
+test("stop and retry runs for a mismatched ssh connection", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshFailure("mismatch", { status: { ...status, protocol: 2 } })] })
+  const page = await (await h.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))).text()
+  assert.match(page, /Stop the running daemon and retry/)
+  const response = await h.proxy(new Request(`servef-app://ssh-devbox${STOP_AND_RETRY_PATH}`, { method: "POST", headers: { origin: "servef-app://ssh-devbox" } }))
+  assert.equal(response.status, 303)
+  assert.equal(h.stops, 1)
+
+  const other = harness({ id: "ssh-devbox", lookups: [sshFailure("hostKey")] })
+  assert.equal((await other.proxy(new Request(`servef-app://ssh-devbox${STOP_AND_RETRY_PATH}`, { method: "POST" }))).status, 404)
+  assert.equal(other.stops, 0)
+})
+
+test("a reset before the response head re-ensures and retries a GET", async () => {
+  const reset = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" })
+  const h = harness({ id: "ssh-devbox", lookups: [sshReady], steps: [reset, new Response("again")] })
+  const response = await h.proxy(new Request("servef-app://ssh-devbox/api/projects"))
+  assert.equal(await response.text(), "again")
+  assert.equal(h.reensures, 1)
+  assert.equal(h.forwarded.length, 2)
 })

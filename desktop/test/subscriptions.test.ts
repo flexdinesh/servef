@@ -8,7 +8,7 @@ import { createFakeTimers, flush } from "./fake-timers.ts"
 
 const connection: Connection = {
   id: "local", kind: "daemon", origin: "servef-app://local", socket: "/run/servef.sock",
-  status: { protocol: 1, version: "1", pid: 1, socket: "/run/servef.sock", roots: [] },
+  status: { protocol: 1, version: "1", pid: 1, socket: "/run/servef.sock", roots: [] }, label: "local",
 }
 
 interface FakeStream {

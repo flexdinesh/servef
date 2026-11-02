@@ -36,6 +36,7 @@ export interface DaemonStatus {
 }
 
 export interface Notice {
+  connection: string
   kind: string
   project: string
   title: string
@@ -109,7 +110,8 @@ function cliEnv(session: Session): Record<string, string> {
 }
 
 // XDG_RUNTIME_DIR stays inherited: Wayland finds its display socket there.
-export function appEnv(session: Session): Record<string, string> {
+// extra adds dev seams (ssh config, runtime dir, auto-confirm, dialog log).
+export function appEnv(session: Session, extra: Record<string, string> = {}): Record<string, string> {
   return {
     ...inherited(),
     SERVEF_DESKTOP_BINARY: servefBinary(),
@@ -118,6 +120,7 @@ export function appEnv(session: Session): Record<string, string> {
     SERVEF_DESKTOP_USER_DATA: session.userData,
     SERVEF_DESKTOP_NOTICE_LOG: session.noticeLog,
     XDG_CACHE_HOME: session.cache,
+    ...extra,
   }
 }
 
@@ -241,11 +244,11 @@ export function appURL(project: string, file: string): string {
   return `servef-app://local/view?project=${encodeURIComponent(project)}&path=${encodeURIComponent(file)}`
 }
 
-export async function launchApp(session: Session, url: string): Promise<ElectronApplication> {
+export async function launchApp(session: Session, url: string, extra: Record<string, string> = {}): Promise<ElectronApplication> {
   const app = await _electron.launch({
     executablePath: electronExecutable(),
     args: [...electronArgs(), desktopDir, url],
-    env: appEnv(session),
+    env: appEnv(session, extra),
     cwd: desktopDir,
     timeout: 60_000,
   })
@@ -257,9 +260,9 @@ export async function launchApp(session: Session, url: string): Promise<Electron
 
 // Launches Electron again with the same userData; it must hand the URL to the
 // running instance and exit. Resolves its exit code.
-export function launchSecond(session: Session, url: string): Promise<number | null> {
+export function launchSecond(session: Session, url: string, extra: Record<string, string> = {}): Promise<number | null> {
   return new Promise((resolve, reject) => {
-    const child = spawn(electronExecutable(), [...electronArgs(), desktopDir, url], { env: appEnv(session), cwd: desktopDir, stdio: ["ignore", "pipe", "pipe"] })
+    const child = spawn(electronExecutable(), [...electronArgs(), desktopDir, url], { env: appEnv(session, extra), cwd: desktopDir, stdio: ["ignore", "pipe", "pipe"] })
     let output = ""
     const collect = (chunk: Buffer) => { output += chunk.toString("utf8") }
     child.stdout.on("data", collect)
@@ -287,11 +290,11 @@ export function readNotices(session: Session): Notice[] {
     if (line.trim() === "") continue
     const value: unknown = JSON.parse(line)
     if (!isRecord(value)) throw new Error(`notice is not an object: ${line}`)
-    const { kind, project, title, body, target } = value
-    if (typeof kind !== "string" || typeof project !== "string" || typeof title !== "string" || typeof body !== "string" || typeof target !== "string") {
+    const { connection, kind, project, title, body, target } = value
+    if (typeof connection !== "string" || typeof kind !== "string" || typeof project !== "string" || typeof title !== "string" || typeof body !== "string" || typeof target !== "string") {
       throw new Error(`malformed notice: ${line}`)
     }
-    notices.push({ kind, project, title, body, target })
+    notices.push({ connection, kind, project, title, body, target })
   }
   return notices
 }

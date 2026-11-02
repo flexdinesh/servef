@@ -1,28 +1,38 @@
-import { connectionOrigin } from "./connections.ts"
+import { APP_HOST, connectionOrigin } from "./connections.ts"
 import type { Connection, ConnectionLookup } from "./connections.ts"
 import { isDaemonGone } from "./forward.ts"
 import type { Forward, ForwardRequest } from "./forward.ts"
 import { isEventStreamRequest, upstreamHeaders } from "./headers.ts"
-import { failureInstructions } from "./instructions.ts"
-import { failurePage, jsonError, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
+import { failureInstructions, sshFailureInstructions } from "./instructions.ts"
+import { failurePage, jsonError, reconnectingPage, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
 
 export interface ProxyDeps {
   // packaged selects failure instructions (reinstall vs dev build).
   packaged: boolean
+  // release is the app's servef release for ssh instructions; null in dev builds.
+  release: string | null
   lookup(id: string): Promise<ConnectionLookup>
   forward: Forward
   reensure(id: string): Promise<boolean>
   // stopAndRetry stops a mismatched daemon and ensures again.
   stopAndRetry(id: string): Promise<boolean>
+  // appPages serves servef-app://app (the Connect page); no lookup, no upstream.
+  appPages(request: Request): Promise<Response>
 }
 
 // createProxy returns the servef-app:// protocol handler.
 export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Response> {
+  const failed = (lookup: Extract<ConnectionLookup, { kind: "failed" }>): Response => lookup.connection === "daemon"
+    ? failurePage(failureInstructions(lookup.failure, deps.packaged))
+    : failurePage(sshFailureInstructions(lookup.failure, deps.release))
+
   return async (request) => {
     const url = new URL(request.url)
     const id = url.host
-    let lookup = await deps.lookup(id)
-    if (lookup.kind === "unknown") return jsonError(404, "unknownConnection", "Unknown servef connection.")
+    // Cross-connection guard: the renderer omits Origin on same-origin GETs.
+    const origin = request.headers.get("origin")
+    if (origin !== null && origin !== connectionOrigin(id)) return jsonError(403, "crossOrigin", "Cross-origin requests are refused.")
+    if (id === APP_HOST) return deps.appPages(request)
 
     let pathname: string
     try {
@@ -34,9 +44,9 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
     pathname = pathname.replace(/^\/+/, "/")
     if (pathname.startsWith("/_daemon")) return jsonError(403, "forbidden", "The daemon control API is not reachable from the app.")
 
-    // Cross-connection guard: the renderer omits Origin on same-origin GETs.
-    const origin = request.headers.get("origin")
-    if (origin !== null && origin !== connectionOrigin(id)) return jsonError(403, "crossOrigin", "Cross-origin requests are refused.")
+    // Unknown ids (including unconfirmed ssh-* origins) reach nothing.
+    let lookup = await deps.lookup(id)
+    if (lookup.kind === "unknown") return jsonError(404, "unknownConnection", "Unknown servef connection.")
 
     if (pathname.startsWith("/_desktop")) {
       if (pathname === STOP_AND_RETRY_PATH && request.method === "POST" && lookup.kind === "failed" && lookup.failure.kind === "mismatch") {
@@ -48,13 +58,18 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
 
     const document = isDocumentRequest(request.headers, pathname)
     if (lookup.kind === "failed" && document) {
-      // A reload of the failure page retries.
+      // A reload of the failure page retries; a reconnecting page does not
+      // bypass the backoff.
       await deps.reensure(id)
       lookup = await deps.lookup(id)
     }
     if (lookup.kind === "unknown") return jsonError(404, "unknownConnection", "Unknown servef connection.")
+    if (lookup.kind === "connecting") {
+      if (document) return reconnectingPage(`Reconnecting to ${lookup.label}`, lookup.failure.detail)
+      return jsonError(503, "daemonUnavailable", lookup.failure.detail)
+    }
     if (lookup.kind === "failed") {
-      if (document) return failurePage(failureInstructions(lookup.failure, deps.packaged))
+      if (document) return failed(lookup)
       return jsonError(503, "daemonUnavailable", lookup.failure.detail)
     }
 
