@@ -1,7 +1,10 @@
-// Preload bridge v1 (decisions 0067, 0070): window.servefDesktop = { version: 1, openFolder() },
-// exposed to servef-app://local frames only.
+// Preload bridge v1 (decisions 0067, 0070, 0075): window.servefDesktop =
+// { version: 1, openFolder(), showAppMenu?(x, y) }, exposed to
+// servef-app://local frames only. showAppMenu exists outside macOS, where the
+// hidden title bar hides the menu bar; the UI feature-detects it.
 export const BRIDGE_VERSION = 1
 export const OPEN_FOLDER_CHANNEL = "servef:open-folder"
+export const APP_MENU_CHANNEL = "servef:app-menu"
 export const APP_SCHEME = "servef-app"
 // BRIDGE_HOST is the only origin host with a bridge (the local daemon). The
 // preload bundles this module, so it imports nothing.

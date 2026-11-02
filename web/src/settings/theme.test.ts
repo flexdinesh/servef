@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { isTheme, parseTheme, resolveTheme, themeOptions } from "./theme.ts"
+import { hexColor, isTheme, parseTheme, resolveTheme, themeOptions } from "./theme.ts"
 
 test("theme validation accepts only configured theme values", () => {
   assert.equal(isTheme("light"), true)
@@ -53,4 +53,13 @@ test("theme options list Auto, Servef Light, and Servef Dark, then named themes 
   const named = labels.slice(3)
   assert.deepEqual(named, named.toSorted((a, b) => a.localeCompare(b)))
   assert.equal(themeOptions.length, 28)
+})
+
+test("hexColor converts opaque computed rgb() colors only", () => {
+  assert.equal(hexColor("rgb(11, 11, 11)"), "#0b0b0b")
+  assert.equal(hexColor("rgb(255, 255, 255)"), "#ffffff")
+  assert.equal(hexColor(" rgba(22, 22, 30, 1) "), "#16161e")
+  for (const value of ["", "rgba(0, 0, 0, 0.5)", "rgba(0, 0, 0, 0)", "rgb(256, 0, 0)", "#0b0b0b", "color(srgb 0 0 0)", "oklch(0.2 0 0)", "rgb(0,0,0)"]) {
+    assert.equal(hexColor(value), null, value)
+  }
 })

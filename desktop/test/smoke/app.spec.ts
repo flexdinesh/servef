@@ -98,6 +98,36 @@ test("code highlights in the worker", async () => {
   await expect(page.getByRole("main").locator(tokens).first()).toBeVisible()
 })
 
+test("the title band takes the theme's canvas and colors the window (decision 0075)", async () => {
+  const { app } = current()
+  const page = await firstWindow()
+  const band = page.locator(".title-bar")
+  const canvas = async (): Promise<string> => band.evaluate((element) => {
+    const channels = getComputedStyle(element).backgroundColor.match(/\d+/g) ?? []
+    return `#${channels.slice(0, 3).map((channel) => Number(channel).toString(16).padStart(2, "0")).join("")}`
+  })
+  const windowColors = async (): Promise<string[]> => app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().map((window) => window.getBackgroundColor().toLowerCase()))
+
+  // The native title bar is hidden: the page draws the band in its place.
+  expect(await band.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(0)
+  await expect.poll(windowColors).toContain(await canvas())
+
+  await page.evaluate(() => {
+    localStorage.setItem("servef-theme", "tokyo-night")
+    location.reload()
+  })
+  await expect(page.locator("html[data-theme='tokyo-night']")).toBeAttached()
+  const tokyo = await canvas()
+  expect(tokyo).not.toBe("#0b0b0b")
+  await expect.poll(windowColors).toContain(tokyo)
+  await page.evaluate(() => {
+    localStorage.removeItem("servef-theme")
+    location.reload()
+  })
+  await expect(page.locator("html[data-theme='dark']")).toBeAttached()
+})
+
 test("the renderer cannot reach the daemon control API", async () => {
   const page = await firstWindow()
   const statuses = await page.evaluate(async () => {

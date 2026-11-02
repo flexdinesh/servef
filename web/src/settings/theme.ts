@@ -152,11 +152,36 @@ export function applyResolvedTheme(resolvedTheme: ResolvedTheme): void {
   root.classList.toggle("dark", resolvedTheme === "dark")
   root.style.colorScheme = resolvedTheme
 
+  // The active theme-color is the canvas, so phone browser chrome and the
+  // desktop title band (decision 0075) follow named themes too.
+  const canvas = canvasColor()
   const themeColors = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
   for (const meta of themeColors) {
     const scheme = themeColorScheme(meta)
-    if (scheme) meta.media = scheme === resolvedTheme ? "all" : "not all"
+    if (!scheme) continue
+    meta.media = scheme === resolvedTheme ? "all" : "not all"
+    if (canvas && scheme === resolvedTheme) meta.content = canvas
   }
+}
+
+// canvasColor resolves --color-canvas for the applied theme as #rrggbb.
+function canvasColor(): string | null {
+  const probe = document.createElement("meta")
+  probe.style.color = "var(--color-canvas)"
+  document.head.append(probe)
+  const color = hexColor(getComputedStyle(probe).color)
+  probe.remove()
+  return color
+}
+
+// hexColor converts a computed opaque rgb() color to #rrggbb; translucent
+// or other color syntaxes are null.
+export function hexColor(computed: string): string | null {
+  const match = /^rgba?\((\d{1,3}), (\d{1,3}), (\d{1,3})(?:, 1)?\)$/.exec(computed.trim())
+  if (!match) return null
+  const channels = match.slice(1, 4).map(Number)
+  if (channels.some((channel) => channel > 255)) return null
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`
 }
 
 export function applyTheme(theme: Theme, resolvedTheme: ResolvedTheme): void {

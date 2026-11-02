@@ -21,7 +21,7 @@
 .layout {
   display: grid;
   /* The footer owns the bottom canvas gutter so its controls center in the band. */
-  height: calc(100dvh - var(--status-height) - var(--workspace-inset));
+  height: calc(100dvh - var(--titlebar-height) - var(--status-height) - var(--workspace-inset));
   min-height: 0;
   grid-template-columns: calc(var(--activity-width) + var(--sidebar-width)) var(--workspace-gap) minmax(0, 1fr);
   padding: var(--workspace-inset) var(--workspace-inset) 0;

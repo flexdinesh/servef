@@ -118,7 +118,7 @@
     bottom: calc(var(--status-height) + var(--workspace-inset) + var(--space-1));
     left: auto;
     width: calc(100vw - var(--space-4));
-    max-height: calc(100dvh - var(--status-height) - var(--workspace-inset) - var(--space-4));
+    max-height: calc(100dvh - var(--titlebar-height) - var(--status-height) - var(--workspace-inset) - var(--space-4));
     overflow: auto;
   }
 

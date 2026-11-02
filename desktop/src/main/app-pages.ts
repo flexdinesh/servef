@@ -3,7 +3,7 @@
 import { connectionOrigin } from "./connections.ts"
 import type { ConnectionState, ConnectionSummary } from "./connections.ts"
 import { PASTE_LIMIT } from "./location.ts"
-import { escapeHTML, jsonError, PAGE_STYLE } from "./pages.ts"
+import { escapeHTML, jsonError, PAGE_STYLE, PAGE_THEME_COLOR } from "./pages.ts"
 
 export const CONNECT_PATH = "/connect"
 export const FORGET_PATH = "/forget"
@@ -74,7 +74,7 @@ export function connectPage(model: ConnectModel, pasted: PastedLink | null = nul
     : `<ul>\n${model.aliases.map((alias) => `<li><a href="${escapeHTML(`servef://ssh/${encodeURIComponent(alias)}/`)}">${escapeHTML(alias)}</a></li>`).join("\n")}\n</ul>`
   const html = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>servef - Connect</title><style>${PAGE_STYLE}${CONNECT_STYLE}</style></head>
+<head><meta charset="utf-8">${PAGE_THEME_COLOR}<title>servef - Connect</title><style>${PAGE_STYLE}${CONNECT_STYLE}</style></head>
 <body><main>
 <h1>Connect</h1>
 <h2>Connections</h2>

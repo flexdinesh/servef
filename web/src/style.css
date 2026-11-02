@@ -22,6 +22,7 @@
 @import "./components/ui/dialog-shell.css" layer(ui);
 @import "./components/ui/menu.css" layer(ui);
 @import "./styles/layout.css" layer(features);
+@import "./workspace/title-bar.css" layer(features);
 @import "./features/explorer/explorer.css" layer(features);
 @import "./workspace/tabs.css" layer(features);
 @import "./features/documents/documents.css" layer(features);

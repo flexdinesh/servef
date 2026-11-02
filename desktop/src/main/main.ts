@@ -1,12 +1,12 @@
 // Main process composition (decisions 0067, 0070, 0072): lifecycle, routing, menu, and wiring.
-import { app, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type MessageBoxOptions, type OpenDialogOptions } from "electron"
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type MessageBoxOptions, type OpenDialogOptions } from "electron"
 import { existsSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { CONNECT_PATH, createAppPages } from "./app-pages.ts"
 import { findOnPath, locateServef } from "./binary.ts"
-import { APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
+import { APP_MENU_CHANNEL, APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
 import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { createFileStore } from "./connection-store.ts"
 import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
@@ -42,6 +42,7 @@ import { createSshConnector, EXIT_TIMEOUT_MS, nodeSpawn, type SshTarget } from "
 import { resolveSshLink, sshTargetURL, type ResolvedAlias, type SshLink } from "./ssh-links.ts"
 import { createSubscriptions, type SubscriptionEvent, type Subscriptions } from "./subscriptions.ts"
 import { systemTimers } from "./timers.ts"
+import { parseMenuPoint } from "./titlebar.ts"
 import { windowTitle } from "./titles.ts"
 import { connectionOfOrigin, targetOfURL } from "./windows.ts"
 
@@ -513,6 +514,16 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   // Only servef-app://local frames have the bridge (decision 0070).
   ipcMain.on(OPEN_FOLDER_CHANNEL, (event) => {
     if (isLocalFrame(event.senderFrame?.url ?? "")) runOpenFolder()
+  })
+  // The title band's menu button (decision 0075): pop the application menu
+  // under it, at a point validated against the sender's window.
+  ipcMain.on(APP_MENU_CHANNEL, (event, point: unknown) => {
+    if (!isLocalFrame(event.senderFrame?.url ?? "")) return
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window === null) return
+    const [width, height] = window.getContentSize()
+    const at = parseMenuPoint(point, { width: width ?? 0, height: height ?? 0 })
+    if (at !== null) Menu.getApplicationMenu()?.popup({ window, ...at })
   })
 
   // Open at Login (decision 0072): the checkbox shows the OS state; only a click changes it.

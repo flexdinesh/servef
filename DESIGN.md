@@ -198,7 +198,7 @@ components:
 
 servef follows familiar editor conventions: an activity bar, a compact explorer and search sidebar, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
 
-Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
+Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header or logo; the desktop app's title band (decision 0075) only replaces the native title bar. Mobile keeps the document visible and opens files in a drawer.
 
 **Key Characteristics:**
 
@@ -259,7 +259,7 @@ Source matches the explorer so code never looks oversized beside the tree; prose
 
 ## Layout
 
-Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer, Search, or Source Control); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--radius-island` is 0.625rem (10px). The full-width footer uses the canvas surface and owns the bottom canvas inset: its 28px controls center in the band between the islands and the viewport edge. Document status aligns to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header. The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
+Desktop: two rounded islands on a shared canvas. The navigation island groups a 2.5rem activity bar and the full-height sidebar (Explorer, Search, or Source Control); the document island groups tabs and content. `--workspace-inset` and `--workspace-gap` are 0.375rem (6px), and `--radius-island` is 0.625rem (10px). The full-width footer uses the canvas surface and owns the bottom canvas inset: its 28px controls center in the band between the islands and the viewport edge. Document status aligns to the document island. With the sidebar hidden the navigation island becomes the activity rail and the footer's left section takes its natural width. No app header; desktop windows add the title band above the top inset (`--titlebar-height`, 0 in browsers). The sidebar defaults to 18rem, resizes within 13–30rem, persists locally, and resets on separator double-click. The separator fills the canvas gutter; hover and keyboard focus reveal a centered 2px accent line inset from the rounded ends. Explorer and document scroll independently.
 
 Tabs and explorer headers are 32px tall at every viewport width and share the workspace-chrome surface. Activity rows are squares the rail's width; header labels and actions center vertically in the 32px band. List rows (Explorer, Search, Source Control) are 22px on desktop. Preview uses a 32px inset, left alignment, and 75ch maximum. Article, errors, and empty-state containers share the measure; the empty state centers horizontally and vertically within the document pane. Source mode removes preview padding.
 
@@ -395,6 +395,10 @@ Images open in a fit-by-default viewer: centered, never upscaled, on a subtle su
 Other binaries open to the centered empty-state layout: “Binary file”, `name · size`, and “servef shows text and images only.” No toggle.
 
 Non-image files over 32 MiB use the same layout: “Too large to display”, `name · size`, and “servef shows text files up to 32 MB.” No toggle; the footer keeps the type label.
+
+### Desktop title band
+
+Desktop windows only (decision 0075): the native title bar is hidden and a 32px band (`--titlebar-height` = `env(titlebar-area-height, 0px)`) continues the `canvas` above the islands. It drags the window. The window title centers on the window in 12px 500 `text-secondary` (`text-muted` while the window is in the background), ellipsized clear of the window controls and the menu button. Windows and Linux draw overlay controls in the band color; macOS keeps its traffic lights. Outside macOS a 24px menu IconButton at the band's start opens the application menu (local windows only). The page reports the canvas through `theme-color`, which also tints phone browser chrome.
 
 ### Footer
 
