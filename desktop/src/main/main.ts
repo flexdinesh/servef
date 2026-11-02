@@ -6,8 +6,8 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { CONNECT_PATH, createAppPages } from "./app-pages.ts"
 import { findOnPath, locateServef } from "./binary.ts"
-import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
+import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { createFileStore } from "./connection-store.ts"
 import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
@@ -416,8 +416,9 @@ function start(launch: readonly string[]): (url: string) => void {
       case "cli": {
         const listed = await connections.refreshCli()
         if (!listed.ok) return { ok: false, reason: `Could not list servef servers: ${listed.detail}` }
-        const current = await connections.lookup(cliId(location.port))
-        if (current.kind !== "ready") return { ok: false, reason: `No servef server is running on port ${location.port}.` }
+        // peek: the list just ran; a lookup would list again.
+        const current = connections.peek(cliId(location.port))
+        if (current?.kind !== "ready") return { ok: false, reason: `No servef server is running on port ${location.port}.` }
         windows.route(location.target)
         return { ok: true }
       }
