@@ -99,6 +99,26 @@ run = [
   "node desktop/node_modules/electron/install.js",
 ]
 
+# Host OS and arch, bundling a release-style servef (decision 0068). The release
+# workflow calls desktop/scripts/package.ts per arch itself.
+[tasks."package:desktop"]
+description = "Package desktop installers for the host OS and arch"
+depends = ["build:web"]
+env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
+run = [
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host .",
+  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
+]
+
+[tasks."package:desktop:dir"]
+description = "Package the unpacked desktop app for the host OS and arch"
+depends = ["build:web"]
+env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
+run = [
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host .",
+  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
+]
+
 [tasks."build:go"]
 description = "Build all Go packages"
 depends = ["build:web"]

@@ -28,6 +28,7 @@ type options struct {
 	depth      int
 	scanDepth  int
 	host       string
+	hostSet    bool
 	port       int
 	portSet    bool
 	noOpen     bool
@@ -40,16 +41,19 @@ type runner func(context.Context, options, io.Reader, io.Writer, io.Writer) erro
 func Execute() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return newRootCommand(run).ExecuteContext(ctx)
+	return newRootCommandWith(runApp, run).ExecuteContext(ctx)
 }
 
-func newRootCommand(runCommand runner) *cobra.Command {
-	command := newBrowserCommand("servef [path]", runCommand)
+// newRootCommandWith builds servef: bare, it opens the desktop app with
+// runApp; `servef browser` serves in a web browser with runBrowser.
+func newRootCommandWith(runApp, runBrowser runner) *cobra.Command {
+	command := newBrowserCommand("servef [path]", runApp)
+	command.Short = "Open local files in the servef desktop app, falling back to a web browser"
+	command.Flags().Lookup("no-open").Usage = "print the desktop app URL instead of opening it (in browser mode, do not open the browser)"
 	command.Version = version.String()
 	command.SetVersionTemplate("{{.Version}}\n")
 	command.CompletionOptions.DisableDefaultCmd = true
-	// Bare servef keeps browser behavior until the desktop app ships (decision 0060).
-	command.AddCommand(newBrowserCommand("browser [path]", runCommand))
+	command.AddCommand(newBrowserCommand("browser [path]", runBrowser))
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
 	command.AddCommand(newDaemonCommand())
 	return command
@@ -84,6 +88,7 @@ func newBrowserCommand(use string, runCommand runner) *cobra.Command {
 			if opts.host != defaultHost && net.ParseIP(opts.host) == nil {
 				return errors.New("--host must be a valid IP address")
 			}
+			opts.hostSet = command.Flags().Changed("host")
 			opts.portSet = command.Flags().Changed("port")
 			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
@@ -230,13 +235,14 @@ func serverURL(host string, port int) string {
 }
 
 func shouldOpenBrowser(noOpen bool, getenv func(string) string) bool {
-	if noOpen {
-		return false
-	}
+	return !noOpen && !inSSHSession(getenv)
+}
+
+func inSSHSession(getenv func(string) string) bool {
 	for _, name := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
 		if getenv(name) != "" {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }

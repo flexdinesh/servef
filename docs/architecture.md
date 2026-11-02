@@ -1,11 +1,11 @@
 # Architecture
 
-`servef` is one product implemented by two build-time projects and distributed
-as one Go binary.
+`servef` is one product implemented by build-time projects and distributed as
+one Go binary, plus desktop packages that bundle it (decision 0068).
 
 ## System boundaries
 
-- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning.
+- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`).
 - `internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
 - `internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
 - `internal/files/`: file discovery, always-skipped directories, and safe path resolution.
@@ -15,6 +15,7 @@ as one Go binary.
 - `internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
 - `internal/control/`: authenticated discovery and shutdown of local servef processes.
 - `internal/browser/`, `internal/version/`: browser launch and build version.
+- `internal/desktopapp/`: desktop app detection (`servef://` handler), opening URLs in it, install hints.
 - `internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
 - `desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
@@ -90,6 +91,12 @@ tags and the CI-published `edge` branch commit it on top of `main`, so
 `go install github.com/flexdinesh/servef@latest` (or `@edge`) needs no
 JavaScript toolchain. Installed releases contain no Node.js runtime or frontend
 sidecar.
+
+Release tags also publish desktop packages (macOS dmg/zip, Linux
+AppImage/deb per arch): electron-builder bundles that release's Go binary as
+`resources/bin/servef` with Electron's Chromium and Node. `edge` has none.
+Bare `servef [path]` opens the installed app through the daemon and otherwise
+serves in a browser.
 
 ## Growth rules
 

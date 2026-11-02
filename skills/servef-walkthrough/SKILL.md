@@ -107,10 +107,12 @@ For example:
 - Reuse `id` to revise a walkthrough (it replaces) rather than publishing a
   new one. Without `id`, servef derives one from the title.
 - servef prints `published <id> (created|replaced) for <project>`, then
-  `url: …` when a running servef shows the project. Give the user the `url`.
-  `--json` prints `{"id", "project", "created", "url"}` instead (`url` only
-  when a server shows it). `"open": true` opens the url in their browser
-  unless `--no-open` is passed or the session is over SSH. With no running
+  `url: …` when the desktop app or a running servef shows the project. Give
+  the user the `url`; it may be a `servef://local/view?…` link (desktop app)
+  or an `http://` one. `--json` prints `{"id", "project", "created", "url"}`
+  instead (`url` only when something shows it). `"open": true` opens the url
+  in the app or their browser unless `--no-open` is passed or the session is
+  over SSH. With no running
   servef, it prints how to view the walkthrough and exits 0.
 - Exit 1 lists every problem as `field: message`, for example
   `steps[3].diff.path: is not changed in this compare`. Fix them all and

@@ -31,3 +31,7 @@
 /desktop/node_modules/
 /desktop/build/
 /desktop/test-results/
+
+# Desktop packages (desktop/scripts/package.ts)
+/desktop/dist/
+/desktop/.build/

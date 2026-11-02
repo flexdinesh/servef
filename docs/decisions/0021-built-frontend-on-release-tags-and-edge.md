@@ -1,6 +1,6 @@
 # 0021: Built frontend on release tags and edge
 
-- Status: Accepted
+- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (release tags add desktop packages; `edge` unchanged)
 - Date: 2026-10-18
 
 ## Context

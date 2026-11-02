@@ -26,7 +26,7 @@ rewriting history; update `Status` on the old record.
 | [0018](0018-lsp-only-navigation.md) | LSP-only navigation and host-specific availability | Accepted |
 | [0019](0019-workspace-settings-and-memory.md) | Settings navigation and project explorer memory | Accepted |
 | [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |
-| [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted |
+| [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted; revised by 0068 (desktop packages on release tags) |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050 |
@@ -64,10 +64,12 @@ rewriting history; update `Status` on the old record.
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |
-| [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted |
+| [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
 | [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
-| [0062](0062-desktop-app.md) | Desktop app | Proposed |
-| [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Proposed |
+| [0062](0062-desktop-app.md) | Desktop app | Accepted in part (0067, 0068); CLI-server and ssh connections Proposed |
+| [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted in part (0065, 0068); remote, ssh links, pasted URLs Proposed |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Proposed |
-| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted |
+| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068 |
 | [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted |
+| [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted |
+| [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted |

@@ -2,21 +2,25 @@
 
 ## Directories
 
-Serve the current directory:
+Open the current directory:
 
 ```sh
 servef .
 ```
 
-Or serve another directory:
+Or another directory:
 
 ```sh
 servef path/to/markdown
 ```
 
-`servef browser [path]` is equivalent to `servef [path]` and takes the same
-flags. Subcommand names take precedence over directories, so serve a directory
-named `browser`, `walkthrough`, or `daemon` as `servef ./browser`,
+With the [desktop app](/desktop) installed, `servef [path]` opens the
+directory in it and exits. Without it, over SSH, or with `--host` or `--port`,
+it serves in a browser, as `servef browser [path]` does.
+
+`servef browser [path]` always serves in a browser and takes the same flags.
+Subcommand names take precedence over directories, so open a directory named
+`browser`, `walkthrough`, or `daemon` as `servef ./browser`,
 `servef ./walkthrough`, or `servef ./daemon`.
 
 Serve several directories with a repeatable `--path` (a positional path is
@@ -66,8 +70,9 @@ walkthrough to start.
 Without `--port`, servef uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.
 
-For parallel agent sessions or worktrees, use a different port for each server,
-or let the OS select an available port:
+Setting either one always serves in a browser. For parallel agent sessions or
+worktrees, use a different port for each server, or let the OS select an
+available port:
 
 ```sh
 servef . --port 8123 --no-open
@@ -96,7 +101,7 @@ repository checkout, regardless of `--depth` and skipped folders.
 
 ## Daemon
 
-`servef daemon` is plumbing for the upcoming desktop app: one long-lived
+`servef daemon` is plumbing for the [desktop app](/desktop): one long-lived
 servef per user, reachable only through a private Unix socket (macOS and
 Linux), whose directories are added while it runs and remembered across
 restarts. Clients start it on demand; it stops after 30 minutes without

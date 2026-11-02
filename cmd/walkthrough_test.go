@@ -89,7 +89,7 @@ func tourDraft(root string, hash plumbing.Hash) walkthrough.Draft {
 }
 
 // testPublishOptions keeps a test's store, control registry, and daemon
-// socket private and never opens a real browser.
+// socket private, reports no desktop app, and never opens a real browser.
 func testPublishOptions(t *testing.T, source string) (publishOptions, chan string) {
 	t.Helper()
 	opened := make(chan string, 4)
@@ -101,6 +101,11 @@ func testPublishOptions(t *testing.T, source string) (publishOptions, chan strin
 		socket:         filepath.Join(t.TempDir(), "daemon.sock"),
 		openBrowser:    func(target string) error { opened <- target; return nil },
 		getenv:         func(string) string { return "" },
+		installed:      func(context.Context) (bool, error) { return false, nil },
+		openApp: func(_ context.Context, target string) error {
+			t.Errorf("opened %s in the desktop app without one", target)
+			return nil
+		},
 	}, opened
 }
 
@@ -424,6 +429,122 @@ func TestPublishWalkthroughAnnouncesToTheDaemon(t *testing.T) {
 	}
 	if len(fake.requests) != 2 {
 		t.Errorf("daemon got %d more requests, want 2", len(fake.requests))
+	}
+}
+
+func TestPublishWalkthroughOpensDaemonServedProjectsInTheApp(t *testing.T) {
+	if daemonSupported() != nil {
+		t.Skip("no daemon on this platform")
+	}
+	root, hash := publishRepo(t)
+	opts, browserOpened := testPublishOptions(t, "-")
+	opts.socket = serveFakeDaemon(t).socket
+	opts.installed = func(context.Context) (bool, error) { return true, nil }
+	appOpened := make(chan string, 4)
+	opts.openApp = func(_ context.Context, target string) error { appOpened <- target; return nil }
+	// A registered server also shows it; the app is preferred.
+	origin := serveWalkthroughs(t, opts, root, opts.walkthroughDir)
+	draft := tourDraft(root, hash)
+	draft.Open = true
+	want := "servef://local/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode()
+
+	stdout, stderr, err := runPublish(t, opts, publishDraft(t, draft))
+	if err != nil {
+		t.Fatalf("publish: %v\n%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "url: "+want+"\n") || stderr != "" {
+		t.Errorf("stdout = %q, stderr = %q; want url %s", stdout, stderr, want)
+	}
+	select {
+	case target := <-appOpened:
+		if target != want {
+			t.Errorf("app opened %s, want %s", target, want)
+		}
+	default:
+		t.Error("open: true did not open the desktop app")
+	}
+	select {
+	case target := <-browserOpened:
+		t.Errorf("browser opened %s", target)
+	default:
+	}
+
+	// --json carries the servef:// URL; --no-open opens nothing.
+	asJSON := opts
+	asJSON.json = true
+	asJSON.noOpen = true
+	stdout, _, err = runPublish(t, asJSON, publishDraft(t, draft))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil || result["url"] != want {
+		t.Errorf("json output = %q: %v; want url %s", stdout, err, want)
+	}
+	if len(appOpened) != 0 || len(browserOpened) != 0 {
+		t.Errorf("--no-open opened %d app and %d browser targets", len(appOpened), len(browserOpened))
+	}
+
+	// A failed app open falls back to a running server in the browser.
+	opts.openApp = func(context.Context, string) error { return errors.New("no handler") }
+	viewer := origin + "/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode()
+	stdout, stderr, err = runPublish(t, opts, publishDraft(t, draft))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "url: "+viewer+"\n") || stderr != "could not open the servef desktop app: no handler\n" {
+		t.Errorf("stdout = %q, stderr = %q; want url %s", stdout, stderr, viewer)
+	}
+	select {
+	case target := <-browserOpened:
+		if target != viewer {
+			t.Errorf("browser opened %s, want %s", target, viewer)
+		}
+	default:
+		t.Error("app open failure did not open the browser")
+	}
+}
+
+func TestPublishWalkthroughWithoutTheAppKeepsBrowserViewers(t *testing.T) {
+	if daemonSupported() != nil {
+		t.Skip("no daemon on this platform")
+	}
+	root, hash := publishRepo(t)
+	draft := tourDraft(root, hash)
+	draft.Open = true
+	for _, test := range []struct {
+		name      string
+		installed bool
+		status    int
+	}{
+		{"announced without the app", false, http.StatusAccepted},
+		{"app without an announcing daemon", true, http.StatusNotFound},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			opts, opened := testPublishOptions(t, "-")
+			fake := serveFakeDaemon(t)
+			fake.answer(test.status, "projectUnavailable")
+			opts.socket = fake.socket
+			opts.installed = func(context.Context) (bool, error) { return test.installed, nil }
+			origin := serveWalkthroughs(t, opts, root, opts.walkthroughDir)
+			want := origin + "/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode()
+
+			stdout, stderr, err := runPublish(t, opts, publishDraft(t, draft))
+			if err != nil {
+				t.Fatalf("publish: %v\n%s", err, stderr)
+			}
+			if !strings.Contains(stdout, "url: "+want+"\n") {
+				t.Errorf("stdout = %q, want url %s", stdout, want)
+			}
+			select {
+			case target := <-opened:
+				if target != want {
+					t.Errorf("browser opened %s, want %s", target, want)
+				}
+			default:
+				t.Error("open: true did not open the browser")
+			}
+		})
 	}
 }
 

@@ -1,6 +1,6 @@
 # 0060: Scope flags removed; `servef browser` alias
 
-- Status: Accepted
+- Status: Accepted; the bare `servef [path]` clause is superseded by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
 - Date: 2026-11-01
 - Supersedes: [0001](0001-filename-glob-scope.md); the exclusion parts
   (`--exclude`) of [0007](0007-projects-and-project-picker.md) and

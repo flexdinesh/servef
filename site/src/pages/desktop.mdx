@@ -1,0 +1,105 @@
+# Desktop app
+
+The servef desktop app shows the same UI in its own windows, one per project,
+and notifies you when a branch switches, a commit lands, edits settle, or a
+walkthrough is published. It talks to one long-lived servef daemon per user
+over a private socket, so every window and `servef .` share the same server.
+
+The app is a preview: macOS builds are not notarized and there is no
+auto-update. Install a new version over the old one.
+
+## Install
+
+Download a package for your system from
+[GitHub Releases](https://github.com/flexdinesh/servef/releases). `<version>`
+omits the leading `v`; pick `arm64` or `amd64` for your CPU.
+
+### macOS
+
+1. Download `servef-desktop_<version>_darwin_<arm64|amd64>.dmg` (or the
+   `.zip`).
+2. Drag **servef** to Applications.
+3. The app is ad-hoc signed, not notarized, so Gatekeeper blocks the first
+   launch. Right-click **servef** in Applications and choose **Open**, then
+   confirm. Or clear the download quarantine once:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/servef.app
+   ```
+
+Installing the app registers `servef://` links with macOS.
+
+### Linux
+
+Install the `.deb` (Debian, Ubuntu, and derivatives):
+
+```sh
+sudo apt install ./servef-desktop_<version>_linux_amd64.deb
+```
+
+It installs to `/opt/servef`, adds `servef-desktop` to `PATH`, and registers
+`servef://` links through its desktop entry.
+
+The AppImage runs without installing:
+
+```sh
+chmod +x servef-desktop_<version>_linux_amd64.AppImage
+./servef-desktop_<version>_linux_amd64.AppImage
+```
+
+An AppImage registers `servef://` only through desktop integration (for
+example AppImageLauncher). Without it, `servef .` cannot find the app and
+serves in a browser instead.
+
+The app bundles its own `servef` binary, so it needs no separate install. The
+`servef` CLI ([Getting started](/getting-started)) is what opens it from a
+terminal.
+
+## Open from a terminal
+
+With the app installed:
+
+```sh
+servef .
+```
+
+servef checks the directory, starts the daemon if needed, adds the directory
+to it, opens the project in the app, and exits. A window already showing the
+project comes forward. `--no-open` prints the `servef://` link instead.
+
+servef serves in a browser instead, as `servef browser` does, when:
+
+- `--host` or `--port` is set;
+- the session is over SSH (prints "servef remote is not available yet");
+- the app is not installed or does not open (prints install instructions);
+- the daemon cannot start or speaks another protocol (prints why).
+
+`servef browser [path]` always serves in a browser.
+
+## Links
+
+`servef://local/?project=/abs/path` opens a project, and
+`servef://local/view?…` takes the same query as a browser URL (`path`,
+`wt`, `review`, …). Links never add directories; only `servef [path]` and
+**File › Open Folder…** do. `servef walkthrough publish` prints a
+`servef://` link when the app can show the walkthrough.
+
+## Notifications
+
+While the app runs it notifies for projects it has opened:
+
+- **Switched to `<branch>`** and **New commit on `<branch>`**;
+- **Edits settled**: changes stopped for 10 seconds;
+- **Walkthrough ready**, for any project the daemon serves.
+
+Clicking one opens the project, commit, changes, or walkthrough. Nothing is
+shown for a project whose window is focused, and each kind repeats at most
+every 30 seconds per project. Turn notifications off in your system settings.
+
+## Uninstall
+
+Quit the app and remove `/Applications/servef.app` (macOS), or run
+`sudo apt remove servef-desktop` (Linux). App data lives in
+`servef-desktop` under `~/Library/Application Support` or `~/.config`. The
+daemon's remembered directories are in `servef/roots.json` in the same
+place; `servef daemon stop` stops a running daemon.
