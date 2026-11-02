@@ -12,3 +12,6 @@ func daemonSupported() error { return daemon.ErrUnsupported }
 
 // daemonProcAttr is unused: daemon commands stop at daemonSupported.
 func daemonProcAttr() *syscall.SysProcAttr { return nil }
+
+// closeInheritedOnExec is unused: daemon commands stop at daemonSupported.
+func closeInheritedOnExec() {}

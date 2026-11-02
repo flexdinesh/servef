@@ -5,6 +5,7 @@ import { projectSections, type ProjectRow } from "../projects/project-picker.ts"
 
 export type WelcomeAction =
   | "open-project"
+  | "open-folder"
   | "find-file"
   | "show-commands"
   | "find-in-files"
@@ -24,10 +25,13 @@ export interface WelcomeEntry {
 
 export const documentationUrl = "https://github.com/flexdinesh/servef#readme"
 
-// startEntries are the actions that begin a session.
-export function startEntries(mac: boolean): WelcomeEntry[] {
+// startEntries are the actions that begin a session; Open folder… needs the
+// desktop app (canOpenFolder).
+export function startEntries(mac: boolean, canOpenFolder: boolean): WelcomeEntry[] {
+  const openFolder: WelcomeEntry[] = canOpenFolder ? [{ action: "open-folder", label: "Open folder…" }] : []
   return [
     { action: "open-project", label: "Open project…", shortcut: mac ? "⌘O" : "Ctrl+O" },
+    ...openFolder,
     { action: "find-file", label: "Find a file", shortcut: mac ? "⌘K" : "Ctrl+K" },
     { action: "show-commands", label: "Show all commands", shortcut: mac ? "⇧⌘P" : "Ctrl+Shift+P" },
   ]

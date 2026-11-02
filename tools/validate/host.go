@@ -233,7 +233,7 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 func (a app) hostDependencies(ctx context.Context, source, private string, m inputManifest, tools hostTools, log io.Writer, files []*os.File) error {
 	var inputs []entry
 	for _, e := range m.Files {
-		if e.Path == "package.json" || e.Path == "pnpm-lock.yaml" || e.Path == "pnpm-workspace.yaml" || e.Path == "web/package.json" || e.Path == "site/package.json" || e.Path == ".npmrc" || e.Path == ".pnpmfile.cjs" || e.Path == "tools/validate/host.go" || strings.HasPrefix(e.Path, "patches/") {
+		if e.Path == "package.json" || e.Path == "pnpm-lock.yaml" || e.Path == "pnpm-workspace.yaml" || e.Path == "web/package.json" || e.Path == "site/package.json" || e.Path == "desktop/package.json" || e.Path == ".npmrc" || e.Path == ".pnpmfile.cjs" || e.Path == "tools/validate/host.go" || strings.HasPrefix(e.Path, "patches/") {
 			inputs = append(inputs, e)
 		}
 	}
@@ -276,7 +276,7 @@ func (a app) hostDependencies(ctx context.Context, source, private string, m inp
 	} else if err != nil {
 		return err
 	}
-	for _, name := range []string{"node_modules", "web/node_modules", "site/node_modules"} {
+	for _, name := range []string{"node_modules", "web/node_modules", "site/node_modules", "desktop/node_modules"} {
 		if err := copyPrivateTreeWithin(filepath.Join(prepared, name), filepath.Join(source, name), prepared, source); err != nil {
 			return err
 		}

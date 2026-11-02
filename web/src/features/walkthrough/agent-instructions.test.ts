@@ -68,6 +68,18 @@ test("instructions name the running servef, the project, and the endpoints", () 
   assert.ok(prompt.endsWith("\n\nWalk me through: "))
 })
 
+test("an origin that is not http(s) names only the CLI", () => {
+  const prompt = agentInstructions("servef://local", "/home/me/src/app")
+  assert.match(prompt, /^servef: servef:\/\/local$/m)
+  assert.match(prompt, /^Format: servef walkthrough schema \(JSON Schema;/m)
+  assert.match(prompt, /^servef walkthrough publish walkthrough\.json$/m)
+  assert.doesNotMatch(prompt, /curl|\/api\/|Over HTTP/)
+  assert.ok(prompt.endsWith("\n\nWalk me through: "))
+  // Only the HTTP parts differ from an http origin's prompt.
+  const http = agentInstructions("http://localhost:7971", "/home/me/src/app")
+  assert.deepEqual(example(prompt), example(http))
+})
+
 test("the example walkthrough follows the server's schema", () => {
   const walkthrough = example(agentInstructions("http://localhost:7971", "/home/me/src/app"))
   assert.deepEqual(problems(walkthrough, schema, "walkthrough"), [])

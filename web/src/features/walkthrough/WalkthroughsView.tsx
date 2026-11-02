@@ -11,6 +11,7 @@ import { Notice, StatusMessage } from "../../components/ui/notice.tsx"
 import { ViewHeader } from "../../components/ui/view-header.tsx"
 import type { Walkthrough, WalkthroughStep } from "../../api/walkthrough-contract.ts"
 import { useClipboardCopy } from "../../lib/clipboard.ts"
+import { shareableOrigin } from "../../lib/shareable-origin.ts"
 import { commitAge, commitDate, type CompareContext } from "../source-control/compare.ts"
 import { agentInstructions } from "./agent-instructions.ts"
 import type { WalkthroughSession } from "./use-walkthrough-session.ts"
@@ -105,7 +106,7 @@ export function WalkthroughsView({ context, mobile, onDismiss, onPresent, projec
 // header, or a labeled button in the empty list.
 function CopyInstructions({ project, labeled = false }: { project: string; labeled?: boolean }) {
   const { status, copy } = useClipboardCopy()
-  const onClick = () => { void copy(agentInstructions(window.location.origin, project)) }
+  const onClick = () => { void copy(agentInstructions(shareableOrigin(window.location.origin), project)) }
   const icon = status === "copied" ? <CheckIcon aria-hidden="true" /> : status === "failed" ? <XIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />
   return (
     <>

@@ -230,7 +230,8 @@ func excluded(name string) bool {
 			return true
 		}
 	}
-	return strings.HasPrefix(name, ".scratch/") || strings.HasPrefix(name, ".dev/") || strings.HasPrefix(name, "internal/web/dist/") || strings.HasPrefix(name, "site/dist/") || strings.HasPrefix(name, "test-results/") || strings.HasPrefix(name, "playwright-report/")
+	return strings.HasPrefix(name, ".scratch/") || strings.HasPrefix(name, ".dev/") || strings.HasPrefix(name, "internal/web/dist/") || strings.HasPrefix(name, "site/dist/") || strings.HasPrefix(name, "test-results/") || strings.HasPrefix(name, "playwright-report/") ||
+		strings.HasPrefix(name, "desktop/build/") || strings.HasPrefix(name, "desktop/test-results/")
 }
 
 func selected(group, name string) bool {
@@ -238,7 +239,7 @@ func selected(group, name string) bool {
 		return true
 	}
 	switch name {
-	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "web/package.json", "site/package.json", "dagger.json", "go.mod", "go.sum", ".gitignore", ".npmrc", ".pnpmfile.cjs":
+	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "web/package.json", "site/package.json", "desktop/package.json", "dagger.json", "go.mod", "go.sum", ".gitignore", ".npmrc", ".pnpmfile.cjs":
 		return true
 	}
 	for _, prefix := range []string{".dagger/", "patches/", "tools/validate/"} {
@@ -255,18 +256,20 @@ func selected(group, name string) bool {
 		"web-static":     {"web/"},
 		"tooling-static": {"scripts/", "tests/"},
 		"site-static":    {"site/"},
+		"desktop-static": {"desktop/", "web/src/api/"},
 		"go":             {"cmd/", "internal/", "tools/", "testdata/", "web/"},
 		"frontend":       {"web/", "testdata/"},
 		"tooling":        {"scripts/", "tests/", "tools/validate/", "testdata/"},
 		"docs":           {"site/"},
 		"browser":        {"cmd/", "internal/", "testdata/", "web/", "tests/", "scripts/"},
+		"desktop":        {"desktop/", "cmd/", "internal/", "web/", "testdata/"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
 	}
-	if group == "go" || group == "browser" || group == "repo" {
+	if group == "go" || group == "browser" || group == "desktop" || group == "repo" {
 		if !strings.Contains(name, "/") && strings.HasSuffix(name, ".go") {
 			return true
 		}

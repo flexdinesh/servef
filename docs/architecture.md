@@ -17,6 +17,7 @@ as one Go binary.
 - `internal/browser/`, `internal/version/`: browser launch and build version.
 - `internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
 - `web/`: React UI, Vite build, frontend tests and development tooling.
+- `desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
 - `docs/decisions/`: decision records for scope, file types, views, and limits.
@@ -39,11 +40,15 @@ app and are refused when they carry `Origin` or `Sec-Fetch-Site`. Clients
 open paths (`/_daemon/open`, which may replace served roots inside the path)
 and hold a control event stream (`/_daemon/events`) for walkthrough
 announcements; project event streams take a `lease` level (decision 0066).
+The desktop app proxies renderer requests to the socket, refuses `/_daemon`
+paths itself, and adds `Sec-Fetch-Site: same-origin` so proxied requests
+never pass as control requests (decision 0067).
 
 ## Dependency direction
 
 ```text
 CLI -> daemon -> runtime -> web -> document, files, git, lsp, projects
+desktop -> daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
 React -> HTTP API -> HTTP application
@@ -51,7 +56,8 @@ web source -> Vite -> internal/web/dist -> go:embed -> servef binary
 ```
 
 Go and pnpm retain their native dependency graphs. The repository-level
-`package.json` is a command facade; `web/package.json` owns browser dependencies.
+`package.json` is a command facade; `web/package.json` owns browser dependencies;
+`desktop/package.json` owns the Electron app's build-time dependencies.
 Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests

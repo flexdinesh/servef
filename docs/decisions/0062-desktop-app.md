@@ -1,6 +1,6 @@
 # 0062: Desktop app
 
-- Status: Proposed
+- Status: Accepted in part (via [0067](0067-desktop-shell-and-protocol-proxy.md)); CLI-server and ssh connections Proposed
 - Date: 2026-11-01
 
 ## Context

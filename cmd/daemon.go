@@ -231,6 +231,7 @@ func startDaemon(opts daemonOptions) daemon.StartFunc {
 		process.Stdout = log
 		process.Stderr = log
 		process.SysProcAttr = daemonProcAttr()
+		closeInheritedOnExec()
 		if err := process.Start(); err != nil {
 			return nil, err
 		}

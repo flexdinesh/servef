@@ -1,0 +1,23 @@
+{
+  "name": "@servef/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "build/main.mjs",
+  "scripts": {
+    "build": "node build.ts",
+    "lint": "oxlint",
+    "start": "node node_modules/electron/install.js && node build.ts && electron .",
+    "test": "node --test --test-concurrency=2 --test-reporter=dot 'test/*.test.ts'",
+    "test:smoke": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.19.21",
+    "electron": "45.1.0",
+    "esbuild": "0.28.1",
+    "oxlint": "1.89.0",
+    "typescript": "7.0.2"
+  }
+}

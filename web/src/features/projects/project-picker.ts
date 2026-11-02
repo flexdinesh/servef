@@ -334,6 +334,13 @@ export function browseRows(folder: string, partial: string, directories: readonl
   return sections.filter((section) => section.rows.length > 0)
 }
 
+// offersOpenFolder: with no served folder there is no project to list or
+// folder to browse, so the desktop app's Open folder… takes the list's
+// place. Browsers cannot open folders and keep the list.
+export function offersOpenFolder(response: ProjectsResponse, canOpenFolder: boolean): boolean {
+  return canOpenFolder && response.roots.length === 0
+}
+
 export function selectableRows(sections: readonly PickerSection[]): PickerRow[] {
   return sections.flatMap((section) => section.rows)
     .filter((row) => row.kind !== "project" || !row.disabled)

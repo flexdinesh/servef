@@ -12,11 +12,11 @@
     "dev": "mise run dev",
     "generate:homebrew": "node scripts/generate-homebrew-formula.ts",
     "link:local": "mise run install",
-    "lint": "pnpm --filter @servef/web lint",
+    "lint": "pnpm --filter @servef/web lint && pnpm --filter @servef/desktop lint",
     "test:browser": "mise run test:browser",
     "test:release": "node --test --test-concurrency=2 --test-reporter=dot tests/*.test.ts tests/browser/live-fixture.test.ts",
     "test:web": "pnpm --filter @servef/web test",
-    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck"
+    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck && pnpm --filter @servef/desktop typecheck"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

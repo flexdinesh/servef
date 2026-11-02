@@ -26,3 +26,8 @@
 # Local Go workspace files
 /go.work
 /go.work.sum
+
+# Desktop bundle (desktop/build.ts)
+/desktop/node_modules/
+/desktop/build/
+/desktop/test-results/
