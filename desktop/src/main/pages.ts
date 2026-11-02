@@ -13,7 +13,8 @@ const PAGE_HEADERS = {
 export const PAGE_STYLE = `
 :root { color-scheme: light dark; --fg: #1f2328; --muted: #59636e; --bg: #ffffff; --code: #f6f8fa; --accent: #0969da; }
 @media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --muted: #9198a1; --bg: #0d1117; --code: #161b22; --accent: #4493f8; } }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+body { margin: 0; padding-top: env(titlebar-area-height, 0px); background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+body::before { position: fixed; inset: 0 0 auto; height: env(titlebar-area-height, 0px); app-region: drag; content: ""; }
 main { max-width: 40rem; margin: 15vh auto 0; padding: 0 1.5rem; }
 h1 { font-size: 1.25rem; margin: 0 0 1rem; }
 p { color: var(--muted); margin: 0 0 0.75rem; }
@@ -24,6 +25,10 @@ button { background: none; border: 1px solid currentColor; border-radius: 6px; p
 form { margin: 0; }
 `
 
+// PAGE_THEME_COLOR reports PAGE_STYLE's --bg as the theme color, so the
+// desktop title band matches app-rendered pages (decision 0075).
+export const PAGE_THEME_COLOR = `<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">`
+
 export function escapeHTML(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;").replaceAll("'", "&#39;")
 }
@@ -31,7 +36,7 @@ export function escapeHTML(text: string): string {
 function page(title: string, content: string, actions: string, head = "", status = 503): Response {
   const html = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8">${head}<title>${escapeHTML(title)}</title><style>${PAGE_STYLE}</style></head>
+<head><meta charset="utf-8">${PAGE_THEME_COLOR}${head}<title>${escapeHTML(title)}</title><style>${PAGE_STYLE}</style></head>
 <body><main>
 <h1>${escapeHTML(title)}</h1>
 ${content}

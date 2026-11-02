@@ -1,0 +1,43 @@
+/* Desktop title band (decision 0075): the canvas continues above the islands
+   under the hidden native title bar. Its height is the window-controls
+   overlay's, so browsers render nothing. The band drags the window; the
+   title centers on the window, clipped clear of the controls and the menu
+   button. */
+.title-bar {
+  --title-bar-start: env(titlebar-area-x, 0px);
+  --title-bar-end: calc(env(titlebar-area-x, 0px) + env(titlebar-area-width, 100vw));
+  --title-bar-reserve: calc(var(--control-sm) + var(--space-3));
+  position: relative;
+  height: var(--titlebar-height);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  background: var(--color-canvas);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--titlebar-height);
+  user-select: none;
+  app-region: drag;
+}
+
+.title-bar[data-window-focused="false"] {
+  color: var(--color-text-muted);
+}
+
+.title-bar-menu {
+  position: absolute;
+  top: calc((var(--titlebar-height) - var(--control-sm)) / 2);
+  left: calc(var(--title-bar-start) + var(--space-1));
+  app-region: no-drag;
+}
+
+.title-bar-title {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  max-width: calc(2 * min(var(--title-bar-end) - 50vw, 50vw - var(--title-bar-start)) - 2 * var(--title-bar-reserve));
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  translate: -50% 0;
+}

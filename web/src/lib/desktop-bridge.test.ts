@@ -13,6 +13,15 @@ test("a version 1 bridge opens folders through the exposed function", () => {
   assert.deepEqual(calls, [exposed])
 })
 
+test("showAppMenu passes the point through when exposed and is null otherwise", () => {
+  const calls: unknown[] = []
+  const exposed = { version: 1, openFolder() {}, showAppMenu(this: unknown, x: number, y: number) { calls.push([this, x, y]) } }
+  readDesktopBridge(exposed)?.showAppMenu?.(4, 32)
+  assert.deepEqual(calls, [[exposed, 4, 32]])
+  assert.equal(readDesktopBridge({ version: 1, openFolder() {} })?.showAppMenu, null)
+  assert.equal(readDesktopBridge({ version: 1, openFolder() {}, showAppMenu: "menu" })?.showAppMenu, null)
+})
+
 test("other versions, missing functions, and non-objects are no bridge", () => {
   const openFolder = () => {}
   assert.equal(readDesktopBridge({ version: 2, openFolder }), null)

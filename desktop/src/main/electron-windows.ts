@@ -1,8 +1,9 @@
 // BrowserWindow adapter: creation, security handlers, origin and project
-// tracking, titles, and routing (decisions 0067, 0070).
-import { BrowserWindow, session, shell } from "electron"
+// tracking, titles, title band colors, and routing (decisions 0067, 0070, 0075).
+import { BrowserWindow, nativeTheme, session, shell } from "electron"
 import { readFileSync, writeFileSync } from "node:fs"
 import { navigationPolicy, permissionAllowed } from "./navigation.ts"
+import { DEFAULT_CANVAS, overlayFor, parseThemeColor, windowChrome } from "./titlebar.ts"
 import { parseWindowState, serializeWindowState, type WindowBounds } from "./window-state.ts"
 import { connectionOfOrigin, routeWindow, targetOfURL, type WindowInfo } from "./windows.ts"
 
@@ -53,6 +54,9 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
   const tracked = new Map<number, Tracked>()
   const listeners = new Set<() => void>()
   let bounds = readBounds(options.stateFile)
+  // bandColor is the last theme color any page reported; new windows start
+  // with it so they open in the current theme's canvas.
+  let bandColor: string | null = null
 
   const windowsChanged = (): void => {
     for (const listener of listeners) listener()
@@ -88,6 +92,7 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
     const placed: WindowBounds = tracked.size === 0 ? bounds : { width: bounds.width, height: bounds.height }
     const window = new BrowserWindow({
       ...placed,
+      ...windowChrome(process.platform, bandColor ?? (nativeTheme.shouldUseDarkColors ? DEFAULT_CANVAS.dark : DEFAULT_CANVAS.light)),
       show: true,
       webPreferences: {
         contextIsolation: true,
@@ -115,6 +120,15 @@ export function createWindowManager(options: WindowManagerOptions): WindowManage
       event.preventDefault()
       entry.page = page
       window.setTitle(options.title(origin, page))
+    })
+    // The page's theme-color meta is its canvas (decision 0075); color the
+    // window background and, outside macOS, the overlay controls with it.
+    contents.on("did-change-theme-color", (_event, reported) => {
+      const color = parseThemeColor(reported)
+      if (color === null) return
+      bandColor = color
+      window.setBackgroundColor(color)
+      if (process.platform !== "darwin") window.setTitleBarOverlay(overlayFor(color))
     })
     contents.on("did-navigate", (_event, target) => navigated(target))
     contents.on("did-navigate-in-page", (_event, target, isMainFrame) => {

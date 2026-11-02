@@ -81,6 +81,7 @@ import { uiScale } from "./settings/settings.ts"
 import { treeRowHeight } from "./components/ui/tree-rows.ts"
 import { SidebarResizer } from "./workspace/SidebarResizer.tsx"
 import { StatusBar, type DiffStatus } from "./workspace/StatusBar.tsx"
+import { TitleBar } from "./workspace/TitleBar.tsx"
 import type { CompareData } from "./features/source-control/use-compare-data.ts"
 import { TabBar } from "./workspace/TabBar.tsx"
 import { useDocumentFormats } from "./features/documents/use-document-format.ts"
@@ -641,9 +642,10 @@ export function App({ project }: AppProps) {
     } : undefined
 
   const documentTitle = activeTab ? nameTab(activeTab).title : ""
+  const windowTitle = `${documentTitle ? `${documentTitle} · ` : ""}servef`
   useEffect(() => {
-    document.title = `${documentTitle ? `${documentTitle} · ` : ""}servef`
-  }, [documentTitle])
+    document.title = windowTitle
+  }, [windowTitle])
 
   return (
     <>
@@ -651,6 +653,7 @@ export function App({ project }: AppProps) {
       <div className="visually-hidden" role="status" aria-live="polite">
         {isLoading ? "Loading document…" : documentTitle ? `${documentTitle} loaded.` : ""}
       </div>
+      <TitleBar title={windowTitle} />
       <div className="layout" data-sidebar={sidebar.hidden ? "hidden" : "visible"} data-presenting={presenting || undefined}>
         <Sidebar
           sidebar={sidebar}
