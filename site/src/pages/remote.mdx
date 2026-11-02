@@ -1,0 +1,84 @@
+# Remote hosts
+
+servef runs beside the files. To browse a machine you reach over SSH, run
+servef on that machine and open its link in the [desktop app](/desktop) on
+your computer. The app connects with your own `ssh` setup.
+
+## Install servef on the host
+
+Install the CLI on the remote machine as on any computer
+([Getting started](/getting-started)):
+
+```sh
+brew install flexdinesh/tap/servef
+# or
+go install github.com/flexdinesh/servef@latest
+```
+
+Release archives (`servef_<version>_linux_<amd64|arm64>.tar.gz`) work too;
+put `servef` in `~/.local/bin`.
+
+The app runs `servef` in non-interactive SSH commands, which often skip your
+shell profile. Check that it is found:
+
+```sh
+ssh <host> 'command -v servef'
+```
+
+If that prints nothing, put `servef` on the `PATH` your shell sets for
+non-interactive sessions, or in `~/.local/bin`, `~/go/bin`, `~/bin`,
+`/usr/local/bin`, or Homebrew's `bin` directory.
+
+## `servef remote`
+
+On the host, inside your SSH session:
+
+```sh
+servef remote ~/code/foo
+```
+
+```text
+serving /home/dee/code/foo on devbox
+servef://ssh/devbox/?project=%2Fhome%2Fdee%2Fcode%2Ffoo&ssh-hostname=devbox&ssh-user=dee&ssh-addr=10.0.0.5
+open the link on your computer; it needs the servef desktop app
+```
+
+It checks the directories, starts the host's servef daemon if needed, adds
+them to it, prints the link, and exits. Click the link (terminals that
+support hyperlinks make it clickable) or copy it into your computer's
+browser address bar. The daemon stops on its own after 30 idle minutes.
+
+Over SSH, `servef [path]` does the same, and serves in a browser on the host
+only when that fails (for example, the daemon cannot start).
+
+| Flag | Meaning |
+| --- | --- |
+| `--path DIR` | Add a directory (repeatable; a positional path is shorthand for one) |
+| `--depth N` | File tree depth within a project (default `5`) |
+| `--scan-depth N` | How deep to look for repositories (default `10`) |
+| `--alias NAME` | Name the host in the link |
+
+## Naming the host
+
+The link carries hints: the host's name, your user name, and the server
+address and port of your SSH session. The app matches them to a host it
+knows or an `~/.ssh/config` entry, and asks you once before connecting to a
+new one.
+
+When your computer knows the host by another name, pass it:
+
+```sh
+servef remote --alias work-box ~/code/foo
+```
+
+`--alias` is the `Host` name from your computer's `~/.ssh/config`: letters,
+digits, `.`, `_`, and `-`.
+
+Run outside an SSH session, `servef remote` still prints the link, with a
+warning that the hints may not identify the host.
+
+## Walkthroughs
+
+Agents on the host publish with `servef walkthrough publish`
+([Walkthroughs](/walkthroughs)). Inside an SSH session the printed `url` is a
+`servef://ssh/…` link to open on your computer; nothing opens on the host.

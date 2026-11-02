@@ -52,6 +52,7 @@ type publishOptions struct {
 	getenv         func(string) string
 	installed      func(context.Context) (bool, error) // nil uses desktopapp.Installed
 	openApp        func(context.Context, string) error // nil uses desktopapp.Open
+	remoteHints    func() remoteHints                  // nil reads this host's hints
 }
 
 type publishRunner func(context.Context, publishOptions, io.Reader, io.Writer, io.Writer) error
@@ -145,9 +146,20 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	open := draft.Open && shouldOpenBrowser(opts.noOpen, getenv)
 
 	// The desktop app shows walkthroughs of projects the daemon serves.
+	viewerQuery := url.Values{"project": {stored.Project}, "wt": {stored.ID}}
 	viewer := ""
-	if announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr) && desktopAppInstalled(ctx, opts) {
-		viewer = "servef://local/view?" + url.Values{"project": {stored.Project}, "wt": {stored.ID}}.Encode()
+	remote := false
+	announced := announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr)
+	// Inside SSH the app runs on the user's computer: print a remote link and
+	// open nothing (decision 0069).
+	if announced && inSSHSession(getenv) {
+		hints := publishRemoteHints(opts, getenv)
+		if hints.Host() != "" {
+			viewer, remote = remoteLink(hints, "/view", viewerQuery), true
+		}
+	}
+	if viewer == "" && announced && desktopAppInstalled(ctx, opts) {
+		viewer = "servef://local/view?" + viewerQuery.Encode()
 		if open {
 			openApp := opts.openApp
 			if openApp == nil {
@@ -194,6 +206,13 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	}
 	_, _ = fmt.Fprintf(stdout, "published %s (%s) for %s\n", stored.ID, outcome, stored.Project)
 	switch {
+	case remote:
+		_, _ = fmt.Fprintf(stdout, "url: %s\n", viewer)
+		if draft.Open {
+			_, _ = fmt.Fprintln(stdout, "nothing opened inside SSH; open the link on your computer; it needs the servef desktop app")
+		} else {
+			_, _ = fmt.Fprintln(stdout, "open the link on your computer; it needs the servef desktop app")
+		}
 	case viewer != "":
 		_, _ = fmt.Fprintf(stdout, "url: %s\n", viewer)
 	case draft.Open:
@@ -226,6 +245,14 @@ func announceToDaemon(ctx context.Context, socket, project, id string, created b
 		_, _ = fmt.Fprintf(stderr, "servef daemon at %s serves this project but keeps walkthroughs elsewhere\n", socket)
 	}
 	return err == nil
+}
+
+// publishRemoteHints reads this host's link hints through the seam.
+func publishRemoteHints(opts publishOptions, getenv func(string) string) remoteHints {
+	if opts.remoteHints != nil {
+		return opts.remoteHints()
+	}
+	return defaultRemoteHints(getenv, "")
 }
 
 // desktopAppInstalled reports whether the desktop app handles servef:// URLs;

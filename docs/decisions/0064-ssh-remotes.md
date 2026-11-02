@@ -1,6 +1,6 @@
 # 0064: SSH remotes
 
-- Status: Proposed
+- Status: Accepted in part (via [0069](0069-servef-remote-and-ssh-links.md)): `servef remote` link hints; app ssh connections Proposed
 - Date: 2026-11-01
 
 ## Context

@@ -80,7 +80,9 @@ as `steps[2].file.lines: end 90 is past the file's last line, 61`.
 
 When the [desktop app](/desktop) is installed and the daemon serves the
 project, the CLI prints a `servef://` `url` and `"open": true` opens it in the
-app. Otherwise, when a running servef shows the project, the CLI prints its
+app. Inside an SSH session, when the host's daemon serves the project, the
+`url` is a `servef://ssh/…` link to open on your computer ([Remote
+hosts](/remote)) and nothing opens. Otherwise, when a running servef shows the project, the CLI prints its
 `url`, and `"open": true` opens it in the browser (neither over SSH). Without one, it prints
 how to view the walkthrough: `servef <project>`, then the Walkthroughs view.
 The CLI never starts a server. `servef walkthrough schema` prints the JSON

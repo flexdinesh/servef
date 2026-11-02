@@ -11,6 +11,7 @@ export default defineConfig({
     { text: 'Getting started', link: '/getting-started' },
     { text: 'Usage', link: '/usage' },
     { text: 'Desktop app', link: '/desktop' },
+    { text: 'Remote hosts', link: '/remote' },
     { text: 'Browsing', link: '/browsing' },
     { text: 'Code navigation', link: '/code-navigation' },
     { text: 'Walkthroughs', link: '/walkthroughs' },

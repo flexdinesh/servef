@@ -548,6 +548,72 @@ func TestPublishWalkthroughWithoutTheAppKeepsBrowserViewers(t *testing.T) {
 	}
 }
 
+func TestPublishWalkthroughInsideSSHPrintsTheRemoteLink(t *testing.T) {
+	if daemonSupported() != nil {
+		t.Skip("no daemon on this platform")
+	}
+	root, hash := publishRepo(t)
+	opts, browserOpened := testPublishOptions(t, "-")
+	opts.socket = serveFakeDaemon(t).socket
+	opts.getenv = sshEnv
+	opts.remoteHints = func() remoteHints {
+		return remoteHints{Hostname: "devbox", User: "dee", Addr: "10.0.0.5", Port: 22}
+	}
+	// The app on this host and a browser server are ignored inside SSH.
+	opts.installed = func(context.Context) (bool, error) { return true, nil }
+	serveWalkthroughs(t, opts, root, opts.walkthroughDir)
+	draft := tourDraft(root, hash)
+	draft.Open = true
+	want := "servef://ssh/devbox/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode() + "&ssh-hostname=devbox&ssh-user=dee&ssh-addr=10.0.0.5"
+
+	stdout, stderr, err := runPublish(t, opts, publishDraft(t, draft))
+	if err != nil {
+		t.Fatalf("publish: %v\n%s", err, stderr)
+	}
+	if wantOut := "url: " + want + "\nnothing opened inside SSH; open the link on your computer; it needs the servef desktop app\n"; !strings.HasSuffix(stdout, wantOut) || stderr != "" {
+		t.Errorf("stdout = %q, stderr = %q; want suffix %q", stdout, stderr, wantOut)
+	}
+	if len(browserOpened) != 0 {
+		t.Errorf("opened %s", <-browserOpened)
+	}
+
+	asJSON := opts
+	asJSON.json = true
+	stdout, _, err = runPublish(t, asJSON, publishDraft(t, draft))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil || result["url"] != want {
+		t.Errorf("json output = %q: %v; want url %s", stdout, err, want)
+	}
+}
+
+func TestPublishWalkthroughInsideSSHWithoutTheDaemonProbesServers(t *testing.T) {
+	root, hash := publishRepo(t)
+	opts, opened := testPublishOptions(t, "-")
+	opts.getenv = sshEnv
+	opts.remoteHints = func() remoteHints {
+		t.Error("read remote hints without an announcing daemon")
+		return remoteHints{}
+	}
+	origin := serveWalkthroughs(t, opts, root, opts.walkthroughDir)
+	draft := tourDraft(root, hash)
+	draft.Open = true
+	want := origin + "/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode()
+
+	stdout, stderr, err := runPublish(t, opts, publishDraft(t, draft))
+	if err != nil {
+		t.Fatalf("publish: %v\n%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "url: "+want+"\n") {
+		t.Errorf("stdout = %q, want url %s", stdout, want)
+	}
+	if len(opened) != 0 {
+		t.Errorf("opened %s inside SSH", <-opened)
+	}
+}
+
 func TestWalkthroughCommandParsesArgumentsAndFlags(t *testing.T) {
 	parse := func(args ...string) publishOptions {
 		t.Helper()
