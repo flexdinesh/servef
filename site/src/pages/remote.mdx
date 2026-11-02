@@ -10,11 +10,14 @@ Install the CLI on the remote machine as on any computer
 ([Getting started](/getting-started)):
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
+# or
 brew install flexdinesh/tap/servef
 # or
 go install github.com/flexdinesh/servef@latest
 ```
 
+The script needs no sudo and puts `servef` in `~/.local/bin` (or `~/bin`).
 Release archives (`servef_<version>_linux_<amd64|arm64>.tar.gz`) work too;
 put `servef` in `~/.local/bin`.
 

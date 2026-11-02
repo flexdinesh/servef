@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { failureInstructions, sshFailureInstructions } from "../src/main/instructions.ts"
+import { failureInstructions, releaseOf, sshFailureInstructions } from "../src/main/instructions.ts"
 import type { Instructions } from "../src/main/instructions.ts"
 import { REMOTE_PATH_DIRS } from "../src/main/ssh-args.ts"
 import type { SshFailure, SshFailureKind } from "../src/main/ssh-errors.ts"
@@ -72,9 +72,17 @@ test("unreachable shows the detail and says servef retries", () => {
   assert.deepEqual(instructions.paragraphs, ["ssh: connect to host devbox port 22: Connection timed out", "servef retries while a window for this host is open."])
 })
 
-test("servefMissing on Darwin offers Homebrew only", () => {
+const INSTALL_SCRIPT = "# on devbox\ncurl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh"
+
+test("releaseOf links only packaged stable releases", () => {
+  assert.equal(releaseOf("1.2.3", true), "1.2.3")
+  assert.equal(releaseOf("1.2.3", false), null)
+  assert.equal(releaseOf("0.0.0-dev", true), null, "edge builds from install-desktop-edge.sh have no release page")
+})
+
+test("servefMissing on Darwin offers the install script and Homebrew", () => {
   const instructions = sshFailureInstructions(ssh("servefMissing", { os: "Darwin", arch: "arm64" }), "1.2.3")
-  assert.deepEqual(instructions.commands, ["# on devbox\nbrew install flexdinesh/tap/servef"])
+  assert.deepEqual(instructions.commands, [INSTALL_SCRIPT, "# on devbox\nbrew install flexdinesh/tap/servef"])
   assert.match(text(instructions), new RegExp(`in one of: ${escape(REMOTE_PATH_DIRS.join(", "))}\\.`))
   assert.match(text(instructions), /The app never installs anything on devbox\./)
 })
@@ -84,6 +92,7 @@ test("servefMissing on Linux maps uname -m to the release archive", () => {
     const instructions = sshFailureInstructions(ssh("servefMissing", { os: "Linux", arch: machine }), "1.2.3")
     const archive = `servef_1.2.3_linux_${arch}`
     assert.deepEqual(instructions.commands, [
+      INSTALL_SCRIPT,
       "# on devbox\nbrew install flexdinesh/tap/servef",
       "# on devbox\ngo install github.com/flexdinesh/servef@latest",
       `# on devbox\nmkdir -p ~/.local/bin\ncurl -fsSL https://github.com/flexdinesh/servef/releases/download/v1.2.3/${archive}.tar.gz | tar -xz -C ~/.local/bin --strip-components=1 ${archive}/servef`,
@@ -96,7 +105,8 @@ test("servefMissing on Linux maps uname -m to the release archive", () => {
 
 test("servefMissing in a dev build links the latest release without a versioned download", () => {
   const instructions = sshFailureInstructions(ssh("servefMissing", { os: "Linux", arch: "x86_64" }), null)
-  assert.equal(instructions.commands.length, 2)
+  assert.equal(instructions.commands.length, 3)
+  assert.equal(instructions.commands[0], INSTALL_SCRIPT)
   assert.match(text(instructions), /releases\/latest/)
   assert.doesNotMatch(text(instructions), /releases\/tag/)
 })

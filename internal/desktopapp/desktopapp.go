@@ -121,6 +121,8 @@ func open(ctx context.Context, url, goos string, run runner) error {
 const (
 	releasesURL = "https://github.com/flexdinesh/servef/releases"
 	docsURL     = "https://github.com/flexdinesh/servef/blob/main/site/src/pages/desktop.mdx"
+	// installScript installs the app and CLI from the latest release (decision 0073).
+	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh"
 )
 
 // InstallHint returns install instructions for the desktop app on goos.
@@ -130,15 +132,19 @@ func InstallHint(goos string) string {
 	switch goos {
 	case "darwin":
 		return "  install the servef desktop app:\n" +
+			"    " + installScript + "\n" +
+			"  or by hand:\n" +
 			"    1. download servef-desktop_<version>_darwin_<arm64|amd64>.dmg from " + releasesURL + "\n" +
 			"    2. drag servef to Applications\n" +
 			"    3. preview builds are ad-hoc signed: on first launch right-click servef and choose Open\n" +
 			"       (or run: xattr -dr com.apple.quarantine /Applications/servef.app)\n" +
 			footer
 	case "linux":
-		return "  install the servef desktop app from " + releasesURL + ":\n" +
+		return "  install the servef desktop app:\n" +
+			"    " + installScript + "\n" +
+			"  or, on Debian and Ubuntu, from " + releasesURL + ":\n" +
 			"    sudo apt install ./servef-desktop_<version>_linux_<amd64|arm64>.deb\n" +
-			"  the AppImage registers servef:// only with desktop integration (e.g. AppImageLauncher).\n" +
+			"  a hand-installed AppImage registers servef:// only with desktop integration (e.g. AppImageLauncher).\n" +
 			footer
 	default:
 		return "  the servef desktop app is not available on this OS.\n"

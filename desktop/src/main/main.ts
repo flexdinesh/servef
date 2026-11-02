@@ -19,6 +19,7 @@ import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
 import { createWindowManager, type WindowManager } from "./electron-windows.ts"
 import { createFolderOpener } from "./folder-opener.ts"
 import { createForwarder } from "./forward.ts"
+import { releaseOf } from "./instructions.ts"
 import { NOT_A_SERVEF_LINK, parsePastedLocation } from "./location.ts"
 import {
   createNoticeGate,
@@ -207,7 +208,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   })
   handleAppScheme(createProxy({
     packaged,
-    release: packaged ? app.getVersion() : null,
+    release: releaseOf(app.getVersion(), packaged),
     lookup,
     forward: forwarder.forward,
     reensure,

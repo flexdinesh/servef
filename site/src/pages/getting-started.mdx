@@ -2,6 +2,18 @@
 
 ## Install
 
+### Install script
+
+macOS and Linux, no sudo:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
+```
+
+It installs the latest release's `servef` in `~/.local/bin` (or `~/bin` when
+that is on your `PATH`), and prints the line to add when the directory is not
+on `PATH`. Run it again to update.
+
 ### Homebrew
 
 ```sh
@@ -36,9 +48,25 @@ Other branches and commits do not include it and fail to build with
 
 ### Desktop app
 
-Optional. Packages for macOS and Linux are on
+Optional. The desktop app and the CLI, macOS and Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+```
+
+Packages are also on
 [GitHub Releases](https://github.com/flexdinesh/servef/releases); see
 [Desktop app](/desktop).
+
+### Uninstall
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
+```
+
+It removes the CLI and the desktop app however they were installed in your
+home directory, prints the command for Homebrew or the deb, and keeps your
+data.
 
 ## Run
 

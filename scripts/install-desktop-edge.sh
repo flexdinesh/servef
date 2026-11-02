@@ -261,6 +261,24 @@ install_linux_dir() {
   ok "installed $APP_HOME/app"
 }
 
+# install_linux_appimage FILE installs a Linux AppImage; sets APP_EXEC.
+install_linux_appimage() {
+  mkdir -p "$APP_HOME"
+  staged="$APP_HOME/.servef-desktop.AppImage.$$"
+  cp "$1" "$staged"
+  chmod 755 "$staged"
+  mv -f "$staged" "$APP_HOME/servef-desktop.AppImage"
+  rm -rf "$APP_HOME/app"
+  APP_EXEC="$APP_HOME/servef-desktop.AppImage"
+  ok "installed $APP_EXEC"
+  for lib in /usr/lib*/libfuse.so.2 /usr/lib/*/libfuse.so.2 /lib*/libfuse.so.2 /lib/*/libfuse.so.2; do
+    if [ -e "$lib" ]; then return 0; fi
+  done
+  warn "libfuse2 was not found; if the AppImage does not start, install FUSE 2:"
+  note "Debian/Ubuntu: sudo apt install libfuse2t64 (or libfuse2)"
+  note "Fedora: sudo dnf install fuse-libs   Arch: sudo pacman -S fuse2"
+}
+
 # install_macos_app APP installs servef.app into /Applications, or
 # ~/Applications when /Applications is not writable.
 install_macos_app() {
