@@ -10,11 +10,37 @@ auto-update. Install a new version over the old one.
 
 ## Install
 
+### Install script
+
+macOS and Linux, no sudo:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+```
+
+It installs the latest release's app and the `servef` CLI (in `~/.local/bin`,
+or `~/bin` when that is on your `PATH`). Run it again to update; quit the app
+first.
+
+- macOS: `servef.app` goes to `/Applications` (or `~/Applications`). curl
+  marks nothing as downloaded, so Gatekeeper does not block the first launch.
+- Linux: the AppImage goes to `~/.local/share/servef-desktop/`, with a
+  desktop entry that opens `servef://` links, an icon, and **Open in servef**
+  in Dolphin and Nemo. If the AppImage does not start, install FUSE 2
+  (`libfuse2`); the script says so when it cannot find it. It stops when the
+  deb is installed.
+
+To remove it, run
+`curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh`
+([Uninstall](#uninstall)).
+
+### Packages
+
 Download a package for your system from
 [GitHub Releases](https://github.com/flexdinesh/servef/releases). `<version>`
 omits the leading `v`; pick `arm64` or `amd64` for your CPU.
 
-### macOS
+#### macOS
 
 1. Download `servef-desktop_<version>_darwin_<arm64|amd64>.dmg` (or the
    `.zip`).
@@ -29,7 +55,7 @@ omits the leading `v`; pick `arm64` or `amd64` for your CPU.
 
 Installing the app registers `servef://` links with macOS.
 
-### Linux
+#### Linux
 
 Install the `.deb` (Debian, Ubuntu, and derivatives):
 
@@ -186,7 +212,18 @@ every 30 seconds per project. Turn notifications off in your system settings.
 
 ## Uninstall
 
-Uncheck **Open at Login** first, or remove servef from **Login Items**
+The uninstall script removes the app and CLI however you installed them in
+your home directory: the install scripts, an AppImage you registered, the
+desktop and login entries, the file manager actions, a Nautilus script or
+Quick Action from the steps above, and `servef.app`. Quit the app and run
+`servef daemon stop` first. It prints the command for the deb or Homebrew
+and keeps your data:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
+```
+
+By hand: uncheck **Open at Login** first, or remove servef from **Login Items**
 (macOS) or delete `~/.config/autostart/servef-desktop.desktop` (Linux)
 afterwards: uninstalling leaves it behind. Then quit the app and remove
 `/Applications/servef.app` (macOS), or run `sudo apt remove servef-desktop`

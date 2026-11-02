@@ -276,7 +276,7 @@ run = "pnpm test:web"
 
 [tasks."_container:tooling"]
 hide = true
-run = "ruby --version && pnpm test:release"
+run = "ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release"
 
 [tasks."_container:docs"]
 hide = true
@@ -310,7 +310,7 @@ run = "pnpm test:web"
 
 [tasks."_container:test:release"]
 hide = true
-run = "ruby --version && pnpm test:release"
+run = "ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release"
 
 [tasks."_container:test:browser"]
 hide = true

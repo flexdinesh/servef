@@ -38,6 +38,40 @@ this module:
 GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@edge
 ```
 
+### Edge on another machine
+
+To try unreleased code on a machine without a checkout, build `edge` there
+(decision 0073). The CLI needs git and Go:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh
+```
+
+The desktop app and CLI need git and mise (linux/amd64 or darwin/arm64);
+the script clones `edge` to a temporary directory, trusts its `mise.toml`,
+installs the toolchain, and runs `mise run package:desktop:dir`, which takes
+minutes:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
+```
+
+Both replace a stable install in the same places (`~/.local/bin`; Linux
+`~/.local/share/servef-desktop/`, macOS `/Applications`). On Linux the
+desktop script registers `servef://` and the Dolphin and Nemo actions for the
+user; it stops if the deb is installed or the app is running. Builds report
+`0.0.0-dev` and the edge commit. To go back, run a stable install script, or
+remove everything (user data stays) with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
+```
+
+The scripts share code between `# shared:<name>:begin/end` markers; edit
+every copy. `mise run test:release` runs shellcheck and
+`tests/install-scripts.test.ts`, which checks the copies match and runs each
+script against stub tools.
+
 ## Commands
 
 `mise tasks` lists every task. `pnpm dev`, `pnpm check`, `pnpm test:browser`,
