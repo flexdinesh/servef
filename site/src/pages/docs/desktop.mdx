@@ -120,9 +120,10 @@ servef serves in a browser instead, as `servef browser` does, when:
 - the app is not installed or does not open (prints install instructions);
 - the daemon cannot start or speaks another protocol (prints why).
 
-`servef browser [path]` always serves in a browser. Over SSH, `servef [path]`
-runs [`servef remote`](/docs/remote) instead and serves in a browser only when that
-fails.
+`servef browser [path]` always serves in a browser. On a machine without a
+UI (an SSH session, or Linux without a display), `servef [path]` serves on
+that machine's address and prints a `servef://` link for the app on your
+computer ([Remote hosts](/docs/remote)).
 
 ## Links
 
@@ -131,6 +132,11 @@ fails.
 `wt`, `review`, …). Links never add directories; only `servef [path]` and
 **File › Open Folder…** do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
+
+`servef://<host>:<port>/…` opens the servef server at that address: a
+`localhost` address opens a [server in a terminal](#servers-in-a-terminal) on
+this computer, any other host a [remote server](/docs/remote#links) over http
+(the app asks first).
 
 ## Open folders from your file manager
 

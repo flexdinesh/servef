@@ -76,14 +76,15 @@ as `steps[2].file.lines: end 90 is past the file's last line, 61`.
 | `-` instead of a file | Read the walkthrough from standard input |
 | `--depth N` | How deep working-tree files may be (default 5, as `servef browser`) |
 | `--no-open` | Never open the desktop app or browser |
-| `--json` | Print `{"id", "project", "created", "url"}` as one JSON object |
+| `--json` | Print `{"id", "project", "created", "url", "desktopUrl"}` as one JSON object |
 
 When the [desktop app](/docs/desktop) is installed and the daemon serves the
 project, the CLI prints a `servef://` `url` and `"open": true` opens it in the
-app. Inside an SSH session, when the host's daemon serves the project, the
-`url` is a `servef://ssh/…` link to open on your computer ([Remote
-hosts](/docs/remote)) and nothing opens. Otherwise, when a running servef shows the project, the CLI prints its
-`url`, and `"open": true` opens it in the browser (neither over SSH). Without one, it prints
+app. Otherwise, when a running servef shows the project, the CLI prints its
+web `url` and its `servef://` desktop link (`desktopUrl` in `--json`), and
+`"open": true` opens it in the browser (never on a machine without a UI, such
+as an SSH session; open the links from your computer, see [Remote
+hosts](/docs/remote)). Without one, it prints
 how to view the walkthrough: `servef <project>`, then the Walkthroughs view.
 The CLI never starts a server. `servef walkthrough schema` prints the JSON
 Schema.

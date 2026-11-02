@@ -16,13 +16,15 @@ servef path/to/markdown
 
 With the [desktop app](/docs/desktop) installed, `servef [path]` opens the
 directory in it and exits. Without it, or with `--host` or `--port`, it serves
-in a browser, as `servef browser [path]` does. Over SSH it runs
-[`servef remote`](/docs/remote) and prints a link for the app on your computer.
+in a browser, as `servef browser [path]` does. On a machine without a UI (an
+SSH session, or Linux without a display) it serves on that machine's address
+and prints `web:` and `desktop:` links to open from your computer; that server
+has no authentication ([Remote hosts](/docs/remote)).
 
 `servef browser [path]` always serves in a browser and takes the same flags.
 Subcommand names take precedence over directories, so open a directory named
-`browser`, `remote`, `walkthrough`, or `daemon` as `servef ./browser`,
-`servef ./remote`, `servef ./walkthrough`, or `servef ./daemon`.
+`browser`, `walkthrough`, or `daemon` as `servef ./browser`,
+`servef ./walkthrough`, or `servef ./daemon`.
 
 Serve several directories with a repeatable `--path` (a positional path is
 shorthand for one); overlapping directories fail before starting:
