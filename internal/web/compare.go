@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -183,7 +184,7 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	sides, err := a.compareSides(ctx, repo, project.root, compare, query.Get("base"), query.Get("head"), uncommitted, hashes)
+	sides, err := compareSidesOf(ctx, a.openFile, repo, project.root, compare, query.Get("base"), query.Get("head"), uncommitted, hashes)
 	switch {
 	case writeUnknownBase(w, err), writeUnknownHead(w, err):
 		return
@@ -202,22 +203,23 @@ func (a *App) serveCompareStats(w http.ResponseWriter, r *http.Request, projectI
 	writeJSON(w, http.StatusOK, response)
 }
 
-// compareSides lists a compare's changes as its list endpoint does and
-// says where each change's sides are read from.
-func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, compare, base, head string, uncommitted bool, hashes []git.Hash) (compareSides, error) {
+// compareSidesOf lists a compare's changes as its list endpoint does and
+// says where each change's sides are read from; worktree sides open
+// through openFile.
+func compareSidesOf(ctx context.Context, openFile func(string) (fs.File, error), repo *git.Repository, root, compare, base, head string, uncommitted bool, hashes []git.Hash) (compareSides, error) {
 	switch {
 	case compare == "working":
 		changes, err := repo.Status(ctx, git.StatusOptions{Limit: changesLimit})
 		if err != nil {
 			return compareSides{}, err
 		}
-		return a.worktreeSides(repo, root, changes.Files, repo.HeadBlob)
+		return worktreeSides(openFile, repo, root, changes.Files, repo.HeadBlob)
 	case compare == "branch" && uncommitted:
 		compared, changes, err := repo.BranchWorkingFiles(ctx, base, git.StatusOptions{Limit: changesLimit})
 		if err != nil {
 			return compareSides{}, err
 		}
-		return a.worktreeSides(repo, root, changes.Files, func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Reference, name) })
+		return worktreeSides(openFile, repo, root, changes.Files, func(name string) (git.Blob, error) { return repo.CommitBlob(compared.Reference, name) })
 	case compare == "branch":
 		compared, changes, err := repo.BranchFiles(ctx, base, head, commitFilesLimit)
 		if err != nil {
@@ -255,7 +257,7 @@ func (a *App) compareSides(ctx context.Context, repo *git.Repository, root, comp
 
 // worktreeSides reads changes listed against the worktree: original sides
 // through blob, modified sides from the worktree.
-func (a *App) worktreeSides(repo *git.Repository, root string, changes []git.Change, blob func(name string) (git.Blob, error)) (compareSides, error) {
+func worktreeSides(openFile func(string) (fs.File, error), repo *git.Repository, root string, changes []git.Change, blob func(name string) (git.Blob, error)) (compareSides, error) {
 	entries, err := repo.Entries(changes)
 	if err != nil {
 		return compareSides{}, err
@@ -267,7 +269,9 @@ func (a *App) worktreeSides(repo *git.Repository, root string, changes []git.Cha
 	return compareSides{
 		changes:  changes,
 		original: blobSide(blob, true),
-		modified: func(change git.Change) (statsSide, error) { return a.worktreeStatsSide(root, byPath[change.Path]) },
+		modified: func(change git.Change) (statsSide, error) {
+			return worktreeStatsSide(openFile, root, byPath[change.Path])
+		},
 	}, nil
 }
 
@@ -289,7 +293,7 @@ func blobSide(read func(name string) (git.Blob, error), original bool) func(git.
 
 // worktreeStatsSide is a validated change's worktree side: a symlink's
 // target text, or the root-confined regular file.
-func (a *App) worktreeStatsSide(root string, entry git.Entry) (statsSide, error) {
+func worktreeStatsSide(openFile func(string) (fs.File, error), root string, entry git.Entry) (statsSide, error) {
 	if entry.Symlink {
 		link := []byte(entry.Link)
 		return statsSide{size: int64(len(link)), open: func() (io.ReadCloser, error) {
@@ -304,7 +308,7 @@ func (a *App) worktreeStatsSide(root string, entry git.Entry) (statsSide, error)
 	if err != nil {
 		return statsSide{}, err
 	}
-	return statsSide{size: info.Size(), open: func() (io.ReadCloser, error) { return a.openFile(resolved) }}, nil
+	return statsSide{size: info.Size(), open: func() (io.ReadCloser, error) { return openFile(resolved) }}, nil
 }
 
 // countCompare counts each change's lines under the 0004 limits: a side over

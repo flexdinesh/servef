@@ -43,13 +43,12 @@ The quickest start: choose **Copy agent instructions** (the copy icon in the
 Walkthroughs header, or the button in an empty list), paste it into your agent,
 and finish the last line, “Walk me through: ”, with what to explain. The
 instructions carry this servef's address, your project's path, the format, and
-the endpoint.
+how to publish.
 
-Agents publish with `POST /api/walkthroughs` on the running servef:
+Agents publish with the servef CLI; no running server is needed:
 
 ```sh
-curl -q -sS -X POST -H 'Content-Type: application/json' \
-  --data @walkthrough.json http://localhost:7971/api/walkthroughs
+servef walkthrough publish walkthrough.json
 ```
 
 ```json
@@ -65,11 +64,37 @@ curl -q -sS -X POST -H 'Content-Type: application/json' \
 }
 ```
 
+servef checks every path, line, and commit, stores the walkthrough, and prints
+its `id`. An open browser lists it within seconds. `project` is the repository
+or worktree root (`git rev-parse --show-toplevel`) or a folder outside any
+repository; folders inside a repository are rejected. Publishing again with the
+same `id` replaces it. Any mistake exits 1 and names each problem field, such
+as `steps[2].file.lines: end 90 is past the file's last line, 61`.
+
+| Option | Effect |
+| --- | --- |
+| `-` instead of a file | Read the walkthrough from standard input |
+| `--depth N` | How deep working-tree files may be (default 5, as `servef browser`) |
+| `--no-open` | Never open the browser |
+| `--json` | Print `{"id", "project", "created", "url"}` as one JSON object |
+
+When a running servef shows the project, the CLI prints its `url`, and
+`"open": true` opens it in the browser (not over SSH). Without one, it prints
+how to view the walkthrough: `servef <project>`, then the Walkthroughs view.
+The CLI never starts a server. `servef walkthrough schema` prints the JSON
+Schema.
+
+Agents can also publish with `POST /api/walkthroughs` on a running servef:
+
+```sh
+curl -q -sS -X POST -H 'Content-Type: application/json' \
+  --data @walkthrough.json http://localhost:7971/api/walkthroughs
+```
+
 The response carries the walkthrough's `id` and `url`; `"open": true` also
-opens it in the browser unless servef runs with `--no-open`. Publishing again
-with the same `id` replaces it. `GET /api/walkthrough-schema` returns the JSON
-Schema, and any mistake comes back as a 400 naming each problem field, such as
-`steps[2].file.lines: end 90 is past the file's last line, 61`.
+opens it in the browser unless servef runs with `--no-open`.
+`GET /api/walkthrough-schema` returns the JSON Schema, and any mistake comes
+back as a 400 naming each problem field.
 
 servef ships an agent skill with the full guidance: discovery, targets, and
 how to tell a good story. Install it with the

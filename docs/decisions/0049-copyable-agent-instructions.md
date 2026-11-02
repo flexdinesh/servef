@@ -1,6 +1,6 @@
 # 0049: Copyable agent instructions for walkthroughs
 
-- Status: Accepted
+- Status: Accepted; CLI publish added by [0065](0065-walkthrough-publish-cli.md)
 - Date: 2026-10-27
 - Extends: [0047](0047-walkthroughs.md)
 

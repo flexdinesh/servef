@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/git"
+	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
@@ -180,8 +182,21 @@ func (a *App) serveDeleteWalkthrough(w http.ResponseWriter, r *http.Request, pro
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// walkthroughTargets checks walkthrough steps against a served project.
-type walkthroughTargets struct{ app *App }
+// walkthroughTargets checks walkthrough steps against projects within roots.
+type walkthroughTargets struct {
+	roots    *projects.RootSet
+	depth    int
+	types    *document.Registry
+	openFile func(string) (fs.File, error)
+}
+
+// NewWalkthroughTargets returns the checks POST /api/walkthroughs applies:
+// projects resolve within roots; working-tree files through a scan within
+// depth; commit files and diffs through git. servef walkthrough publish
+// shares them without a server (decision 0065).
+func NewWalkthroughTargets(roots *projects.RootSet, depth int, types *document.Registry) walkthrough.Targets {
+	return walkthroughTargets{roots: roots, depth: depth, types: types, openFile: openFile}
+}
 
 // Check resolves the project, then checks every step's target as the
 // browser will open it: working-tree files through the scanned index
@@ -189,11 +204,11 @@ type walkthroughTargets struct{ app *App }
 // full; missing Expect prefixes are recorded for targets that can drift
 // (the working tree and branches).
 func (t walkthroughTargets) Check(ctx context.Context, projectID string, steps []walkthrough.Step) (string, []walkthrough.Step, error) {
-	project, status, message := t.app.project(projectID)
+	project, status, message := projectIn(t.roots.List(), projectID)
 	if status != http.StatusOK {
 		return "", nil, walkthrough.Problems{{Field: "project", Message: message}}
 	}
-	checker := &stepChecker{app: t.app, ctx: ctx, root: project.root, compares: map[walkthrough.Compare]compareResult{}}
+	checker := &stepChecker{targets: t, ctx: ctx, root: project.root, compares: map[walkthrough.Compare]compareResult{}}
 	defer checker.close()
 	checked := make([]walkthrough.Step, len(steps))
 	for i, step := range steps {
@@ -230,7 +245,7 @@ type compareResult struct {
 // stepChecker checks one draft's steps, scanning the project and opening
 // its repository at most once.
 type stepChecker struct {
-	app      *App
+	targets  walkthroughTargets
 	ctx      context.Context
 	root     string
 	index    *files.Index
@@ -289,7 +304,7 @@ func (c *stepChecker) commit(field, value string) (git.Hash, bool, error) {
 }
 
 func (c *stepChecker) file(field string, file *walkthrough.FileTarget) error {
-	fileType := c.app.config.Types.Lookup(file.Path).Type()
+	fileType := c.targets.types.Lookup(file.Path).Type()
 	if file.At != "" {
 		hash, ok, err := c.commit(field+".at", file.At)
 		if err != nil || !ok {
@@ -311,7 +326,7 @@ func (c *stepChecker) file(field string, file *walkthrough.FileTarget) error {
 	}
 
 	if c.index == nil {
-		index, err := c.app.scan(c.root)
+		index, err := files.Scan(c.root, c.targets.depth, func(string) bool { return true })
 		if err != nil {
 			return err
 		}
@@ -329,7 +344,7 @@ func (c *stepChecker) file(field string, file *walkthrough.FileTarget) error {
 	if err != nil {
 		return err
 	}
-	open := func() (io.ReadCloser, error) { return c.app.openFile(resolved) }
+	open := func() (io.ReadCloser, error) { return c.targets.openFile(resolved) }
 	return c.lines(field, file.Lines, fileType, info.Size(), document.DisplayLimit, open, &file.Expect)
 }
 
@@ -358,7 +373,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 
 	result, ok := c.compares[compare]
 	if !ok {
-		sides, err := c.app.compareSides(c.ctx, repo, c.root, compare.Kind, compare.Base, compare.Head, false, hashes)
+		sides, err := compareSidesOf(c.ctx, c.targets.openFile, repo, c.root, compare.Kind, compare.Base, compare.Head, false, hashes)
 		switch {
 		case errors.Is(err, git.ErrUnknownBase):
 			result.problem = &walkthrough.Problem{Field: ".compare.base", Message: "is not a branch servef lists"}
@@ -416,7 +431,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 	if diff.Side == walkthrough.SideOld && change.OldPath != "" {
 		name = change.OldPath
 	}
-	fileType := c.app.config.Types.Lookup(name).Type()
+	fileType := c.targets.types.Lookup(name).Type()
 	var expect *string
 	if compare.Kind == walkthrough.CompareWorking || compare.Kind == walkthrough.CompareBranch {
 		expect = &diff.Expect

@@ -2,15 +2,19 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
@@ -317,5 +321,83 @@ func TestWalkthroughShellPageAndSchema(t *testing.T) {
 	response := request(t, app, "/api/walkthrough-schema")
 	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/schema+json" || !bytes.Equal(response.Body.Bytes(), walkthrough.Schema) {
 		t.Errorf("schema = %d %q", response.Code, response.Header().Get("Content-Type"))
+	}
+}
+
+func TestWalkthroughTargetsWithoutApp(t *testing.T) {
+	root, initial, change := historyRepo(t)
+	targets := NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins())
+	lines := func(start, end int) *walkthrough.Lines { return &walkthrough.Lines{start, end} }
+	project, steps, err := targets.Check(context.Background(), root, []walkthrough.Step{
+		{Title: "Working file", File: &walkthrough.FileTarget{Path: "doc.md", Lines: lines(1, 1)}},
+		{Title: "File at a commit", File: &walkthrough.FileTarget{Path: "old.md", At: initial.String()[:7]}},
+		{Title: "Commit diff", Diff: &walkthrough.DiffTarget{Compare: walkthrough.Compare{Kind: "commit", Commit: change.String()[:8]}, Path: "added.go"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if project != root {
+		t.Errorf("project = %q, want %q", project, root)
+	}
+	if steps[0].File.Expect != "# Uncommitted" {
+		t.Errorf("working file expect = %q", steps[0].File.Expect)
+	}
+	if steps[1].File.At != initial.String() || steps[2].Diff.Compare.Commit != change.String() {
+		t.Errorf("abbreviated hashes not resolved: %+v %+v", steps[1].File, steps[2].Diff.Compare)
+	}
+
+	_, _, err = targets.Check(context.Background(), root, []walkthrough.Step{
+		{Title: "missing", File: &walkthrough.FileTarget{Path: "nope.md"}},
+		{Title: "past the end", File: &walkthrough.FileTarget{Path: "doc.md", Lines: lines(1, 9)}},
+		{Title: "unknown commit", File: &walkthrough.FileTarget{Path: "doc.md", At: "0000000"}},
+	})
+	var problems walkthrough.Problems
+	if !errors.As(err, &problems) {
+		t.Fatalf("err = %v, want problems", err)
+	}
+	for _, want := range []string{
+		"steps[0].file.path: is not a file servef shows",
+		"steps[1].file.lines: end 9 is past the file's last line, 1",
+		"steps[2].file.at: no commit matches 0000000",
+	} {
+		if !strings.Contains(problems.Error(), want) {
+			t.Errorf("problems lack %q:\n%s", want, problems.Error())
+		}
+	}
+}
+
+func TestWalkthroughTargetsAgreeWithPost(t *testing.T) {
+	root, initial, change := historyRepo(t)
+	app, _ := walkthroughApp(t, root)
+	lines := func(start, end int) *walkthrough.Lines { return &walkthrough.Lines{start, end} }
+	steps := []walkthrough.Step{
+		{Title: "Working file", File: &walkthrough.FileTarget{Path: "doc.md", Lines: lines(1, 1)}},
+		{Title: "File at a commit", File: &walkthrough.FileTarget{Path: "old.md", Lines: lines(1, 1), At: initial.String()[:7]}},
+		{Title: "Uncommitted", Diff: &walkthrough.DiffTarget{Compare: walkthrough.Compare{Kind: "working"}, Path: "doc.md", Lines: lines(1, 1)}},
+		{Title: "Rename by old path", Diff: &walkthrough.DiffTarget{Compare: walkthrough.Compare{Kind: "commit", Commit: change.String()[:8]}, Path: "old.md"}},
+	}
+	draft := walkthrough.Draft{Project: root, ID: "same", Title: "Same", Steps: steps}
+	if response := publish(t, app, draftJSON(t, draft), nil); response.Code != http.StatusCreated {
+		t.Fatalf("publish = %d %s", response.Code, response.Body.String())
+	}
+	var posted walkthroughResponse
+	if status := requestJSON(t, app, "/api/walkthrough?project=.&id=same", &posted); status != http.StatusOK {
+		t.Fatalf("get status = %d", status)
+	}
+	// Publish normalizes before it checks; so does the direct check.
+	normalized, err := draft.Normalize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, checked, err := NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins()).Check(context.Background(), root, normalized.Steps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := make([]walkthrough.Step, len(posted.Steps))
+	for i, step := range posted.Steps {
+		stored[i] = step.Step
+	}
+	if !reflect.DeepEqual(stored, checked) {
+		t.Errorf("POST stored %s\ndirect check %s", draftJSON(t, walkthrough.Draft{Steps: stored}), draftJSON(t, walkthrough.Draft{Steps: checked}))
 	}
 }

@@ -1,0 +1,282 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"time"
+
+	"github.com/flexdinesh/servef/internal/browser"
+	"github.com/flexdinesh/servef/internal/control"
+	"github.com/flexdinesh/servef/internal/document"
+	"github.com/flexdinesh/servef/internal/projects"
+	"github.com/flexdinesh/servef/internal/walkthrough"
+	webui "github.com/flexdinesh/servef/internal/web"
+	"github.com/spf13/cobra"
+)
+
+// Publishing without a server (decision 0065): the CLI checks targets with
+// the checks POST /api/walkthroughs applies and writes the same store.
+
+const (
+	// publishTimeout bounds target checks, as the server's status timeout does.
+	publishTimeout = 20 * time.Second
+	// viewerTimeout bounds each running server's walkthrough probe.
+	viewerTimeout = 2 * time.Second
+)
+
+// errNotPublished is returned after a rejected draft's problems are printed.
+var errNotPublished = errors.New("walkthrough not published")
+
+type publishOptions struct {
+	source string // file path or "-" for stdin
+	depth  int
+	noOpen bool
+	json   bool
+	// Test seams, not flags.
+	walkthroughDir string             // "" uses walkthrough.DefaultDirectory()
+	controlDir     string             // "" uses control.DefaultDirectory()
+	openBrowser    func(string) error // nil uses browser.Open
+	getenv         func(string) string
+}
+
+type publishRunner func(context.Context, publishOptions, io.Reader, io.Writer, io.Writer) error
+
+func newWalkthroughCommand(publish publishRunner) *cobra.Command {
+	command := &cobra.Command{
+		Use:           "walkthrough",
+		Short:         "Publish walkthroughs without a running server",
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		// Runnable so NoArgs rejects unknown subcommands; bare, it prints help.
+		RunE: func(command *cobra.Command, _ []string) error { return command.Help() },
+	}
+	var opts publishOptions
+	publishCommand := &cobra.Command{
+		Use:   "publish <file|->",
+		Short: "Check and store a walkthrough; - reads standard input",
+		Long: "Check a walkthrough's targets and store it where servef reads walkthroughs.\n" +
+			"No server is needed: an open browser lists it within seconds.",
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(command *cobra.Command, args []string) error {
+			if opts.depth < 0 {
+				return errors.New("--depth must be zero or greater")
+			}
+			opts.source = args[0]
+			return publish(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
+		},
+	}
+	flags := publishCommand.Flags()
+	flags.IntVar(&opts.depth, "depth", 5, "maximum directory depth of working-tree files within the project")
+	flags.BoolVar(&opts.noOpen, "no-open", false, "do not open the browser, even when the walkthrough asks to")
+	flags.BoolVar(&opts.json, "json", false, "print the result as one JSON object")
+	schemaCommand := &cobra.Command{
+		Use:           "schema",
+		Short:         "Print the walkthrough JSON Schema",
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(command *cobra.Command, _ []string) error {
+			_, err := command.OutOrStdout().Write(walkthrough.Schema)
+			return err
+		},
+	}
+	command.AddCommand(publishCommand, schemaCommand)
+	return command
+}
+
+type publishResult struct {
+	ID      string `json:"id"`
+	Project string `json:"project"`
+	Created bool   `json:"created"`
+	URL     string `json:"url,omitempty"`
+}
+
+func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reader, stdout, stderr io.Writer) error {
+	draft, err := readDraft(opts.source, stdin)
+	if err != nil {
+		return err
+	}
+	directory := opts.walkthroughDir
+	if directory == "" {
+		directory, err = walkthrough.DefaultDirectory()
+		if err != nil {
+			return err
+		}
+	}
+	publishCtx, cancel := context.WithTimeout(ctx, publishTimeout)
+	defer cancel()
+	service := walkthrough.NewService(walkthrough.NewStore(directory), standaloneTargets{depth: opts.depth, types: document.Builtins()})
+	published, err := service.Publish(publishCtx, draft)
+	var problems walkthrough.Problems
+	if errors.As(err, &problems) {
+		_, _ = fmt.Fprintln(stderr, "invalid walkthrough:")
+		for _, problem := range problems {
+			_, _ = fmt.Fprintf(stderr, "  %s: %s\n", problem.Field, problem.Message)
+		}
+		return errNotPublished
+	}
+	if err != nil {
+		return fmt.Errorf("publish walkthrough: %w", err)
+	}
+
+	stored := published.Walkthrough
+	controlDir := opts.controlDir
+	if controlDir == "" {
+		controlDir, err = control.DefaultDirectory()
+		if err != nil {
+			return err
+		}
+	}
+	viewer, mismatches := findViewer(ctx, control.NewRegistry(controlDir), stored.Project, stored.ID)
+	for _, origin := range mismatches {
+		_, _ = fmt.Fprintf(stderr, "servef at %s serves this project but keeps walkthroughs elsewhere; POST to %s/api/walkthroughs\n", origin, origin)
+	}
+
+	getenv := opts.getenv
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if draft.Open && viewer != "" && shouldOpenBrowser(opts.noOpen, getenv) {
+		open := opts.openBrowser
+		if open == nil {
+			open = browser.Open
+		}
+		if err := open(viewer); err != nil {
+			_, _ = fmt.Fprintf(stderr, "could not open browser: %v\n", err)
+		}
+	}
+
+	if opts.json {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetEscapeHTML(false)
+		return encoder.Encode(publishResult{ID: stored.ID, Project: stored.Project, Created: published.Created, URL: viewer})
+	}
+	outcome := "replaced"
+	if published.Created {
+		outcome = "created"
+	}
+	_, _ = fmt.Fprintf(stdout, "published %s (%s) for %s\n", stored.ID, outcome, stored.Project)
+	switch {
+	case viewer != "":
+		_, _ = fmt.Fprintf(stdout, "url: %s\n", viewer)
+	case draft.Open:
+		_, _ = fmt.Fprintf(stdout, "no running servef shows this project, so nothing opened; run: servef %s, then open Walkthroughs\n", stored.Project)
+	default:
+		_, _ = fmt.Fprintf(stdout, "no running servef shows this project; run: servef %s, then open Walkthroughs\n", stored.Project)
+	}
+	return nil
+}
+
+// readDraft reads one strict draft from a file, or standard input for -,
+// within the size POST /api/walkthroughs accepts.
+func readDraft(source string, stdin io.Reader) (walkthrough.Draft, error) {
+	reader := stdin
+	if source != "-" {
+		file, err := os.Open(source)
+		if err != nil {
+			return walkthrough.Draft{}, err
+		}
+		defer func() { _ = file.Close() }()
+		reader = file
+	}
+	contents, err := io.ReadAll(io.LimitReader(reader, walkthrough.MaxRequestBytes+1))
+	if err != nil {
+		return walkthrough.Draft{}, fmt.Errorf("read walkthrough: %w", err)
+	}
+	if len(contents) > walkthrough.MaxRequestBytes {
+		return walkthrough.Draft{}, fmt.Errorf("a walkthrough is at most %d bytes", walkthrough.MaxRequestBytes)
+	}
+	return walkthrough.Decode(bytes.NewReader(contents))
+}
+
+// standaloneTargets resolves the draft's project as its own root, then runs
+// web's shared checks.
+type standaloneTargets struct {
+	depth int
+	types *document.Registry
+}
+
+func (t standaloneTargets) Check(ctx context.Context, project string, steps []walkthrough.Step) (string, []walkthrough.Step, error) {
+	root, err := projects.ResolveStandalone(project)
+	if errors.Is(err, projects.ErrInsideRepository) {
+		return "", nil, walkthrough.Problems{{Field: "project", Message: "is a folder inside a repository; use the repository root (git rev-parse --show-toplevel)"}}
+	}
+	if err != nil {
+		return "", nil, walkthrough.Problems{{Field: "project", Message: "must be an existing absolute directory"}}
+	}
+	roots, err := projects.NewRootSet([]string{root})
+	if err != nil {
+		return "", nil, err
+	}
+	return webui.NewWalkthroughTargets(roots, t.depth, t.types).Check(ctx, root, steps)
+}
+
+// findViewer asks each running registered server whether it shows the
+// walkthrough. It returns the first one's view URL, and the origins of
+// servers that serve the project but read another walkthrough store.
+func findViewer(ctx context.Context, registry control.Registry, project, id string) (string, []string) {
+	remotes, err := registry.List()
+	if err != nil {
+		return "", nil
+	}
+	client := &http.Client{
+		Timeout: viewerTimeout,
+		Transport: &http.Transport{
+			Proxy:       nil,
+			DialContext: (&net.Dialer{Timeout: viewerTimeout}).DialContext,
+		},
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	defer client.CloseIdleConnections()
+	var mismatches []string
+	for _, remote := range remotes {
+		if !remote.Running(ctx) {
+			continue
+		}
+		origin := remote.Origin()
+		switch probeWalkthrough(ctx, client, origin, project, id) {
+		case http.StatusOK:
+			query := url.Values{"project": {project}, "wt": {id}}
+			return origin + "/view?" + query.Encode(), mismatches
+		case http.StatusNotFound:
+			mismatches = append(mismatches, origin)
+		}
+	}
+	return "", mismatches
+}
+
+// probeWalkthrough returns 200 when the server at origin shows the
+// walkthrough, 404 when it serves the project without it, and 0 otherwise.
+func probeWalkthrough(ctx context.Context, client *http.Client, origin, project, id string) int {
+	query := url.Values{"project": {project}, "id": {id}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, origin+"/api/walkthrough?"+query.Encode(), nil)
+	if err != nil {
+		return 0
+	}
+	response, err := client.Do(req)
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode == http.StatusOK {
+		return http.StatusOK
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	if response.StatusCode == http.StatusNotFound && json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&body) == nil && body.Code == "walkthroughUnavailable" {
+		return http.StatusNotFound
+	}
+	return 0
+}

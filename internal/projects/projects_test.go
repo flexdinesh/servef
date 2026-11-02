@@ -282,6 +282,40 @@ func TestResolveOpensReposAndFoldersOutsideRepos(t *testing.T) {
 	}
 }
 
+func TestResolveStandalone(t *testing.T) {
+	parent := canonicalTemp(t)
+	repo := filepath.Join(parent, "repo")
+	makeRepo(t, repo)
+	writeFile(t, filepath.Join(repo, "docs", "guide.md"), "")
+	worktree := linkWorktree(t, repo, "feature", filepath.Join(parent, "feature"))
+	folder := filepath.Join(parent, "folder")
+	writeFile(t, filepath.Join(folder, "notes.md"), "")
+	writeFile(t, filepath.Join(parent, "file.txt"), "")
+	link := filepath.Join(parent, "link")
+	if err := os.Symlink(repo, link); err != nil {
+		t.Fatal(err)
+	}
+
+	for id, want := range map[string]string{repo: repo, worktree: worktree, folder: folder, link: repo} {
+		got, err := ResolveStandalone(id)
+		if err != nil || got != want {
+			t.Errorf("ResolveStandalone(%q) = %q, %v; want %q", id, got, err, want)
+		}
+	}
+	for id, want := range map[string]error{
+		filepath.Join(repo, "docs"):       ErrInsideRepository,
+		filepath.Join(link, "docs"):       ErrInsideRepository,
+		"repo":                            ErrUnavailable,
+		repo + "/docs/..":                 ErrUnavailable,
+		filepath.Join(parent, "missing"):  ErrUnavailable,
+		filepath.Join(parent, "file.txt"): ErrUnavailable,
+	} {
+		if _, err := ResolveStandalone(id); !errors.Is(err, want) {
+			t.Errorf("ResolveStandalone(%q) error = %v, want %v", id, err, want)
+		}
+	}
+}
+
 func TestDirectoriesListsBrowsableChildren(t *testing.T) {
 	root := canonicalTemp(t)
 	work := filepath.Join(root, "work")

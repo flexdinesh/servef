@@ -9,7 +9,7 @@
   "properties": {
     "project": {
       "type": "string",
-      "description": "The project's absolute directory: a repository, worktree, or folder within the directories servef serves."
+      "description": "The project's absolute directory: a repository, worktree, or folder: within the directories servef serves when posted to a server; its own root for servef walkthrough publish."
     },
     "id": {
       "type": "string",

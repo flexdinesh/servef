@@ -1,6 +1,7 @@
 # 0063: CLI commands and the `servef://` URL scheme
 
 - Status: Proposed
+- Implemented in part by [0065](0065-walkthrough-publish-cli.md): servef walkthrough publish (no daemon signal; running servers poll).
 - Date: 2026-11-01
 
 ## Context
