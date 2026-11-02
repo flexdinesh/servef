@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
@@ -21,6 +22,9 @@ import (
 
 // controlPrefix marks the control API; its requests never reach the web app.
 const controlPrefix = "/_daemon/"
+
+// maxDirectoryEntries bounds a GET /_daemon/directories listing.
+const maxDirectoryEntries = 2000
 
 // maxControlRequest bounds a POST /_daemon/* body.
 const maxControlRequest = 4 << 10
@@ -64,6 +68,14 @@ type OpenResult struct {
 	Added    bool     `json:"added"`
 	Replaced []string `json:"replaced"`
 	Project  string   `json:"project"`
+}
+
+// directoriesResponse is GET /_daemon/directories' answer.
+type directoriesResponse struct {
+	Path      string                 `json:"path"`
+	Parent    string                 `json:"parent"`
+	Entries   []projects.BrowseEntry `json:"entries"`
+	Truncated bool                   `json:"truncated"`
 }
 
 type announceRequest struct {
@@ -148,6 +160,8 @@ func (c *control) wrap(next http.Handler) http.Handler {
 			c.addRoot(w, r)
 		case name == "open" && r.Method == http.MethodPost:
 			c.open(w, r)
+		case name == "directories" && r.Method == http.MethodGet:
+			serveDirectories(w, r.URL.Query().Get("path"))
 		case name == "events" && r.Method == http.MethodGet:
 			c.serveEvents(w, r)
 		case name == "walkthroughs" && r.Method == http.MethodPost:
@@ -155,7 +169,7 @@ func (c *control) wrap(next http.Handler) http.Handler {
 		case name == "stop" && r.Method == http.MethodPost:
 			writeJSON(w, http.StatusAccepted, stopResponse{Stopping: true})
 			c.stop()
-		case name == "status", name == "events":
+		case name == "status", name == "events", name == "directories":
 			methodNotAllowed(w, http.MethodGet)
 		case name == "roots":
 			methodNotAllowed(w, "GET, POST")
@@ -257,6 +271,42 @@ func (c *control) open(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	writeJSON(w, status, OpenResult{Root: root, Added: added, Replaced: nonNil(replaced), Project: project})
+}
+
+// serveDirectories lists a directory's child directories so a client can
+// choose a folder to open (decision 0075); an empty path lists the home
+// directory.
+func serveDirectories(w http.ResponseWriter, path string) {
+	if path == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			writeJSON(w, http.StatusNotFound, errorResponse{Error: "The home directory is unknown: " + err.Error(), Code: "pathUnavailable"})
+			return
+		}
+		path = home
+	}
+	if !filepath.IsAbs(path) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Path must be absolute.", Code: "invalidPath"})
+		return
+	}
+	path = filepath.Clean(path)
+	entries, truncated, err := projects.Browse(path, maxDirectoryEntries)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: path + " does not exist.", Code: "pathUnavailable"})
+	case errors.Is(err, projects.ErrNotDirectory):
+		writeJSON(w, http.StatusBadRequest, errorResponse{Error: path + " is not a directory.", Code: "notDirectory"})
+	case errors.Is(err, fs.ErrPermission):
+		writeJSON(w, http.StatusForbidden, errorResponse{Error: path + " cannot be read.", Code: "pathUnreadable"})
+	case err != nil:
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Read " + path + ": " + err.Error(), Code: "pathUnreadable"})
+	default:
+		parent := filepath.Dir(path)
+		if parent == path {
+			parent = ""
+		}
+		writeJSON(w, http.StatusOK, directoriesResponse{Path: path, Parent: parent, Entries: entries, Truncated: truncated})
+	}
 }
 
 // announce tells control streams that a walkthrough was published to the

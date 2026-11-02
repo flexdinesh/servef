@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -283,6 +284,7 @@ func TestControlRejectsWrongMethods(t *testing.T) {
 		"open":         {http.MethodGet, http.MethodPost},
 		"walkthroughs": {http.MethodGet, http.MethodPost},
 		"events":       {http.MethodPost, http.MethodGet},
+		"directories":  {http.MethodPost, http.MethodGet},
 	} {
 		if code, header, _ := controlRequest(t, client, test.method, name, nil, ""); code != http.StatusMethodNotAllowed || header.Get("Allow") != test.allow {
 			t.Errorf("%s /_daemon/%s = %d Allow %q, want 405 Allow %q", test.method, name, code, header.Get("Allow"), test.allow)
@@ -487,4 +489,102 @@ func (d *testDaemon) status(t *testing.T) Status {
 		t.Fatal(err)
 	}
 	return status
+}
+
+func TestControlListsDirectories(t *testing.T) {
+	c, _ := testControl(t, newFakeNotices())
+	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	dir := t.TempDir()
+	for _, name := range []string{"beta", "Alpha", ".config", "repo/.git", "node_modules", "target"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "target"), filepath.Join(dir, "linked")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "notes.txt"), filepath.Join(dir, "file-link")); err != nil {
+		t.Fatal(err)
+	}
+
+	code, _, body := controlRequest(t, client, http.MethodGet, "directories?path="+url.QueryEscape(dir), nil, "")
+	if code != http.StatusOK {
+		t.Fatalf("GET /_daemon/directories = %d %s", code, body)
+	}
+	var got directoriesResponse
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	entry := func(name string, repository, hidden bool) projects.BrowseEntry {
+		return projects.BrowseEntry{Name: name, Path: filepath.Join(dir, name), Repository: repository, Hidden: hidden}
+	}
+	want := directoriesResponse{Path: dir, Parent: filepath.Dir(dir), Entries: []projects.BrowseEntry{
+		entry(".config", false, true), entry("Alpha", false, false), entry("beta", false, false),
+		entry("linked", false, false), entry("repo", true, false), entry("target", false, false),
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("GET /_daemon/directories = %+v, want %+v", got, want)
+	}
+}
+
+func TestControlDirectoriesDefaultToHomeAndStopAtTheRoot(t *testing.T) {
+	c, _ := testControl(t, newFakeNotices())
+	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	var got directoriesResponse
+	code, _, body := controlRequest(t, client, http.MethodGet, "directories", nil, "")
+	if err := json.Unmarshal(body, &got); code != http.StatusOK || err != nil || got.Path != home {
+		t.Errorf("GET /_daemon/directories = %d %s, want home %s", code, body, home)
+	}
+	code, _, body = controlRequest(t, client, http.MethodGet, "directories?path=%2F", nil, "")
+	if err := json.Unmarshal(body, &got); code != http.StatusOK || err != nil || got.Path != "/" || got.Parent != "" {
+		t.Errorf("GET /_daemon/directories?path=/ = %d %s, want path / without a parent", code, body)
+	}
+}
+
+func TestControlDirectoriesTruncate(t *testing.T) {
+	c, _ := testControl(t, newFakeNotices())
+	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	dir := t.TempDir()
+	for i := range maxDirectoryEntries + 1 {
+		if err := os.Mkdir(filepath.Join(dir, fmt.Sprintf("d%05d", i)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var got directoriesResponse
+	code, _, body := controlRequest(t, client, http.MethodGet, "directories?path="+url.QueryEscape(dir), nil, "")
+	if err := json.Unmarshal(body, &got); code != http.StatusOK || err != nil || len(got.Entries) != maxDirectoryEntries || !got.Truncated {
+		t.Errorf("GET /_daemon/directories = %d, %d entries truncated %v, want %d truncated", code, len(got.Entries), got.Truncated, maxDirectoryEntries)
+	}
+}
+
+func TestControlDirectoriesErrors(t *testing.T) {
+	c, _ := testControl(t, newFakeNotices())
+	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		path   string
+		header http.Header
+		code   int
+		error  string
+	}{
+		{path: "relative", code: http.StatusBadRequest, error: "invalidPath"},
+		{path: filepath.Join(dir, "missing"), code: http.StatusNotFound, error: "pathUnavailable"},
+		{path: file, code: http.StatusBadRequest, error: "notDirectory"},
+		{path: dir, header: http.Header{"Origin": {"servef-app://ssh-host"}}, code: http.StatusForbidden, error: "browserRequest"},
+		{path: dir, header: http.Header{"Sec-Fetch-Site": {"same-origin"}}, code: http.StatusForbidden, error: "browserRequest"},
+	} {
+		code, _, body := controlRequest(t, client, http.MethodGet, "directories?path="+url.QueryEscape(test.path), test.header, "")
+		if code != test.code || !strings.Contains(string(body), `"code":"`+test.error+`"`) {
+			t.Errorf("GET /_daemon/directories?path=%s %v = %d %s, want %d %s", test.path, test.header, code, body, test.code, test.error)
+		}
+	}
 }
