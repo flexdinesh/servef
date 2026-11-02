@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+MimeType=inode/directory;
+Actions=openInServef;
+X-KDE-Priority=TopLevel
+
+[Desktop Action openInServef]
+Name=Open in servef
+Icon=servef-desktop
+Exec=/opt/servef/servef-desktop --open-path %F

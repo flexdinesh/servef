@@ -1,4 +1,4 @@
-// Main process composition (decisions 0067, 0070): lifecycle, routing, menu, and wiring.
+// Main process composition (decisions 0067, 0070, 0072): lifecycle, routing, menu, and wiring.
 import { app, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type MessageBoxOptions, type OpenDialogOptions } from "electron"
 import { existsSync } from "node:fs"
 import os from "node:os"
@@ -12,10 +12,12 @@ import { createFileStore } from "./connection-store.ts"
 import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
 import { devFlags, ensureDaemon, nodeExecFile, openPath, probeDaemon, stopDaemon, type EnsureResult } from "./daemon.ts"
-import { confirmConnect, type ConnectChoice } from "./electron-dialogs.ts"
+import { confirmConnect, showReport, type ConnectChoice } from "./electron-dialogs.ts"
+import { createLoginItem, showLoginApproval } from "./electron-login.ts"
 import { createNotifier } from "./electron-notify.ts"
 import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
 import { createWindowManager, type WindowManager } from "./electron-windows.ts"
+import { createFolderOpener } from "./folder-opener.ts"
 import { createForwarder } from "./forward.ts"
 import { NOT_A_SERVEF_LINK, parsePastedLocation } from "./location.ts"
 import {
@@ -29,6 +31,7 @@ import {
   type Notice,
   type NoticeSource,
 } from "./notifications.ts"
+import { openPathsOf, parseOpenPaths, type InstanceData } from "./open-paths.ts"
 import { createProxy } from "./proxy.ts"
 import { chooseRuntimeDir, prepareRuntimeDir, sweepRuntimeDir } from "./runtime-dir.ts"
 import { routeSchemeURL, schemeArgument } from "./scheme.ts"
@@ -48,29 +51,59 @@ const DOCS_URL = "https://github.com/flexdinesh/servef"
 
 process.on("unhandledRejection", (reason) => console.error("servef: unhandled rejection:", reason))
 
+// DROP_COLLECT_MS collects open-file events from one drop.
+const DROP_COLLECT_MS = 100
+
+// LaunchItem is a servef:// link or folders the OS handed the app.
+type LaunchItem = { kind: "link"; url: string } | { kind: "paths"; paths: string[] }
+
 function main(): void {
   // The single-instance lock is per userData directory: set it first.
   const userData = process.env.SERVEF_DESKTOP_USER_DATA
   // The default <appData>/servef is the CLI's config directory (daemon roots.json).
   app.setPath("userData", userData !== undefined && userData !== "" ? path.resolve(userData) : path.join(app.getPath("appData"), "servef-desktop"))
-  if (!app.requestSingleInstanceLock()) {
+  // A second instance hands its own parsed folders over; its argv may arrive reordered.
+  const openPaths = parseOpenPaths(process.argv, process.cwd())
+  if (!app.requestSingleInstanceLock({ openPaths } satisfies InstanceData)) {
     app.quit()
     return
   }
   registerAppScheme()
 
-  // macOS delivers servef:// links as open-url, possibly before ready.
-  const early: string[] = []
-  let deliver: ((url: string) => void) | null = null
+  // macOS delivers servef:// links as open-url and folders (Dock or app icon
+  // drops, `open -a servef <dir>`) as open-file, possibly before ready.
+  const early: LaunchItem[] = []
+  let deliver: ((item: LaunchItem) => void) | null = null
+  // Folders dropped together arrive as one open-file each: once running,
+  // collect them briefly into one request so the 8-folder bound applies.
+  let dropped: string[] = []
+  const flushDropped = (): void => {
+    const paths = dropped
+    dropped = []
+    if (deliver !== null) deliver({ kind: "paths", paths })
+  }
+  const receive = (item: LaunchItem): void => {
+    if (deliver === null) early.push(item)
+    else if (item.kind === "link") deliver(item)
+    else {
+      if (dropped.length === 0) setTimeout(flushDropped, DROP_COLLECT_MS)
+      dropped.push(...item.paths)
+    }
+  }
   app.on("open-url", (event, url) => {
     event.preventDefault()
-    if (deliver === null) early.push(url)
-    else deliver(url)
+    receive({ kind: "link", url })
+  })
+  app.on("open-file", (event, file) => {
+    event.preventDefault()
+    receive({ kind: "paths", paths: [file] })
   })
 
   app.whenReady().then(() => {
+    const launch = early.splice(0)
     const argument = schemeArgument(process.argv)
-    const launch = early.length > 0 ? early.splice(0) : argument === null ? [] : [argument]
+    if (argument !== null && !launch.some((item) => item.kind === "link")) launch.push({ kind: "link", url: argument })
+    if (openPaths.length > 0) launch.push({ kind: "paths", paths: openPaths })
     deliver = start(launch)
   }).catch((error: unknown) => {
     console.error("servef: startup failed:", error)
@@ -78,9 +111,9 @@ function main(): void {
   })
 }
 
-// start composes the app once ready, opens the launch links (or the home
-// window), and returns the servef:// link handler.
-function start(launch: readonly string[]): (url: string) => void {
+// start composes the app once ready, opens the launch links and folders (or
+// the home window), and returns the handler for later ones.
+function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   const env = process.env
   const packaged = app.isPackaged
   const userData = app.getPath("userData")
@@ -442,28 +475,38 @@ function start(launch: readonly string[]): (url: string) => void {
     }
   }
 
+  const report = (text: string, detail: string): void => {
+    showReport(windows.focusedWindow(), { message: text, detail }, { packaged, env })
+      .catch((error: unknown) => console.error("servef: report:", error))
+  }
+  // folders opens folders from the dialog, the OS, and second instances (decision 0072).
+  const folders = createFolderOpener({
+    socket: async () => daemonConnection(await connections.lookup(LOCAL_CONNECTION))?.socket ?? null,
+    open: (socket, folder) => openPath(forwarder.forward, socket, folder),
+    route: (url) => windows.route(url),
+    windowCount: () => windows.infos().length,
+    origin: ORIGIN,
+    report,
+  })
+  const openFolders = (paths: readonly string[]): void => {
+    folders.open(paths).catch((error: unknown) => {
+      console.error("servef: open folders:", error)
+      report("Could not open folder", String(error))
+      ensureWindow()
+    })
+  }
   const openFolder = async (): Promise<void> => {
     const parent = windows.focusedWindow()
     const options: OpenDialogOptions = { properties: ["openDirectory"] }
     const picked = parent === null ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(parent, options)
     const [folder] = picked.filePaths
     if (picked.canceled || folder === undefined) return
-    const local = daemonConnection(await connections.lookup(LOCAL_CONNECTION))
-    if (local === null) {
-      dialog.showErrorBox("Could not open folder", "The servef daemon is not running.")
-      return
-    }
-    const outcome = await openPath(forwarder.forward, local.socket, folder)
-    if (!outcome.ok) {
-      dialog.showErrorBox("Could not open folder", outcome.error)
-      return
-    }
-    windows.route(`${HOME}?project=${encodeURIComponent(outcome.result.project)}`)
+    openFolders([folder])
   }
   const runOpenFolder = (): void => {
     openFolder().catch((error: unknown) => {
       console.error("servef: open folder:", error)
-      dialog.showErrorBox("Could not open folder", String(error))
+      report("Could not open folder", String(error))
     })
   }
   // Only servef-app://local frames have the bridge (decision 0070).
@@ -471,13 +514,49 @@ function start(launch: readonly string[]): (url: string) => void {
     if (isLocalFrame(event.senderFrame?.url ?? "")) runOpenFolder()
   })
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate({
-    newWindow: () => windows.newWindow(HOME),
-    openFolder: runOpenFolder,
-    connect: () => windows.route(CONNECT_URL),
-  })))
+  // Open at Login (decision 0072): the checkbox shows the OS state; only a click changes it.
+  const loginItem = createLoginItem({ platform: process.platform, packaged, env, home: os.homedir(), execPath: process.execPath, appPath: app.getAppPath() })
+  const loginEnabled = (): boolean => {
+    try {
+      return loginItem?.enabled() ?? false
+    } catch (error) {
+      console.error("servef: open at login:", error)
+      return false
+    }
+  }
+  let loginShown = false
+  const buildMenu = (): void => {
+    loginShown = loginEnabled()
+    Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate({
+      newWindow: () => windows.newWindow(HOME),
+      openFolder: runOpenFolder,
+      connect: () => windows.route(CONNECT_URL),
+      login: loginItem === null ? null : { checked: loginShown, toggle: toggleLogin },
+    })))
+  }
+  const toggleLogin = (): void => {
+    if (loginItem === null) return
+    const on = !loginEnabled()
+    loginItem.set(on)
+      .then((outcome) => outcome === "approval" ? showLoginApproval(windows.focusedWindow()) : undefined)
+      .catch((error: unknown) => {
+        console.error("servef: open at login:", error)
+        report("Could not change Open at Login", `${error instanceof Error ? error.message : String(error)}\n\nChange it in ${loginItem.manual}.`)
+      })
+      .finally(buildMenu)
+  }
+  buildMenu()
+  // Users may change it in OS settings: refresh on focus when it differs.
+  app.on("browser-window-focus", () => {
+    if (loginItem !== null && loginEnabled() !== loginShown) buildMenu()
+  })
 
-  app.on("second-instance", (_event, argv) => {
+  app.on("second-instance", (_event, argv, _cwd, data) => {
+    const paths = openPathsOf(data)
+    if (paths.length > 0) {
+      openFolders(paths)
+      return
+    }
     const argument = schemeArgument(argv)
     // A launch without a link focuses the latest window.
     if (argument === null) windows.route(HOME)
@@ -502,9 +581,16 @@ function start(launch: readonly string[]): (url: string) => void {
   // ssh masters and runtime files go with the app (synchronous on quit).
   app.on("will-quit", () => connections.closeSync())
 
+  const deliver = (item: LaunchItem): void => {
+    if (item.kind === "link") openSchemeURL(item.url)
+    else openFolders(item.paths)
+  }
   if (launch.length === 0) windows.route(HOME)
-  for (const url of launch) openSchemeURL(url)
-  return openSchemeURL
+  // One request for all launch folders, so the 8-folder bound applies once.
+  const launchPaths = launch.flatMap((item) => item.kind === "paths" ? item.paths : [])
+  if (launchPaths.length > 0) openFolders([...new Set(launchPaths)])
+  for (const item of launch) if (item.kind === "link") openSchemeURL(item.url)
+  return deliver
 }
 
 // choiceOf describes a confirmation choice: the destination and port, plus
@@ -533,8 +619,19 @@ function message(windows: WindowManager, type: "info" | "error", text: string, d
   return parent === null ? dialog.showMessageBox(options) : dialog.showMessageBox(parent, options)
 }
 
-function menuTemplate(actions: { newWindow(): void; openFolder(): void; connect(): void }): MenuItemConstructorOptions[] {
+interface MenuActions {
+  newWindow(): void
+  openFolder(): void
+  connect(): void
+  // login is the Open at Login checkbox; null hides it.
+  login: { checked: boolean; toggle(): void } | null
+}
+
+function menuTemplate(actions: MenuActions): MenuItemConstructorOptions[] {
   const mac = process.platform === "darwin"
+  const login: MenuItemConstructorOptions[] = actions.login === null
+    ? []
+    : [{ id: "open-at-login", label: "Open at Login", type: "checkbox", checked: actions.login.checked, click: actions.login.toggle }]
   // No accelerators on keys the UI binds (P, F, Shift-F, C).
   const file: MenuItemConstructorOptions[] = [
     { label: "New Window", accelerator: "CmdOrCtrl+N", click: actions.newWindow },
@@ -543,7 +640,10 @@ function menuTemplate(actions: { newWindow(): void; openFolder(): void; connect(
     { type: "separator" },
     { label: "Close Window", accelerator: "CmdOrCtrl+W", role: "close" },
   ]
-  if (!mac) file.push({ type: "separator" }, { role: "quit" })
+  if (!mac) {
+    if (login.length > 0) file.push({ type: "separator" }, ...login)
+    file.push({ type: "separator" }, { role: "quit" })
+  }
   const template: MenuItemConstructorOptions[] = [
     { label: "File", submenu: file },
     { role: "editMenu" },
@@ -572,7 +672,21 @@ function menuTemplate(actions: { newWindow(): void; openFolder(): void; connect(
       }],
     },
   ]
-  if (mac) template.unshift({ role: "appMenu" })
+  if (mac) {
+    // The standard app menu, plus Open at Login.
+    const appMenu: MenuItemConstructorOptions[] = [{ role: "about" }, { type: "separator" }]
+    if (login.length > 0) appMenu.push(...login, { type: "separator" })
+    appMenu.push(
+      { role: "services" },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideOthers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" },
+    )
+    template.unshift({ label: app.name, submenu: appMenu })
+  }
   return template
 }
 

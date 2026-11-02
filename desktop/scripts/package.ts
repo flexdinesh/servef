@@ -9,6 +9,8 @@ import { parseArgs } from "node:util"
 
 import { Arch, build, Platform } from "electron-builder"
 
+import { debFpmArgs } from "./linux-files.ts"
+
 const desktop = fileURLToPath(new URL("..", import.meta.url))
 const USAGE = "usage: node desktop/scripts/package.ts --arch amd64|arm64 --servef <binary> [--version <x.y.z>] [--dir]"
 // Semantic version, as electron-builder requires.
@@ -83,6 +85,8 @@ async function main(): Promise<void> {
     config: {
       artifactName,
       ...(args.version === undefined ? {} : { extraMetadata: { version: args.version } }),
+      // The deb also installs file manager actions (decision 0072).
+      ...(target.os === "linux" ? { deb: { fpm: debFpmArgs(desktop) } } : {}),
     },
   })
   for (const artifact of artifacts) console.log(path.relative(process.cwd(), artifact))

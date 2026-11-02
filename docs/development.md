@@ -157,6 +157,21 @@ File > Connect…). Dev-only seams: `SERVEF_DESKTOP_SSH` (ssh binary),
 `SERVEF_DESKTOP_DIALOG_LOG`. `mise run test:desktop` also runs
 `desktop/test/ssh/` against a throwaway sshd on 127.0.0.1.
 
+OS entry points (decision 0072): with the `dev:desktop` environment, run
+`desktop/node_modules/.bin/electron --no-sandbox desktop --open-path <dir>…`
+to cold-launch with folders, or again while the app runs to hand them over.
+Open at Login appears in dev only with `SERVEF_DESKTOP_AUTOSTART_DIR=<absolute dir>`
+(Linux), so dev never registers a dev Electron at login.
+
+To inspect the Linux packages, run `mise run package:desktop`, then list the
+deb (`dpkg-deb -c desktop/dist/servef-desktop_0.0.0-dev_linux_$(go env GOARCH).deb`,
+or `bsdtar -tf` on its `data.tar.xz`). It must contain
+`usr/share/kio/servicemenus/servef-desktop.desktop`,
+`usr/share/nemo/actions/servef-desktop.nemo_action`, and one entry under
+`usr/share/applications/` without `inode/directory`; `desktop-file-validate`
+checks that entry (not the KDE service menu). electron-builder's bundled fpm
+needs `libcrypt.so.1` (Arch: `libxcrypt-compat`), `xz`, and `ar`.
+
 ## Adding a file type
 
 Every served file is browsable; registration only decides how it is shown.

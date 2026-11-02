@@ -1,6 +1,7 @@
-// Native dialogs for first-contact ssh confirmation (decision 0070).
-// SERVEF_DESKTOP_AUTO_CONFIRM=1 (unpackaged only) picks the first choice and
-// appends the prompt as a JSON line to SERVEF_DESKTOP_DIALOG_LOG.
+// Native dialogs: first-contact ssh confirmation (decision 0070) and reports
+// (decision 0072). SERVEF_DESKTOP_AUTO_CONFIRM=1 (unpackaged only) picks the
+// first choice or skips the report, and appends the prompt or report as a JSON
+// line to SERVEF_DESKTOP_DIALOG_LOG.
 import { dialog, type BrowserWindow, type MessageBoxOptions } from "electron"
 import { appendFileSync } from "node:fs"
 
@@ -25,15 +26,8 @@ const TRUST = "A link asked servef to connect. servef runs servef on that host w
 export async function confirmConnect(parent: BrowserWindow | null, prompt: ConnectPrompt, options: { packaged: boolean; env: NodeJS.ProcessEnv }): Promise<number | null> {
   const choices = prompt.choices.slice(0, MAX_CHOICES)
   if (choices.length === 0) return null
-  if (!options.packaged && options.env.SERVEF_DESKTOP_AUTO_CONFIRM === "1") {
-    const log = options.env.SERVEF_DESKTOP_DIALOG_LOG
-    if (log !== undefined && log !== "") {
-      try {
-        appendFileSync(log, JSON.stringify({ host: prompt.host, choices }) + "\n")
-      } catch (error) {
-        console.error("servef: dialog log:", error)
-      }
-    }
+  if (autoConfirm(options)) {
+    logDialog(options.env, { host: prompt.host, choices })
     return 0
   }
   const [only] = choices
@@ -50,4 +44,29 @@ export async function confirmConnect(parent: BrowserWindow | null, prompt: Conne
   }
   const { response } = parent === null ? await dialog.showMessageBox(box) : await dialog.showMessageBox(parent, box)
   return response >= 0 && response < choices.length ? response : null
+}
+
+// showReport shows an error message box without blocking the main process.
+export async function showReport(parent: BrowserWindow | null, report: { message: string; detail: string }, options: { packaged: boolean; env: NodeJS.ProcessEnv }): Promise<void> {
+  if (autoConfirm(options)) {
+    logDialog(options.env, { report })
+    return
+  }
+  const box: MessageBoxOptions = { type: "error", message: report.message, detail: report.detail }
+  if (parent === null) await dialog.showMessageBox(box)
+  else await dialog.showMessageBox(parent, box)
+}
+
+function autoConfirm(options: { packaged: boolean; env: NodeJS.ProcessEnv }): boolean {
+  return !options.packaged && options.env.SERVEF_DESKTOP_AUTO_CONFIRM === "1"
+}
+
+function logDialog(env: NodeJS.ProcessEnv, entry: unknown): void {
+  const log = env.SERVEF_DESKTOP_DIALOG_LOG
+  if (log === undefined || log === "") return
+  try {
+    appendFileSync(log, JSON.stringify(entry) + "\n")
+  } catch (error) {
+    console.error("servef: dialog log:", error)
+  }
 }
