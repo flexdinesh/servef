@@ -177,8 +177,8 @@ func TestRunSelectsFreePortAndStopsWithContext(t *testing.T) {
 	}
 	localPort := ""
 	for _, line := range strings.Split(stdout.String(), "\n") {
-		if strings.HasPrefix(line, "  url:  http://localhost:") {
-			localPort = strings.TrimSuffix(strings.TrimPrefix(line, "  url:  http://localhost:"), "/")
+		if strings.HasPrefix(line, "  web:      http://localhost:") {
+			localPort = strings.TrimSuffix(strings.TrimPrefix(line, "  web:      http://localhost:"), "/")
 		}
 	}
 	port, err := strconv.Atoi(localPort)
@@ -242,7 +242,8 @@ func TestWriteStartup(t *testing.T) {
 
 	want := "  servef 1.2.3\n" +
 		"  serving directory:  /tmp/notes\n" +
-		"  url:  http://localhost:4173/\n" +
+		"  web:      http://localhost:4173/\n" +
+		"  desktop:  servef://localhost:4173/\n" +
 		"\n" +
 		"  projects discovered: 12  (42ms)\n" +
 		"  ctrl-c to stop.\n"
@@ -255,25 +256,38 @@ func TestWriteStartup(t *testing.T) {
 	if got := output.String(); !strings.Contains(got, "  serving directories:  /tmp/a\n                        /tmp/b\n") {
 		t.Fatalf("multi-root output = %q", got)
 	}
+
+	output.Reset()
+	writeStartup(&output, startupInfo{Version: "servef 1.2.3", Directories: []string{"/tmp/a"}, URL: "http://10.0.0.5:7971/", Exposed: true, Links: true})
+	want = "  web:      " + hyperlink("http://10.0.0.5:7971/", true) + "\n" +
+		"  desktop:  " + hyperlink("servef://10.0.0.5:7971/", true) + "\n" +
+		"  no authentication: anyone who can reach this address can read the served files.\n"
+	if got := output.String(); !strings.Contains(got, want) {
+		t.Fatalf("exposed output = %q, want it to contain %q", got, want)
+	}
 }
 
 func TestShouldOpenBrowser(t *testing.T) {
 	tests := []struct {
 		name   string
+		goos   string
 		noOpen bool
 		env    map[string]string
 		want   bool
 	}{
-		{name: "local session", want: true},
-		{name: "no-open flag", noOpen: true, want: false},
-		{name: "SSH connection", env: map[string]string{"SSH_CONNECTION": "client server"}, want: false},
-		{name: "SSH client", env: map[string]string{"SSH_CLIENT": "client"}, want: false},
-		{name: "SSH TTY", env: map[string]string{"SSH_TTY": "/dev/pts/1"}, want: false},
+		{name: "macOS session", goos: "darwin", want: true},
+		{name: "Linux X11 session", goos: "linux", env: map[string]string{"DISPLAY": ":0"}, want: true},
+		{name: "Linux Wayland session", goos: "linux", env: map[string]string{"WAYLAND_DISPLAY": "wayland-0"}, want: true},
+		{name: "Linux without a display", goos: "linux", want: false},
+		{name: "no-open flag", goos: "darwin", noOpen: true, want: false},
+		{name: "SSH connection", goos: "darwin", env: map[string]string{"SSH_CONNECTION": "client server"}, want: false},
+		{name: "SSH client", goos: "linux", env: map[string]string{"SSH_CLIENT": "client", "DISPLAY": ":0"}, want: false},
+		{name: "SSH TTY", goos: "darwin", env: map[string]string{"SSH_TTY": "/dev/pts/1"}, want: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			getenv := func(name string) string { return test.env[name] }
-			if got := shouldOpenBrowser(test.noOpen, getenv); got != test.want {
+			if got := shouldOpenBrowser(test.noOpen, test.goos, getenv); got != test.want {
 				t.Fatalf("shouldOpenBrowser() = %t, want %t", got, test.want)
 			}
 		})
@@ -310,7 +324,7 @@ func TestEphemeralServersStayIndependent(t *testing.T) {
 			defer reader.Close()
 			scanner := bufio.NewScanner(reader)
 			for scanner.Scan() {
-				if url, ok := strings.CutPrefix(scanner.Text(), "  url:  "); ok {
+				if url, ok := strings.CutPrefix(scanner.Text(), "  web:      "); ok {
 					urls <- url
 				}
 			}
@@ -585,7 +599,7 @@ func TestRunStopsOnControlRequest(t *testing.T) {
 		defer reader.Close()
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
-			if address, ok := strings.CutPrefix(scanner.Text(), "  url:  "); ok {
+			if address, ok := strings.CutPrefix(scanner.Text(), "  web:      "); ok {
 				urls <- address
 			}
 		}

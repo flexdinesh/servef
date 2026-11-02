@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	goruntime "runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -56,7 +57,6 @@ func newRootCommandWith(runApp, runBrowser runner) *cobra.Command {
 	command.AddCommand(newBrowserCommand("browser [path]", runBrowser))
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
 	command.AddCommand(newDaemonCommand())
-	command.AddCommand(newRemoteCommand(runRemote))
 	command.AddCommand(newControlCommand(""))
 	return command
 }
@@ -127,7 +127,7 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 
 	// Published walkthroughs open the browser only when startup may (decision 0047).
 	var openBrowser func(string) error
-	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
+	if shouldOpenBrowser(opts.noOpen, goruntime.GOOS, os.Getenv) {
 		openBrowser = func(url string) error {
 			err := browser.Open(url)
 			if err != nil {
@@ -193,10 +193,12 @@ func run(ctx context.Context, opts options, stdin io.Reader, stdout, stderr io.W
 		Version:      "servef " + version.Number(),
 		Directories:  roots,
 		URL:          url,
+		Exposed:      !loopbackHost(host),
+		Links:        linkTerminal(stdout, os.Getenv),
 		ProjectCount: len(discovery.Projects),
 		Discovery:    discoveryDuration,
 	})
-	if shouldOpenBrowser(opts.noOpen, os.Getenv) {
+	if shouldOpenBrowser(opts.noOpen, goruntime.GOOS, os.Getenv) {
 		go func() {
 			if err := browser.Open(url); err != nil {
 				_, _ = fmt.Fprintf(stderr, "  could not open browser: %v\n", err)
@@ -232,19 +234,8 @@ func listenerPort(address net.Addr) (int, error) {
 	return port, nil
 }
 
-func serverURL(host string, port int) string {
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/"
-}
-
-func shouldOpenBrowser(noOpen bool, getenv func(string) string) bool {
-	return !noOpen && !inSSHSession(getenv)
-}
-
-func inSSHSession(getenv func(string) string) bool {
-	for _, name := range []string{"SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"} {
-		if getenv(name) != "" {
-			return true
-		}
-	}
-	return false
+// shouldOpenBrowser reports whether servef may open a browser: never with
+// --no-open or on a machine without a UI (decision 0075).
+func shouldOpenBrowser(noOpen bool, goos string, getenv func(string) string) bool {
+	return !noOpen && !noUI(goos, getenv)
 }

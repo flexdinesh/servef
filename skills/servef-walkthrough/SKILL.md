@@ -106,16 +106,17 @@ For example:
 
 - Reuse `id` to revise a walkthrough (it replaces) rather than publishing a
   new one. Without `id`, servef derives one from the title.
-- servef prints `published <id> (created|replaced) for <project>`, then
-  `url: …` when the desktop app or a running servef shows the project. Give
-  the user the `url`; it may be a `servef://local/view?…` link (desktop app)
-  or an `http://` one. Inside an SSH session it may be a
-  `servef://ssh/<host>/view?…` link: tell the user to open it on their
-  computer, where the servef desktop app connects to this host. `--json` prints `{"id", "project", "created", "url"}`
-  instead (`url` only when something shows it). `"open": true` opens the url
-  in the app or their browser unless `--no-open` is passed or the session is
-  over SSH. With no running
-  servef, it prints how to view the walkthrough and exits 0.
+- servef prints `published <id> (created|replaced) for <project>`, then the
+  links when the desktop app or a running servef shows the project:
+  `desktop: servef://local/view?…` (desktop app on this machine), or
+  `web: http://…` and `desktop: servef://…` for a running server. Give the
+  user both; over SSH they open on the user's computer. `--json` prints
+  `{"id", "project", "created", "url", "desktopUrl"}` instead (`url` only
+  when something shows it; `desktopUrl` only with an `http://` url).
+  `"open": true` opens the url in the app or their browser unless
+  `--no-open` is passed or the machine has no UI (SSH, or Linux without a
+  display). With no running servef, it prints how to view the walkthrough
+  and exits 0.
 - Exit 1 lists every problem as `field: message`, for example
   `steps[3].diff.path: is not changed in this compare`. Fix them all and
   publish again; servef checks every path, line, and commit against the

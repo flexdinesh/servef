@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	goruntime "runtime"
+	"strings"
 	"time"
 
 	"github.com/flexdinesh/servef/internal/browser"
@@ -52,7 +54,7 @@ type publishOptions struct {
 	getenv         func(string) string
 	installed      func(context.Context) (bool, error) // nil uses desktopapp.Installed
 	openApp        func(context.Context, string) error // nil uses desktopapp.Open
-	remoteHints    func() remoteHints                  // nil reads this host's hints
+	goos           string                              // "" uses runtime.GOOS
 }
 
 type publishRunner func(context.Context, publishOptions, io.Reader, io.Writer, io.Writer) error
@@ -108,6 +110,8 @@ type publishResult struct {
 	Project string `json:"project"`
 	Created bool   `json:"created"`
 	URL     string `json:"url,omitempty"`
+	// DesktopURL is URL's servef:// form when URL is a web URL.
+	DesktopURL string `json:"desktopUrl,omitempty"`
 }
 
 func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -143,22 +147,20 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	if getenv == nil {
 		getenv = os.Getenv
 	}
-	open := draft.Open && shouldOpenBrowser(opts.noOpen, getenv)
+	goos := opts.goos
+	if goos == "" {
+		goos = goruntime.GOOS
+	}
+	local := !noUI(goos, getenv)
+	open := draft.Open && shouldOpenBrowser(opts.noOpen, goos, getenv)
 
-	// The desktop app shows walkthroughs of projects the daemon serves.
+	// The desktop app on this machine shows walkthroughs of projects the
+	// daemon serves; without a UI here, only http servers can show them
+	// (decision 0075).
 	viewerQuery := url.Values{"project": {stored.Project}, "wt": {stored.ID}}
 	viewer := ""
-	remote := false
 	announced := announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr)
-	// Inside SSH the app runs on the user's computer: print a remote link and
-	// open nothing (decision 0069).
-	if announced && inSSHSession(getenv) {
-		hints := publishRemoteHints(opts, getenv)
-		if hints.Host() != "" {
-			viewer, remote = remoteLink(hints, "/view", viewerQuery), true
-		}
-	}
-	if viewer == "" && announced && desktopAppInstalled(ctx, opts) {
+	if local && announced && desktopAppInstalled(ctx, opts) {
 		viewer = "servef://local/view?" + viewerQuery.Encode()
 		if open {
 			openApp := opts.openApp
@@ -195,26 +197,26 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 		}
 	}
 
+	desktop := ""
+	if strings.HasPrefix(viewer, "http://") {
+		desktop = desktopURL(viewer)
+	}
 	if opts.json {
 		encoder := json.NewEncoder(stdout)
 		encoder.SetEscapeHTML(false)
-		return encoder.Encode(publishResult{ID: stored.ID, Project: stored.Project, Created: published.Created, URL: viewer})
+		return encoder.Encode(publishResult{ID: stored.ID, Project: stored.Project, Created: published.Created, URL: viewer, DesktopURL: desktop})
 	}
 	outcome := "replaced"
 	if published.Created {
 		outcome = "created"
 	}
 	_, _ = fmt.Fprintf(stdout, "published %s (%s) for %s\n", stored.ID, outcome, stored.Project)
+	tty := linkTerminal(stdout, getenv)
 	switch {
-	case remote:
-		_, _ = fmt.Fprintf(stdout, "url: %s\n", viewer)
-		if draft.Open {
-			_, _ = fmt.Fprintln(stdout, "nothing opened inside SSH; open the link on your computer; it needs the servef desktop app")
-		} else {
-			_, _ = fmt.Fprintln(stdout, "open the link on your computer; it needs the servef desktop app")
-		}
+	case desktop != "":
+		_, _ = fmt.Fprintf(stdout, "web: %s\ndesktop: %s\n", hyperlink(viewer, tty), hyperlink(desktop, tty))
 	case viewer != "":
-		_, _ = fmt.Fprintf(stdout, "url: %s\n", viewer)
+		_, _ = fmt.Fprintf(stdout, "desktop: %s\n", hyperlink(viewer, tty))
 	case draft.Open:
 		_, _ = fmt.Fprintf(stdout, "no running servef shows this project, so nothing opened; run: servef %s, then open Walkthroughs\n", stored.Project)
 	default:
@@ -245,14 +247,6 @@ func announceToDaemon(ctx context.Context, socket, project, id string, created b
 		_, _ = fmt.Fprintf(stderr, "servef daemon at %s serves this project but keeps walkthroughs elsewhere\n", socket)
 	}
 	return err == nil
-}
-
-// publishRemoteHints reads this host's link hints through the seam.
-func publishRemoteHints(opts publishOptions, getenv func(string) string) remoteHints {
-	if opts.remoteHints != nil {
-		return opts.remoteHints()
-	}
-	return defaultRemoteHints(getenv, "")
 }
 
 // desktopAppInstalled reports whether the desktop app handles servef:// URLs;
