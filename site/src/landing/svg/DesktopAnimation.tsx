@@ -1,10 +1,10 @@
-// A servef://ssh link opens a project window in the desktop app, then
+// A servef:// link from a remote server opens a project window in the desktop app, then
 // notifications arrive. Animation lives in landing.css (desk-*).
 export function DesktopAnimation() {
   return (
     <svg className="landing-svg" viewBox="0 0 560 340" role="img" aria-labelledby="desk-svg-title">
       <title id="desk-svg-title">
-        A servef ssh link opens a project window in the desktop app, followed by notifications
+        A servef link from a remote server opens a project window in the desktop app, followed by notifications
       </title>
 
       {/* Link from a remote terminal */}
@@ -12,7 +12,7 @@ export function DesktopAnimation() {
         <rect className="s-window" x="10" y="14" width="300" height="34" rx="17" />
         <circle className="s-accent" cx="30" cy="31" r="6" />
         <text x="44" y="35" fontSize="11">
-          servef://ssh/devbox/~/work/api
+          servef://devbox:7971/?project=/srv/api
         </text>
       </g>
 

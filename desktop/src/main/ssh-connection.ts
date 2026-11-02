@@ -1,18 +1,20 @@
 // Per-connection ssh state machine (decision 0070): app-owned ControlMaster,
 // ensure over the mux, Unix-socket forward, probe, backoff, teardown.
 import { spawn } from "node:child_process"
+import { parseServerList } from "./cli-servers.ts"
+import type { CliList } from "./cli-servers.ts"
 import type { DaemonStatus } from "./daemon-contract.ts"
 import { interpretEnsure } from "./daemon.ts"
 import type { ExecFile, ExecOutcome, ProbeOutcome } from "./daemon.ts"
 import { unlinkQuietly } from "./runtime-dir.ts"
 import type { RuntimeDirResult } from "./runtime-dir.ts"
-import { masterArgs, muxCommandArgs, muxControlArgs, parseVersion, REMOTE_ENSURE, REMOTE_STOP, validRemoteSocket } from "./ssh-args.ts"
+import { masterArgs, muxCommandArgs, muxControlArgs, parseVersion, portForwardSpec, REMOTE_ENSURE, REMOTE_LIST, REMOTE_STOP, validRemoteSocket } from "./ssh-args.ts"
 import { classifySsh, parseServefMissing, permanent } from "./ssh-errors.ts"
 import type { SshFailure, SshFailureKind, SshPhase } from "./ssh-errors.ts"
 import type { TimerHandle, Timers } from "./timers.ts"
 
 export interface SshTarget {
-  // id is ssh-<slug>; "" for unconfirmed candidates.
+  // id is ssh-<slug>; "" for the startup sweep.
   id: string
   destination: string
   port: number | null
@@ -92,6 +94,10 @@ export const nodeSpawn: Spawn = (file, args, env) => {
 
 export type SshReady = { ok: true; socket: string; status: DaemonStatus } | { ok: false; failure: SshFailure }
 
+// PortForward is a forward to a remote TCP server (decision 0076): socket is
+// the local p-*.sock.
+export type PortForward = { ok: true; socket: string } | { ok: false; detail: string }
+
 export type SshState =
   | { kind: "connecting" }
   | { kind: "ready"; socket: string; status: DaemonStatus }
@@ -122,6 +128,17 @@ export interface SshSession {
   // a live master: a mismatch failure keeps the master for this; false
   // without one.
   stopRemoteDaemon(): Promise<boolean>
+  // listServers runs REMOTE_LIST over the mux (decision 0076). It needs a
+  // live master: ready, or failed with mismatch or forwardDenied (both keep
+  // the master).
+  listServers(): Promise<CliList>
+  // forwardPort forwards the runtime's portSocket(id) to host:port on the
+  // remote through the master; portForwardSpec validates both before any
+  // argv is built. Single flight per id; a live forward is reused. Losing or
+  // stopping the master drops every port forward (forward again after).
+  forwardPort(id: string, host: string, port: number): Promise<PortForward>
+  // cancelPort cancels and unlinks id's port forward, if any.
+  cancelPort(id: string): Promise<void>
   onState(listener: (state: SshState) => void): () => void
   // close: -O exit (2 s), SIGTERM the master if alive, unlink f-* and c-*.
   close(): Promise<void>
@@ -153,6 +170,7 @@ export interface SshConnectorDeps {
 export const CONTROL_WAIT_MS = 25_000
 export const ENSURE_SSH_TIMEOUT_MS = 20_000
 export const STOP_SSH_TIMEOUT_MS = 10_000
+export const LIST_SSH_TIMEOUT_MS = 15_000
 export const MUX_TIMEOUT_MS = 10_000
 export const EXIT_TIMEOUT_MS = 2_000
 // CONTROL_POLL_MS is the ControlPath stat interval.
@@ -274,6 +292,12 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
   let nextDelay = INITIAL_BACKOFF_MS
   let reensureFlight: Promise<boolean> | null = null
   let current: Promise<SshReady>
+  // ports maps an ssh-port id to its live forward on the current master;
+  // portFlights single-flights forwardPort; portSockets lists every p-*.sock
+  // made since the last unlink.
+  const ports = new Map<string, { socket: string; spec: string }>()
+  const portFlights = new Map<string, Promise<PortForward>>()
+  const portSockets = new Set<string>()
 
   const alive = (at: number): boolean => !closed && epoch === at
   const failure = (kind: SshFailureKind, detail: string, extra: Partial<SshFailure> = {}): SshFailure => ({ ...extra, kind, destination, detail })
@@ -313,6 +337,8 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
   }
 
   const unlinkFiles = (): void => {
+    for (const socket of portSockets) unlinkSafe(socket)
+    portSockets.clear()
     if (paths === null) return
     unlinkSafe(paths.forwardSocket)
     unlinkSafe(paths.controlPath)
@@ -333,6 +359,7 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
     const m = master
     master = null
     forwardedRemote = null
+    ports.clear()
     const previous = stopping
     stopping = (async () => {
       await previous
@@ -353,9 +380,10 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
   }
 
   // settleFailure tears the master down (kept for mismatch so the remote
-  // daemon can be stopped over the mux), then fails or schedules a retry.
+  // daemon can be stopped over the mux, and for forwardDenied so remote
+  // servers can still be listed and forwarded), then fails or schedules a retry.
   const settleFailure = (cause: SshFailure): void => {
-    if (cause.kind !== "mismatch") void stopMaster()
+    if (cause.kind !== "mismatch" && cause.kind !== "forwardDenied") void stopMaster()
     if (permanent(cause.kind)) setState({ kind: "failed", failure: cause })
     else scheduleRetry(cause)
   }
@@ -364,6 +392,7 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
     epoch += 1
     master = null
     forwardedRemote = null
+    ports.clear()
     reensureFlight = null
     unlinkFiles()
     const cause = failure("unreachable", joinDetail(`The SSH connection to ${destination} closed.`, m.stderr))
@@ -595,7 +624,77 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
     const m = master
     master = null
     forwardedRemote = null
+    ports.clear()
     return m
+  }
+
+  // liveMaster is the master when it can run mux commands, else null.
+  const liveMaster = (): Master | null => {
+    const m = master
+    return closed || paths === null || m === null || m.exit !== null ? null : m
+  }
+
+  const notLive = (): string => `The SSH connection to ${destination} is not open.`
+
+  const listServers = async (): Promise<CliList> => {
+    const m = liveMaster()
+    if (m === null || paths === null) return { ok: false, detail: notLive() }
+    const outcome = await runSafe(deps, muxCommandArgs(target, paths.controlPath, REMOTE_LIST), LIST_SSH_TIMEOUT_MS)
+    if (outcome.error?.timedOut) return { ok: false, detail: `servef control list on ${destination} did not finish within ${LIST_SSH_TIMEOUT_MS / 1000} s.` }
+    if (!succeeded(outcome)) {
+      if (m.exit !== null) return { ok: false, detail: notLive() }
+      return { ok: false, detail: tail(outcome.stderr) || outcome.error?.message || `servef control list on ${destination} exited with code ${outcome.code ?? "unknown"}.` }
+    }
+    const servers = parseServerList(outcome.stdout)
+    return servers === null ? { ok: false, detail: `servef control list on ${destination} printed an unexpected answer.` } : { ok: true, servers }
+  }
+
+  const forwardPortOnce = async (id: string, spec: string): Promise<PortForward> => {
+    const m = liveMaster()
+    if (m === null || paths === null || !deps.runtime.ok) return { ok: false, detail: notLive() }
+    const socket = deps.runtime.runtime.portSocket(id)
+    const existing = ports.get(id)
+    if (existing !== undefined && existing.spec === spec) return { ok: true, socket }
+    const at = epoch
+    if (existing !== undefined) {
+      ports.delete(id)
+      await runSafe(deps, muxControlArgs(target, paths.controlPath, { op: "cancel", local: socket, remote: existing.spec }), MUX_TIMEOUT_MS)
+    }
+    unlinkSafe(socket)
+    portSockets.add(socket)
+    const outcome = await runSafe(deps, muxControlArgs(target, paths.controlPath, { op: "forward", local: socket, remote: spec }), MUX_TIMEOUT_MS)
+    if (!alive(at) || master !== m) return { ok: false, detail: notLive() }
+    if (!succeeded(outcome)) {
+      unlinkSafe(socket)
+      return { ok: false, detail: tail(outcome.stderr) || outcome.error?.message || `ssh could not forward to ${spec} on ${destination}.` }
+    }
+    ports.set(id, { socket, spec })
+    return { ok: true, socket }
+  }
+
+  const forwardPort = (id: string, host: string, port: number): Promise<PortForward> => {
+    const spec = portForwardSpec(host, port)
+    if (spec === null) return Promise.resolve({ ok: false, detail: `${host}:${port} is not an address servef forwards.` })
+    const pending = portFlights.get(id)
+    if (pending !== undefined) return pending
+    const flight = forwardPortOnce(id, spec).catch((error: unknown): PortForward => ({ ok: false, detail: errorMessage(error) })).finally(() => {
+      if (portFlights.get(id) === flight) portFlights.delete(id)
+    })
+    portFlights.set(id, flight)
+    return flight
+  }
+
+  const cancelPort = async (id: string): Promise<void> => {
+    await portFlights.get(id)
+    const existing = ports.get(id)
+    if (existing === undefined) return
+    ports.delete(id)
+    const m = liveMaster()
+    if (m !== null && paths !== null) {
+      await runSafe(deps, muxControlArgs(target, paths.controlPath, { op: "cancel", local: existing.socket, remote: existing.spec }), MUX_TIMEOUT_MS)
+    }
+    unlinkSafe(existing.socket)
+    portSockets.delete(existing.socket)
   }
 
   current = startAttempt()
@@ -622,6 +721,9 @@ function createSession(deps: SshConnectorDeps, target: SshTarget, preflight: () 
       if (closed || paths === null || m === null || m.exit !== null) return false
       return succeeded(await runSafe(deps, muxCommandArgs(target, paths.controlPath, REMOTE_STOP), STOP_SSH_TIMEOUT_MS))
     },
+    listServers,
+    forwardPort,
+    cancelPort,
     onState(listener) {
       listeners.add(listener)
       return () => {

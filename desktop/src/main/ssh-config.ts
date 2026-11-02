@@ -4,7 +4,14 @@ import { readdirSync, readFileSync } from "node:fs"
 import { posix } from "node:path"
 import type { ExecFile } from "./daemon.ts"
 import { parseSshG, sshGArgs, validDestination } from "./ssh-args.ts"
-import type { ResolvedAlias } from "./ssh-links.ts"
+
+export interface ResolvedAlias {
+  alias: string
+  // hostname, user, and port are `ssh -G` values.
+  hostname: string
+  user: string
+  port: number
+}
 
 export interface ConfigReader {
   // home is the user's home directory; relative Include paths resolve in home/.ssh.

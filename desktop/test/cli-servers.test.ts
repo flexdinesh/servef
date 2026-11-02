@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { cliId, cliPort, dialHost, listCliServers, parseCliList } from "../src/main/cli-servers.ts"
+import { cliId, cliPort, dialHost, listCliServers, parseCliList, parseServerList } from "../src/main/cli-servers.ts"
 import type { ExecFile, ExecOutcome } from "../src/main/daemon.ts"
 
 function runner(outcome: ExecOutcome) {
@@ -66,4 +66,17 @@ test("cli ids are canonical cli-<port>", () => {
   assert.equal(cliPort("cli-7971"), 7971)
   assert.equal(cliPort("cli-65535"), 65535)
   for (const id of ["cli-0", "cli-07971", "cli-65536", "cli-123456", "cli-", "cli-1a", "ssh-7971", "local"]) assert.equal(cliPort(id), null, id)
+})
+
+test("parseServerList keeps every well-formed server, loopback or not", () => {
+  const stdout = JSON.stringify({ servers: [
+    { host: "10.0.0.5", port: 7971, origin: "http://10.0.0.5:7971" },
+    { host: "0.0.0.0", port: 7972, origin: "http://127.0.0.1:7972" },
+  ] })
+  assert.deepEqual(parseServerList(stdout), [
+    { host: "10.0.0.5", port: 7971, origin: "http://10.0.0.5:7971" },
+    { host: "0.0.0.0", port: 7972, origin: "http://127.0.0.1:7972" },
+  ])
+  assert.equal(parseServerList(JSON.stringify({ servers: [{ host: "h", port: "1", origin: "x" }] })), null)
+  assert.equal(parseServerList("nope"), null)
 })

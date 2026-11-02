@@ -15,9 +15,15 @@ test("loopback http URLs on / and /view map to cli origins with query and fragme
 })
 
 test("servef links pass through for the scheme handler", () => {
-  for (const raw of ["servef://local/?project=%2Fsrc", "servef://ssh/devbox/view?project=/src&wt=1"]) {
+  for (const raw of ["servef://local/?project=%2Fsrc", "servef://10.0.0.5:7971/view?project=/src&wt=1"]) {
     assert.deepEqual(parsePastedLocation(` ${raw} `), { kind: "scheme", url: raw }, raw)
   }
+})
+
+test("other http hosts map to http servers with their path, query, and fragment", () => {
+  assert.deepEqual(parsePastedLocation("http://192.168.1.5:7971/view?project=%2Fa#L3"), { kind: "http", host: "192.168.1.5", port: 7971, path: "/view?project=%2Fa#L3" })
+  assert.deepEqual(parsePastedLocation("http://Box.Example/"), { kind: "http", host: "box.example", port: 80, path: "/" })
+  assert.deepEqual(parsePastedLocation("http://[2001:db8::5]:8080"), { kind: "http", host: "[2001:db8::5]", port: 8080, path: "/" })
 })
 
 test("everything else is not a servef link", () => {
@@ -27,10 +33,7 @@ test("everything else is not a servef link", () => {
     "   ",
     "localhost:7971",
     "https://localhost:7971/",
-    "http://example.com:7971/",
-    "http://localhost.example:7971/",
-    "http://192.168.1.5:7971/",
-    "http://[::2]:7971/",
+    "http://192.168.1.5:7971/api/projects",
     "http://user:pass@localhost:7971/",
     "servef://user@local/",
     "http://localhost:7971/assets/index.js",

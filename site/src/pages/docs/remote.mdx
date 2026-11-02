@@ -1,8 +1,9 @@
 # Remote hosts
 
-servef runs beside the files. To browse a machine you reach over SSH, run
-servef on that machine and open its link in the [desktop app](/docs/desktop) on
-your computer. The app connects with your own `ssh` setup.
+servef runs beside the files. To browse another machine, either serve it
+over http from that machine and open its link, or let the
+[desktop app](/docs/desktop) connect to it over SSH with your own `ssh`
+setup.
 
 ## Install servef on the host
 
@@ -21,6 +22,67 @@ The script needs no sudo and puts `servef` in `~/.local/bin` (or `~/bin`).
 Release archives (`servef_<version>_linux_<amd64|arm64>.tar.gz`) work too;
 put `servef` in `~/.local/bin`.
 
+## Serve over http from the host
+
+On a machine without a UI (inside an SSH session, or Linux without a
+display), `servef [path]` serves in browser mode on the machine's own
+address instead of opening anything:
+
+```sh
+servef ~/code/foo
+```
+
+```text
+  servef 1.4.0
+  serving directory:  /home/dee/code/foo
+  web:      http://10.0.0.5:7971/
+  desktop:  servef://10.0.0.5:7971/
+  no authentication: anyone who can reach this address can read the served files.
+```
+
+Open the `web:` URL in a browser on your computer, or the `desktop:` link in
+the desktop app (terminals that support hyperlinks make both clickable). The
+address is the server side of your SSH connection, else the machine's
+outbound address; it binds that one address, never all interfaces.
+
+:::warning
+These servers have **no authentication**. Anyone who can reach the address
+can read the served files. Use them only on networks you trust. For a
+private server, run `servef browser` (it binds `localhost`) and forward its
+port yourself, for example `ssh -L 7971:localhost:7971 <host>`, or open it
+from the desktop app's [SSH connection](#servers-on-the-host).
+:::
+
+`--host` and `--port` choose the address yourself. `servef browser` keeps
+its `localhost` default everywhere and never opens anything over SSH.
+
+### Links
+
+A `servef://<host>:<port>/…` link is the web URL with the scheme swapped.
+The desktop app opens it in its own window:
+
+- `servef://localhost:<port>/…` (and `127.0.0.1`, `[::1]`) opens the servef
+  server running on that port on **your** computer
+  ([Servers in a terminal](/docs/desktop#servers-in-a-terminal)).
+- Any other host opens that server directly over http. The first link to a
+  host and port asks you to confirm ("It is not on this computer. Open only
+  servers you trust."); your answer is remembered. **File > Connect…** lists
+  these servers with a **Forget** button.
+- **Open a link** on the Connect page takes `http://<host>:<port>/…` URLs too,
+  without asking: you typed them.
+
+Windows of an http server show its address in the title, for example
+`README.md - 10.0.0.5:7971`. Nothing is started or stopped for you: when
+the server stops, the window says so.
+
+## Connect from the app over SSH
+
+**File > Connect…** lists the hosts the app knows and the `Host` entries from
+your `~/.ssh/config`. Click one to connect: the app runs your computer's
+`ssh`, starts servef's daemon on the host, and forwards it to a private
+socket. Files, git, and language servers stay on the host. The host is
+remembered after the first visit; **Forget** disconnects and removes it.
+
 The app runs `servef` in non-interactive SSH commands, which often skip your
 shell profile. Check that it is found:
 
@@ -32,64 +94,6 @@ If that prints nothing, put `servef` on the `PATH` your shell sets for
 non-interactive sessions, or in `~/.local/bin`, `~/go/bin`, `~/bin`,
 `/usr/local/bin`, or Homebrew's `bin` directory.
 
-## `servef remote`
-
-On the host, inside your SSH session:
-
-```sh
-servef remote ~/code/foo
-```
-
-```text
-serving /home/dee/code/foo on devbox
-servef://ssh/devbox/?project=%2Fhome%2Fdee%2Fcode%2Ffoo&ssh-hostname=devbox&ssh-user=dee&ssh-addr=10.0.0.5
-open the link on your computer; it needs the servef desktop app
-```
-
-It checks the directories, starts the host's servef daemon if needed, adds
-them to it, prints the link, and exits. Click the link (terminals that
-support hyperlinks make it clickable) or copy it into your computer's
-browser address bar. The daemon stops on its own after 30 idle minutes.
-
-Over SSH, `servef [path]` does the same, and serves in a browser on the host
-only when that fails (for example, the daemon cannot start).
-
-| Flag | Meaning |
-| --- | --- |
-| `--path DIR` | Add a directory (repeatable; a positional path is shorthand for one) |
-| `--depth N` | File tree depth within a project (default `5`) |
-| `--scan-depth N` | How deep to look for repositories (default `10`) |
-| `--alias NAME` | Name the host in the link |
-
-## Naming the host
-
-The link carries hints: the host's name, your user name, and the server
-address and port of your SSH session. The app matches them to a host it
-knows or an `~/.ssh/config` entry, and asks you once before connecting to a
-new one.
-
-When your computer knows the host by another name, pass it:
-
-```sh
-servef remote --alias work-box ~/code/foo
-```
-
-`--alias` is the `Host` name from your computer's `~/.ssh/config`: letters,
-digits, `.`, `_`, and `-`.
-
-Run outside an SSH session, `servef remote` still prints the link, with a
-warning that the hints may not identify the host.
-
-## Connecting from the app
-
-Opening a `servef://ssh/…` link makes the app run your computer's `ssh` to
-that host, start servef's daemon there, and forward it to a private socket.
-Files, git, and language servers stay on the host.
-
-- **First contact is confirmed.** The app asks before connecting to a host it
-  does not know, with the user, host name, and port `ssh` will use, and lists
-  up to four matching `~/.ssh/config` entries (or `user@address` when none
-  match). Your answer is remembered; later links to that host open at once.
 - **No prompts, ever.** The app connects in batch mode: it never asks for a
   password, a one-time code, or to accept a host key. The host must accept a
   key from your SSH agent (or an unencrypted key), and its host key must
@@ -103,29 +107,44 @@ Files, git, and language servers stay on the host.
   `known_hosts`, and `SetEnv`. The app opens its own connection per host
   and ignores your configured port forwards.
 - **Nothing is installed or uploaded** on the host. The app only runs
-  `servef daemon ensure` (and `servef daemon stop` when you ask).
+  `servef daemon ensure`, `servef control list --json`, and
+  `servef daemon stop` (when you ask). Folder paths travel over the forwarded
+  socket, never in a command.
 - A host stays connected while a window shows it, and disconnects 30
   seconds after its last window closes. The host's daemon then stops on its
   own after 30 idle minutes.
 - Windows of a host show its name in the title, for example
   `README.md - devbox (SSH)`, and `(SSH, reconnecting)` while the connection
   recovers. The app reconnects on its own after network drops.
-- Remote windows have no **Open folder…**: add directories with
-  `servef remote` on the host.
+
+### The host page
+
+Connecting opens the host's page:
+
+- **Folders**: the directories the host's daemon serves. Click one to open
+  it in a window.
+- **Browse folders**: pick any directory on the host, starting at your home
+  directory, and **Open this folder** to serve it. A folder inside a
+  repository opens the whole repository.
+- **Servers**: servef servers running on the host
+  ([see below](#servers-on-the-host)).
+
+### Servers on the host
+
+The host page lists the servef servers running there (`servef browser`, or
+`servef [path]` in an SSH session). Click one to open it through the SSH
+connection, so even a `localhost`-only server is reachable; its title reads
+`README.md - devbox:7971 (SSH)`. When the host refuses the forward, the app
+opens the server directly at its address instead (the host's `ssh -G`
+hostname for one listening on every address). A server listening on the
+host's `localhost` only has no such fallback.
 
 ### Notifications
 
 Branch switches, commits, settled edits, and walkthroughs published on the
 host (`servef walkthrough publish`) notify you only while a window for that
-host is open.
-
-### Connect page
-
-**File > Connect…** lists the local daemon and the hosts the app knows, with
-their state, and the `Host` entries from your `~/.ssh/config`. Click one to
-open it (new hosts are confirmed first). **Forget** disconnects a host and
-removes it; its next link asks again. The same page lists servers running on
-this computer and opens pasted links ([Desktop app](/docs/desktop#servers-in-a-terminal)).
+host's folders is open. Servers opened over http or through a forwarded
+port do not notify.
 
 ## Troubleshooting
 
@@ -139,16 +158,13 @@ Reload or click **Retry** after fixing it.
 | Authentication failed | Load your key with `ssh-add` until `ssh -o BatchMode=yes <host> true` works |
 | Host unreachable | Check the network or VPN; the app keeps retrying while the window is open |
 | servef is not installed | [Install servef on the host](#install-servef-on-the-host); the page names the command for its OS and architecture |
-| servef is too old | Upgrade servef on the host |
+| servef is too old | Upgrade servef on the host; **Browse folders** also needs a servef that lists folders |
 | Incompatible daemon | Upgrade the older side, then **Stop the running daemon and retry** |
-| Socket forwarding refused | The host's sshd needs `AllowStreamLocalForwarding yes` (and no `DisableForwarding`) and OpenSSH 6.7 or later |
-
-`servef remote` and the app must reach the same daemon, which needs the same
-`XDG_RUNTIME_DIR` in interactive and non-interactive SSH sessions. When they
-differ, the link's project shows as unavailable until that daemon restarts.
+| Socket forwarding refused | The host's sshd needs `AllowStreamLocalForwarding yes` (and no `DisableForwarding`) and OpenSSH 6.7 or later. The page still lists the host's servers you can reach by address |
+| Cannot reach the servef server | The http server stopped, or this computer cannot reach its address |
 
 ## Walkthroughs
 
 Agents on the host publish with `servef walkthrough publish`
-([Walkthroughs](/docs/walkthroughs)). Inside an SSH session the printed `url` is a
-`servef://ssh/…` link to open on your computer; nothing opens on the host.
+([Walkthroughs](/docs/walkthroughs)). When a servef server on the host shows
+the project, it prints the web URL and the `servef://` desktop link.

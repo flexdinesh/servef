@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
-  masterArgs, muxCommandArgs, muxControlArgs, parseSshG, parseVersion, REMOTE_ENSURE, REMOTE_STOP, sshGArgs, validDestination, validRemoteSocket,
+  masterArgs, muxCommandArgs, muxControlArgs, parseSshG, parseVersion, portForwardSpec, REMOTE_ENSURE, REMOTE_LIST, REMOTE_STOP, sshGArgs, validDestination, validRemoteSocket,
 } from "../src/main/ssh-args.ts"
 
 const target = { id: "ssh-devbox", destination: "devbox", port: null }
@@ -11,10 +11,11 @@ test("REMOTE_ENSURE and REMOTE_STOP are the exact remote command lines", () => {
   const prefix = "sh -c 'PATH=\"$PATH:$HOME/.local/bin:${GOPATH:-$HOME/go}/bin:$HOME/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin\"; export PATH; command -v servef >/dev/null 2>&1 || { echo \"servef-missing $(uname -s) $(uname -m)\" >&2; exit 127; }; "
   assert.equal(REMOTE_ENSURE, `${prefix}exec servef daemon ensure --json'`)
   assert.equal(REMOTE_STOP, `${prefix}exec servef daemon stop'`)
+  assert.equal(REMOTE_LIST, `${prefix}exec servef control list --json'`)
 })
 
 test("remote commands pass through every login shell: no quote or ! inside the sh -c string", () => {
-  for (const command of [REMOTE_ENSURE, REMOTE_STOP]) {
+  for (const command of [REMOTE_ENSURE, REMOTE_STOP, REMOTE_LIST]) {
     assert.ok(command.startsWith("sh -c '") && command.endsWith("'"))
     const inner = command.slice("sh -c '".length, -1)
     assert.equal(inner.includes("'"), false)
@@ -111,4 +112,22 @@ test("parseSshG rejects missing or invalid fields", () => {
   assert.equal(parseSshG("hostname h\nuser dee\nport 0\n"), null)
   assert.equal(parseSshG("hostname h\nuser dee\nport 70000\n"), null)
   assert.equal(parseSshG("hostname h\nuser dee\nport abc\n"), null)
+})
+
+test("portForwardSpec accepts IP literals and localhost with a valid port only", () => {
+  assert.equal(portForwardSpec("127.0.0.1", 7971), "127.0.0.1:7971")
+  assert.equal(portForwardSpec("localhost", 1), "localhost:1")
+  assert.equal(portForwardSpec("10.0.0.5", 65_535), "10.0.0.5:65535")
+  assert.equal(portForwardSpec("::1", 7971), "[::1]:7971")
+  assert.equal(portForwardSpec("[2001:db8::5]", 7971), "[2001:db8::5]:7971")
+  for (const [host, port] of [
+    ["box.lan", 7971], ["127.0.0.1", 0], ["127.0.0.1", 65_536], ["127.0.0.1", 1.5], ["-oProxyCommand=x", 1], ["127.0.0.1:22", 1],
+    ["fe80::1%eth0", 1], ["", 1], ["127.0.0.1 ", 1], ["LOCALHOST", 1],
+  ] as const) assert.equal(portForwardSpec(host, port), null, `${host}:${port}`)
+})
+
+test("muxControlArgs forwards a local socket to a remote TCP server", () => {
+  const spec = portForwardSpec("127.0.0.1", 7971) ?? ""
+  assert.deepEqual(muxControlArgs(target, cp, { op: "forward", local: "/run/p-1.sock", remote: spec }).slice(0, 4), ["-O", "forward", "-L", "/run/p-1.sock:127.0.0.1:7971"])
+  assert.deepEqual(muxCommandArgs(target, cp, REMOTE_LIST).slice(-2), ["devbox", REMOTE_LIST])
 })

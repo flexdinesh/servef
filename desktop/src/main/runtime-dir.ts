@@ -7,9 +7,11 @@ import { isRecord } from "../../../web/src/api/http.ts"
 export interface RuntimeDir {
   dir: string
   // controlPath is <dir>/c-<h12>; forwardSocket is <dir>/f-<h12>.sock;
+  // portSocket is <dir>/p-<h12>.sock (an ssh-port id, decision 0076);
   // <h12> = 12 hex of sha256(id).
   controlPath(id: string): string
   forwardSocket(id: string): string
+  portSocket(id: string): string
 }
 
 export type RuntimeDirResult = { ok: true; runtime: RuntimeDir } | { ok: false; dir: string; detail: string }
@@ -32,6 +34,7 @@ export function runtimePaths(dir: string): RuntimeDir {
     dir,
     controlPath: (id) => posix.join(dir, `c-${hexDigest(id, 12)}`),
     forwardSocket: (id) => posix.join(dir, `f-${hexDigest(id, 12)}.sock`),
+    portSocket: (id) => posix.join(dir, `p-${hexDigest(id, 12)}.sock`),
   }
 }
 
@@ -107,7 +110,7 @@ export function prepareRuntimeDir(dir: string): RuntimeDirResult {
 }
 
 // sweepRuntimeDir runs exit(controlPath) for each c-* entry (bounded by the
-// caller), then unlinks it, and unlinks every f-*.sock. Only those patterns,
+// caller), then unlinks it, and unlinks every f-*.sock and p-*.sock. Only those patterns,
 // only in runtime.dir; directories and other names are never touched.
 export async function sweepRuntimeDir(runtime: RuntimeDir, exit: (controlPath: string) => Promise<void>): Promise<void> {
   let names: string[]
@@ -117,7 +120,7 @@ export async function sweepRuntimeDir(runtime: RuntimeDir, exit: (controlPath: s
     return
   }
   const controls = names.filter((name) => name.startsWith("c-") && name.length > 2)
-  const forwards = names.filter((name) => name.startsWith("f-") && name.endsWith(".sock") && name.length > 7)
+  const forwards = names.filter((name) => (name.startsWith("f-") || name.startsWith("p-")) && name.endsWith(".sock") && name.length > 7)
   await Promise.all(controls.map(async (name) => {
     const path = posix.join(runtime.dir, name)
     if (isDirectory(path)) return

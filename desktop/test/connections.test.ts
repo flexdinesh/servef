@@ -1,19 +1,20 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import type { ConnectionStore, KnownConnection } from "../src/main/connection-store.ts"
+import type { ConnectionStore, KnownConnection, KnownServer } from "../src/main/connection-store.ts"
 import { assignId } from "../src/main/connection-store.ts"
-import { APP_HOST, createConnections, LOCAL_CONNECTION, RELEASE_GRACE_MS } from "../src/main/connections.ts"
+import { APP_HOST, createConnections, LOCAL_CONNECTION, RELEASE_GRACE_MS, upstreamHost } from "../src/main/connections.ts"
 import type { ConnectionLookup, Connections, ConnectionsDeps } from "../src/main/connections.ts"
 import type { CliList } from "../src/main/cli-servers.ts"
 import type { EnsureResult } from "../src/main/daemon.ts"
-import type { SshReady, SshSession, SshState, SshTarget } from "../src/main/ssh-connection.ts"
+import type { PortForward, SshReady, SshSession, SshState, SshTarget } from "../src/main/ssh-connection.ts"
 import type { SshFailure } from "../src/main/ssh-errors.ts"
 import { createFakeTimers, flush } from "./fake-timers.ts"
 
 const status = (pid: number, socket = "/run/servef.sock") => ({ protocol: 1, version: "1", pid, socket, roots: [] })
 
-const devbox: KnownConnection = { id: "ssh-devbox", destination: "devbox", port: null, hints: [{ hostname: "devbox", user: "dee" }], addedAt: "2026-11-01T00:00:00.000Z" }
-const work: KnownConnection = { id: "ssh-work", destination: "dee@work", port: 2222, hints: [], addedAt: "2026-11-01T00:00:00.000Z" }
+const devbox: KnownConnection = { id: "ssh-devbox", destination: "devbox", port: null, addedAt: "2026-11-01T00:00:00.000Z" }
+const work: KnownConnection = { id: "ssh-work", destination: "dee@work", port: 2222, addedAt: "2026-11-01T00:00:00.000Z" }
+const lan: KnownServer = { id: "http-10-0-0-5-7971", host: "10.0.0.5", port: 7971, addedAt: "2026-11-01T00:00:00.000Z" }
 
 const unreachable: SshFailure = { kind: "unreachable", destination: "devbox", detail: "Connection timed out" }
 const hostKey: SshFailure = { kind: "hostKey", destination: "devbox", detail: "Host key verification failed." }
@@ -27,6 +28,9 @@ interface FakeSession extends SshSession {
   // closeGate, when set, holds close() until resolved.
   closeGate: Promise<void> | null
   closed: boolean
+  // forwardResult answers forwardPort; listResult answers listServers.
+  forwardResult: PortForward
+  listResult: CliList
 }
 
 function fakeSession(target: SshTarget): FakeSession {
@@ -44,6 +48,8 @@ function fakeSession(target: SshTarget): FakeSession {
     reensureResult: true,
     closeGate: null,
     closed: false,
+    forwardResult: { ok: true, socket: "/run/p.sock" },
+    listResult: { ok: true, servers: [] },
     state: () => state,
     ready() {
       const result = settle(state)
@@ -57,6 +63,17 @@ function fakeSession(target: SshTarget): FakeSession {
     async stopRemoteDaemon() {
       session.calls.push("stop")
       return true
+    },
+    async listServers() {
+      session.calls.push("list")
+      return session.listResult
+    },
+    async forwardPort(id, host, port) {
+      session.calls.push(`forward ${id} ${host}:${port}`)
+      return session.forwardResult
+    },
+    async cancelPort(id) {
+      session.calls.push(`cancel ${id}`)
     },
     onState(listener) {
       listeners.add(listener)
@@ -87,7 +104,9 @@ function fakeSession(target: SshTarget): FakeSession {
 interface Harness {
   connections: Connections
   sessions: FakeSession[]
+  // saves lists each save's ssh hosts; serverSaves its http servers.
   saves: KnownConnection[][]
+  serverSaves: KnownServer[][]
   stops: string[]
   timers: ReturnType<typeof createFakeTimers>
   heard: [string, string][]
@@ -96,16 +115,20 @@ interface Harness {
 }
 
 // harness lists CLI servers from options.cli (last repeats; none by default).
-function harness(options: { known?: KnownConnection[]; ensure?: () => Promise<EnsureResult>; cli?: CliList[] } = {}): Harness {
+function harness(options: { known?: KnownConnection[]; servers?: KnownServer[]; ensure?: () => Promise<EnsureResult>; cli?: CliList[] } = {}): Harness {
   const cli = [...(options.cli ?? [{ ok: true, servers: [] }])]
   let lists = 0
   const sessions: FakeSession[] = []
   const saves: KnownConnection[][] = []
+  const serverSaves: KnownServer[][] = []
   const stops: string[] = []
   const timers = createFakeTimers()
   const store: ConnectionStore = {
-    load: () => (options.known ?? [devbox, work]).map((entry) => ({ ...entry, hints: [...entry.hints] })),
-    save: (known) => { saves.push(known.map((entry) => ({ ...entry, hints: [...entry.hints] }))) },
+    load: () => ({ ssh: (options.known ?? [devbox, work]).map((entry) => ({ ...entry })), http: (options.servers ?? []).map((entry) => ({ ...entry })) }),
+    save: (stored) => {
+      saves.push(stored.ssh.map((entry) => ({ ...entry })))
+      serverSaves.push(stored.http.map((entry) => ({ ...entry })))
+    },
   }
   const deps: ConnectionsDeps = {
     ensureLocal: options.ensure ?? (async () => ({ ok: true, status: status(1) })),
@@ -130,7 +153,7 @@ function harness(options: { known?: KnownConnection[]; ensure?: () => Promise<En
   const connections = createConnections(deps)
   const heard: [string, string][] = []
   connections.subscribe((id, lookup) => heard.push([id, lookup === null ? "null" : lookup.kind]))
-  return { connections, sessions, saves, stops, timers, heard, lists: () => lists }
+  return { connections, sessions, saves, serverSaves, stops, timers, heard, lists: () => lists }
 }
 
 function only(h: Harness, index = 0): FakeSession {
@@ -438,31 +461,23 @@ test("summaries list local first, then known hosts with their states and details
   assert.deepEqual(h.connections.summaries().map((summary) => summary.state), ["ready", "failed", "idle"])
 })
 
-test("remember merges hints into an existing destination and port", () => {
+test("remember reuses an existing destination and port without saving", () => {
   const h = harness()
-  const same = h.connections.remember({ destination: "devbox", port: null }, { user: "dee", hostname: "devbox" })
-  assert.equal(same.id, "ssh-devbox")
-  assert.deepEqual(same.hints, [{ hostname: "devbox", user: "dee" }], "equal hints are not duplicated")
-  const merged = h.connections.remember({ destination: "devbox", port: null }, { addr: "10.0.0.5", user: "dee" })
-  assert.deepEqual(merged.hints, [{ hostname: "devbox", user: "dee" }, { addr: "10.0.0.5", user: "dee" }])
-  assert.equal(h.saves.length, 2)
-  assert.deepEqual(h.saves.at(-1)?.find((entry) => entry.id === "ssh-devbox")?.hints, merged.hints)
+  const same = h.connections.remember({ destination: "devbox", port: null })
+  assert.deepEqual(same, devbox)
+  assert.equal(h.saves.length, 0)
   assert.deepEqual(h.connections.known().map((entry) => entry.id), ["ssh-devbox", "ssh-work"])
-  // known() returns copies.
-  h.connections.known()[0]?.hints.push({ user: "x" })
-  assert.equal(h.connections.known()[0]?.hints.length, 2)
 })
 
 test("remember adds new destinations with assigned ids, timestamps, and saves", () => {
   const h = harness({ known: [devbox] })
   h.timers.advance(Date.UTC(2026, 10, 2))
-  const added = h.connections.remember({ destination: "dee@box", port: 2222 }, { hostname: "box" })
-  assert.deepEqual(added, { id: assignId("dee@box", new Set(["ssh-devbox"])), destination: "dee@box", port: 2222, hints: [{ hostname: "box" }], addedAt: "2026-11-02T00:00:00.000Z" })
-  // Same destination on another port is another host; empty hints store none.
-  const other = h.connections.remember({ destination: "dee@box", port: null }, {})
+  const added = h.connections.remember({ destination: "dee@box", port: 2222 })
+  assert.deepEqual(added, { id: assignId("dee@box", new Set(["ssh-devbox"])), destination: "dee@box", port: 2222, addedAt: "2026-11-02T00:00:00.000Z" })
+  // Same destination on another port is another host.
+  const other = h.connections.remember({ destination: "dee@box", port: null })
   assert.equal(other.id, assignId("dee@box", new Set(["ssh-devbox", added.id])))
   assert.notEqual(other.id, added.id)
-  assert.deepEqual(other.hints, [])
   assert.equal(h.saves.length, 2)
   assert.deepEqual(h.saves.at(-1)?.map((entry) => entry.id), ["ssh-devbox", added.id, other.id])
   assert.equal(h.connections.describe(added.id)?.state, "idle")
@@ -578,3 +593,120 @@ test("cli connections are never re-ensured or held open", async () => {
   assert.equal(h.timers.pending(), 0)
   assert.equal(h.lists(), 1)
 })
+
+// http servers (decision 0076).
+
+test("a known http server is ready without dialing and labelled host:port", async () => {
+  const h = harness({ servers: [lan, { id: "http-2001-db8-5-8080", host: "[2001:db8::5]", port: 8080, addedAt: lan.addedAt }] })
+  assert.deepEqual(await h.connections.lookup(lan.id), {
+    kind: "ready",
+    connection: { id: lan.id, kind: "http", origin: `servef-app://${lan.id}`, host: "10.0.0.5", urlHost: "10.0.0.5", port: 7971, label: "10.0.0.5:7971" },
+  })
+  const six = await h.connections.lookup("http-2001-db8-5-8080")
+  assert.equal(six.kind === "ready" && six.connection.kind === "http" ? six.connection.host : null, "2001:db8::5")
+  assert.deepEqual(h.connections.describe(lan.id), { id: lan.id, kind: "http", label: "10.0.0.5:7971", state: "ready", detail: "" })
+  assert.deepEqual(h.connections.summaries().map((summary) => summary.id), ["local", "ssh-devbox", "ssh-work", lan.id, "http-2001-db8-5-8080"])
+  assert.deepEqual(await h.connections.lookup("http-10-0-0-6-7971"), { kind: "unknown" })
+  assert.equal(h.sessions.length, 0)
+  assert.equal(h.lists(), 0)
+})
+
+test("upstreamHost sends IP literals as they are and other names as localhost", () => {
+  const http = (host: string, urlHost: string) => ({ id: "http-x-1", kind: "http" as const, origin: "servef-app://http-x-1", host, urlHost, port: 7971, label: "" })
+  assert.equal(upstreamHost(http("10.0.0.5", "10.0.0.5")), "10.0.0.5:7971")
+  assert.equal(upstreamHost(http("2001:db8::5", "[2001:db8::5]")), "[2001:db8::5]:7971")
+  assert.equal(upstreamHost(http("box.lan", "box.lan")), "localhost:7971")
+  assert.equal(upstreamHost({ id: "cli-7971", kind: "cli", origin: "", host: "127.0.0.1", port: 7971, label: "" }), "localhost:7971")
+  assert.equal(upstreamHost({ id: "ssh-devbox-7971", kind: "ssh-port", origin: "", socket: "/p.sock", port: 7971, label: "" }), "localhost:7971")
+  assert.equal(upstreamHost({ id: "local", kind: "daemon", origin: "", socket: "/s", status: status(1), label: "local" }), "localhost")
+})
+
+test("rememberServer stores a server once with an assigned id; findServer and forget", async () => {
+  const h = harness({ servers: [lan] })
+  h.timers.advance(Date.UTC(2026, 10, 2))
+  assert.deepEqual(h.connections.rememberServer("10.0.0.5", 7971), lan)
+  assert.equal(h.serverSaves.length, 0)
+  const added = h.connections.rememberServer("box.lan", 80)
+  assert.deepEqual(added, { id: "http-box-lan-80", host: "box.lan", port: 80, addedAt: "2026-11-02T00:00:00.000Z" })
+  assert.deepEqual(h.serverSaves.at(-1), [lan, added])
+  assert.deepEqual(h.connections.findServer("box.lan", 80), added)
+  assert.equal(h.connections.findServer("box.lan", 81), null)
+  await h.connections.forget(added.id)
+  assert.deepEqual(h.serverSaves.at(-1), [lan])
+  assert.deepEqual(h.heard.at(-1), [added.id, "null"])
+  assert.deepEqual(await h.connections.lookup(added.id), { kind: "unknown" })
+})
+
+// Remote TCP servers through ssh (decision 0076).
+
+test("an ssh-port id forwards through its ready host and is held with it", async () => {
+  const h = harness()
+  assert.deepEqual(h.connections.registerPort("ssh-devbox", "127.0.0.1", 7971), { ok: true, id: "ssh-devbox-7971" })
+  const pending = h.connections.lookup("ssh-devbox-7971")
+  await flush()
+  only(h).set({ kind: "ready", socket: "/run/f.sock", status: status(1) })
+  assert.deepEqual(await pending, {
+    kind: "ready",
+    connection: { id: "ssh-devbox-7971", kind: "ssh-port", origin: "servef-app://ssh-devbox-7971", socket: "/run/p.sock", port: 7971, label: "devbox:7971" },
+  })
+  assert.deepEqual(only(h).calls, ["forward ssh-devbox-7971 127.0.0.1:7971"])
+  assert.deepEqual(h.connections.describe("ssh-devbox-7971"), { id: "ssh-devbox-7971", kind: "ssh-port", label: "devbox:7971", state: "ready", detail: "" })
+  assert.equal(h.connections.peek("ssh-devbox-7971"), null)
+
+  // A port window holds its host: no grace close while it is open.
+  h.connections.hold("ssh-devbox-7971")
+  h.timers.advance(RELEASE_GRACE_MS)
+  assert.equal(only(h).closed, false)
+  h.connections.release("ssh-devbox-7971")
+  await flush()
+  assert.deepEqual(only(h).calls.slice(1), ["cancel ssh-devbox-7971"])
+  h.timers.advance(RELEASE_GRACE_MS)
+  await flush()
+  assert.equal(only(h).closed, true)
+})
+
+test("an ssh-port forward failure is a failed lookup; a host failure passes through", async () => {
+  const h = harness()
+  const { id } = assertRegistered(h.connections.registerPort("ssh-devbox", "10.0.0.5", 8080))
+  const pending = h.connections.lookup(id)
+  await flush()
+  const session = only(h)
+  session.forwardResult = { ok: false, detail: "administratively prohibited" }
+  session.set({ kind: "ready", socket: "/run/f.sock", status: status(1) })
+  assert.deepEqual(await pending, {
+    kind: "failed", connection: "ssh", label: "devbox:8080", failure: { kind: "failed", destination: "devbox", detail: "administratively prohibited" },
+  })
+  session.set({ kind: "failed", failure: hostKey })
+  const failed = await h.connections.lookup(id)
+  assert.equal(failed.kind === "failed" && failed.connection === "ssh" ? failed.failure.kind : null, "hostKey")
+  // forwardDenied keeps the master: the port is still forwarded.
+  session.forwardResult = { ok: true, socket: "/run/p.sock" }
+  session.set({ kind: "failed", failure: { kind: "forwardDenied", destination: "devbox", detail: "refused" } })
+  assert.equal((await h.connections.lookup(id)).kind, "ready")
+})
+
+test("registerPort refuses unknown hosts and ids a known host has; forget drops port ids", async () => {
+  const h = harness({ known: [devbox, { ...work, id: "ssh-devbox-7971", destination: "box" }] })
+  assert.deepEqual(h.connections.registerPort("ssh-nope", "127.0.0.1", 1), { ok: false, detail: "Unknown SSH host." })
+  assert.equal(h.connections.registerPort("ssh-devbox", "127.0.0.1", 7971).ok, false)
+  const { id } = assertRegistered(h.connections.registerPort("ssh-devbox", "127.0.0.1", 7972))
+  // A host added later never takes a registered port id.
+  assert.notEqual(h.connections.remember({ destination: "devbox-7972", port: null }).id, id)
+  await h.connections.forget("ssh-devbox")
+  assert.deepEqual(await h.connections.lookup(id), { kind: "unknown" })
+  assert.ok(h.heard.some(([heard, lookup]) => heard === id && lookup === "null"))
+})
+
+test("listServers asks the host's session; none without one", async () => {
+  const h = harness()
+  assert.deepEqual(await h.connections.listServers("ssh-devbox"), { ok: false, detail: "The SSH connection is not open." })
+  void h.connections.lookup("ssh-devbox")
+  await flush()
+  only(h).listResult = { ok: true, servers: [{ host: "0.0.0.0", port: 7971, origin: "http://127.0.0.1:7971" }] }
+  assert.deepEqual(await h.connections.listServers("ssh-devbox"), only(h).listResult)
+})
+
+function assertRegistered(result: { ok: true; id: string } | { ok: false; detail: string }): { id: string } {
+  if (!result.ok) assert.fail(result.detail)
+  return result
+}

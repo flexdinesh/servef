@@ -1,11 +1,11 @@
 import { cliPort } from "./cli-servers.ts"
-import { APP_HOST, connectionOrigin } from "./connections.ts"
+import { APP_HOST, connectionOrigin, upstreamHost } from "./connections.ts"
 import type { CliConnection, Connection, ConnectionLookup } from "./connections.ts"
 import { isDaemonGone } from "./forward.ts"
 import type { Forward, ForwardRequest, ForwardTarget } from "./forward.ts"
 import { isEventStreamRequest, upstreamHeaders } from "./headers.ts"
 import { failureInstructions, sshFailureInstructions } from "./instructions.ts"
-import { cliStoppedPage, failurePage, jsonError, noCliServerPage, reconnectingPage, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
+import { cliStoppedPage, escapeHTML, failurePage, jsonError, noCliServerPage, reconnectingPage, serverUnreachablePage, STOP_AND_RETRY_PATH, unavailablePage } from "./pages.ts"
 
 export interface ProxyDeps {
   // packaged selects failure instructions (reinstall vs dev build).
@@ -25,9 +25,11 @@ export interface ProxyDeps {
 
 // createProxy returns the servef-app:// protocol handler.
 export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Response> {
-  const failed = (lookup: Extract<ConnectionLookup, { kind: "failed" }>): Response => lookup.connection === "daemon"
+  // An ssh host that refused the daemon forward links its host page, which
+  // lists the remote servers reachable without it (decision 0076).
+  const failed = (id: string, lookup: Extract<ConnectionLookup, { kind: "failed" }>): Response => lookup.connection === "daemon"
     ? failurePage(failureInstructions(lookup.failure, deps.packaged))
-    : failurePage(sshFailureInstructions(lookup.failure, deps.release))
+    : failurePage(sshFailureInstructions(lookup.failure, deps.release), lookup.failure.kind === "forwardDenied" ? hostPageLink(id) : "")
 
   // forwardCli sends a request to a CLI server. One that stopped is dropped
   // and listed again (never started: the user runs it); a read retries once
@@ -106,7 +108,7 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
       return jsonError(503, "daemonUnavailable", lookup.failure.detail)
     }
     if (lookup.kind === "failed") {
-      if (document) return failed(lookup)
+      if (document) return failed(id, lookup)
       return jsonError(503, "daemonUnavailable", lookup.failure.detail)
     }
 
@@ -115,7 +117,7 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
       target: targetOf(connection),
       method: request.method,
       path: url.pathname + url.search,
-      headers: upstreamHeaders(request.headers, connection.kind === "cli" ? connection.port : null),
+      headers: upstreamHeaders(request.headers, upstreamHost(connection)),
       body: readOnly ? null : request.body,
       stream: isEventStreamRequest(request.headers),
       signal: request.signal,
@@ -125,6 +127,34 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
       : jsonError(503, "daemonUnavailable", detail)
 
     if (lookup.connection.kind === "cli") return forwardCli(lookup.connection, readOnly, document, toForward)
+    // http servers are never restarted or re-listed: the page says why.
+    if (lookup.connection.kind === "http") {
+      const label = lookup.connection.label
+      try {
+        return await deps.forward(toForward(lookup.connection))
+      } catch (error) {
+        return document ? serverUnreachablePage(label, errorMessage(error)) : jsonError(503, "serverUnreachable", errorMessage(error))
+      }
+    }
+    // A forwarded remote server: a read that finds the forward gone forwards
+    // the port again (the master may have reconnected) and retries once.
+    if (lookup.connection.kind === "ssh-port") {
+      const label = lookup.connection.label
+      const unreachable = (detail: string): Response => document ? serverUnreachablePage(label, detail) : jsonError(503, "serverUnreachable", detail)
+      try {
+        return await deps.forward(toForward(lookup.connection))
+      } catch (error) {
+        if (!isDaemonGone(error) || !readOnly) return unreachable(errorMessage(error))
+      }
+      if (!await deps.reensure(id)) return unreachable(`The servef server at ${label} is not answering through SSH.`)
+      const retry = await deps.lookup(id)
+      if (retry.kind !== "ready") return unreachable(`The servef server at ${label} is not answering through SSH.`)
+      try {
+        return await deps.forward(toForward(retry.connection))
+      } catch (error) {
+        return unreachable(errorMessage(error))
+      }
+    }
 
     try {
       return await deps.forward(toForward(lookup.connection))
@@ -144,7 +174,13 @@ export function createProxy(deps: ProxyDeps): (request: Request) => Promise<Resp
 }
 
 function targetOf(connection: Connection): ForwardTarget {
-  return connection.kind === "cli" ? { host: connection.host, port: connection.port } : { socket: connection.socket }
+  return connection.kind === "cli" || connection.kind === "http" ? { host: connection.host, port: connection.port } : { socket: connection.socket }
+}
+
+// hostPageLink links an ssh id's host page (an ssh-port id has none).
+function hostPageLink(id: string): string {
+  if (!/^ssh-[a-z0-9-]+$/.test(id)) return ""
+  return `<a href="${escapeHTML(`servef-app://${APP_HOST}/ssh/${id}`)}">Servers on this host</a>`
 }
 
 function isDocumentRequest(headers: Headers, pathname: string): boolean {

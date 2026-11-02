@@ -33,10 +33,10 @@ export async function listCliServers(binary: string, run: ExecFile): Promise<Cli
   return servers === null ? { ok: false, detail: "servef control list printed an unexpected answer." } : { ok: true, servers }
 }
 
-// parseCliList validates {"servers":[{host, port, origin}]}; null when the
-// shape is wrong. Entries whose origin is not http://<loopback>:<port> are
-// dropped, as are later entries for a port already listed.
-export function parseCliList(stdout: string): CliServer[] | null {
+// parseServerList validates `servef control list --json` output,
+// {"servers":[{host, port, origin}]} (decision 0071; remote hosts, decision
+// 0076); null when the shape is wrong.
+export function parseServerList(stdout: string): CliServer[] | null {
   let parsed: unknown
   try {
     parsed = JSON.parse(stdout)
@@ -47,17 +47,28 @@ export function parseCliList(stdout: string): CliServer[] | null {
   const servers: CliServer[] = []
   for (const entry of parsed.servers) {
     if (!isRecord(entry) || typeof entry.host !== "string" || typeof entry.origin !== "string" || !validPort(entry.port)) return null
-    const server = { host: entry.host, port: entry.port, origin: entry.origin }
+    servers.push({ host: entry.host, port: entry.port, origin: entry.origin })
+  }
+  return servers
+}
+
+// parseCliList is parseServerList without entries whose origin is not
+// http://<loopback>:<port> and later entries for a port already listed.
+export function parseCliList(stdout: string): CliServer[] | null {
+  const listed = parseServerList(stdout)
+  if (listed === null) return null
+  const servers: CliServer[] = []
+  for (const server of listed) {
     if (dialHost(server) === null || servers.some((other) => other.port === server.port)) continue
     servers.push(server)
   }
   return servers
 }
 
-// dialHost is the loopback host to connect to (localhost, 127.0.0.0/8, or
-// ::1) from the server's origin, which must be http://<host>:<port> with no
+// originHost is the bare hostname (IPv6 without brackets) of the server's
+// origin, which must be http://<host>:<port> with the server's port and no
 // path; null otherwise.
-export function dialHost(server: CliServer): string | null {
+export function originHost(server: CliServer): string | null {
   let url: URL
   try {
     url = new URL(server.origin)
@@ -66,8 +77,14 @@ export function dialHost(server: CliServer): string | null {
   }
   if (url.protocol !== "http:" || url.username !== "" || url.password !== "" || url.pathname !== "/" || url.search !== "" || url.hash !== "") return null
   if (url.port !== String(server.port)) return null
-  const host = url.hostname.replace(/^\[(.*)\]$/, "$1")
-  return isLoopbackHost(host) ? host : null
+  return url.hostname.replace(/^\[(.*)\]$/, "$1")
+}
+
+// dialHost is the loopback host to connect to (localhost, 127.0.0.0/8, or
+// ::1) from the server's origin (see originHost); null otherwise.
+export function dialHost(server: CliServer): string | null {
+  const host = originHost(server)
+  return host !== null && isLoopbackHost(host) ? host : null
 }
 
 // isLoopbackHost: localhost, an IPv4 address in 127.0.0.0/8, or ::1, as

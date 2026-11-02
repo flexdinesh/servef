@@ -3,7 +3,7 @@ import path from "node:path"
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test"
 
 import {
-  createRepository, createSession, ensureDaemon, keepDiagnostics, launchApp, openRoot, readmeLine, removeSession,
+  createRepository, createSession, ensureDaemon, keepDiagnostics, launchApp, launchSecond, openRoot, readmeLine, removeSession,
   schemeURL, startCliServer, stopDaemon, type CliServer, type Session,
 } from "./harness.ts"
 
@@ -108,6 +108,22 @@ test("a pasted URL for a port without a servef server explains why", async () =>
     await connect.getByRole("textbox", { name: "servef link" }).fill(pasted)
     await connect.getByRole("button", { name: "Open" }).click()
     await expect(connect.getByRole("alert")).toHaveText(reason)
+  }
+})
+
+test("a servef://localhost:<port> link opens the running server's cli window", async () => {
+  const { app, session } = current()
+  // Its own server: the stopped-page test below keeps the shared one's window.
+  const other = await startCliServer(session, gamma)
+  try {
+    const query = `project=${encodeURIComponent(gamma)}&path=CHANGELOG.md`
+    expect(await launchSecond(session, `servef://localhost:${other.port}/view?${query}`)).toBe(0)
+    const page = await windowOn(app, `servef-app://cli-${other.port}/`)
+    await expect.poll(() => page.url()).toBe(`servef-app://cli-${other.port}/view?${query}`)
+    await expect(page.getByRole("main").getByText("# Changelog")).toBeVisible()
+    await page.close()
+  } finally {
+    await other.stop()
   }
 })
 
