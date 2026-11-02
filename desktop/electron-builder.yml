@@ -29,7 +29,9 @@ protocols:
 
 # Desktop entry: Exec=... %U (electron-builder default), so servef:// links
 # arrive as argv; protocols adds MimeType=x-scheme-handler/servef (linux.mimeTypes
-# would repeat it); Comment is package.json description.
+# would repeat it); Comment is package.json description. No inode/directory
+# (decision 0072): servef must never become the default folder opener. The deb
+# adds Dolphin and Nemo actions (scripts/linux-files.ts, via scripts/package.ts).
 linux:
   # No clash with the servef CLI on PATH.
   executableName: servef-desktop
@@ -51,3 +53,11 @@ mac:
   hardenedRuntime: false
   category: public.app-category.developer-tools
   target: [dmg, zip]
+  # Folders dropped on the Dock or app icon, and `open -a servef <dir>`, arrive
+  # as open-file (decision 0072). Alternate never claims folders from Finder.
+  extendInfo:
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Folder
+        CFBundleTypeRole: Viewer
+        LSHandlerRank: Alternate
+        LSItemContentTypes: [public.folder]

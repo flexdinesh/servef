@@ -1,0 +1,7 @@
+[Nemo Action]
+Name=Open in servef
+Comment=Open the selected folders in servef
+Exec=/opt/servef/servef-desktop --open-path %F
+Icon-Name=servef-desktop
+Selection=notnone
+Extensions=dir;

@@ -315,6 +315,15 @@ jobs:
             exit 1
           fi
           grep -E '^MimeType=(.*;)?x-scheme-handler/servef(;|$)' "${entries[0]}"
+          # Never the default folder opener; folders open through the actions below (decision 0072).
+          if grep -E '^MimeType=(.*;)?inode/directory(;|$)' "${entries[0]}"; then
+            echo "the desktop entry must not claim inode/directory" >&2
+            exit 1
+          fi
+          test -x "$deb_dir/opt/servef/servef-desktop"
+          for action in usr/share/kio/servicemenus/servef-desktop.desktop usr/share/nemo/actions/servef-desktop.nemo_action; do
+            grep -Fx 'Exec=/opt/servef/servef-desktop --open-path %F' "$deb_dir/$action"
+          done
 
       - name: Upload desktop packages
         uses: actions/upload-artifact@v7
@@ -399,6 +408,13 @@ jobs:
           scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
           if [[ "$scheme" != "servef" ]]; then
             echo "Info.plist registers URL scheme '$scheme', want servef" >&2
+            exit 1
+          fi
+          # Folders dropped on the Dock or app icon arrive as open-file (decision 0072).
+          folder="$(plutil -extract CFBundleDocumentTypes.0.LSItemContentTypes.0 raw -o - "$app/Info.plist")"
+          rank="$(plutil -extract CFBundleDocumentTypes.0.LSHandlerRank raw -o - "$app/Info.plist")"
+          if [[ "$folder" != "public.folder" || "$rank" != "Alternate" ]]; then
+            echo "Info.plist document type is '$folder' at rank '$rank', want public.folder at Alternate" >&2
             exit 1
           fi
 
