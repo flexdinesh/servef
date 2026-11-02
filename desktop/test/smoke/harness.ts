@@ -28,6 +28,8 @@ export interface Session {
   noticeLog: string
   electronLog: string
   projects: string
+  // XDG autostart directory for Open at Login (decision 0072); never created by the harness.
+  autostart: string
 }
 
 export interface DaemonStatus {
@@ -89,6 +91,7 @@ export function createSession(): Session {
     noticeLog: path.join(dir, "notices.jsonl"),
     electronLog: path.join(dir, "electron.log"),
     projects: path.join(dir, "projects"),
+    autostart: path.join(dir, "autostart"),
   }
   for (const directory of [session.userData, session.cache, session.runtime, session.projects]) {
     mkdirSync(directory, { recursive: true, mode: 0o700 })
@@ -119,6 +122,7 @@ export function appEnv(session: Session, extra: Record<string, string> = {}): Re
     SERVEF_DESKTOP_ROOTS_FILE: session.rootsFile,
     SERVEF_DESKTOP_USER_DATA: session.userData,
     SERVEF_DESKTOP_NOTICE_LOG: session.noticeLog,
+    SERVEF_DESKTOP_AUTOSTART_DIR: session.autostart,
     XDG_CACHE_HOME: session.cache,
     ...extra,
   }
@@ -244,10 +248,15 @@ export function appURL(project: string, file: string): string {
   return `servef-app://local/view?project=${encodeURIComponent(project)}&path=${encodeURIComponent(file)}`
 }
 
-export async function launchApp(session: Session, url: string, extra: Record<string, string> = {}): Promise<ElectronApplication> {
+export function launchApp(session: Session, url: string, extra: Record<string, string> = {}): Promise<ElectronApplication> {
+  return launchAppWith(session, [url], extra)
+}
+
+// launchAppWith launches the app with args after the app directory (a link, or `--open-path <paths…>`).
+export async function launchAppWith(session: Session, args: readonly string[], extra: Record<string, string> = {}): Promise<ElectronApplication> {
   const app = await _electron.launch({
     executablePath: electronExecutable(),
-    args: [...electronArgs(), desktopDir, url],
+    args: [...electronArgs(), desktopDir, ...args],
     env: appEnv(session, extra),
     cwd: desktopDir,
     timeout: 60_000,
@@ -258,11 +267,15 @@ export async function launchApp(session: Session, url: string, extra: Record<str
   return app
 }
 
-// Launches Electron again with the same userData; it must hand the URL to the
-// running instance and exit. Resolves its exit code.
+// Launches Electron again with the same userData; it must hand the URL (or
+// args) to the running instance and exit. Resolves its exit code.
 export function launchSecond(session: Session, url: string, extra: Record<string, string> = {}): Promise<number | null> {
+  return launchSecondWith(session, [url], extra)
+}
+
+export function launchSecondWith(session: Session, args: readonly string[], extra: Record<string, string> = {}): Promise<number | null> {
   return new Promise((resolve, reject) => {
-    const child = spawn(electronExecutable(), [...electronArgs(), desktopDir, url], { env: appEnv(session, extra), cwd: desktopDir, stdio: ["ignore", "pipe", "pipe"] })
+    const child = spawn(electronExecutable(), [...electronArgs(), desktopDir, ...args], { env: appEnv(session, extra), cwd: desktopDir, stdio: ["ignore", "pipe", "pipe"] })
     let output = ""
     const collect = (chunk: Buffer) => { output += chunk.toString("utf8") }
     child.stdout.on("data", collect)
