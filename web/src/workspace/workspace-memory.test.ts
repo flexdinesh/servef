@@ -33,30 +33,45 @@ test("a project opens on its remembered tab, else Welcome when nothing was resto
 })
 
 test("the Welcome tab is remembered like any tab", () => {
-  const memory = rememberProject(emptyMemory, ["/r"], "/r", [welcomeTab(), documentTab("a.md")], welcomeTab())
+  const memory = rememberProject(emptyMemory, "/r", "/r", [welcomeTab(), documentTab("a.md")], welcomeTab())
   assert.deepEqual(restoreTabs(projectMemory(memory, "/r"), new Set(["a.md"])), { tabs: [welcomeTab(), documentTab("a.md")], active: welcomeTab() })
 })
 
-test("memory shares a project's tabs across sessions and keeps the last project per set of roots", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md", "go.mod"), documentTab("go.mod"))
-  memory = rememberProject(memory, ["/a", "/b"], "/b/web", docs("other.md"), documentTab("other.md"))
+test("memory shares a project's tabs across sessions and keeps the last project per session key", () => {
+  let memory = rememberProject(emptyMemory, "/a", "/a/api", docs("README.md", "go.mod"), documentTab("go.mod"))
+  memory = rememberProject(memory, "/a\n/b", "/b/web", docs("other.md"), documentTab("other.md"))
   assert.deepEqual(projectMemory(memory, "/a/api"), { tabs: ["README.md", "go.mod"], active: "go.mod" })
   assert.deepEqual(projectMemory(memory, "/b/web"), { tabs: ["other.md"], active: "other.md" })
-  assert.equal(lastProject(memory, ["/a"]), "/a/api")
-  assert.equal(lastProject(memory, ["/a", "/b"]), "/b/web")
-  assert.equal(lastProject(memory, ["/b", "/a"]), "")
+  assert.equal(lastProject(memory, "/a"), "/a/api")
+  assert.equal(lastProject(memory, "/a\n/b"), "/b/web")
+  assert.equal(lastProject(memory, "/b\n/a"), "")
   assert.equal(projectMemory(memory, "/a/web"), undefined)
 })
 
+test("the daemon session keeps its own last project beside CLI sessions", () => {
+  let memory = rememberProject(emptyMemory, "/a", "/a/api", [], null)
+  memory = rememberProject(memory, "daemon", "/b/web", [], null)
+  assert.equal(lastProject(memory, "daemon"), "/b/web")
+  assert.equal(lastProject(memory, "/a"), "/a/api")
+  memory = rememberProject(memory, "daemon", "/a/api", [], null)
+  assert.equal(lastProject(memory, "daemon"), "/a/api")
+  assert.deepEqual(memory.last, { "/a": "/a/api", daemon: "/a/api" })
+})
+
+test("CLI memory stored under served roots keeps reopening", () => {
+  const stored = parseMemory({ last: { "/a\n/b": "/b/web" }, projects: {} })
+  assert.equal(lastProject(stored, "/a\n/b"), "/b/web")
+})
+
 test("remembering a project drops an active tab that is not open", () => {
-  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md"), documentTab("closed.md"))
+  const memory = rememberProject(emptyMemory, "/a", "/a/api", docs("README.md"), documentTab("closed.md"))
   assert.equal(projectMemory(memory, "/a/api")?.active, "")
 })
 
 test("remembered projects list most recent first and can be forgotten", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/web", [], null)
-  memory = rememberProject(memory, ["/a"], "/a/notes", docs("a.md"), documentTab("a.md"))
-  memory = rememberProject(memory, ["/a"], "/a/web", [], null)
+  let memory = rememberProject(emptyMemory, "/a", "/a/web", [], null)
+  memory = rememberProject(memory, "/a", "/a/notes", docs("a.md"), documentTab("a.md"))
+  memory = rememberProject(memory, "/a", "/a/web", [], null)
   assert.deepEqual(rememberedProjects(memory), ["/a/web", "/a/notes"])
   memory = forgetProject(memory, "/a/web")
   assert.deepEqual(memory, { last: {}, projects: { "/a/notes": { tabs: ["a.md"], active: "a.md" } } })
@@ -66,7 +81,7 @@ test("remembered projects list most recent first and can be forgotten", () => {
 
 test("memory caps remembered projects", () => {
   let memory = emptyMemory
-  for (let index = 0; index < 110; index++) memory = rememberProject(memory, ["/a"], `/a/p-${index}`, [], null)
+  for (let index = 0; index < 110; index++) memory = rememberProject(memory, "/a", `/a/p-${index}`, [], null)
   const projects = rememberedProjects(memory)
   assert.equal(projects.length, 100)
   assert.equal(projects[0], "/a/p-109")
@@ -89,19 +104,19 @@ test("parseMemory ignores malformed stored data", () => {
     { last: { "/b": "/b/x" }, projects: { p: { tabs: [], active: "" } } })
   const hostile = parseMemory(JSON.parse('{"last": {"__proto__": "x"}, "projects": {"__proto__": {"tabs": ["t"]}}}'))
   assert.equal(projectMemory(hostile, "constructor"), undefined)
-  assert.equal(lastProject(hostile, ["toString"]), "")
+  assert.equal(lastProject(hostile, "toString"), "")
 })
 
 test("folder expansion and tabs preserve each other when saved independently", () => {
-  let memory = rememberProject(emptyMemory, ["/a"], "/a/api", docs("README.md"), documentTab("README.md"))
+  let memory = rememberProject(emptyMemory, "/a", "/a/api", docs("README.md"), documentTab("README.md"))
   memory = rememberExpanded(memory, "/a/api", ["src/", "src/", "docs/"])
   memory = rememberExpanded(memory, "/a/web", [])
-  memory = rememberProject(memory, ["/a"], "/a/api", docs("main.go"), documentTab("main.go"))
+  memory = rememberProject(memory, "/a", "/a/api", docs("main.go"), documentTab("main.go"))
   assert.deepEqual(projectMemory(memory, "/a/api"), {
     tabs: ["main.go"], active: "main.go", expanded: ["src/", "docs/"],
   })
   assert.deepEqual(projectMemory(memory, "/a/web"), { tabs: [], active: "", expanded: [] })
-  assert.equal(lastProject(memory, ["/a"]), "/a/api")
+  assert.equal(lastProject(memory, "/a"), "/a/api")
   assert.equal(projectMemory(forgetProject(memory, "/a/web"), "/a/web"), undefined)
 })
 
@@ -128,9 +143,9 @@ test("stored expansion is optional for existing memories and rejects malformed v
 
 test("review tabs are remembered beside legacy document paths", () => {
   const tabs = [documentTab("README.md"), working]
-  const memory = rememberProject(emptyMemory, ["/a"], "/a/api", tabs, working)
+  const memory = rememberProject(emptyMemory, "/a", "/a/api", tabs, working)
   assert.deepEqual(projectMemory(memory, "/a/api"), { tabs: ["README.md", { review: "working" }], active: { review: "working" } })
-  assert.equal(projectMemory(rememberProject(emptyMemory, ["/a"], "/a/api", tabs, reviewTab({ kind: "branch", base: "", head: "", uncommitted: false })), "/a/api")?.active, "")
+  assert.equal(projectMemory(rememberProject(emptyMemory, "/a", "/a/api", tabs, reviewTab({ kind: "branch", base: "", head: "", uncommitted: false })), "/a/api")?.active, "")
 })
 
 test("restored review tabs need no tree entry; documents still do", () => {

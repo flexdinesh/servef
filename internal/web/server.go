@@ -40,6 +40,9 @@ type Config struct {
 	// OpenBrowser opens a published walkthrough's URL when it asks to be
 	// opened; nil never opens one.
 	OpenBrowser func(url string) error
+	// SessionKey names the session whose browser memory a page reads
+	// (/api/projects sessionKey); empty uses the roots joined by newlines.
+	SessionKey string
 }
 
 // App composes discovery and document handlers into the HTTP API.
@@ -56,7 +59,9 @@ type App struct {
 	servers      *lsp.Manager
 	watches      *watch.Hub
 	walkthroughs *walkthrough.Service
-	routes       *http.ServeMux
+	// notices fans walkthrough announcements out (decision 0066).
+	notices noticeHub
+	routes  *http.ServeMux
 }
 
 // errorResponse is every JSON error body. Code, when set, names a failure
@@ -169,9 +174,13 @@ func (a *App) Close() {
 	a.servers.Close()
 }
 
-// StopLiveUpdates ends every event stream and stops watching, so a server
-// shutdown need not wait for streams that never end on their own.
-func (a *App) StopLiveUpdates() { a.watches.Close() }
+// StopLiveUpdates ends every event stream and walkthrough notice
+// subscription and stops watching, so a server shutdown need not wait for
+// streams that never end on their own.
+func (a *App) StopLiveUpdates() {
+	a.watches.Close()
+	a.notices.close()
+}
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
 

@@ -180,6 +180,29 @@ func Resolve(roots []string, id string) (string, error) {
 	return resolved, nil
 }
 
+// ProjectFor returns the project that shows dir, an absolute clean path: the
+// nearest repository or worktree from dir up to its root, else dir itself,
+// symlinks evaluated. The result is a project ID Resolve accepts. A dir
+// outside every root, or excluded (files.Excluded), is an error, as in
+// Resolve.
+func ProjectFor(roots []string, dir string) (string, error) {
+	resolved, root, err := locate(roots, dir)
+	if err != nil {
+		return "", err
+	}
+	if root == "" {
+		return resolved, nil
+	}
+	for candidate := resolved; ; candidate = filepath.Dir(candidate) {
+		if hasGit(candidate) {
+			return candidate, nil
+		}
+		if candidate == root || candidate == filepath.Dir(candidate) {
+			return resolved, nil
+		}
+	}
+}
+
 // ResolveStandalone returns the symlink-evaluated directory for a project ID
 // when no roots are served: the directory is its own root (servef
 // walkthrough publish). It applies Resolve's ID rules (absolute, clean,

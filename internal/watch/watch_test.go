@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ func testOptions() Options {
 		MaxDirectories:  64,
 		MaxEntries:      128,
 		MaxProjects:     2,
+		MaxWatched:      2,
 		MaxPaths:        8,
 	}
 }
@@ -117,7 +119,7 @@ func quiet(t *testing.T, s *Subscription, wait time.Duration) {
 
 func subscribe(t *testing.T, hub *Hub, target Target) *Subscription {
 	t.Helper()
-	s, err := hub.Subscribe(target)
+	s, err := hub.Subscribe(target, LevelOpen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +276,7 @@ func TestSameProjectSubscribersShareOneProject(t *testing.T) {
 func TestLastSubscriberLeavingStopsTheProjectAfterGrace(t *testing.T) {
 	root := tempRoot(t)
 	hub := newTestHub(t)
-	s, err := hub.Subscribe(dirsTarget(t, root))
+	s, err := hub.Subscribe(dirsTarget(t, root), LevelOpen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +317,7 @@ func TestProjectsBeyondTheCapAreOffUnlessOneIsIdle(t *testing.T) {
 	first, second, third := tempRoot(t), tempRoot(t), tempRoot(t)
 	a := subscribe(t, hub, dirsTarget(t, first))
 	nextStatus(t, a)
-	b, err := hub.Subscribe(dirsTarget(t, second))
+	b, err := hub.Subscribe(dirsTarget(t, second), LevelOpen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +432,348 @@ func TestCloseEndsEverySubscription(t *testing.T) {
 	}()
 	hub.Close()
 	wg.Wait()
-	if _, err := hub.Subscribe(dirsTarget(t, tempRoot(t))); !errors.Is(err, ErrClosed) {
+	if _, err := hub.Subscribe(dirsTarget(t, tempRoot(t)), LevelOpen); !errors.Is(err, ErrClosed) {
 		t.Fatalf("Subscribe after Close error = %v, want ErrClosed", err)
 	}
+}
+
+// gitTarget watches the tree below root, except root/.git, and HEAD in
+// root/.git as git state. It counts directory listings.
+func gitTarget(t *testing.T, root string) (Target, *atomic.Int32) {
+	t.Helper()
+	gitDir := filepath.Join(root, ".git")
+	write(t, filepath.Join(gitDir, "HEAD"), "ref: refs/heads/main\n")
+	target := dirsTarget(t, root)
+	list := target.Directories
+	listings := &atomic.Int32{}
+	target.Directories = func() ([]string, int, error) {
+		listings.Add(1)
+		dirs, entries, err := list()
+		return slices.DeleteFunc(dirs, func(dir string) bool { return strings.HasPrefix(dir, gitDir) }), entries, err
+	}
+	target.Git = func() ([]string, func(string) bool) {
+		return []string{gitDir}, func(name string) bool { return filepath.Base(name) == "HEAD" }
+	}
+	return target, listings
+}
+
+func subscribeAt(t *testing.T, hub *Hub, target Target, level Level) *Subscription {
+	t.Helper()
+	s, err := hub.Subscribe(target, level)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	return s
+}
+
+func newHubWith(t *testing.T, adjust func(*Options)) *Hub {
+	t.Helper()
+	options := testOptions()
+	adjust(&options)
+	hub := NewHub(options)
+	t.Cleanup(hub.Close)
+	return hub
+}
+
+func switchBranch(t *testing.T, root, branch string) {
+	t.Helper()
+	write(t, filepath.Join(root, ".git", "HEAD"), "ref: refs/heads/"+branch+"\n")
+}
+
+// wantGitOnly fails unless change is exactly a git change.
+func wantGitOnly(t *testing.T, change Change) {
+	t.Helper()
+	if !change.Git || len(change.Paths) != 0 || change.Tree || change.Overflow {
+		t.Fatalf("change = %+v, want git only", change)
+	}
+}
+
+func watchesDirectory(hub *Hub, dir string) bool {
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	_, ok := hub.owners[dir]
+	return ok
+}
+
+// eventually fails unless condition holds within a second.
+func eventually(t *testing.T, condition func() bool, failure string) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for !condition() {
+		if time.Now().After(deadline) {
+			t.Fatal(failure)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestUnknownLevelIsRejected(t *testing.T) {
+	hub := newTestHub(t)
+	if _, err := hub.Subscribe(dirsTarget(t, tempRoot(t)), Level(0)); err == nil {
+		t.Fatal("Subscribe at level 0 succeeded, want an error")
+	}
+}
+
+func TestWatchedFollowsGitStateOnlyAndNeverListsDirectories(t *testing.T) {
+	root := tempRoot(t)
+	target, listings := gitTarget(t, root)
+	hub := newTestHub(t)
+	s := subscribeAt(t, hub, target, LevelWatched)
+	if status := nextStatus(t, s); status.Mode != ModeWatching {
+		t.Fatalf("status = %+v, want watching", status)
+	}
+
+	write(t, filepath.Join(root, "a.md"), "x")
+	quiet(t, s, 150*time.Millisecond)
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, s))
+
+	if n := listings.Load(); n != 0 {
+		t.Fatalf("directory listings = %d, want 0", n)
+	}
+	if watchesDirectory(hub, root) {
+		t.Fatal("watched project watches its root directory")
+	}
+}
+
+func TestOpenLevelDropsToWatchedAfterGrace(t *testing.T) {
+	root := tempRoot(t)
+	target, _ := gitTarget(t, root)
+	hub := newTestHub(t)
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	open, err := hub.Subscribe(target, LevelOpen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextStatus(t, watched)
+	if status := nextStatus(t, open); status.Mode != ModeWatching {
+		t.Fatalf("open status = %+v, want watching", status)
+	}
+
+	// An open subscriber returning within the grace period keeps open level.
+	open.Close()
+	again := subscribeAt(t, hub, target, LevelOpen)
+	nextStatus(t, again)
+	time.Sleep(2 * testOptions().Grace)
+	if !watchesDirectory(hub, root) {
+		t.Fatal("tree released while an open subscriber holds the project")
+	}
+
+	again.Close()
+	closed := time.Now()
+	if !watchesDirectory(hub, root) {
+		t.Fatal("tree released before the grace period")
+	}
+	eventually(t, func() bool { return !watchesDirectory(hub, root) }, "tree still watched after grace")
+	if elapsed := time.Since(closed); elapsed < testOptions().Grace {
+		t.Fatalf("tree released after %v, want at least the grace period", elapsed)
+	}
+	if count := projectCount(hub); count != 1 {
+		t.Fatalf("projects = %d, want the watched project kept", count)
+	}
+	// Watching git state either way, watched subscribers see no new status.
+	quiet(t, watched, 50*time.Millisecond)
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, watched))
+
+	watched.Close()
+	eventually(t, func() bool { return projectCount(hub) == 0 }, "project still followed after its last subscriber's grace")
+}
+
+func TestWatchedProjectUpgradesToOpen(t *testing.T) {
+	root := tempRoot(t)
+	target, listings := gitTarget(t, root)
+	hub := newTestHub(t)
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	nextStatus(t, watched)
+	if n := listings.Load(); n != 0 {
+		t.Fatalf("directory listings = %d before open, want 0", n)
+	}
+
+	open := subscribeAt(t, hub, target, LevelOpen)
+	if status := nextStatus(t, open); status.Mode != ModeWatching {
+		t.Fatalf("open status = %+v, want watching", status)
+	}
+	if listings.Load() == 0 || !watchesDirectory(hub, root) {
+		t.Fatal("open level does not watch the tree")
+	}
+	quiet(t, watched, 50*time.Millisecond)
+
+	write(t, filepath.Join(root, "a.md"), "x")
+	if change := nextChange(t, open); !reflect.DeepEqual(change.Paths, []string{"a.md"}) || change.Git {
+		t.Fatalf("open change = %+v, want a.md", change)
+	}
+	quiet(t, watched, 100*time.Millisecond)
+
+	switchBranch(t, root, "other")
+	if change := nextChange(t, open); !change.Git {
+		t.Fatalf("open change = %+v, want git", change)
+	}
+	wantGitOnly(t, nextChange(t, watched))
+}
+
+func TestOpenAndWatchedCapsAreIndependent(t *testing.T) {
+	hub := newHubWith(t, func(o *Options) { o.MaxProjects, o.MaxWatched = 1, 1 })
+	openRoot, watchedRoot := tempRoot(t), tempRoot(t)
+	openTarget, _ := gitTarget(t, openRoot)
+	watchedTarget, _ := gitTarget(t, watchedRoot)
+	if status := nextStatus(t, subscribeAt(t, hub, openTarget, LevelOpen)); status.Mode != ModeWatching {
+		t.Fatalf("open status = %+v, want watching", status)
+	}
+	if status := nextStatus(t, subscribeAt(t, hub, watchedTarget, LevelWatched)); status.Mode != ModeWatching {
+		t.Fatalf("watched status = %+v, want watching", status)
+	}
+	// Watching an open project takes no watched slot.
+	if status := nextStatus(t, subscribeAt(t, hub, openTarget, LevelWatched)); status.Mode != ModeWatching {
+		t.Fatalf("watched status of the open project = %+v, want watching", status)
+	}
+
+	extra, _ := gitTarget(t, tempRoot(t))
+	if status := nextStatus(t, subscribeAt(t, hub, extra, LevelOpen)); status.Mode != ModeOff || status.Reason == "" {
+		t.Fatalf("open status past the cap = %+v, want off with a reason", status)
+	}
+	if status := nextStatus(t, subscribeAt(t, hub, extra, LevelWatched)); status.Mode != ModeOff || status.Reason == "" {
+		t.Fatalf("watched status past the cap = %+v, want off with a reason", status)
+	}
+}
+
+func TestIdleWatchedProjectGivesUpItsSlot(t *testing.T) {
+	hub := newHubWith(t, func(o *Options) { o.MaxWatched = 1 })
+	first, _ := gitTarget(t, tempRoot(t))
+	s, err := hub.Subscribe(first, LevelWatched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextStatus(t, s)
+	s.Close()
+	second, _ := gitTarget(t, tempRoot(t))
+	if status := nextStatus(t, subscribeAt(t, hub, second, LevelWatched)); status.Mode != ModeWatching {
+		t.Fatalf("status = %+v, want watching", status)
+	}
+}
+
+func TestWatchedOverTheDirectoryLimitPollsGitState(t *testing.T) {
+	root := tempRoot(t)
+	target, listings := gitTarget(t, root)
+	gitDir := filepath.Join(root, ".git")
+	refs := filepath.Join(gitDir, "refs", "heads")
+	if err := os.MkdirAll(refs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target.Git = func() ([]string, func(string) bool) {
+		return []string{gitDir, refs}, func(name string) bool { return filepath.Base(name) == "HEAD" }
+	}
+	hub := newHubWith(t, func(o *Options) { o.MaxDirectories = 1 })
+	s := subscribeAt(t, hub, target, LevelWatched)
+	if status := nextStatus(t, s); status.Mode != ModePolling || !strings.Contains(status.Reason, "watch limit") {
+		t.Fatalf("status = %+v, want polling past the directory limit", status)
+	}
+
+	write(t, filepath.Join(root, "a.md"), "x")
+	quiet(t, s, 150*time.Millisecond)
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, s))
+	if n := listings.Load(); n != 0 {
+		t.Fatalf("directory listings = %d, want 0", n)
+	}
+}
+
+func TestWatchedStatusSurvivesOpenOff(t *testing.T) {
+	hub := newHubWith(t, func(o *Options) { o.MaxProjects = 1 })
+	busy, _ := gitTarget(t, tempRoot(t))
+	nextStatus(t, subscribeAt(t, hub, busy, LevelOpen))
+
+	root := tempRoot(t)
+	target, _ := gitTarget(t, root)
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	nextStatus(t, watched)
+	if status := nextStatus(t, subscribeAt(t, hub, target, LevelOpen)); status.Mode != ModeOff {
+		t.Fatalf("open status = %+v, want off past the cap", status)
+	}
+	quiet(t, watched, 50*time.Millisecond)
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, watched))
+}
+
+func TestEvictionDropsAnOpenProjectHeldOnlyByWatched(t *testing.T) {
+	// A long grace shows eviction does not wait for it.
+	hub := newHubWith(t, func(o *Options) { o.MaxProjects, o.Grace = 1, time.Minute })
+	root := tempRoot(t)
+	target, _ := gitTarget(t, root)
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	open, err := hub.Subscribe(target, LevelOpen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextStatus(t, watched)
+	nextStatus(t, open)
+	open.Close()
+
+	other, _ := gitTarget(t, tempRoot(t))
+	if status := nextStatus(t, subscribeAt(t, hub, other, LevelOpen)); status.Mode != ModeWatching {
+		t.Fatalf("status = %+v, want watching after eviction", status)
+	}
+	if watchesDirectory(hub, root) {
+		t.Fatal("evicted project still watches its tree")
+	}
+	quiet(t, watched, 50*time.Millisecond)
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, watched))
+}
+
+func TestDowngradePastTheWatchedCapTurnsWatchedOff(t *testing.T) {
+	hub := newHubWith(t, func(o *Options) { o.MaxWatched = 1 })
+	busy, _ := gitTarget(t, tempRoot(t))
+	nextStatus(t, subscribeAt(t, hub, busy, LevelWatched))
+
+	// Watching an open project takes no watched slot.
+	target, _ := gitTarget(t, tempRoot(t))
+	open, err := hub.Subscribe(target, LevelOpen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	nextStatus(t, open)
+	if status := nextStatus(t, watched); status.Mode != ModeWatching {
+		t.Fatalf("status = %+v, want watching", status)
+	}
+	open.Close()
+	if status := nextStatus(t, watched); status.Mode != ModeOff || status.Reason == "" {
+		t.Fatalf("status = %+v, want off once the open level ends", status)
+	}
+	eventually(t, func() bool { return projectCount(hub) == 1 }, "downgraded project still followed")
+}
+
+func TestDowngradeFromPollingWatchesGitState(t *testing.T) {
+	root := tempRoot(t)
+	for i := range 70 {
+		if err := os.MkdirAll(filepath.Join(root, "d", strings.Repeat("x", i+1)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target, _ := gitTarget(t, root)
+	hub := newTestHub(t)
+	watched := subscribeAt(t, hub, target, LevelWatched)
+	if status := nextStatus(t, watched); status.Mode != ModeWatching {
+		t.Fatalf("status = %+v, want watching", status)
+	}
+	open, err := hub.Subscribe(target, LevelOpen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := nextStatus(t, open); status.Mode != ModePolling {
+		t.Fatalf("open status = %+v, want polling past the directory limit", status)
+	}
+	// The open level's poller covers git state too.
+	if status := nextStatus(t, watched); status.Mode != ModePolling {
+		t.Fatalf("watched status = %+v, want polling", status)
+	}
+
+	open.Close()
+	if status := nextStatus(t, watched); status.Mode != ModeWatching {
+		t.Fatalf("watched status = %+v, want watching after the open level ends", status)
+	}
+	switchBranch(t, root, "other")
+	wantGitOnly(t, nextChange(t, watched))
 }

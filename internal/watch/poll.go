@@ -89,17 +89,19 @@ func compare(previous, current snapshot, root string, maxPaths int) batch {
 	return b
 }
 
-// poller is one polling project's walk state, owned by its goroutine.
+// poller is one polling project's walk state, owned by its goroutine. A
+// poller without tree walks git state alone and never lists directories.
 type poller struct {
 	target   Target
+	tree     bool
 	dirs     []string
 	gitDirs  []string
 	records  func(string) bool
 	previous snapshot
 }
 
-func newPoller(target Target, dirs []string) *poller {
-	p := &poller{target: target, dirs: dirs}
+func newPoller(target Target, dirs []string, tree bool) *poller {
+	p := &poller{target: target, tree: tree, dirs: dirs}
 	p.readGit()
 	p.previous = p.snapshot()
 	return p
@@ -132,8 +134,10 @@ func (h *Hub) poll(p *project, walker *poller, stop <-chan struct{}) {
 		if changed.tree || changed.git {
 			// New or removed directories and refs change what is walked;
 			// the next poll compares against the relisted set.
-			if listed, _, err := walker.target.Directories(); err == nil {
-				walker.dirs = listed
+			if walker.tree {
+				if listed, _, err := walker.target.Directories(); err == nil {
+					walker.dirs = listed
+				}
 			}
 			walker.readGit()
 			current = walker.snapshot()
@@ -144,8 +148,13 @@ func (h *Hub) poll(p *project, walker *poller, stop <-chan struct{}) {
 			continue
 		}
 		h.mu.Lock()
-		if !p.stopped {
-			p.deliver(changed.change())
+		select {
+		case <-stop:
+			// A replaced poller's last walk is stale.
+		default:
+			if !p.stopped {
+				p.deliver(changed.change())
+			}
 		}
 		h.mu.Unlock()
 	}

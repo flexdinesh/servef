@@ -1,4 +1,5 @@
 {
+  "sessionKey": "/home/user/markdown\n/home/user/personal",
   "roots": [
     { "path": "/home/user/markdown", "name": "markdown", "isRepo": false },
     { "path": "/home/user/personal", "name": "personal", "isRepo": false }

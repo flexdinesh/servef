@@ -198,3 +198,77 @@ func TestRootSetZeroValueIsEmptyAndGrows(t *testing.T) {
 		t.Fatalf("List() = %v, want %v", got, []string{a, b})
 	}
 }
+
+func TestRootSetCoverWithinOrEqualToRootAddsNothing(t *testing.T) {
+	parent, a, b := rootsFixture(t)
+	set, err := NewRootSet([]string{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{a, filepath.Join(a, "inner"), filepath.Join(parent, "link", "inner"), b + "/"} {
+		want := a
+		if path == b+"/" {
+			want = b
+		}
+		root, added, replaced, err := set.Cover(path)
+		if err != nil || added || replaced != nil || root != want {
+			t.Errorf("Cover(%q) = %q, %v, %v, %v; want %q, false, nil, nil", path, root, added, replaced, err, want)
+		}
+	}
+	if got := set.List(); !reflect.DeepEqual(got, []string{a, b}) {
+		t.Fatalf("List() = %v; want unchanged [a b]", got)
+	}
+}
+
+func TestRootSetCoverAddsOutsidePath(t *testing.T) {
+	parent, a, _ := rootsFixture(t)
+	other := filepath.Join(parent, "other")
+	writeFile(t, filepath.Join(other, "file"), "")
+	set, err := NewRootSet([]string{a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, added, replaced, err := set.Cover(other + "/")
+	if err != nil || !added || replaced != nil || root != other {
+		t.Fatalf("Cover(other) = %q, %v, %v, %v; want %q, true, nil, nil", root, added, replaced, err, other)
+	}
+	if got := set.List(); !reflect.DeepEqual(got, []string{a, other}) {
+		t.Fatalf("List() = %v; want [a other]", got)
+	}
+}
+
+func TestRootSetCoverReplacesRootsInside(t *testing.T) {
+	parent, a, b := rootsFixture(t)
+	sibling := canonicalTemp(t)
+	inner := filepath.Join(a, "inner")
+	set, err := NewRootSet([]string{inner, sibling, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, added, replaced, err := set.Cover(parent)
+	if err != nil || !added || root != parent || !reflect.DeepEqual(replaced, []string{inner, b}) {
+		t.Fatalf("Cover(parent) = %q, %v, %v, %v; want %q, true, [inner b], nil", root, added, replaced, err, parent)
+	}
+	if got := set.List(); !reflect.DeepEqual(got, []string{parent, sibling}) {
+		t.Fatalf("List() = %v; want [parent sibling]", got)
+	}
+	if root, added, _, err := set.Cover(a); err != nil || added || root != parent {
+		t.Fatalf("Cover(a) after replace = %q, %v, %v; want parent, false", root, added, err)
+	}
+}
+
+func TestRootSetCoverRejectsInvalidPaths(t *testing.T) {
+	parent, a, b := rootsFixture(t)
+	set, err := NewRootSet([]string{a})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(parent, "missing"), filepath.Join(b, "file")} {
+		if root, added, replaced, err := set.Cover(path); err == nil {
+			t.Errorf("Cover(%q) = %q, %v, %v, nil; want error", path, root, added, replaced)
+		}
+	}
+	if got := set.List(); !reflect.DeepEqual(got, []string{a}) {
+		t.Fatalf("List() = %v; want unchanged [a]", got)
+	}
+}

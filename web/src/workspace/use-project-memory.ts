@@ -11,8 +11,6 @@ import {
 } from "./workspace-memory.ts"
 import { includesTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
-const noRoots: readonly string[] = []
-
 interface ProjectMemoryOptions {
   project: string
   // page is the loaded page for project, or null while loading or failed.
@@ -31,7 +29,7 @@ interface ProjectMemoryOptions {
 export function useProjectMemory({ project, page, active, tabs, welcome, restore, openRemembered }: ProjectMemoryOptions) {
   const [restored, setRestored] = useState<{ opening: boolean } | null>(null)
   const ready = page !== null && !page.error && page.project === project
-  const roots = page?.roots ?? noRoots
+  const sessionKey = page?.sessionKey ?? ""
   const files = useMemo(() => new Set(page ? filePaths(page.tree) : []), [page])
 
   useEffect(() => {
@@ -49,6 +47,6 @@ export function useProjectMemory({ project, page, active, tabs, welcome, restore
     if (!restored || !ready || (restored.opening && !active)) return
     if (active && !includesTab(tabs, active)) return
     if (restored.opening) setRestored({ opening: false })
-    updateMemory((memory) => rememberProject(memory, roots, project, tabs, active))
-  }, [active, project, ready, restored, roots, tabs])
+    updateMemory((memory) => rememberProject(memory, sessionKey, project, tabs, active))
+  }, [active, project, ready, restored, sessionKey, tabs])
 }

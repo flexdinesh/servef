@@ -1,6 +1,6 @@
 # 0061: Daemon, runtime roots, and project leases
 
-- Status: Accepted in part (Process, Roots); Project leases Proposed
+- Status: Accepted (leases via [0066](0066-lease-levels-and-desktop-events.md))
 - Date: 2026-11-01
 
 ## Context

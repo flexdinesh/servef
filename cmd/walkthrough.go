@@ -15,6 +15,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
+	"github.com/flexdinesh/servef/internal/daemon"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
@@ -30,6 +31,8 @@ const (
 	publishTimeout = 20 * time.Second
 	// viewerTimeout bounds each running server's walkthrough probe.
 	viewerTimeout = 2 * time.Second
+	// announceTimeout bounds telling the daemon about a publish.
+	announceTimeout = time.Second
 )
 
 // errNotPublished is returned after a rejected draft's problems are printed.
@@ -43,6 +46,7 @@ type publishOptions struct {
 	// Test seams, not flags.
 	walkthroughDir string             // "" uses walkthrough.DefaultDirectory()
 	controlDir     string             // "" uses control.DefaultDirectory()
+	socket         string             // "" uses daemon.DefaultSocket()
 	openBrowser    func(string) error // nil uses browser.Open
 	getenv         func(string) string
 }
@@ -131,6 +135,7 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	}
 
 	stored := published.Walkthrough
+	announceToDaemon(ctx, opts.socket, stored.Project, stored.ID, published.Created, stderr)
 	controlDir := opts.controlDir
 	if controlDir == "" {
 		controlDir, err = control.DefaultDirectory()
@@ -176,6 +181,29 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 		_, _ = fmt.Fprintf(stdout, "no running servef shows this project; run: servef %s, then open Walkthroughs\n", stored.Project)
 	}
 	return nil
+}
+
+// announceToDaemon tells a running daemon about the publish so its control
+// streams announce it. A daemon that is not running, unreachable, or not
+// serving the project is ignored; one that serves the project but reads
+// another store gets a warning.
+func announceToDaemon(ctx context.Context, socket, project, id string, created bool, stderr io.Writer) {
+	if daemonSupported() != nil {
+		return
+	}
+	if socket == "" {
+		var err error
+		if socket, err = daemon.DefaultSocket(); err != nil {
+			return
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, announceTimeout)
+	defer cancel()
+	err := daemon.NewClient(socket).AnnounceWalkthrough(ctx, project, id, created)
+	var failure *daemon.ControlError
+	if errors.As(err, &failure) && failure.Status == http.StatusNotFound && failure.Code == "walkthroughUnavailable" {
+		_, _ = fmt.Fprintf(stderr, "servef daemon at %s serves this project but keeps walkthroughs elsewhere\n", socket)
+	}
 }
 
 // readDraft reads one strict draft from a file, or standard input for -,

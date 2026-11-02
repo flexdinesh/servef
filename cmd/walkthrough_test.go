@@ -7,12 +7,14 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,8 +88,8 @@ func tourDraft(root string, hash plumbing.Hash) walkthrough.Draft {
 	}
 }
 
-// testPublishOptions keeps a test's store and control registry private and
-// never opens a real browser.
+// testPublishOptions keeps a test's store, control registry, and daemon
+// socket private and never opens a real browser.
 func testPublishOptions(t *testing.T, source string) (publishOptions, chan string) {
 	t.Helper()
 	opened := make(chan string, 4)
@@ -96,6 +98,7 @@ func testPublishOptions(t *testing.T, source string) (publishOptions, chan strin
 		depth:          5,
 		walkthroughDir: filepath.Join(t.TempDir(), "walkthroughs"),
 		controlDir:     filepath.Join(t.TempDir(), "servers"),
+		socket:         filepath.Join(t.TempDir(), "daemon.sock"),
 		openBrowser:    func(target string) error { opened <- target; return nil },
 		getenv:         func(string) string { return "" },
 	}, opened
@@ -329,6 +332,98 @@ func TestPublishWalkthroughWarnsAboutAnotherStore(t *testing.T) {
 	}
 	if strings.Contains(stdout, `"url"`) {
 		t.Errorf("json output = %q; want no url", stdout)
+	}
+}
+
+// fakeDaemon answers POST /_daemon/walkthroughs on a short private socket
+// with status and code, and records each request body.
+type fakeDaemon struct {
+	socket   string
+	requests chan string
+	mu       sync.Mutex
+	status   int
+	code     string
+}
+
+func (f *fakeDaemon) answer(status int, code string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.status, f.code = status, code
+}
+
+func serveFakeDaemon(t *testing.T) *fakeDaemon {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "sf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	fake := &fakeDaemon{socket: filepath.Join(dir, "daemon.sock"), requests: make(chan string, 8), status: http.StatusAccepted}
+	listener, err := net.Listen("unix", fake.socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		fake.requests <- r.Method + " " + r.URL.Path + " " + string(body)
+		fake.mu.Lock()
+		status, code := fake.status, fake.code
+		fake.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		if status == http.StatusAccepted {
+			_, _ = io.WriteString(w, `{"announced":true}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"error":"unavailable","code":"`+code+`"}`)
+	})}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+	return fake
+}
+
+func TestPublishWalkthroughAnnouncesToTheDaemon(t *testing.T) {
+	if daemonSupported() != nil {
+		t.Skip("no daemon on this platform")
+	}
+	root, hash := publishRepo(t)
+	opts, _ := testPublishOptions(t, "-")
+	fake := serveFakeDaemon(t)
+	opts.socket = fake.socket
+	draft := publishDraft(t, tourDraft(root, hash))
+
+	stdout, stderr, err := runPublish(t, opts, draft)
+	if err != nil {
+		t.Fatalf("publish: %v\n%s", err, stderr)
+	}
+	want := `POST /_daemon/walkthroughs {"project":"` + root + `","id":"tour","created":true}`
+	select {
+	case got := <-fake.requests:
+		if got != want {
+			t.Errorf("daemon request = %s, want %s", got, want)
+		}
+	default:
+		t.Fatal("publish did not announce to the daemon")
+	}
+	if stderr != "" || !strings.HasPrefix(stdout, "published tour (created) for "+root+"\n") {
+		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
+	}
+
+	// A daemon serving the project from another store gets a warning; one
+	// not serving it is ignored.
+	fake.answer(http.StatusNotFound, "walkthroughUnavailable")
+	if _, stderr, err = runPublish(t, opts, draft); err != nil {
+		t.Fatal(err)
+	}
+	if want := "servef daemon at " + fake.socket + " serves this project but keeps walkthroughs elsewhere\n"; stderr != want {
+		t.Errorf("stderr = %q, want %q", stderr, want)
+	}
+	fake.answer(http.StatusNotFound, "projectUnavailable")
+	if _, stderr, err = runPublish(t, opts, draft); err != nil || stderr != "" {
+		t.Errorf("projectUnavailable: stderr = %q, %v; want silent", stderr, err)
+	}
+	if len(fake.requests) != 2 {
+		t.Errorf("daemon got %d more requests, want 2", len(fake.requests))
 	}
 }
 

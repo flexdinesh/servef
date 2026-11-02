@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -24,6 +25,9 @@ type daemonOptions struct {
 	scanDepth int
 	idleExit  time.Duration
 	json      bool
+	// rootsFile overrides daemon.DefaultRootsFile() (hidden; dev and test
+	// isolation). An absolute path; "" uses the default.
+	rootsFile string
 }
 
 // daemonAction runs one daemon subcommand with its output streams.
@@ -64,6 +68,14 @@ func newDaemonCommandWith(actions daemonActions) *cobra.Command {
 					if err := validateDaemonOptions(opts); err != nil {
 						return err
 					}
+					if opts.rootsFile != "" {
+						// A started daemon runs in /, so forward an absolute path.
+						rootsFile, err := filepath.Abs(opts.rootsFile)
+						if err != nil {
+							return fmt.Errorf("resolve --roots-file: %w", err)
+						}
+						opts.rootsFile = rootsFile
+					}
 				}
 				opts.socket = socket
 				if opts.socket == "" {
@@ -79,6 +91,8 @@ func newDaemonCommandWith(actions daemonActions) *cobra.Command {
 			sub.Flags().IntVar(&opts.depth, "depth", 5, "maximum directory depth to scan within a project")
 			sub.Flags().IntVar(&opts.scanDepth, "scan-depth", 10, "maximum directory depth to search for git repositories")
 			sub.Flags().DurationVar(&opts.idleExit, "idle-exit", daemon.DefaultIdleExit, "stop after this long with no requests (0 never stops)")
+			sub.Flags().StringVar(&opts.rootsFile, "roots-file", "", "persisted roots file (default: the user config directory)")
+			_ = sub.Flags().MarkHidden("roots-file")
 		}
 		if reports {
 			sub.Flags().BoolVar(&opts.json, "json", false, "print status as JSON")
@@ -108,11 +122,14 @@ func validateDaemonOptions(opts daemonOptions) error {
 }
 
 func runDaemon(ctx context.Context, opts daemonOptions, _, stderr io.Writer) error {
-	rootsFile, err := daemon.DefaultRootsFile()
-	if err != nil {
-		return err
+	rootsFile := opts.rootsFile
+	if rootsFile == "" {
+		var err error
+		if rootsFile, err = daemon.DefaultRootsFile(); err != nil {
+			return err
+		}
 	}
-	err = daemon.Run(ctx, daemon.Config{Socket: opts.socket, RootsFile: rootsFile, Depth: opts.depth, ScanDepth: opts.scanDepth, IdleExit: opts.idleExit, Log: stderr})
+	err := daemon.Run(ctx, daemon.Config{Socket: opts.socket, RootsFile: rootsFile, Depth: opts.depth, ScanDepth: opts.scanDepth, IdleExit: opts.idleExit, Log: stderr})
 	if errors.Is(err, daemon.ErrRunning) {
 		return fmt.Errorf("%w at %s", err, opts.socket)
 	}
@@ -208,11 +225,7 @@ func startDaemon(opts daemonOptions) daemon.StartFunc {
 			return nil, err
 		}
 		defer stdin.Close()
-		process := exec.Command(executable, "daemon", "run",
-			"--socket", opts.socket,
-			"--depth", strconv.Itoa(opts.depth),
-			"--scan-depth", strconv.Itoa(opts.scanDepth),
-			"--idle-exit", opts.idleExit.String())
+		process := exec.Command(executable, daemonRunArgs(opts)...)
 		process.Dir = "/"
 		process.Stdin = stdin
 		process.Stdout = log
@@ -225,4 +238,18 @@ func startDaemon(opts daemonOptions) daemon.StartFunc {
 		go func() { exited <- process.Wait() }()
 		return exited, nil
 	}
+}
+
+// daemonRunArgs are the arguments ensure starts `servef daemon run` with.
+// --roots-file is forwarded only when set.
+func daemonRunArgs(opts daemonOptions) []string {
+	args := []string{"daemon", "run",
+		"--socket", opts.socket,
+		"--depth", strconv.Itoa(opts.depth),
+		"--scan-depth", strconv.Itoa(opts.scanDepth),
+		"--idle-exit", opts.idleExit.String()}
+	if opts.rootsFile != "" {
+		args = append(args, "--roots-file", opts.rootsFile)
+	}
+	return args
 }

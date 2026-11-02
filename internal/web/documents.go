@@ -17,8 +17,10 @@ import (
 )
 
 type pageData struct {
-	Roots   []string `json:"roots"`
-	Project string   `json:"project"`
+	Roots []string `json:"roots"`
+	// SessionKey keys the browser's workspace memory (App.sessionKey).
+	SessionKey string `json:"sessionKey"`
+	Project    string `json:"project"`
 	// ProjectUnavailable reports that the project itself could not be
 	// resolved, as opposed to a file within it.
 	ProjectUnavailable bool          `json:"projectUnavailable"`
@@ -362,6 +364,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 	if status != http.StatusOK {
 		return pageData{
 			Roots:              roots,
+			SessionKey:         a.sessionKey(roots),
 			Project:            projectID,
 			ProjectUnavailable: true,
 			ProjectKind:        projects.KindFolder,
@@ -376,6 +379,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 	if err != nil {
 		return pageData{
 			Roots:       roots,
+			SessionKey:  a.sessionKey(roots),
 			Project:     project.id,
 			RootName:    filepath.Base(project.root),
 			Repository:  checkout.Repository,
@@ -389,6 +393,7 @@ func (a *App) page(projectID, selected, at string, required bool) (pageData, int
 	}
 	data := pageData{
 		Roots:       roots,
+		SessionKey:  a.sessionKey(roots),
 		Project:     project.id,
 		RootName:    filepath.Base(index.RootPath()),
 		Repository:  checkout.Repository,

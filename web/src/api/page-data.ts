@@ -13,6 +13,7 @@ export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
   roots: [],
+  sessionKey: "",
   project: "",
   projectUnavailable: false,
   documentType: null,

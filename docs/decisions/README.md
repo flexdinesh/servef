@@ -55,7 +55,7 @@ rewriting history; update `Status` on the old record.
 | [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065 |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted; CLI publish added by 0065 |
-| [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted |
+| [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted; revised by 0066 |
 | [0051](0051-branch-review-with-uncommitted.md) | Branch review with uncommitted changes | Accepted |
 | [0052](0052-welcome-tab-and-contextual-empty-state.md) | Welcome tab and an empty pane that follows the sidebar view | Accepted |
 | [0053](0053-files-rail-viewed-marks.md) | Viewed marks in the review Files rail | Accepted |
@@ -65,8 +65,9 @@ rewriting history; update `Status` on the old record.
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |
 | [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted |
-| [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted in part (Process, Roots); project leases Proposed |
+| [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
 | [0062](0062-desktop-app.md) | Desktop app | Proposed |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Proposed |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Proposed |
 | [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted |
+| [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted |
