@@ -1,5 +1,5 @@
 // Main process composition (decisions 0067, 0070, 0072): lifecycle, routing, menu, and wiring.
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type MessageBoxOptions, type OpenDialogOptions } from "electron"
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type OpenDialogOptions } from "electron"
 import { existsSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -9,17 +9,17 @@ import { findOnPath, locateServef } from "./binary.ts"
 import { APP_MENU_CHANNEL, APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
 import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { createFileStore } from "./connection-store.ts"
-import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
+import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, serverLabel, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
-import { devFlags, ensureDaemon, nodeExecFile, openPath, probeDaemon, stopDaemon, type EnsureResult } from "./daemon.ts"
-import { confirmConnect, showReport, type ConnectChoice } from "./electron-dialogs.ts"
+import { devFlags, ensureDaemon, listDirectories, nodeExecFile, openPath, probeDaemon, readStatus, stopDaemon, type EnsureResult, type ProbeOutcome } from "./daemon.ts"
+import { confirmServer, showReport } from "./electron-dialogs.ts"
 import { createLoginItem, showLoginApproval } from "./electron-login.ts"
 import { createNotifier } from "./electron-notify.ts"
 import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
-import { createWindowManager, type WindowManager } from "./electron-windows.ts"
+import { createWindowManager } from "./electron-windows.ts"
 import { createFolderOpener } from "./folder-opener.ts"
-import { createForwarder } from "./forward.ts"
-import { releaseOf } from "./instructions.ts"
+import { createForwarder, isDaemonGone, type Forward } from "./forward.ts"
+import { releaseOf, sshFailureInstructions } from "./instructions.ts"
 import { NOT_A_SERVEF_LINK, parsePastedLocation } from "./location.ts"
 import {
   createNoticeGate,
@@ -34,12 +34,12 @@ import {
 } from "./notifications.ts"
 import { openPathsOf, parseOpenPaths, type InstanceData } from "./open-paths.ts"
 import { createProxy } from "./proxy.ts"
+import { createRemoteHosts } from "./remote-hosts.ts"
 import { chooseRuntimeDir, prepareRuntimeDir, sweepRuntimeDir } from "./runtime-dir.ts"
 import { routeSchemeURL, schemeArgument } from "./scheme.ts"
 import { muxControlArgs } from "./ssh-args.ts"
 import { listHostAliases, nodeConfigReader, resolveAliases } from "./ssh-config.ts"
-import { createSshConnector, EXIT_TIMEOUT_MS, nodeSpawn, type SshTarget } from "./ssh-connection.ts"
-import { resolveSshLink, sshTargetURL, type ResolvedAlias, type SshLink } from "./ssh-links.ts"
+import { createSshConnector, EXIT_TIMEOUT_MS, nodeSpawn } from "./ssh-connection.ts"
 import { createSubscriptions, type SubscriptionEvent, type Subscriptions } from "./subscriptions.ts"
 import { systemTimers } from "./timers.ts"
 import { parseMenuPoint } from "./titlebar.ts"
@@ -176,6 +176,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     listCli,
   })
   const isKnown = (id: string): boolean => connections.known().some((entry) => entry.id === id)
+  const isServer = (id: string): boolean => connections.servers().some((entry) => entry.id === id)
   // listAliases reads Host aliases from the ssh config on each call.
   const listAliases = (): string[] => {
     try {
@@ -186,9 +187,9 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     }
   }
 
-  // Only ssh connections wait for the startup sweep; local and CLI servers never do.
+  // Only ssh connections wait for the startup sweep; local, CLI, and http servers never do.
   const gated = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
-    if (id !== LOCAL_CONNECTION && cliPort(id) === null) await swept
+    if (id !== LOCAL_CONNECTION && cliPort(id) === null && !isServer(id)) await swept
     return run()
   }
   const lookup = (id: string): Promise<ConnectionLookup> => gated(id, () => connections.lookup(id))
@@ -206,6 +207,29 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     },
     forget: (id) => connections.forget(id),
     open: (raw) => openPasted(raw),
+    // ssh starts only here (decision 0075): the user chose the alias.
+    addSsh: (alias) => listAliases().includes(alias) ? connections.remember({ destination: alias, port: null }).id : null,
+    hosts: createRemoteHosts({
+      destination: (id) => connections.known().find((entry) => entry.id === id)?.destination ?? null,
+      lookup,
+      listServers: (id) => connections.listServers(id),
+      status: (socket) => readStatus(forwarder.forward, socket),
+      directories: (socket, folder) => listDirectories(forwarder.forward, socket, folder),
+      open: (socket, folder) => openPath(forwarder.forward, socket, folder),
+      registerPort: (id, host, port) => connections.registerPort(id, host, port),
+      dropPort: (id) => connections.dropPort(id),
+      probe: (socket, port) => probeServer(forwarder.forward, socket, port),
+      sshHostname: async (id) => {
+        const destination = connections.known().find((entry) => entry.id === id)?.destination
+        if (destination === undefined) return null
+        const [resolved] = await resolveAliases([destination], ssh, config, nodeExecFile)
+        return resolved?.hostname ?? null
+      },
+      rememberServer: (host, port) => connections.rememberServer(host, port).id,
+      route: (url) => windows.route(url),
+    }),
+    stopAndRetry: async (id) => { await stopAndRetry(id) },
+    instructions: (failure) => sshFailureInstructions(failure, releaseOf(app.getVersion(), packaged)),
   })
   handleAppScheme(createProxy({
     packaged,
@@ -225,16 +249,19 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     const summary = connections.describe(id)
     if (summary === null) return page
     if (summary.kind === "daemon") return windowTitle(page, { kind: "local", label: summary.label, ready: summary.state === "ready" })
-    if (summary.kind === "cli") return windowTitle(page, { kind: "cli", label: summary.label, ready: true })
+    if (summary.kind === "cli" || summary.kind === "http") return windowTitle(page, { kind: summary.kind, label: summary.label, ready: true })
+    if (summary.kind === "ssh-port") return windowTitle(page, { kind: "ssh-port", label: summary.label, ready: true })
     return windowTitle(page, { kind: "ssh", label: summary.label, ready: summary.state === "ready" })
   }
 
   // openConnectionURL routes a servef-app:// link on another origin: local,
-  // app pages, known ssh hosts, and running CLI servers only.
+  // app pages, known ssh hosts and http servers, registered ssh-port
+  // servers, and running CLI servers only.
   const openConnectionURL = (url: string): void => {
     const target = targetOfURL(url)
     const id = target === null ? null : connectionOfOrigin(target.origin)
-    if (id !== null && (id === LOCAL_CONNECTION || id === APP_HOST || isKnown(id))) {
+    const registered = id === null ? null : connections.describe(id)
+    if (id !== null && (id === LOCAL_CONNECTION || id === APP_HOST || isKnown(id) || isServer(id) || registered?.kind === "ssh-port")) {
       windows.route(url)
       return
     }
@@ -358,7 +385,8 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     const shown = new Set<string>()
     for (const origin of windows.shownOrigins()) {
       const id = connectionOfOrigin(origin)
-      if (id !== null && connections.describe(id)?.kind === "ssh") shown.add(id)
+      const kind = id === null ? null : connections.describe(id)?.kind
+      if (id !== null && (kind === "ssh" || kind === "ssh-port")) shown.add(id)
     }
     for (const id of shown) {
       if (held.has(id)) continue
@@ -389,7 +417,7 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   connections.subscribe((id, current) => {
     windows.retitle(connectionOrigin(id))
     if (id === LOCAL_CONNECTION) {
-      if (current?.kind === "ready" && current.connection.kind !== "cli") about(current.connection.status.version)
+      if (current?.kind === "ready" && current.connection.kind === "daemon") about(current.connection.status.version)
       else if (current?.kind === "failed" && current.connection === "daemon" && current.failure.status !== undefined) about(current.failure.status.version)
       return
     }
@@ -398,7 +426,8 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
       sources.delete(id)
       return
     }
-    // CLI servers have no control stream (decision 0071): no feed, no notices.
+    // CLI, http, and forwarded servers have no control stream (decisions 0071,
+    // 0075): no feed, no notices.
     if (current.kind === "ready" && current.connection.kind === "ssh" && !feeds.has(id)) openSshFeed(id, current.connection.label)
   })
 
@@ -407,38 +436,22 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     if (windows.infos().length === 0) windows.route(HOME)
   }
 
-  // openSshLink resolves a servef://ssh/ link: known hosts open at once; first
-  // contact is confirmed and remembered.
-  const openSshLink = async (link: SshLink): Promise<void> => {
-    const known = connections.known()
-    let resolution = resolveSshLink(link, known, [])
-    let aliases: ResolvedAlias[] = []
-    if (resolution.kind !== "known") {
-      aliases = await resolveAliases(listAliases(), ssh, config, nodeExecFile)
-      resolution = resolveSshLink(link, connections.known(), aliases)
+  // openServer opens an http server on another computer (decision 0075). A
+  // link's first contact with a host and port is confirmed; a server the user
+  // typed or chose opens at once. Either is remembered.
+  const openServer = async (host: string, port: number, route: string, confirm: boolean): Promise<void> => {
+    let entry = connections.findServer(host, port)
+    if (entry === null) {
+      if (confirm && !await confirmServer(windows.focusedWindow(), serverLabel(host, port), { packaged, env })) return
+      entry = connections.rememberServer(host, port)
     }
-    if (resolution.kind === "known") {
-      windows.route(sshTargetURL(resolution.id, link))
-      return
-    }
-    const targets = resolution.candidates.length > 0 ? resolution.candidates : resolution.fallbacks
-    if (targets.length === 0) {
-      await message(windows, "error", `No SSH host for ${link.host}`,
-        `Add a Host entry for ${link.host} to your SSH config, or run servef remote --alias <alias> on the host so its links name an alias you can reach.`)
-      return
-    }
-    const choices = targets.slice(0, 4)
-    const prompt = { host: link.host, choices: choices.map((target) => choiceOf(target, aliases)) }
-    const chosen = await confirmConnect(windows.focusedWindow(), prompt, { packaged, env })
-    const target = chosen === null ? undefined : choices[chosen]
-    if (target === undefined) return
-    const entry = connections.remember({ destination: target.destination, port: target.port }, link.hints)
-    windows.route(sshTargetURL(entry.id, link))
+    windows.route(`${connectionOrigin(entry.id)}${route}`)
   }
 
-  // openPasted opens a link pasted on the Connect page (decision 0071):
-  // servef:// links as the OS handler would, and localhost URLs of running
-  // CLI servers in a servef-app://cli-<port> window.
+  // openPasted opens a link pasted on the Connect page (decisions 0071,
+  // 0075): servef:// links as the OS handler would, localhost URLs of running
+  // CLI servers in a servef-app://cli-<port> window, and other http servers
+  // without confirmation (the user typed them).
   const openPasted = async (raw: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
     const location = parsePastedLocation(raw)
     switch (location.kind) {
@@ -457,6 +470,9 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
         windows.route(location.target)
         return { ok: true }
       }
+      case "http":
+        await openServer(location.host, location.port, location.path, false)
+        return { ok: true }
     }
   }
 
@@ -464,11 +480,13 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     const routed = routeSchemeURL(raw)
     switch (routed.kind) {
       case "local":
+      case "cli":
+        // A CLI server that is not running shows its own page (decision 0071).
         windows.route(routed.target)
         return
-      case "ssh":
-        openSshLink(routed.link)
-          .catch((error: unknown) => console.error(`servef: ssh link ${raw}:`, error))
+      case "http":
+        openServer(routed.host, routed.port, routed.path, true)
+          .catch((error: unknown) => console.error(`servef: link ${raw}:`, error))
           .finally(ensureWindow)
         return
       case "invalid":
@@ -605,30 +623,25 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
   return deliver
 }
 
-// choiceOf describes a confirmation choice: the destination and port, plus
-// the alias's `ssh -G` user, hostname, and port when it came from an alias.
-function choiceOf(target: SshTarget, aliases: readonly ResolvedAlias[]): ConnectChoice {
-  const label = target.port === null ? target.destination : `${target.destination} (port ${target.port})`
-  const alias = aliases.find((entry) => entry.alias === target.destination)
-  const detail = alias === undefined
-    ? `${label}: ssh ${target.destination}${target.port === null ? "" : ` -p ${target.port}`}`
-    : `${label}: user ${alias.user}, hostname ${alias.hostname}, port ${target.port ?? alias.port}`
-  return { label, detail }
-}
-
 // daemonConnection is a ready daemon-like (local or ssh) connection; null otherwise.
 function daemonConnection(lookup: ConnectionLookup): DaemonConnection | null {
-  return lookup.kind === "ready" && lookup.connection.kind !== "cli" ? lookup.connection : null
+  if (lookup.kind !== "ready") return null
+  const connection = lookup.connection
+  return connection.kind === "daemon" || connection.kind === "ssh" ? connection : null
+}
+
+// probeServer sends GET / to a forwarded remote server: "gone" when no
+// response head arrived (the ssh server refused the forwarded connection).
+function probeServer(forward: Forward, socket: string, port: number): Promise<ProbeOutcome> {
+  return forward({ target: { socket }, method: "GET", path: "/", headers: { host: `localhost:${port}` }, body: null, stream: false, signal: AbortSignal.timeout(5_000) })
+    .then(async (response) => {
+      await response.body?.cancel()
+      return "ok" as const
+    }, (error: unknown) => isDaemonGone(error) ? "gone" as const : "failed" as const)
 }
 
 function nonEmpty(value: string | undefined): string | null {
   return value === undefined || value === "" ? null : value
-}
-
-function message(windows: WindowManager, type: "info" | "error", text: string, detail: string): Promise<unknown> {
-  const options: MessageBoxOptions = { type, message: text, detail }
-  const parent = windows.focusedWindow()
-  return parent === null ? dialog.showMessageBox(options) : dialog.showMessageBox(parent, options)
 }
 
 interface MenuActions {

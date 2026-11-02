@@ -17,12 +17,18 @@ test("CLI server windows name localhost:<port>", () => {
   assert.equal(windowTitle("README.md", { kind: "cli", label: "localhost:7971", ready: true }), "README.md - localhost:7971")
 })
 
-test("app pages read servef - Connect whatever the page title", () => {
-  assert.equal(windowTitle("anything", { kind: "app", label: "", ready: true }), "servef - Connect")
+test("http windows name host:port; forwarded remote servers add (SSH)", () => {
+  assert.equal(windowTitle("README.md", { kind: "http", label: "10.0.0.5:7971", ready: true }), "README.md - 10.0.0.5:7971")
+  assert.equal(windowTitle("README.md", { kind: "ssh-port", label: "devbox:7971", ready: true }), "README.md - devbox:7971 (SSH)")
+})
+
+test("app pages keep their own titles", () => {
+  assert.equal(windowTitle("servef - Connect", { kind: "app", label: "", ready: true }), "servef - Connect")
+  assert.equal(windowTitle("servef - devbox", { kind: "app", label: "", ready: true }), "servef - devbox")
 })
 
 test("titles never use an em dash", () => {
-  const connections: TitleConnection[] = [{ kind: "local", label: "", ready: true }, { kind: "app", label: "", ready: true }, { kind: "ssh", label: "box", ready: false }, { kind: "cli", label: "localhost:1", ready: true }]
+  const connections: TitleConnection[] = [{ kind: "local", label: "", ready: true }, { kind: "app", label: "", ready: true }, { kind: "ssh", label: "box", ready: false }, { kind: "cli", label: "localhost:1", ready: true }, { kind: "http", label: "h:1", ready: true }, { kind: "ssh-port", label: "box:1", ready: true }]
   for (const connection of connections) {
     assert.ok(!windowTitle("page", connection).includes(String.fromCodePoint(0x2014)))
   }

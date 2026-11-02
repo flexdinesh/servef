@@ -8,9 +8,9 @@ import type { DaemonStatus } from "../src/main/daemon-contract.ts"
 import type { ExecOutcome, ProbeOutcome } from "../src/main/daemon.ts"
 import { runtimePaths } from "../src/main/runtime-dir.ts"
 import type { RuntimeDirResult } from "../src/main/runtime-dir.ts"
-import { masterArgs, muxCommandArgs, muxControlArgs, REMOTE_ENSURE, REMOTE_STOP } from "../src/main/ssh-args.ts"
+import { masterArgs, muxCommandArgs, muxControlArgs, REMOTE_ENSURE, REMOTE_LIST, REMOTE_STOP } from "../src/main/ssh-args.ts"
 import {
-  CONTROL_WAIT_MS, createSshConnector, ENSURE_SSH_TIMEOUT_MS, EXIT_TIMEOUT_MS, MUX_TIMEOUT_MS, nodeSpawn, STOP_SSH_TIMEOUT_MS,
+  CONTROL_WAIT_MS, createSshConnector, ENSURE_SSH_TIMEOUT_MS, EXIT_TIMEOUT_MS, LIST_SSH_TIMEOUT_MS, MUX_TIMEOUT_MS, nodeSpawn, STOP_SSH_TIMEOUT_MS,
 } from "../src/main/ssh-connection.ts"
 import type { ChildHandle, SshConnectorDeps, SshReady, SshSession, SshState, SshTarget } from "../src/main/ssh-connection.ts"
 import { createFakeTimers, flush } from "./fake-timers.ts"
@@ -41,7 +41,7 @@ interface FakeChild extends ChildHandle {
   exit(code: number | null, signal?: string | null): void
 }
 
-type RunKind = "version" | "check" | "exit" | "forward" | "cancel" | "ensure" | "stop" | "other"
+type RunKind = "version" | "check" | "exit" | "forward" | "cancel" | "ensure" | "stop" | "list" | "other"
 
 function runKind(args: readonly string[]): RunKind {
   if (args[0] === "-V") return "version"
@@ -52,6 +52,7 @@ function runKind(args: readonly string[]): RunKind {
   const last = args.at(-1)
   if (last === REMOTE_ENSURE) return "ensure"
   if (last === REMOTE_STOP) return "stop"
+  if (last === REMOTE_LIST) return "list"
   return "other"
 }
 
@@ -700,4 +701,85 @@ test("nodeSpawn pipes stderr and reports the exit code", async () => {
   const exit = await new Promise<[number | null, string | null]>((resolve) => child.onExit((code, signal) => resolve([code, signal])))
   assert.deepEqual(exit, [3, null])
   assert.equal(stderr.join(""), "boom")
+})
+
+// Remote servers (decision 0075).
+
+const PORT_ID = "ssh-devbox-7971"
+
+test("forwardPort forwards a p-*.sock to the remote server once; cancelPort cancels and unlinks", async () => {
+  const h = harness()
+  const session = createSshConnector(h.deps).connect(target)
+  await settle(session)
+  const socket = runtimePaths(h.dir).portSocket(PORT_ID)
+  assert.deepEqual(await session.forwardPort(PORT_ID, "127.0.0.1", 7971), { ok: true, socket })
+  assert.deepEqual(h.calls.at(-1), { file: "/usr/bin/ssh", args: muxControlArgs(target, h.controlPath, { op: "forward", local: socket, remote: "127.0.0.1:7971" }), timeoutMs: MUX_TIMEOUT_MS, env: h.deps.env })
+  assert.ok(existsSync(socket))
+  const forwards = h.events.filter((event) => event === "forward").length
+  // A live forward is reused; concurrent calls share one attempt.
+  const [a, b] = await Promise.all([session.forwardPort(PORT_ID, "127.0.0.1", 7971), session.forwardPort(PORT_ID, "127.0.0.1", 7971)])
+  assert.deepEqual([a, b], [{ ok: true, socket }, { ok: true, socket }])
+  assert.equal(h.events.filter((event) => event === "forward").length, forwards)
+  await session.cancelPort(PORT_ID)
+  assert.deepEqual(h.calls.at(-1)?.args, muxControlArgs(target, h.controlPath, { op: "cancel", local: socket, remote: "127.0.0.1:7971" }))
+  assert.equal(existsSync(socket), false)
+  session.closeSync()
+})
+
+test("forwardPort refuses addresses before any argv and reports a failed forward", async () => {
+  const h = harness()
+  const session = createSshConnector(h.deps).connect(target)
+  await settle(session)
+  const before = h.calls.length
+  for (const host of ["box.lan", "-oProxyCommand=x", "127.0.0.1:22"]) {
+    const refused = await session.forwardPort(PORT_ID, host, 7971)
+    assert.equal(refused.ok, false, host)
+  }
+  assert.equal((await session.forwardPort(PORT_ID, "127.0.0.1", 0)).ok, false)
+  assert.equal(h.calls.length, before)
+  h.handlers.forward = () => ({ code: 255, stdout: "", stderr: "mux_client_forward: forwarding request failed: Port forwarding failed\r\n" })
+  assert.deepEqual(await session.forwardPort(PORT_ID, "10.0.0.5", 7971), { ok: false, detail: "mux_client_forward: forwarding request failed: Port forwarding failed" })
+  assert.equal(existsSync(runtimePaths(h.dir).portSocket(PORT_ID)), false)
+  session.closeSync()
+})
+
+test("closing a session unlinks its port sockets; a closed session forwards nothing", async () => {
+  const h = harness()
+  const session = createSshConnector(h.deps).connect(target)
+  await settle(session)
+  const forwarded = await session.forwardPort(PORT_ID, "::1", 7971)
+  assert.ok(forwarded.ok)
+  assert.equal(h.calls.at(-1)?.args.includes(`${forwarded.socket}:[::1]:7971`), true)
+  session.closeSync()
+  assert.equal(existsSync(forwarded.socket), false)
+  assert.deepEqual(await session.forwardPort(PORT_ID, "::1", 7971), { ok: false, detail: "The SSH connection to devbox is not open." })
+})
+
+test("listServers runs REMOTE_LIST over the mux and parses the servers", async () => {
+  const h = harness()
+  const servers = [{ host: "0.0.0.0", port: 7971, origin: "http://127.0.0.1:7971" }]
+  h.handlers.list = () => ({ code: 0, stdout: `${JSON.stringify({ servers })}\n`, stderr: "" })
+  const session = createSshConnector(h.deps).connect(target)
+  await settle(session)
+  assert.deepEqual(await session.listServers(), { ok: true, servers })
+  assert.deepEqual(h.calls.at(-1), { file: "/usr/bin/ssh", args: muxCommandArgs(target, h.controlPath, REMOTE_LIST), timeoutMs: LIST_SSH_TIMEOUT_MS, env: h.deps.env })
+  h.handlers.list = () => ({ code: 0, stdout: "garbage", stderr: "" })
+  assert.deepEqual(await session.listServers(), { ok: false, detail: "servef control list on devbox printed an unexpected answer." })
+  h.handlers.list = () => ({ code: 1, stdout: "", stderr: "Error: unknown command \"control\"\n" })
+  assert.deepEqual(await session.listServers(), { ok: false, detail: "Error: unknown command \"control\"" })
+  session.closeSync()
+  assert.deepEqual(await session.listServers(), { ok: false, detail: "The SSH connection to devbox is not open." })
+})
+
+test("forwardDenied keeps the master: remote servers are still listed and forwarded", async () => {
+  const h = harness()
+  h.probes = ["gone", "gone"]
+  h.handlers.list = () => ({ code: 0, stdout: JSON.stringify({ servers: [] }), stderr: "" })
+  const session = createSshConnector(h.deps).connect(target)
+  assert.equal(failureOf(await settle(session)).kind, "forwardDenied")
+  assert.equal(h.children[0]?.exited(), false)
+  assert.deepEqual(await session.listServers(), { ok: true, servers: [] })
+  assert.equal((await session.forwardPort(PORT_ID, "10.0.0.5", 7971)).ok, true)
+  await session.close()
+  assert.equal(h.children[0]?.exited(), true)
 })

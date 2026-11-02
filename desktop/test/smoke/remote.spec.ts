@@ -8,13 +8,15 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 
 import { sshBinary, sshSkip, startSshd, type Sshd } from "../ssh/sshd.ts"
 import {
-  createRepository, createSession, keepDiagnostics, launchApp, launchSecond, readmeLine, readNotices, removeSession, stopDaemon, type Session,
+  createRepository, createSession, keepDiagnostics, launchApp, readNotices, removeSession, stopDaemon, type Session,
 } from "./harness.ts"
 
-// The app against a private sshd (decision 0070), in order: a first-contact
-// servef://ssh link is confirmed and renders a remote document, a remote
-// walkthrough notifies through the ssh connection, a lost master reconnects,
-// and a known host never prompts again.
+// The app against a private sshd (decisions 0070, 0075), in order: the
+// Connect page connects to a config alias and shows its host page, a remote
+// root opens in an ssh window, a remote walkthrough notifies through the ssh
+// connection, a lost master reconnects, the folder picker opens a new remote
+// folder, and a remote CLI server opens through a forwarded port. Nothing
+// asks for confirmation: the user chose the host.
 
 const run = promisify(execFile)
 const skip = sshSkip()
@@ -23,14 +25,14 @@ test.describe.configure({ mode: "serial" })
 
 const ALIAS = "servef-test"
 const ID = `ssh-${ALIAS}`
-// A link hostname no alias resolves to, so the alias alone is the candidate.
-const LINK_HOSTNAME = "servef-smoke-host"
+const HOST_PAGE = `servef-app://app/ssh/${ID}`
 
 let session: Session | undefined
 let sshd: Sshd | undefined
 let app: ElectronApplication | undefined
 let alpha = ""
 let beta = ""
+let projects = ""
 let failed = false
 
 interface Paths {
@@ -57,9 +59,11 @@ function extras(fixture: Sshd): Record<string, string> {
   }
 }
 
-function link(fixture: Sshd, project: string, file: string): string {
-  const query = new URLSearchParams({ project, path: file, "ssh-hostname": LINK_HOSTNAME, "ssh-user": fixture.user })
-  return `servef://ssh/${ALIAS}/view?${query.toString()}`
+async function windowOn(app: ElectronApplication, prefix: string): Promise<Page> {
+  await expect.poll(() => app.windows().some((page) => page.url().startsWith(prefix)), { timeout: 30_000 }).toBe(true)
+  const page = app.windows().find((candidate) => candidate.url().startsWith(prefix))
+  if (page === undefined) throw new Error(`no window on ${prefix}`)
+  return page
 }
 
 function projectOf(page: Page): string | null {
@@ -88,12 +92,12 @@ test.beforeAll(async () => {
     const fixture = await startSshd()
     sshd = fixture
     paths = { runtime: path.join(fixture.dir, "app"), dialogLog: path.join(created.dir, "dialogs.jsonl") }
-    const projects = path.join(fixture.dir, "projects")
+    projects = path.join(fixture.dir, "projects")
     mkdirSync(projects, { recursive: true })
     alpha = createRepository(path.join(projects, "alpha"), "Alpha")
     beta = createRepository(path.join(projects, "beta"), "Beta")
     fixture.writeRoots([alpha, beta])
-    app = await launchApp(created, link(fixture, alpha, "README.md"), extras(fixture))
+    app = await launchApp(created, "servef://local/", extras(fixture))
     await app.context().tracing.start({ screenshots: true, snapshots: true })
   } catch (error) {
     failed = true
@@ -127,22 +131,37 @@ test.afterAll(async () => {
   if (session) removeSession(session)
 })
 
-test("a first-contact servef://ssh link is confirmed once and renders the remote document", async () => {
+test("the Connect page connects to a config alias and shows its host page", async () => {
   const { app, session } = current()
-  const page = await app.firstWindow()
-  await expect.poll(() => page.url()).toMatch(/^servef-app:\/\/ssh-servef-test\/view\?/)
-  expect(projectOf(page)).toBe(alpha)
-  await expect(page.getByRole("main").getByText(readmeLine("Alpha"))).toBeVisible()
-  await expect.poll(async () => (await windowTitles()).join("\n")).toContain(` - ${ALIAS} (SSH)`)
+  const first = await app.firstWindow()
+  await first.evaluate(() => { location.assign("servef-app://app/connect") })
+  const connect = await windowOn(app, "servef-app://app/")
+  const aliases = connect.locator("h2:has-text('SSH hosts from your config') + ul")
+  await aliases.getByRole("button", { name: ALIAS, exact: true }).click()
+  await expect.poll(() => connect.url(), { timeout: 45_000 }).toBe(HOST_PAGE)
+  await expect(connect.getByRole("heading", { level: 1, name: ALIAS })).toBeVisible()
+  await expect(connect.getByRole("link", { name: alpha })).toHaveAttribute("href", `servef-app://${ID}/?project=${encodeURIComponent(alpha)}`)
+  await expect(connect.getByRole("link", { name: "Browse folders" })).toBeVisible()
+  await expect(connect.getByRole("heading", { level: 2, name: "Servers" })).toBeVisible()
 
   const store: unknown = JSON.parse(readFileSync(path.join(session.userData, "connections.json"), "utf8"))
   const entries = isRecord(store) && Array.isArray(store.ssh) ? store.ssh : []
+  expect(entries.map((entry: unknown) => isRecord(entry) ? Object.keys(entry).sort() : null)).toEqual([["addedAt", "destination", "id", "port"]])
   expect(entries.map((entry: unknown) => isRecord(entry) ? [entry.id, entry.destination] : null)).toEqual([[ID, ALIAS]])
+  expect(dialogs()).toEqual([])
+})
 
-  const prompts = dialogs()
-  expect(prompts).toHaveLength(1)
-  const [prompt] = prompts
-  expect(isRecord(prompt) ? prompt.host : null).toBe(ALIAS)
+test("a remote root opens in an ssh window", async () => {
+  const { app } = current()
+  const connect = await windowOn(app, HOST_PAGE)
+  // Another origin opens in its own window; the host page stays.
+  const href = await connect.getByRole("link", { name: alpha }).getAttribute("href")
+  await connect.evaluate((target) => { location.assign(target ?? "") }, href)
+  const page = await windowOn(app, `servef-app://${ID}/`)
+  expect(projectOf(page)).toBe(alpha)
+  await expect.poll(async () => (await windowTitles()).join("\n")).toContain(` - ${ALIAS} (SSH)`)
+  expect(await page.evaluate(async () => (await fetch("/api/projects")).status)).toBe(200)
+  expect(await page.evaluate(async () => (await fetch("/_daemon/status")).status)).toBe(403)
 })
 
 test("a walkthrough published on the host notifies through the ssh connection", async () => {
@@ -166,7 +185,7 @@ test("a walkthrough published on the host notifies through the ssh connection", 
 
 test("a lost ssh master shows reconnecting and recovers", async () => {
   const { app } = current()
-  const page = await app.firstWindow()
+  const page = await windowOn(app, `servef-app://${ID}/`)
   // Record every title change: reconnecting lasts about the 1 s backoff.
   await app.evaluate(({ BrowserWindow }) => {
     const seen: string[] = []
@@ -191,12 +210,42 @@ test("a lost ssh master shows reconnecting and recovers", async () => {
   expect(await page.evaluate(async () => (await fetch("/api/projects")).status)).toBe(200)
 })
 
-test("a second link to the known host opens without a prompt", async () => {
-  const { app, session, sshd } = current()
-  expect(await launchSecond(session, link(sshd, beta, "README.md"), extras(sshd))).toBe(0)
-  await expect.poll(() => app.windows().some((page) => projectOf(page) === beta && page.url().startsWith(`servef-app://${ID}/`)), { timeout: 30_000 }).toBe(true)
-  const page = app.windows().find((candidate) => projectOf(candidate) === beta)
-  if (page === undefined) throw new Error("no window shows beta")
-  await expect(page.getByRole("main").getByText(readmeLine("Beta"))).toBeVisible()
-  expect(dialogs()).toHaveLength(1)
+test("the folder picker opens a new remote folder in an ssh window", async () => {
+  const { app } = current()
+  const delta = createRepository(path.join(projects, "delta"), "Delta")
+  const connect = await windowOn(app, HOST_PAGE)
+  await connect.goto(`${HOST_PAGE}/browse?path=${encodeURIComponent(projects)}`)
+  await expect(connect.getByRole("heading", { level: 1, name: `Browse ${ALIAS}` })).toBeVisible()
+  await connect.getByRole("link", { name: "delta", exact: true }).click()
+  await expect(connect.getByText(delta, { exact: true })).toBeVisible()
+  await connect.getByRole("button", { name: "Open this folder" }).click()
+  await expect.poll(() => app.windows().some((page) => projectOf(page) === delta && page.url().startsWith(`servef-app://${ID}/`)), { timeout: 30_000 }).toBe(true)
+  // The picker's window returns to the host page, which lists the new root.
+  await expect.poll(() => connect.url()).toBe(HOST_PAGE)
+  await expect(connect.getByRole("link", { name: delta })).toBeVisible()
+  expect(dialogs()).toEqual([])
+})
+
+test("a remote CLI server opens through a forwarded port", async () => {
+  const { app, sshd } = current()
+  const gamma = createRepository(path.join(projects, "gamma"), "Gamma")
+  const server = await sshd.startServer(gamma)
+  try {
+    const connect = await windowOn(app, HOST_PAGE)
+    await connect.reload()
+    const label = `127.0.0.1:${server.port}`
+    await connect.getByRole("button", { name: label }).click()
+    const page = await windowOn(app, `servef-app://${ID}-${server.port}/`)
+    await expect.poll(async () => (await windowTitles()).some((title) => title.endsWith(` - ${ALIAS}:${server.port} (SSH)`))).toBe(true)
+    const projectsJSON = await page.evaluate(async () => (await fetch("/api/projects")).text())
+    expect(projectsJSON).toContain(JSON.stringify(gamma))
+    expect(await page.evaluate(async () => (await fetch("/_servef/control", { method: "POST" })).status)).toBe(403)
+    const port = `p-${createHash("sha256").update(`${ID}-${server.port}`).digest("hex").slice(0, 12)}.sock`
+    expect(existsSync(path.join(paths.runtime, port))).toBe(true)
+    // Closing its only window cancels the forward.
+    await page.close()
+    await expect.poll(() => existsSync(path.join(paths.runtime, port)), { timeout: 15_000 }).toBe(false)
+  } finally {
+    await server.close()
+  }
 })

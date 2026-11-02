@@ -415,3 +415,63 @@ test("a CLI write that finds the server gone is not resent", async () => {
   assert.equal(await errorCode(response), "serverStopped")
   assert.equal(h.forwarded.length, 1)
 })
+
+// http servers and forwarded remote servers (decision 0075).
+
+const httpReady: ConnectionLookup = { kind: "ready", connection: { id: "http-10-0-0-5-7971", kind: "http", origin: "servef-app://http-10-0-0-5-7971", host: "10.0.0.5", urlHost: "10.0.0.5", port: 7971, label: "10.0.0.5:7971" } }
+const portReady: ConnectionLookup = { kind: "ready", connection: { id: "ssh-devbox-7971", kind: "ssh-port", origin: "servef-app://ssh-devbox-7971", socket: "/run/p-1.sock", port: 7971, label: "devbox:7971" } }
+
+test("an http server forwards over TCP with Host <ip>:<port> and is never re-ensured", async () => {
+  const h = harness({ id: "http-10-0-0-5-7971", lookups: [httpReady] })
+  const response = await h.proxy(new Request("servef-app://http-10-0-0-5-7971/api/projects", { headers: { accept: "application/json" } }))
+  assert.equal(await response.text(), "ok")
+  const [forwarded] = h.forwarded
+  assert.ok(forwarded !== undefined)
+  assert.deepEqual(forwarded.target, { host: "10.0.0.5", port: 7971 })
+  assert.deepEqual(forwarded.headers, { accept: "application/json", host: "10.0.0.5:7971", "sec-fetch-site": "same-origin" })
+  for (const path of ["/_daemon/status", "/_servef/control", "//_daemon/open"]) {
+    assert.equal((await h.proxy(new Request(`servef-app://http-10-0-0-5-7971${path}`))).status, 403, path)
+  }
+})
+
+test("an unreachable http server shows a page to documents and JSON to the API", async () => {
+  const h = harness({ id: "http-10-0-0-5-7971", lookups: [httpReady], steps: [gone()] })
+  const page = await h.proxy(new Request("servef-app://http-10-0-0-5-7971/", { headers: { "sec-fetch-dest": "document" } }))
+  assert.equal(page.status, 503)
+  assert.match(await page.text(), /Cannot reach the servef server at 10\.0\.0\.5:7971/)
+  const api = await h.proxy(new Request("servef-app://http-10-0-0-5-7971/api/projects"))
+  assert.equal(api.status, 503)
+  assert.equal(await errorCode(api), "serverUnreachable")
+  assert.equal(h.reensures, 0)
+  assert.deepEqual(h.dropped, [])
+})
+
+test("a forwarded remote server uses its port socket with Host localhost:<port>", async () => {
+  const h = harness({ id: "ssh-devbox-7971", lookups: [portReady] })
+  await h.proxy(new Request("servef-app://ssh-devbox-7971/api/projects"))
+  const [forwarded] = h.forwarded
+  assert.ok(forwarded !== undefined)
+  assert.deepEqual(forwarded.target, { socket: "/run/p-1.sock" })
+  assert.equal(forwarded.headers.host, "localhost:7971")
+})
+
+test("a forwarded remote server read that finds the forward gone forwards again and retries once", async () => {
+  const h = harness({ id: "ssh-devbox-7971", lookups: [portReady], steps: [gone(), new Response("again")] })
+  const response = await h.proxy(new Request("servef-app://ssh-devbox-7971/api/projects"))
+  assert.equal(await response.text(), "again")
+  assert.equal(h.reensures, 1)
+  const write = harness({ id: "ssh-devbox-7971", lookups: [portReady], steps: [gone()] })
+  const post = await write.proxy(new Request("servef-app://ssh-devbox-7971/api/walkthroughs", { method: "POST", body: "{}" }))
+  assert.equal(post.status, 503)
+  assert.equal(await errorCode(post), "serverUnreachable")
+  assert.equal(write.reensures, 0)
+})
+
+test("forwardDenied failure pages link the host page", async () => {
+  const h = harness({ id: "ssh-devbox", lookups: [sshFailure("forwardDenied")], reensure: [false] })
+  const page = await h.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))
+  assert.ok((await page.text()).includes("<a href=\"servef-app://app/ssh/ssh-devbox\">Servers on this host</a>"))
+  const other = harness({ id: "ssh-devbox", lookups: [sshFailure("auth")], reensure: [false] })
+  const auth = await other.proxy(new Request("servef-app://ssh-devbox/", { headers: { "sec-fetch-dest": "document" } }))
+  assert.ok(!(await auth.text()).includes("Servers on this host"))
+})

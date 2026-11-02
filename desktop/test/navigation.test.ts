@@ -32,7 +32,7 @@ test("navigationPolicy compares against the window's own origin", () => {
   assert.deepEqual(navigationPolicy("servef-app://local/", box), { kind: "connection", url: "servef-app://local/" })
   assert.deepEqual(navigationPolicy("servef-app://ssh-boxer/", box), { kind: "connection", url: "servef-app://ssh-boxer/" })
   assert.deepEqual(navigationPolicy("servef-app://local/", "servef-app://app"), { kind: "connection", url: "servef-app://local/" })
-  assert.deepEqual(navigationPolicy("servef://ssh/box/", box), { kind: "scheme", url: "servef://ssh/box/" })
+  assert.deepEqual(navigationPolicy("servef://10.0.0.5:7971/", box), { kind: "scheme", url: "servef://10.0.0.5:7971/" })
 })
 
 test("permissionAllowed allows sanitized clipboard writes only", () => {

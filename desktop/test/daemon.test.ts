@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { EXPECTED_PROTOCOL, isControlErrorBody, isControlStatus, isDaemonStatus, isOpenResult, isWalkthroughAnnouncement } from "../src/main/daemon-contract.ts"
-import { devFlags, ENSURE_TIMEOUT_MS, ensureDaemon, nodeExecFile, openPath, stopDaemon } from "../src/main/daemon.ts"
+import { EXPECTED_PROTOCOL, isControlErrorBody, isControlStatus, isDaemonStatus, isDirectoryListing, isOpenResult, isWalkthroughAnnouncement } from "../src/main/daemon-contract.ts"
+import { devFlags, ENSURE_TIMEOUT_MS, ensureDaemon, listDirectories, nodeExecFile, openPath, readStatus, stopDaemon } from "../src/main/daemon.ts"
 import type { ExecFile, ExecOutcome } from "../src/main/daemon.ts"
 import type { Forward, ForwardRequest } from "../src/main/forward.ts"
 
@@ -168,4 +168,43 @@ test("contract guards accept daemon shapes and reject others", () => {
   assert.ok(isControlErrorBody({ error: "x", code: "c" }))
   assert.ok(!isControlErrorBody({ error: "x", code: 1 }))
   assert.ok(!isControlErrorBody([]))
+})
+
+test("listDirectories gets the listing with the path in the query, without browser headers", async () => {
+  const listing = { path: "/home/dee", parent: "/home", entries: [{ name: "a b", path: "/home/dee/a b", repository: true, hidden: false }], truncated: false }
+  const { forward, requests } = fakeForward(() => Response.json(listing))
+  assert.deepEqual(await listDirectories(forward, "/s.sock", "/home/dee/a&b c"), { ok: true, listing })
+  const [request] = requests
+  assert.ok(request !== undefined)
+  assert.equal(request.method, "GET")
+  assert.equal(request.path, "/_daemon/directories?path=%2Fhome%2Fdee%2Fa%26b+c")
+  assert.deepEqual(request.target, { socket: "/s.sock" })
+  assert.deepEqual(request.headers, { host: "localhost" })
+})
+
+test("listDirectories maps errors; a 404 without a code means an old servef", async () => {
+  const missing = fakeForward(() => Response.json({ error: "no such directory", code: "pathUnavailable" }, { status: 404 }))
+  assert.deepEqual(await listDirectories(missing.forward, "/s", "/x"), { ok: false, status: 404, code: "pathUnavailable", error: "no such directory", upgrade: false })
+  const old = fakeForward(() => Response.json({ error: "Unknown daemon endpoint." }, { status: 404 }))
+  assert.deepEqual(await listDirectories(old.forward, "/s", ""), { ok: false, status: 404, code: "", error: "Unknown daemon endpoint.", upgrade: true })
+  const invalid = fakeForward(() => Response.json({ path: "/", entries: "x" }))
+  const outcome = await listDirectories(invalid.forward, "/s", "")
+  assert.ok(!outcome.ok)
+  assert.equal(outcome.code, "invalidResponse")
+  const gone = await listDirectories(async () => { throw Object.assign(new Error("connect ENOENT"), { code: "ENOENT" }) }, "/s", "")
+  assert.ok(!gone.ok)
+  assert.equal(gone.code, "daemonUnavailable")
+})
+
+test("readStatus validates the daemon status; anything else is null", async () => {
+  assert.deepEqual(await readStatus(fakeForward(() => Response.json(status)).forward, "/s"), status)
+  assert.equal(await readStatus(fakeForward(() => Response.json({ pid: 1 })).forward, "/s"), null)
+  assert.equal(await readStatus(async () => { throw new Error("down") }, "/s"), null)
+})
+
+test("isDirectoryListing checks every entry", () => {
+  const listing = { path: "/", parent: "", entries: [{ name: "a", path: "/a", repository: false, hidden: false }], truncated: true }
+  assert.ok(isDirectoryListing(listing))
+  assert.ok(!isDirectoryListing({ ...listing, entries: [{ name: "a", path: "/a", repository: "no", hidden: false }] }))
+  assert.ok(!isDirectoryListing({ ...listing, parent: null }))
 })

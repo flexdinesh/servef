@@ -4,7 +4,7 @@ import { request } from "node:http"
 import path from "node:path"
 import { after, before, describe, test, type TestContext } from "node:test"
 
-import { nodeExecFile, probeDaemon } from "../../src/main/daemon.ts"
+import { listDirectories, nodeExecFile, openPath, probeDaemon } from "../../src/main/daemon.ts"
 import { createForwarder, type Forwarder } from "../../src/main/forward.ts"
 import { prepareRuntimeDir, type RuntimeDirResult } from "../../src/main/runtime-dir.ts"
 import { muxControlArgs } from "../../src/main/ssh-args.ts"
@@ -81,10 +81,11 @@ interface Reply {
   text: string
 }
 
-// get sends GET path over the forward socket as the daemon expects (Host localhost).
-function get(socket: string, route: string): Promise<Reply> {
+// get sends GET path over the forward socket as the daemon expects (Host
+// localhost); a forwarded CLI server takes host localhost:<port>.
+function get(socket: string, route: string, host = "localhost"): Promise<Reply> {
   return new Promise((resolve, reject) => {
-    const req = request({ socketPath: socket, method: "GET", path: route, headers: { host: "localhost" }, agent: false }, (response) => {
+    const req = request({ socketPath: socket, method: "GET", path: route, headers: { host }, agent: false }, (response) => {
       const chunks: Buffer[] = []
       response.on("data", (chunk: Buffer) => chunks.push(chunk))
       response.on("end", () => resolve({ status: response.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }))
@@ -162,7 +163,7 @@ describe("ssh connections against a real sshd", { skip }, () => {
   }
 
   // closeClean closes the session and checks teardown: the master is gone, no
-  // ssh process names the runtime dir, and no c-*/f-*.sock file remains.
+  // ssh process names the runtime dir, and no c-*, f-*.sock, or p-*.sock file remains.
   const closeClean = async (opened: Opened): Promise<void> => {
     const pid = await masterPid(opened)
     await opened.session.close()
@@ -171,7 +172,7 @@ describe("ssh connections against a real sshd", { skip }, () => {
     if (!opened.runtime.ok) return
     const dir = opened.runtime.runtime.dir
     await waitFor(() => processesMentioning(dir).length === 0, 5_000, `ssh processes using ${dir} to exit`)
-    assert.deepEqual(readdirSync(dir).filter((name) => name.startsWith("c-") || (name.startsWith("f-") && name.endsWith(".sock"))), [])
+    assert.deepEqual(readdirSync(dir).filter((name) => name.startsWith("c-") || ((name.startsWith("f-") || name.startsWith("p-")) && name.endsWith(".sock"))), [])
   }
 
   // scenario closes and checks teardown after body, and adds the sshd log to failures.
@@ -215,6 +216,57 @@ describe("ssh connections against a real sshd", { skip }, () => {
       // ClearAllForwardings: servef-test's configured LocalForward stays unbound.
       assert.equal(await accepts(sshd().localForwardPort), false)
     })
+  })
+
+  test("browses remote folders and opens one through the forwarded daemon (decision 0075)", async () => {
+    const opened = open("servef-test")
+    await scenario(opened, async () => {
+      const connected = ready(await within(opened.session.ready(), LIMIT_MS, "servef-test connect"))
+      const projects = path.dirname(project)
+      const beta = path.join(projects, "beta")
+      mkdirSync(beta, { recursive: true })
+      const listed = await listDirectories(opened.forwarder.forward, connected.socket, projects)
+      if (!listed.ok) assert.fail(`${listed.code}: ${listed.error}`)
+      assert.equal(listed.listing.path, projects)
+      assert.deepEqual(listed.listing.entries.map((entry) => entry.name), ["alpha", "beta"])
+      const missing = await listDirectories(opened.forwarder.forward, connected.socket, path.join(projects, "nope"))
+      assert.ok(!missing.ok && missing.code === "pathUnavailable" && !missing.upgrade)
+
+      const added = await openPath(opened.forwarder.forward, connected.socket, beta)
+      if (!added.ok) assert.fail(`${added.code}: ${added.error}`)
+      assert.equal(added.result.project, beta)
+      const roots = await get(connected.socket, "/_daemon/status")
+      assert.ok(roots.text.includes(JSON.stringify(beta)), roots.text)
+    })
+  })
+
+  test("lists remote servers and forwards a port socket to one (decision 0075)", async () => {
+    const opened = open("servef-test")
+    const server = await sshd().startServer(project)
+    try {
+      await scenario(opened, async () => {
+        ready(await within(opened.session.ready(), LIMIT_MS, "servef-test connect"))
+        const listed = await within(opened.session.listServers(), LIMIT_MS, "list servers")
+        if (!listed.ok) assert.fail(listed.detail)
+        const entry = listed.servers.find((candidate) => candidate.port === server.port)
+        assert.deepEqual(entry, { host: "127.0.0.1", port: server.port, origin: `http://127.0.0.1:${server.port}` })
+
+        const id = `${opened.target.id}-${server.port}`
+        const forwarded = await within(opened.session.forwardPort(id, "127.0.0.1", server.port), LIMIT_MS, "forward port")
+        if (!forwarded.ok) assert.fail(forwarded.detail)
+        const reply = await get(forwarded.socket, "/api/projects", `localhost:${server.port}`)
+        assert.equal(reply.status, 200, reply.text)
+        assert.ok(reply.text.includes(JSON.stringify(project)), reply.text)
+
+        await opened.session.cancelPort(id)
+        assert.equal(existsSync(forwarded.socket), false)
+        // Forwarded again, then left for close to clean up.
+        const again = await opened.session.forwardPort(id, "127.0.0.1", server.port)
+        assert.ok(again.ok)
+      })
+    } finally {
+      await server.close()
+    }
   })
 
   test("a stopped remote daemon is ensured again", async () => {

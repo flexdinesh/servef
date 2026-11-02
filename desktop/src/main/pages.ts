@@ -50,13 +50,23 @@ ${content}
 // failurePage renders ensure-failure instructions as an HTML page (503) with
 // its own CSP (default-src 'none'; style-src 'unsafe-inline'). Retry is a
 // plain reload link; stopAndRetry adds a form POST to STOP_AND_RETRY_PATH.
-export function failurePage(instructions: Instructions): Response {
+// extra is trusted HTML (already escaped) placed after the commands.
+export function failurePage(instructions: Instructions, extra = ""): Response {
+  return page(instructions.title, failureContent(instructions, extra), failureActions(instructions))
+}
+
+// failureContent is failurePage's body: paragraphs, commands, then extra.
+export function failureContent(instructions: Instructions, extra = ""): string {
   const paragraphs = instructions.paragraphs.map((text) => `<p>${escapeHTML(text)}</p>`).join("\n")
   const commands = instructions.commands.map((command) => `<pre><code>${escapeHTML(command)}</code></pre>`).join("\n")
-  const stop = instructions.stopAndRetry
+  return [paragraphs, commands, extra].filter((part) => part !== "").join("\n")
+}
+
+// failureActions is the stop-and-retry form for a mismatch, else "".
+export function failureActions(instructions: Instructions): string {
+  return instructions.stopAndRetry
     ? `<form method="post" action="${STOP_AND_RETRY_PATH}"><button>Stop the running daemon and retry</button></form>`
     : ""
-  return page(instructions.title, [paragraphs, commands].filter((part) => part !== "").join("\n"), stop)
 }
 
 // unavailablePage renders a daemon that stopped answering.
@@ -75,18 +85,24 @@ export function cliStoppedPage(port: number): Response {
   return page(`The servef server on port ${port} stopped`, `<p>Start it again in a terminal, then Retry:</p>\n<pre><code>servef browser --port ${port}</code></pre>`, "")
 }
 
+// serverUnreachablePage: an http or forwarded remote server did not answer
+// (503). The app never starts remote servers.
+export function serverUnreachablePage(label: string, detail: string): Response {
+  return page(`Cannot reach the servef server at ${label}`, `<p>${escapeHTML(detail)}</p>\n<p>Check that servef still runs there and that this computer can reach it, then Retry.</p>`, "")
+}
+
 // RECONNECT_REFRESH_SECONDS is how often the reconnecting page reloads itself
 // (a meta refresh; the page has no scripts).
 export const RECONNECT_REFRESH_SECONDS = 3
 
 // reconnectingPage renders an ssh connection waiting to reconnect (503): it
-// reloads every RECONNECT_REFRESH_SECONDS and shows the last failure.
-export function reconnectingPage(title: string, detail: string): Response {
+// reloads (or loads url) every RECONNECT_REFRESH_SECONDS and shows the last failure.
+export function reconnectingPage(title: string, detail: string, url = ""): Response {
   const content = [
     detail === "" ? "" : `<p>${escapeHTML(detail)}</p>`,
     "<p>servef keeps trying while this window is open. This page reloads on its own.</p>",
   ].filter((part) => part !== "").join("\n")
-  return page(title, content, "", `<meta http-equiv="refresh" content="${RECONNECT_REFRESH_SECONDS}">`)
+  return page(title, content, "", `<meta http-equiv="refresh" content="${RECONNECT_REFRESH_SECONDS}${url === "" ? "" : `; url=${escapeHTML(url)}`}">`)
 }
 
 export function jsonError(status: number, code: string, error: string): Response {

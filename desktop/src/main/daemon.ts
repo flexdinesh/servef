@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process"
-import { EXPECTED_PROTOCOL, isControlErrorBody, isDaemonStatus, isOpenResult } from "./daemon-contract.ts"
-import type { DaemonStatus, OpenResult } from "./daemon-contract.ts"
+import { EXPECTED_PROTOCOL, isControlErrorBody, isDaemonStatus, isDirectoryListing, isOpenResult } from "./daemon-contract.ts"
+import type { DaemonStatus, DirectoryListing, OpenResult } from "./daemon-contract.ts"
 import { isDaemonGone, type Forward } from "./forward.ts"
 
 // ExecFile runs a binary and resolves with its exit outcome; it never rejects
@@ -135,6 +135,40 @@ export async function openPath(forward: Forward, socket: string, path: string): 
   if ((response.status === 200 || response.status === 201) && isOpenResult(body)) return { ok: true, result: body }
   if (isControlErrorBody(body)) return { ok: false, status: response.status, code: body.code ?? "", error: body.error }
   return { ok: false, status: response.status, code: "invalidResponse", error: `The servef daemon sent an unexpected answer (HTTP ${response.status}).` }
+}
+
+export type DirectoriesOutcome =
+  | { ok: true; listing: DirectoryListing }
+  // upgrade: the daemon predates /_daemon/directories (404 without a code).
+  | { ok: false; status: number; code: string; error: string; upgrade: boolean }
+
+// listDirectories gets /_daemon/directories?path= over the socket (decision
+// 0075). A daemon that does not answer yields status 0, "daemonUnavailable".
+export async function listDirectories(forward: Forward, socket: string, path: string): Promise<DirectoriesOutcome> {
+  let response: Response
+  try {
+    response = await forward({ target: { socket }, method: "GET", path: `/_daemon/directories?${new URLSearchParams({ path }).toString()}`, headers: { host: CONTROL_HOST }, body: null, stream: false })
+  } catch (error) {
+    return { ok: false, status: 0, code: "daemonUnavailable", error: `The servef daemon is not answering: ${errorMessage(error)}`, upgrade: false }
+  }
+  const body = await readJSON(response)
+  if (response.status === 200 && isDirectoryListing(body)) return { ok: true, listing: body }
+  if (isControlErrorBody(body)) {
+    const code = body.code ?? ""
+    return { ok: false, status: response.status, code, error: body.error, upgrade: response.status === 404 && code === "" }
+  }
+  return { ok: false, status: response.status, code: "invalidResponse", error: `The servef daemon sent an unexpected answer (HTTP ${response.status}).`, upgrade: false }
+}
+
+// readStatus gets /_daemon/status over the socket; null when it does not answer validly.
+export async function readStatus(forward: Forward, socket: string): Promise<DaemonStatus | null> {
+  try {
+    const response = await forward({ target: { socket }, method: "GET", path: "/_daemon/status", headers: { host: CONTROL_HOST }, body: null, stream: false, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+    const body = await readJSON(response)
+    return response.status === 200 && isDaemonStatus(body) ? body : null
+  } catch {
+    return null
+  }
 }
 
 export type ProbeOutcome = "ok" | "gone" | "failed"

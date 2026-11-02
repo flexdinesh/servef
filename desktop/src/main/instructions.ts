@@ -148,6 +148,7 @@ export function sshFailureInstructions(failure: SshFailure, release: string | nu
         paragraphs: [
           ...lead,
           `The SSH server on ${dest} must allow Unix socket forwarding: AllowStreamLocalForwarding yes and no DisableForwarding in its sshd_config. It also needs OpenSSH 6.7 or newer.`,
+          "Servers that listen on an address this computer can reach still open without the forward.",
         ],
       }
     case "runtimeDir":

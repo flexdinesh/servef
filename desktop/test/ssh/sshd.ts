@@ -8,7 +8,7 @@ import { findOnPath } from "../../src/main/binary.ts"
 import { REMOTE_PATH_DIRS } from "../../src/main/ssh-args.ts"
 
 // A private sshd on 127.0.0.1 for the ssh integration tests and the remote
-// Electron smoke (decision 0070). Each run owns one temp dir: host and client
+// Electron smoke (decisions 0070, 0075). Each run owns one temp dir: host and client
 // keys, known hosts, sshd and client configs, the remote servef binary, and the
 // remote XDG directories. Remote env comes only from the master's SetEnv, so
 // every env variant is its own alias. Nothing reads the user's ssh config,
@@ -66,6 +66,11 @@ export interface RemoteEnv {
   cache: string
 }
 
+export interface RemoteServer {
+  port: number
+  close(): Promise<void>
+}
+
 export interface SshResult {
   code: number | null
   stdout: string
@@ -95,6 +100,10 @@ export interface Sshd {
   // remoteHasServef reports whether alias finds servef on the remote PATH
   // with the app's fallback directories.
   remoteHasServef(alias: string): Promise<boolean>
+  // startServer runs `servef browser` for root on 127.0.0.1 in servef-test's
+  // remote environment, so REMOTE_LIST over servef-test lists it (decision
+  // 0075); close stops it.
+  startServer(root: string): Promise<RemoteServer>
   log(): string
   close(): Promise<void>
 }
@@ -323,6 +332,30 @@ export async function startSshd(): Promise<Sshd> {
       async remoteHasServef(alias) {
         const probe = `sh -c 'PATH="$PATH:${REMOTE_PATH_DIRS.join(":")}"; export PATH; command -v servef'`
         return (await ssh(alias, probe)).code === 0
+      },
+      async startServer(root) {
+        const [serverPort = 0] = await freePorts(1)
+        const env: NodeJS.ProcessEnv = { ...process.env, XDG_RUNTIME_DIR: remote.runtime, XDG_CONFIG_HOME: remote.config, XDG_CACHE_HOME: remote.cache }
+        delete env.SSH_CONNECTION
+        delete env.SSH_CLIENT
+        delete env.SSH_TTY
+        let serverOutput = ""
+        const server = spawn(remoteServef, ["browser", "--no-open", "--host", "127.0.0.1", "--port", String(serverPort), root], { env, stdio: ["ignore", "pipe", "pipe"], shell: false })
+        const collectServer = (chunk: Buffer) => {
+          serverOutput = (serverOutput + chunk.toString("utf8")).slice(-8_192)
+        }
+        server.stdout.on("data", collectServer)
+        server.stderr.on("data", collectServer)
+        const stopped = new Promise<void>((resolve) => server.once("close", () => resolve()))
+        await waitForPort(serverPort, server, () => serverOutput, 15_000)
+        return {
+          port: serverPort,
+          async close() {
+            if (server.exitCode === null && server.signalCode === null) server.kill("SIGTERM")
+            await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 5_000))])
+            if (server.exitCode === null && server.signalCode === null) server.kill("SIGKILL")
+          },
+        }
       },
       log: () => output,
       close() {

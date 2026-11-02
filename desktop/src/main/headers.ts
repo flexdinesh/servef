@@ -8,16 +8,16 @@ export const FORWARDED_REQUEST_HEADERS: readonly string[] = [
 
 export const HOP_BY_HOP: ReadonlySet<string> = new Set(["connection", "keep-alive", "transfer-encoding", "upgrade"])
 
-// upstreamHeaders keeps the allowlist and sets Host: localhost (or
-// localhost:<port> for a CLI server on port) and Sec-Fetch-Site: same-origin.
+// upstreamHeaders keeps the allowlist and sets Host (localhost unless the
+// connection's upstreamHost says otherwise) and Sec-Fetch-Site: same-origin.
 // The servef Host check refuses names other than localhost and IP literals.
-export function upstreamHeaders(incoming: Headers, port: number | null = null): Record<string, string> {
+export function upstreamHeaders(incoming: Headers, host = "localhost"): Record<string, string> {
   const headers: Record<string, string> = {}
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = incoming.get(name)
     if (value !== null) headers[name] = value
   }
-  headers.host = port === null ? "localhost" : `localhost:${port}`
+  headers.host = host
   headers["sec-fetch-site"] = "same-origin"
   return headers
 }

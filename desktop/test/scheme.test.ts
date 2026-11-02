@@ -24,18 +24,26 @@ test("routeSchemeURL maps local links and keeps query and fragment", () => {
   for (const [raw, expected] of table) assert.deepEqual(routeSchemeURL(raw), expected, raw)
 })
 
-test("routeSchemeURL parses ssh links and rejects malformed ones", () => {
-  assert.deepEqual(routeSchemeURL("servef://ssh/devbox/?project=%2Fsrc%2Fa&ssh-hostname=devbox&ssh-user=dee#f=1"), {
-    kind: "ssh",
-    link: { host: "devbox", route: "/", query: "project=%2Fsrc%2Fa", hash: "#f=1", hints: { hostname: "devbox", user: "dee" } },
-  })
-  assert.deepEqual(routeSchemeURL("servef://ssh/work-box/view?project=%2Fa&path=a.md&ssh-port=2222"), {
-    kind: "ssh",
-    link: { host: "work-box", route: "/view", query: "project=%2Fa&path=a.md", hash: "", hints: { port: 2222 } },
-  })
-  for (const raw of ["servef://ssh", "servef://ssh/", "servef://ssh//", "servef://ssh/devbox/api/projects", "servef://ssh/devbox/_daemon/status"]) {
-    assert.deepEqual(routeSchemeURL(raw), { kind: "invalid" }, raw)
-  }
+test("routeSchemeURL maps server links: loopback to cli, other hosts to http", () => {
+  const table: [string, ReturnType<typeof routeSchemeURL>][] = [
+    ["servef://localhost:7971/", { kind: "cli", port: 7971, target: "servef-app://cli-7971/" }],
+    ["servef://LOCALHOST:7971/view?project=%2Fa#f=1", { kind: "cli", port: 7971, target: "servef-app://cli-7971/view?project=%2Fa#f=1" }],
+    ["servef://127.0.0.1:80", { kind: "cli", port: 80, target: "servef-app://cli-80/" }],
+    ["servef://127.1:7972/", { kind: "cli", port: 7972, target: "servef-app://cli-7972/" }],
+    ["servef://[::1]:7973/", { kind: "cli", port: 7973, target: "servef-app://cli-7973/" }],
+    ["servef://10.0.0.5:7971/view?project=%2Fsrv&path=a.md#L3", { kind: "http", host: "10.0.0.5", port: 7971, path: "/view?project=%2Fsrv&path=a.md#L3" }],
+    ["servef://Box.Lan:8080/?x=1+2", { kind: "http", host: "box.lan", port: 8080, path: "/?x=1+2" }],
+    ["servef://[2001:DB8::5]:7971", { kind: "http", host: "[2001:db8::5]", port: 7971, path: "/" }],
+  ]
+  for (const [raw, expected] of table) assert.deepEqual(routeSchemeURL(raw), expected, raw)
+})
+
+test("routeSchemeURL rejects server links without a port, with credentials, or off / and /view", () => {
+  for (const raw of [
+    "servef://10.0.0.5/", "servef://10.0.0.5:0/", "servef://10.0.0.5:65536/", "servef://u@10.0.0.5:7971/", "servef://u:p@10.0.0.5:7971/",
+    "servef://10.0.0.5:7971/api/projects", "servef://10.0.0.5:7971/_daemon/status", "servef://10.0.0.5:7971/_servef/control",
+    "servef://a%20b:7971/", "servef://ssh/devbox/", "servef://ssh/devbox/?ssh-user=dee", "servef://ssh",
+  ]) assert.deepEqual(routeSchemeURL(raw), { kind: "invalid" }, raw)
 })
 
 test("schemeArgument picks the first servef:// argument", () => {

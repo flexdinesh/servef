@@ -1,49 +1,28 @@
-// Native dialogs: first-contact ssh confirmation (decision 0070) and reports
-// (decision 0072). SERVEF_DESKTOP_AUTO_CONFIRM=1 (unpackaged only) picks the
-// first choice or skips the report, and appends the prompt or report as a JSON
+// Native dialogs: first-contact http server confirmation (decision 0075) and
+// reports (decision 0072). SERVEF_DESKTOP_AUTO_CONFIRM=1 (unpackaged only)
+// confirms or skips the report, and appends the prompt or report as a JSON
 // line to SERVEF_DESKTOP_DIALOG_LOG.
 import { dialog, type BrowserWindow, type MessageBoxOptions } from "electron"
 import { appendFileSync } from "node:fs"
 
-export interface ConnectChoice {
-  // label is the button text (the destination).
-  label: string
-  // detail lists `ssh -G` user, hostname, and port when known.
-  detail: string
-}
-
-export interface ConnectPrompt {
-  // host is the link's host segment.
-  host: string
-  choices: ConnectChoice[]
-}
-
-// MAX_CHOICES bounds the destination buttons; Cancel comes after them.
-const MAX_CHOICES = 4
-const TRUST = "A link asked servef to connect. servef runs servef on that host with your SSH configuration. Connect only to hosts you trust."
-
-// confirmConnect returns the chosen index, or null on Cancel.
-export async function confirmConnect(parent: BrowserWindow | null, prompt: ConnectPrompt, options: { packaged: boolean; env: NodeJS.ProcessEnv }): Promise<number | null> {
-  const choices = prompt.choices.slice(0, MAX_CHOICES)
-  if (choices.length === 0) return null
+// confirmServer asks before a link opens a server on another computer; true
+// to open it. label is <host>:<port>.
+export async function confirmServer(parent: BrowserWindow | null, label: string, options: { packaged: boolean; env: NodeJS.ProcessEnv }): Promise<boolean> {
   if (autoConfirm(options)) {
-    logDialog(options.env, { host: prompt.host, choices })
-    return 0
+    logDialog(options.env, { server: label })
+    return true
   }
-  const [only] = choices
-  const destination = choices.length === 1 && only !== undefined ? only.label : prompt.host
-  const details = choices.map((choice) => choice.detail).filter((detail) => detail !== "")
   const box: MessageBoxOptions = {
     type: "question",
-    message: `Connect to ${destination} over SSH?`,
-    detail: [...details, TRUST].join("\n\n"),
-    buttons: [...choices.map((choice) => choice.label), "Cancel"],
-    cancelId: choices.length,
-    defaultId: choices.length,
+    message: `Open the servef server at ${label}?`,
+    detail: `A link asked servef to open the server at ${label}. It is not on this computer. Open only servers you trust.`,
+    buttons: ["Open", "Cancel"],
+    cancelId: 1,
+    defaultId: 1,
     noLink: true,
   }
   const { response } = parent === null ? await dialog.showMessageBox(box) : await dialog.showMessageBox(parent, box)
-  return response >= 0 && response < choices.length ? response : null
+  return response === 0
 }
 
 // showReport shows an error message box without blocking the main process.

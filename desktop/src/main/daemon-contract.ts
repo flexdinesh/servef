@@ -76,3 +76,37 @@ export function isControlErrorBody(value: unknown): value is ControlErrorBody {
     && typeof value.error === "string"
     && (value.code === undefined || typeof value.code === "string")
 }
+
+// DirectoryEntry and DirectoryListing are GET /_daemon/directories' answer
+// (decision 0075).
+export interface DirectoryEntry {
+  name: string
+  path: string
+  repository: boolean
+  hidden: boolean
+}
+
+export interface DirectoryListing {
+  path: string
+  // parent is "" at the filesystem root.
+  parent: string
+  entries: DirectoryEntry[]
+  truncated: boolean
+}
+
+function isDirectoryEntry(value: unknown): value is DirectoryEntry {
+  return isRecord(value)
+    && typeof value.name === "string"
+    && typeof value.path === "string"
+    && typeof value.repository === "boolean"
+    && typeof value.hidden === "boolean"
+}
+
+export function isDirectoryListing(value: unknown): value is DirectoryListing {
+  return isRecord(value)
+    && typeof value.path === "string"
+    && typeof value.parent === "string"
+    && Array.isArray(value.entries)
+    && value.entries.every(isDirectoryEntry)
+    && typeof value.truncated === "boolean"
+}

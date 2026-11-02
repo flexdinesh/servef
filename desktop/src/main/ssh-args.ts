@@ -2,7 +2,7 @@
 // Every ssh call is argv only (never a local shell); `--` always precedes the
 // destination, and nothing from links, aliases, or remote output is ever
 // interpolated into a remote command.
-import { isIPv6 } from "node:net"
+import { isIPv4, isIPv6 } from "node:net"
 import type { SshTarget } from "./ssh-connection.ts"
 
 // REMOTE_PATH_DIRS are appended to the remote PATH (existing entries win).
@@ -23,6 +23,9 @@ function remoteCommand(servefArgs: string): string {
 export const REMOTE_ENSURE: string = remoteCommand("daemon ensure --json")
 // REMOTE_STOP is REMOTE_ENSURE with `exec servef daemon stop`.
 export const REMOTE_STOP: string = remoteCommand("daemon stop")
+// REMOTE_LIST is REMOTE_ENSURE with `exec servef control list --json`: the
+// running CLI servers on the host (decision 0075).
+export const REMOTE_LIST: string = remoteCommand("control list --json")
 
 const USER_PART = /^[A-Za-z0-9._][A-Za-z0-9._-]{0,63}$/
 const HOST_PART = /^[A-Za-z0-9._][A-Za-z0-9._-]{0,252}$/
@@ -53,6 +56,18 @@ export function validRemoteSocket(path: string): boolean {
     if (code < 0x20 || code === 0x7f || char === ":" || char === "%" || /\s/u.test(char)) return false
   }
   return true
+}
+
+// portForwardSpec is the `<host>:<port>` side of `-L <socket>:<host>:<port>`
+// for a remote TCP server (decision 0075): host must be an IPv4 or IPv6
+// literal (brackets added) or localhost, port an integer 1-65535; null
+// otherwise, so nothing else reaches ssh's argv.
+export function portForwardSpec(host: string, port: number): string | null {
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) return null
+  const bare = host.replace(/^\[(.*)\]$/, "$1")
+  if (bare === "localhost" || isIPv4(bare)) return `${bare}:${port}`
+  if (validIPv6Literal(bare)) return `[${bare}]:${port}`
+  return null
 }
 
 function portArgs(target: SshTarget): string[] {
@@ -106,14 +121,15 @@ function muxOptions(target: SshTarget, controlPath: string): string[] {
   ]
 }
 
-// muxControlArgs builds `ssh -O <op> [-L local:remote] <mux opts> -- <dest>`.
+// muxControlArgs builds `ssh -O <op> [-L local:remote] <mux opts> -- <dest>`;
+// remote is a validated remote socket or a portForwardSpec.
 export function muxControlArgs(target: SshTarget, controlPath: string, operation: MuxOperation): string[] {
   const forward = operation.op === "forward" || operation.op === "cancel" ? ["-L", `${operation.local}:${operation.remote}`] : []
   return ["-O", operation.op, ...forward, ...muxOptions(target, controlPath), "--", target.destination]
 }
 
 // muxCommandArgs builds `ssh -n -T <mux opts> -- <dest> <command>`; command is
-// REMOTE_ENSURE or REMOTE_STOP only.
+// REMOTE_ENSURE, REMOTE_STOP, or REMOTE_LIST only.
 export function muxCommandArgs(target: SshTarget, controlPath: string, command: string): string[] {
   return ["-n", "-T", ...muxOptions(target, controlPath), "--", target.destination, command]
 }

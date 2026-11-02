@@ -1,12 +1,12 @@
+import { isIP } from "node:net"
 import { cliId, cliPort, dialHost } from "./cli-servers.ts"
 import type { CliList, CliServer } from "./cli-servers.ts"
-import { assignId } from "./connection-store.ts"
-import type { ConnectionStore, KnownConnection } from "./connection-store.ts"
+import { assignId, assignServerId } from "./connection-store.ts"
+import type { ConnectionStore, KnownConnection, KnownServer } from "./connection-store.ts"
 import type { DaemonStatus } from "./daemon-contract.ts"
 import type { EnsureFailure, EnsureResult } from "./daemon.ts"
 import type { SshConnector, SshReady, SshSession, SshState } from "./ssh-connection.ts"
 import type { SshFailure } from "./ssh-errors.ts"
-import type { SshHints } from "./ssh-links.ts"
 import type { TimerHandle, Timers } from "./timers.ts"
 
 export const LOCAL_CONNECTION = "local"
@@ -15,7 +15,7 @@ export const APP_HOST = "app"
 // RELEASE_GRACE_MS: an ssh connection no window holds closes after this.
 export const RELEASE_GRACE_MS = 30_000
 
-export type ConnectionKind = "daemon" | "ssh" | "cli"
+export type ConnectionKind = "daemon" | "ssh" | "cli" | "http" | "ssh-port"
 
 // DaemonConnection is a daemon reached over a Unix socket (local or ssh).
 export interface DaemonConnection {
@@ -43,7 +43,51 @@ export interface CliConnection {
   label: string
 }
 
-export type Connection = DaemonConnection | CliConnection
+// HttpConnection is a servef server on another computer over TCP (decision
+// 0075), confirmed or chosen by the user.
+export interface HttpConnection {
+  id: string
+  kind: "http"
+  origin: string
+  // host is the dial host (IPv6 without brackets); urlHost the URL hostname.
+  host: string
+  urlHost: string
+  port: number
+  // label is "<urlHost>:<port>".
+  label: string
+}
+
+// PortConnection is a remote TCP server reached through an ssh host's
+// master (decision 0075): socket is the local p-*.sock forward.
+export interface PortConnection {
+  id: string
+  kind: "ssh-port"
+  origin: string
+  socket: string
+  port: number
+  // label is "<ssh destination>:<port>".
+  label: string
+}
+
+export type Connection = DaemonConnection | CliConnection | HttpConnection | PortConnection
+
+// upstreamHost is the Host header the proxy sends: localhost for daemons;
+// localhost:<port> for CLI servers and forwarded remote servers; for http
+// servers <host>:<port> when host is an IP literal, else localhost:<port>
+// (servef's Host check refuses other names, and the app is no browser that
+// DNS rebinding could steer).
+export function upstreamHost(connection: Connection): string {
+  switch (connection.kind) {
+    case "daemon":
+    case "ssh":
+      return "localhost"
+    case "cli":
+    case "ssh-port":
+      return `localhost:${connection.port}`
+    case "http":
+      return isIP(connection.host) === 0 ? `localhost:${connection.port}` : `${connection.urlHost}:${connection.port}`
+  }
+}
 
 export type ConnectionLookup =
   | { kind: "ready"; connection: Connection }
@@ -67,7 +111,9 @@ export interface ConnectionSummary {
 
 export interface Connections {
   // lookup: local ensures on demand (as M3); a known ssh id awaits an
-  // in-flight connect or starts one; unknown ids (and APP_HOST) are unknown.
+  // in-flight connect or starts one; a known http id is ready (nothing is
+  // dialed); a registered ssh-port id looks its host up and forwards the
+  // port; unknown ids (and APP_HOST) are unknown.
   lookup(id: string): Promise<ConnectionLookup>
   // peek returns the current lookup without starting anything; null when
   // there is no result or session yet.
@@ -85,16 +131,33 @@ export interface Connections {
   hold(id: string): void
   release(id: string): void
   known(): KnownConnection[]
-  // remember stores a confirmed destination (with the link's hints) and
-  // returns its entry; an existing destination+port reuses its entry and
-  // merges the hints.
-  remember(target: { destination: string; port: number | null }, hints: SshHints): KnownConnection
-  // forget closes the session (no grace) and removes the entry.
+  // remember stores a destination the user chose and returns its entry; an
+  // existing destination+port reuses its entry.
+  remember(target: { destination: string; port: number | null }): KnownConnection
+  // servers lists the known http servers in store order.
+  servers(): KnownServer[]
+  // findServer is the known http server at host (URL hostname) and port.
+  findServer(host: string, port: number): KnownServer | null
+  // rememberServer stores an http server (confirmed or chosen) and returns
+  // its entry; an existing host+port reuses its entry.
+  rememberServer(host: string, port: number): KnownServer
+  // registerPort names the remote TCP server host:port of ssh host sshId as
+  // ssh-port id <sshId>-<port> (in memory only); an id a known ssh host has
+  // is refused.
+  registerPort(sshId: string, host: string, port: number): { ok: true; id: string } | { ok: false; detail: string }
+  // dropPort cancels an ssh-port forward and unregisters the id.
+  dropPort(id: string): Promise<void>
+  // listServers lists the running servef servers on ssh host id through its
+  // session (none: not open).
+  listServers(id: string): Promise<CliList>
+  // forget closes an ssh session (no grace) and removes the entry and its
+  // ssh-port ids, or removes an http server.
   forget(id: string): Promise<void>
-  // describe summarizes local, known ssh, and registered cli ids; null otherwise.
+  // describe summarizes local, known ssh and http, registered ssh-port, and
+  // registered cli ids; null otherwise.
   describe(id: string): ConnectionSummary | null
-  // summaries lists local first, then known ssh hosts in store order, then
-  // registered CLI servers by port.
+  // summaries lists local first, then known ssh hosts in store order, known
+  // http servers in store order, then registered CLI servers by port.
   summaries(): ConnectionSummary[]
   // refreshCli lists the running CLI servers and registers exactly those
   // (single flight); a failed list keeps the registrations.
@@ -159,7 +222,11 @@ export function createConnections(deps: ConnectionsDeps): Connections {
   }
 
   // Known ssh hosts and their sessions.
-  let known: KnownConnection[] = deps.store.load()
+  const stored = deps.store.load()
+  let known: KnownConnection[] = stored.ssh
+  let servers: KnownServer[] = stored.http
+  // ports maps registered ssh-port ids to their host and remote address.
+  const ports = new Map<string, { sshId: string; host: string; port: number }>()
   const sessions = new Map<string, Live>()
   // closing holds sessions still tearing down; a new session for the same id
   // waits so two masters never share a ControlPath.
@@ -232,7 +299,31 @@ export function createConnections(deps: ConnectionsDeps): Connections {
     return settled(id, live, await live.session.ready())
   }
 
-  const save = (): void => deps.store.save(known)
+  const save = (): void => deps.store.save({ ssh: known, http: servers })
+  const server = (id: string): KnownServer | undefined => servers.find((candidate) => candidate.id === id)
+
+  const portFailure = (destination: string, label: string, detail: string): ConnectionLookup => ({
+    kind: "failed", connection: "ssh", label, failure: { kind: "failed", destination, detail },
+  })
+  const lookupPort = async (id: string, registered: { sshId: string; host: string; port: number }): Promise<ConnectionLookup> => {
+    const parent = await lookupSsh(registered.sshId)
+    const live = sessions.get(registered.sshId)
+    if (live === undefined) return parent
+    const usable = parent.kind === "ready" || (parent.kind === "failed" && parent.connection === "ssh" && parent.failure.kind === "forwardDenied")
+    if (!usable) return parent
+    const label = portLabel(live.label, registered.port)
+    const forwarded = await live.session.forwardPort(id, registered.host, registered.port)
+    if (ports.get(id) !== registered) return { kind: "unknown" }
+    if (!forwarded.ok) return portFailure(live.label, label, forwarded.detail)
+    return { kind: "ready", connection: { id, kind: "ssh-port", origin: connectionOrigin(id), socket: forwarded.socket, port: registered.port, label } }
+  }
+  const describePort = (id: string, registered: { sshId: string; port: number }): ConnectionSummary | null => {
+    const parent = entry(registered.sshId)
+    if (parent === undefined) return null
+    const summary = describeSsh(parent)
+    return { ...summary, id, kind: "ssh-port", label: portLabel(parent.destination, registered.port) }
+  }
+  const describeServer = (current: KnownServer): ConnectionSummary => ({ id: current.id, kind: "http", label: serverLabel(current.host, current.port), state: "ready", detail: "" })
 
   // Registered CLI servers by id.
   const cli = new Map<string, CliServer>()
@@ -297,8 +388,27 @@ export function createConnections(deps: ConnectionsDeps): Connections {
       return local ?? ensureLocal()
     }
     if (cliPort(id) !== null) return lookupCli(id)
+    const httpServer = server(id)
+    if (httpServer !== undefined) return { kind: "ready", connection: httpConnection(httpServer) }
+    const registered = ports.get(id)
+    if (registered !== undefined) return lookupPort(id, registered)
     if (id === APP_HOST || entry(id) === undefined) return { kind: "unknown" }
     return lookupSsh(id)
+  }
+
+  const holdOne = (id: string): void => {
+    holds.set(id, (holds.get(id) ?? 0) + 1)
+    clearGrace(id)
+  }
+  const releaseOne = (id: string): number => {
+    const count = (holds.get(id) ?? 0) - 1
+    if (count > 0) {
+      holds.set(id, count)
+      return count
+    }
+    holds.delete(id)
+    scheduleGrace(id)
+    return 0
   }
 
   return {
@@ -309,12 +419,25 @@ export function createConnections(deps: ConnectionsDeps): Connections {
         const server = cli.get(id)
         return (server === undefined ? null : cliLookup(id, server)) ?? { kind: "unknown" }
       }
+      const httpServer = server(id)
+      if (httpServer !== undefined) return { kind: "ready", connection: httpConnection(httpServer) }
+      if (ports.has(id)) return null
       if (id === APP_HOST || entry(id) === undefined) return { kind: "unknown" }
       const live = sessions.get(id)
       return live === undefined ? null : sshLookup(id, live, live.session.state())
     },
     async reensure(id) {
       if (id === LOCAL_CONNECTION) return (await ensureLocal()).kind === "ready"
+      const registered = ports.get(id)
+      if (registered !== undefined) {
+        // A port forward that stopped answering is forwarded again; a host
+        // that is not ready is re-ensured first.
+        const parent = sessions.get(registered.sshId)
+        if (parent === undefined) return false
+        if (parent.session.state().kind === "ready") await parent.session.cancelPort(id)
+        else if (!await parent.session.reensure()) return false
+        return (await lookupPort(id, registered)).kind === "ready"
+      }
       const live = sessions.get(id)
       return live === undefined ? false : live.session.reensure()
     },
@@ -330,47 +453,88 @@ export function createConnections(deps: ConnectionsDeps): Connections {
       await live.session.stopRemoteDaemon()
       return live.session.reensure()
     },
+    // An ssh-port window holds its ssh host too; its forward is cancelled
+    // when the last one closes.
     hold(id) {
-      holds.set(id, (holds.get(id) ?? 0) + 1)
-      clearGrace(id)
+      const registered = ports.get(id)
+      if (registered !== undefined) holdOne(registered.sshId)
+      holdOne(id)
     },
     release(id) {
-      const count = (holds.get(id) ?? 0) - 1
-      if (count > 0) {
-        holds.set(id, count)
-        return
-      }
-      holds.delete(id)
-      scheduleGrace(id)
+      const registered = ports.get(id)
+      const left = releaseOne(id)
+      if (registered === undefined) return
+      if (left === 0) void sessions.get(registered.sshId)?.session.cancelPort(id)
+      releaseOne(registered.sshId)
     },
-    known: () => known.map(copyKnown),
-    remember(target, hints) {
+    known: () => known.map((current) => ({ ...current })),
+    remember(target) {
       const existing = known.find((candidate) => candidate.destination === target.destination && candidate.port === target.port)
-      const empty = Object.keys(hints).length === 0
-      if (existing !== undefined) {
-        const key = canonicalHints(hints)
-        if (!empty && !existing.hints.some((hint) => canonicalHints(hint) === key)) {
-          const merged = { ...existing, hints: [...existing.hints, { ...hints }] }
-          known = known.map((candidate) => candidate === existing ? merged : candidate)
-          save()
-          return copyKnown(merged)
-        }
-        save()
-        return copyKnown(existing)
-      }
+      if (existing !== undefined) return { ...existing }
       const added: KnownConnection = {
-        id: assignId(target.destination, new Set(known.map((candidate) => candidate.id))),
+        id: assignId(target.destination, new Set([...known.map((candidate) => candidate.id), ...ports.keys()])),
         destination: target.destination,
         port: target.port,
-        hints: empty ? [] : [{ ...hints }],
         addedAt: new Date(deps.timers.now()).toISOString(),
       }
       known = [...known, added]
       save()
-      return copyKnown(added)
+      return { ...added }
+    },
+    servers: () => servers.map((current) => ({ ...current })),
+    findServer(host, port) {
+      const found = servers.find((candidate) => candidate.host === host && candidate.port === port)
+      return found === undefined ? null : { ...found }
+    },
+    rememberServer(host, port) {
+      const existing = servers.find((candidate) => candidate.host === host && candidate.port === port)
+      if (existing !== undefined) return { ...existing }
+      const added: KnownServer = {
+        id: assignServerId(host, port, new Set(servers.map((candidate) => candidate.id))),
+        host,
+        port,
+        addedAt: new Date(deps.timers.now()).toISOString(),
+      }
+      servers = [...servers, added]
+      save()
+      return { ...added }
+    },
+    registerPort(sshId, host, port) {
+      const parent = entry(sshId)
+      if (parent === undefined) return { ok: false, detail: "Unknown SSH host." }
+      const id = `${sshId}-${port}`
+      if (entry(id) !== undefined) return { ok: false, detail: `The known SSH host ${entry(id)?.destination ?? id} already uses the name ${id}.` }
+      const previous = ports.get(id)
+      if (previous !== undefined && previous.host === host) return { ok: true, id }
+      if (previous !== undefined) void sessions.get(sshId)?.session.cancelPort(id)
+      ports.set(id, { sshId, host, port })
+      return { ok: true, id }
+    },
+    async dropPort(id) {
+      const registered = ports.get(id)
+      if (registered === undefined) return
+      ports.delete(id)
+      await sessions.get(registered.sshId)?.session.cancelPort(id)
+      emit(id, null)
+    },
+    async listServers(id) {
+      const live = sessions.get(id)
+      if (live === undefined) return { ok: false, detail: "The SSH connection is not open." }
+      return live.session.listServers()
     },
     async forget(id) {
+      if (server(id) !== undefined) {
+        servers = servers.filter((candidate) => candidate.id !== id)
+        save()
+        emit(id, null)
+        return
+      }
       if (entry(id) === undefined) return
+      for (const [portId, registered] of [...ports]) {
+        if (registered.sshId !== id) continue
+        ports.delete(portId)
+        emit(portId, null)
+      }
       await closeSession(id, false)
       known = known.filter((candidate) => candidate.id !== id)
       save()
@@ -378,15 +542,20 @@ export function createConnections(deps: ConnectionsDeps): Connections {
     },
     describe(id) {
       if (id === LOCAL_CONNECTION) return describeLocal()
-      const server = cli.get(id)
-      if (server !== undefined) return describeCli(id, server)
+      const listed = cli.get(id)
+      if (listed !== undefined) return describeCli(id, listed)
+      const httpServer = server(id)
+      if (httpServer !== undefined) return describeServer(httpServer)
+      const registered = ports.get(id)
+      if (registered !== undefined) return describePort(id, registered)
       const current = entry(id)
       return current === undefined ? null : describeSsh(current)
     },
     summaries: () => [
       describeLocal(),
       ...known.map(describeSsh),
-      ...[...cli].sort(([, a], [, b]) => a.port - b.port).map(([id, server]) => describeCli(id, server)),
+      ...servers.map(describeServer),
+      ...[...cli].sort(([, a], [, b]) => a.port - b.port).map(([id, listed]) => describeCli(id, listed)),
     ],
     refreshCli,
     dropCli(id) {
@@ -454,6 +623,29 @@ function cliLookup(id: string, server: CliServer): ConnectionLookup | null {
   return { kind: "ready", connection: { id, kind: "cli", origin: connectionOrigin(id), host, port: server.port, label: cliLabel(server.port) } }
 }
 
+// httpConnection is a known http server's connection (nothing is dialed).
+function httpConnection(server: KnownServer): HttpConnection {
+  return {
+    id: server.id,
+    kind: "http",
+    origin: connectionOrigin(server.id),
+    host: server.host.replace(/^\[(.*)\]$/, "$1"),
+    urlHost: server.host,
+    port: server.port,
+    label: serverLabel(server.host, server.port),
+  }
+}
+
+// serverLabel names an http server as its URLs do: <host>:<port>.
+export function serverLabel(host: string, port: number): string {
+  return `${host}:${port}`
+}
+
+// portLabel names a forwarded remote server: <ssh destination>:<port>.
+export function portLabel(destination: string, port: number): string {
+  return `${destination}:${port}`
+}
+
 // cliLabel names a CLI server as its pasted URLs do: localhost:<port>.
 export function cliLabel(port: number): string {
   return `localhost:${port}`
@@ -472,22 +664,13 @@ function localLookup(result: EnsureResult): ConnectionLookup {
 }
 
 function sameLocal(a: ConnectionLookup, b: ConnectionLookup): boolean {
-  if (a.kind === "ready" && b.kind === "ready" && a.connection.kind !== "cli" && b.connection.kind !== "cli") {
+  if (a.kind === "ready" && b.kind === "ready" && (a.connection.kind === "daemon" || a.connection.kind === "ssh") && (b.connection.kind === "daemon" || b.connection.kind === "ssh")) {
     const x = a.connection.status
     const y = b.connection.status
     return x.pid === y.pid && x.socket === y.socket && x.protocol === y.protocol && x.version === y.version
   }
   if (a.kind === "failed" && b.kind === "failed") return a.failure.kind === b.failure.kind && a.failure.detail === b.failure.detail
   return a.kind === b.kind
-}
-
-function copyKnown(known: KnownConnection): KnownConnection {
-  return { ...known, hints: known.hints.map((hint) => ({ ...hint })) }
-}
-
-// canonicalHints is JSON with sorted keys, so equal hints compare equal.
-function canonicalHints(hints: SshHints): string {
-  return JSON.stringify(Object.entries(hints).filter(([, value]) => value !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
 }
 
 function errorMessage(error: unknown): string {

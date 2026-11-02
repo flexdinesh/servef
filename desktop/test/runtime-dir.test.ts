@@ -19,6 +19,8 @@ test("runtime paths hash the id", () => {
   const paths = runtimePaths("/run/x")
   assert.equal(paths.controlPath("ssh-devbox"), `/run/x/c-${h12}`)
   assert.equal(paths.forwardSocket("ssh-devbox"), `/run/x/f-${h12}.sock`)
+  const port = createHash("sha256").update("ssh-devbox-7971").digest("hex").slice(0, 12)
+  assert.equal(paths.portSocket("ssh-devbox-7971"), `/run/x/p-${port}.sock`)
 })
 
 test("Linux uses an absolute XDG_RUNTIME_DIR, else tmpdir", () => {
@@ -92,8 +94,8 @@ test("prepareRuntimeDir refuses a symlink, a file, and a missing parent", () => 
   assert.equal(existsSync(join(dir, "missing")), false)
 }))
 
-test("sweepRuntimeDir exits and unlinks c-*, unlinks f-*.sock, and leaves everything else", () => withDir(async (dir) => {
-  for (const name of ["c-aaaaaaaaaaaa", "c-bbbbbbbbbbbb", "f-aaaaaaaaaaaa.sock", "f-x.sock", "f-keep", "keep.sock", "connections.json", "xc-1"]) writeFileSync(join(dir, name), "")
+test("sweepRuntimeDir exits and unlinks c-*, unlinks f-*.sock and p-*.sock, and leaves everything else", () => withDir(async (dir) => {
+  for (const name of ["c-aaaaaaaaaaaa", "c-bbbbbbbbbbbb", "f-aaaaaaaaaaaa.sock", "f-x.sock", "p-aaaaaaaaaaaa.sock", "f-keep", "p-keep", "keep.sock", "connections.json", "xc-1"]) writeFileSync(join(dir, name), "")
   mkdirSync(join(dir, "c-directory"))
   mkdirSync(join(dir, "sub"))
   writeFileSync(join(dir, "sub", "c-nested"), "")
@@ -103,7 +105,7 @@ test("sweepRuntimeDir exits and unlinks c-*, unlinks f-*.sock, and leaves everyt
     if (controlPath.endsWith("bbbbbbbbbbbb")) throw new Error("master gone")
   })
   assert.deepEqual(exited.sort(), [join(dir, "c-aaaaaaaaaaaa"), join(dir, "c-bbbbbbbbbbbb")])
-  assert.deepEqual(readdirSync(dir).sort(), ["c-directory", "connections.json", "f-keep", "keep.sock", "sub", "xc-1"])
+  assert.deepEqual(readdirSync(dir).sort(), ["c-directory", "connections.json", "f-keep", "keep.sock", "p-keep", "sub", "xc-1"])
   assert.deepEqual(readdirSync(join(dir, "sub")), ["c-nested"])
 }))
 

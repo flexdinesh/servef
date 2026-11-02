@@ -58,3 +58,8 @@ test("responseHeaders drops hop-by-hop headers and appends arrays", () => {
   for (const name of ["connection", "keep-alive", "transfer-encoding", "upgrade", "vary"]) assert.equal(headers.has(name), false, name)
   assert.deepEqual(headers.getSetCookie(), ["a=1", "b=2"])
 })
+
+test("upstreamHeaders sets the connection's Host", () => {
+  assert.equal(upstreamHeaders(new Headers({ host: "evil.example" }), "10.0.0.5:7971").host, "10.0.0.5:7971")
+  assert.equal(upstreamHeaders(new Headers(), "localhost:7971").host, "localhost:7971")
+})
