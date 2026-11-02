@@ -1,0 +1,673 @@
+/*
+ * Landing page styles. Everything is scoped under .landing so Vocs' docs
+ * styles stay untouched. Colors use light-dark(): Vocs sets color-scheme on
+ * <html> together with data-vocs-theme, so both themes follow its toggle.
+ * Palette follows DESIGN.md (white surfaces, #2563eb / #78a8ff accent).
+ */
+
+/* Vocs' blank layout pads its <article> and caps <main>; let the landing go edge to edge. */
+main:has(> article > .landing) {
+  max-width: none;
+}
+
+article:has(> .landing) {
+  padding: 0;
+}
+
+.landing {
+  --l-bg: light-dark(#ffffff, #0d1015);
+  --l-surface: light-dark(#ffffff, #151920);
+  --l-surface-2: light-dark(#f4f5f7, #1b2029);
+  --l-border: light-dark(#e2e5ea, #272d38);
+  --l-text: light-dark(#1f2329, #e6e8ec);
+  --l-text-2: light-dark(#515866, #a3abb8);
+  --l-accent: light-dark(#2563eb, #78a8ff);
+  --l-accent-hover: light-dark(#1d4ed8, #9cc0ff);
+  --l-accent-subtle: light-dark(#e0e9fd, #1a2a4a);
+  --l-on-accent: light-dark(#ffffff, #0d1015);
+  --l-add: light-dark(#e6f6ec, #12301f);
+  --l-add-mark: light-dark(#13703f, #4cc38a);
+  --l-del: light-dark(#fff0ef, #3a1a1a);
+  --l-del-mark: light-dark(#bd3029, #ff7b72);
+  --l-line: light-dark(#d5d9e0, #303744);
+  --l-line-strong: light-dark(#b6bcc6, #46505f);
+  --l-shadow: light-dark(0 24px 48px -24px rgb(15 18 23 / 25%), 0 24px 48px -24px rgb(0 0 0 / 70%));
+  --l-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --l-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --l-max: 1120px;
+
+  min-height: 100vh;
+  background: var(--l-bg);
+  color: var(--l-text);
+  font-family: var(--l-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.landing a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.landing h1,
+.landing h2 {
+  margin: 0;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.landing h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+}
+
+.landing h2 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.landing p {
+  margin: 0;
+}
+
+.landing-muted {
+  color: var(--l-text-2);
+}
+
+.landing-skip {
+  position: absolute;
+  left: -9999px;
+}
+
+.landing-skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  background: var(--l-surface);
+  border: 1px solid var(--l-border);
+  border-radius: 0.5rem;
+}
+
+.landing :focus-visible {
+  outline: 2px solid var(--l-accent);
+  outline-offset: 2px;
+}
+
+/* Nav */
+
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--l-max);
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  background: color-mix(in srgb, var(--l-bg) 85%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.landing-wordmark {
+  font-family: var(--l-mono);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+}
+
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.9375rem;
+  color: var(--l-text-2);
+}
+
+.landing-nav-links a:hover {
+  color: var(--l-text);
+}
+
+.landing-theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--l-border);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--l-text-2);
+  cursor: pointer;
+}
+
+.landing-theme-toggle:hover {
+  color: var(--l-text);
+}
+
+.landing-icon-sun {
+  display: none;
+}
+
+:root[data-vocs-theme='dark'] .landing-icon-sun {
+  display: block;
+}
+
+:root[data-vocs-theme='dark'] .landing-icon-moon {
+  display: none;
+}
+
+/* Hero */
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+  align-items: center;
+  max-width: var(--l-max);
+  margin: 0 auto;
+  padding: 4rem 1.5rem 5rem;
+}
+
+.landing-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.landing-eyebrow {
+  font-family: var(--l-mono);
+  font-size: 0.8125rem;
+  color: var(--l-accent);
+  text-transform: lowercase;
+}
+
+.landing-lede {
+  max-width: 36rem;
+  font-size: 1.125rem;
+  color: var(--l-text-2);
+}
+
+.landing-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.landing-ctas-center {
+  justify-content: center;
+}
+
+.landing-button {
+  display: inline-flex;
+  align-items: center;
+  height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--l-border);
+  border-radius: 0.625rem;
+  font-weight: 550;
+  font-size: 0.9375rem;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+.landing-button:hover {
+  border-color: var(--l-line-strong);
+}
+
+.landing .landing-button-primary {
+  background: var(--l-accent);
+  border-color: var(--l-accent);
+  color: var(--l-on-accent);
+}
+
+.landing .landing-button-primary:hover {
+  background: var(--l-accent-hover);
+  border-color: var(--l-accent-hover);
+}
+
+/* Install tabs */
+
+.landing-install {
+  max-width: 36rem;
+  border: 1px solid var(--l-border);
+  border-radius: 0.75rem;
+  background: var(--l-surface-2);
+  overflow: hidden;
+}
+
+.landing-install-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.375rem 0.375rem 0;
+}
+
+.landing-install-tab {
+  padding: 0.375rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: transparent;
+  color: var(--l-text-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.landing-install-tab[aria-selected='true'] {
+  background: var(--l-surface);
+  color: var(--l-text);
+}
+
+.landing-install-command {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  background: var(--l-surface);
+}
+
+.landing-install-command code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: var(--l-mono);
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.landing-install-prompt {
+  margin-right: 0.625rem;
+  color: var(--l-accent);
+  user-select: none;
+}
+
+.landing-install-copy {
+  flex: none;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--l-border);
+  border-radius: 0.375rem;
+  background: var(--l-surface-2);
+  color: var(--l-text-2);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.landing-install-copy:hover {
+  color: var(--l-text);
+}
+
+/* Features */
+
+.landing-features {
+  display: flex;
+  flex-direction: column;
+  gap: 6rem;
+  max-width: var(--l-max);
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+  border-top: 1px solid var(--l-border);
+}
+
+.landing-feature {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.landing-feature-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Bottom CTA */
+
+.landing-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: var(--l-max);
+  margin: 0 auto;
+  padding: 5rem 1.5rem 6rem;
+  border-top: 1px solid var(--l-border);
+  text-align: center;
+}
+
+.landing-cta .landing-install {
+  width: 100%;
+  text-align: left;
+}
+
+/* Footer */
+
+.landing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1.5rem;
+  max-width: var(--l-max);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  border-top: 1px solid var(--l-border);
+  font-size: 0.875rem;
+}
+
+.landing-footer-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.landing-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  color: var(--l-text-2);
+}
+
+.landing-footer-links a:hover {
+  color: var(--l-text);
+}
+
+@media (min-width: 900px) {
+  .landing-hero {
+    grid-template-columns: 1fr 1.1fr;
+    padding-top: 6rem;
+  }
+
+  .landing-feature {
+    grid-template-columns: 1fr 1.2fr;
+    gap: 4rem;
+  }
+
+  .landing-feature-reverse .landing-feature-copy {
+    order: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .landing-nav-links {
+    gap: 1rem;
+  }
+
+  .landing-nav-links a[href='#features'] {
+    display: none;
+  }
+}
+
+/*
+ * Animated SVGs. Base styles are each scene's final frame; keyframes animate
+ * toward it, so reduced motion (animation: none) shows a complete picture.
+ */
+
+.landing-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(var(--l-shadow));
+}
+
+.landing-svg * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.landing-svg text {
+  font-family: var(--l-mono);
+  fill: var(--l-text-2);
+}
+
+.landing-svg .s-window {
+  fill: var(--l-surface);
+  stroke: var(--l-border);
+}
+
+.landing-svg .s-chrome {
+  fill: var(--l-surface-2);
+}
+
+.landing-svg .s-divider {
+  stroke: var(--l-border);
+}
+
+.landing-svg .s-dot {
+  fill: var(--l-line-strong);
+}
+
+.landing-svg .s-line {
+  fill: var(--l-line);
+}
+
+.landing-svg .s-line-strong {
+  fill: var(--l-line-strong);
+}
+
+.landing-svg .s-accent {
+  fill: var(--l-accent);
+}
+
+.landing-svg .s-accent-text {
+  fill: var(--l-accent);
+}
+
+.landing-svg .s-accent-subtle {
+  fill: var(--l-accent-subtle);
+}
+
+.landing-svg .s-add {
+  fill: var(--l-add);
+}
+
+.landing-svg .s-add-mark {
+  fill: var(--l-add-mark);
+}
+
+.landing-svg .s-del {
+  fill: var(--l-del);
+}
+
+.landing-svg .s-del-mark {
+  fill: var(--l-del-mark);
+}
+
+.landing-svg .s-strong-text {
+  fill: var(--l-text);
+}
+
+/* Hero: terminal types `servef .`, then the workspace opens. 9 s loop. */
+
+.hero-type {
+  animation: hero-type 9s steps(9, end) infinite both;
+}
+
+.hero-url {
+  animation: hero-url 9s ease-out infinite both;
+}
+
+.hero-browser {
+  animation: hero-browser 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+
+.hero-select {
+  animation: hero-select 9s ease-in-out infinite both;
+}
+
+.hero-preview > * {
+  animation: hero-preview 9s ease-out infinite both;
+}
+
+.hero-preview > :nth-child(2) { animation-delay: 0.08s; }
+.hero-preview > :nth-child(3) { animation-delay: 0.16s; }
+.hero-preview > :nth-child(4) { animation-delay: 0.24s; }
+.hero-preview > :nth-child(5) { animation-delay: 0.32s; }
+.hero-preview > :nth-child(6) { animation-delay: 0.4s; }
+
+@keyframes hero-type {
+  0%, 4% { clip-path: inset(0 100% 0 0); }
+  18%, 100% { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes hero-url {
+  0%, 20% { opacity: 0; }
+  24%, 100% { opacity: 1; }
+}
+
+@keyframes hero-browser {
+  0%, 26% { opacity: 0; transform: translateY(16px) scale(0.97); }
+  36%, 94% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+
+@keyframes hero-select {
+  0%, 44% { transform: translateY(0); }
+  50%, 64% { transform: translateY(26px); }
+  70%, 100% { transform: translateY(52px); }
+}
+
+@keyframes hero-preview {
+  0%, 38% { opacity: 0; transform: translateY(6px); }
+  44%, 100% { opacity: 1; transform: none; }
+}
+
+/* Review: diff rows land, files get Viewed marks. 8 s loop. */
+
+.review-row {
+  animation: review-row 8s ease-out infinite both;
+}
+
+.review-row-2 { animation-delay: 0.15s; }
+.review-row-3 { animation-delay: 0.3s; }
+.review-row-4 { animation-delay: 0.45s; }
+
+.review-check-1 { animation: review-check 8s ease-out infinite both; }
+.review-check-2 { animation: review-check-2 8s ease-out infinite both; }
+.review-check-3 { animation: review-check-3 8s ease-out infinite both; }
+
+@keyframes review-row {
+  0%, 8% { opacity: 0; transform: translateX(-12px); }
+  16%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@keyframes review-check {
+  0%, 30% { opacity: 0; transform: scale(0.4); }
+  34%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@keyframes review-check-2 {
+  0%, 50% { opacity: 0; transform: scale(0.4); }
+  54%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@keyframes review-check-3 {
+  0%, 70% { opacity: 0; transform: scale(0.4); }
+  74%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* Walkthrough: a highlight steps through code beside narration. 9 s loop. */
+
+.walk-highlight {
+  animation: walk-highlight 9s cubic-bezier(0.6, 0, 0.2, 1) infinite both;
+}
+
+.walk-note-2,
+.walk-note-3 {
+  opacity: 0;
+}
+
+.walk-note-1 { animation: walk-note-1 9s ease-out infinite both; }
+.walk-note-2 { animation: walk-note-2 9s ease-out infinite both; }
+.walk-note-3 { animation: walk-note-3 9s ease-out infinite both; }
+
+.walk-step {
+  animation: walk-step 9s cubic-bezier(0.6, 0, 0.2, 1) infinite both;
+}
+
+@keyframes walk-highlight {
+  0%, 30% { transform: translateY(0); }
+  36%, 63% { transform: translateY(64px); }
+  69%, 100% { transform: translateY(128px); }
+}
+
+@keyframes walk-step {
+  0%, 30% { transform: translateX(0); }
+  36%, 63% { transform: translateX(16px); }
+  69%, 100% { transform: translateX(32px); }
+}
+
+@keyframes walk-note-1 {
+  0%, 2% { opacity: 0; transform: translateX(8px); }
+  6%, 30% { opacity: 1; transform: none; }
+  33%, 100% { opacity: 0; }
+}
+
+@keyframes walk-note-2 {
+  0%, 35% { opacity: 0; transform: translateX(8px); }
+  39%, 63% { opacity: 1; transform: none; }
+  66%, 100% { opacity: 0; }
+}
+
+@keyframes walk-note-3 {
+  0%, 68% { opacity: 0; transform: translateX(8px); }
+  72%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* Desktop: an ssh link opens a window; notifications arrive. 9 s loop. */
+
+.desk-link {
+  animation: desk-link 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+
+.desk-window {
+  animation: desk-window 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+
+.desk-toast-1 {
+  animation: desk-toast-1 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+
+.desk-toast-2 {
+  animation: desk-toast-2 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+
+@keyframes desk-link {
+  0%, 4% { opacity: 0; transform: translateX(-24px); }
+  12%, 22% { opacity: 1; transform: none; }
+  28%, 100% { opacity: 0.35; transform: none; }
+}
+
+@keyframes desk-window {
+  0%, 20% { opacity: 0; transform: scale(0.94); }
+  30%, 94% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@keyframes desk-toast-1 {
+  0%, 42% { opacity: 0; transform: translateX(24px); }
+  48%, 94% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@keyframes desk-toast-2 {
+  0%, 62% { opacity: 0; transform: translateX(24px); }
+  68%, 94% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-svg *,
+  .landing-svg *::before,
+  .landing-svg *::after {
+    animation: none !important;
+  }
+}

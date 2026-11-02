@@ -1,13 +1,13 @@
 # Remote hosts
 
 servef runs beside the files. To browse a machine you reach over SSH, run
-servef on that machine and open its link in the [desktop app](/desktop) on
+servef on that machine and open its link in the [desktop app](/docs/desktop) on
 your computer. The app connects with your own `ssh` setup.
 
 ## Install servef on the host
 
 Install the CLI on the remote machine as on any computer
-([Getting started](/getting-started)):
+([Getting started](/docs/getting-started)):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
@@ -125,7 +125,7 @@ host is open.
 their state, and the `Host` entries from your `~/.ssh/config`. Click one to
 open it (new hosts are confirmed first). **Forget** disconnects a host and
 removes it; its next link asks again. The same page lists servers running on
-this computer and opens pasted links ([Desktop app](/desktop#servers-in-a-terminal)).
+this computer and opens pasted links ([Desktop app](/docs/desktop#servers-in-a-terminal)).
 
 ## Troubleshooting
 
@@ -150,5 +150,5 @@ differ, the link's project shows as unavailable until that daemon restarts.
 ## Walkthroughs
 
 Agents on the host publish with `servef walkthrough publish`
-([Walkthroughs](/walkthroughs)). Inside an SSH session the printed `url` is a
+([Walkthroughs](/docs/walkthroughs)). Inside an SSH session the printed `url` is a
 `servef://ssh/…` link to open on your computer; nothing opens on the host.

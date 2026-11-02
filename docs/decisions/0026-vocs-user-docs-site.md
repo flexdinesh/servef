@@ -1,6 +1,6 @@
 # 0026: Vocs user docs site
 
-- Status: Accepted
+- Status: Accepted; pages at `/` and hosting superseded by [0074](0074-landing-page-and-cloudflare-pages.md)
 - Date: 2026-10-22
 
 ## Context

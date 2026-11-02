@@ -14,10 +14,10 @@ Or another directory:
 servef path/to/markdown
 ```
 
-With the [desktop app](/desktop) installed, `servef [path]` opens the
+With the [desktop app](/docs/desktop) installed, `servef [path]` opens the
 directory in it and exits. Without it, or with `--host` or `--port`, it serves
 in a browser, as `servef browser [path]` does. Over SSH it runs
-[`servef remote`](/remote) and prints a link for the app on your computer.
+[`servef remote`](/docs/remote) and prints a link for the app on your computer.
 
 `servef browser [path]` always serves in a browser and takes the same flags.
 Subcommand names take precedence over directories, so open a directory named
@@ -102,7 +102,7 @@ repository checkout, regardless of `--depth` and skipped folders.
 
 ## Daemon
 
-`servef daemon` is plumbing for the [desktop app](/desktop): one long-lived
+`servef daemon` is plumbing for the [desktop app](/docs/desktop): one long-lived
 servef per user, reachable only through a private Unix socket (macOS and
 Linux), whose directories are added while it runs and remembered across
 restarts. Clients start it on demand; it stops after 30 minutes without

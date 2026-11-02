@@ -120,7 +120,7 @@ func open(ctx context.Context, url, goos string, run runner) error {
 
 const (
 	releasesURL = "https://github.com/flexdinesh/servef/releases"
-	docsURL     = "https://github.com/flexdinesh/servef/blob/main/site/src/pages/desktop.mdx"
+	docsURL     = "https://github.com/flexdinesh/servef/blob/main/site/src/pages/docs/desktop.mdx"
 	// installScript installs the app and CLI from the latest release (decision 0073).
 	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh"
 )
