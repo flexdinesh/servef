@@ -1,11 +1,13 @@
 import { ContextMenu } from "@base-ui/react/context-menu"
 import { GitCompareArrowsIcon, HouseIcon, RouteIcon, XIcon } from "lucide-react"
-import { useEffect, useRef, type KeyboardEvent } from "react"
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react"
 
 import { FileIcon } from "../components/FileIcon.tsx"
 import { Button } from "../components/ui/button.tsx"
 import { IconButton } from "../components/ui/icon-button.tsx"
 import { menuItemClass, menuPopupClass, menuPositionerClass, menuSeparatorClass } from "../components/ui/menu.ts"
+import { desktopBridge } from "../lib/desktop-bridge.ts"
+import { isTabMenuAction, REVEAL_LABEL, revealablePath, tabMenuItems, type TabMenuAction } from "./tab-menu.ts"
 import { includesTab, sameTab, tabKey, type TabName, type WorkspaceTab } from "./workspace-tabs.ts"
 
 interface TabBarProps {
@@ -13,14 +15,20 @@ interface TabBarProps {
   tabs: readonly WorkspaceTab[]
   // name labels a tab; review tabs say what they compare.
   name(tab: WorkspaceTab): TabName
+  // project is the tabs' project, for Reveal in File Manager.
+  project: string
   onClose(tab: WorkspaceTab): void
   onCloseMany(tabs: readonly WorkspaceTab[]): void
   onSelect(tab: WorkspaceTab): void
 }
 
-export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, tabs }: TabBarProps) {
+export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, project, tabs }: TabBarProps) {
   const tabList = useRef<HTMLDivElement>(null)
   const activeKey = active ? tabKey(active) : ""
+  // The desktop app shows native tab menus and reveals files (decision 0081).
+  const bridge = desktopBridge()
+  const revealPath = bridge?.revealPath ?? null
+  const showContextMenu = bridge?.showContextMenu ?? null
 
   // Keep the active tab visible in an overflowing strip, as editors do. Tabs
   // widen once the UI font loads; also reveal when the strip narrows. Include
@@ -57,6 +65,28 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
     requestAnimationFrame(() => focusTab(focus)?.focus())
   }
 
+  function reveal(tab: WorkspaceTab) {
+    const path = revealablePath(tab)
+    if (path !== null) revealPath?.(project, path)
+  }
+
+  function runMenuAction(action: TabMenuAction, tab: WorkspaceTab, index: number) {
+    if (action === "close") closeFromMenu([tab], tab)
+    else if (action === "close-others") closeFromMenu(tabs.filter((entry) => !sameTab(entry, tab)), tab)
+    else if (action === "close-right") closeFromMenu(tabs.slice(index + 1), tab)
+    else if (action === "close-all") closeFromMenu(tabs, tab)
+    else reveal(tab)
+  }
+
+  function openNativeMenu(event: MouseEvent<HTMLDivElement>, tab: WorkspaceTab, index: number) {
+    if (!showContextMenu) return
+    event.preventDefault()
+    void showContextMenu(tabMenuItems(tab, index, tabs.length, revealPath !== null), event.clientX, event.clientY).then((id) => {
+      if (isTabMenuAction(id)) runMenuAction(id, tab, index)
+      else focusTab(tab)?.focus()
+    })
+  }
+
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
       event.preventDefault()
@@ -85,35 +115,48 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
       {tabs.map((tab, index) => {
         const selected = sameTab(tab, active)
         const { label: name, title } = tabName(tab)
+        const className = `buffer-tab${selected ? " active" : ""}`
+        const content = (
+          <>
+            <Button
+              className="buffer-tab-target"
+              variant="plain"
+              size="inline"
+              role="tab"
+              data-tab={tabKey(tab)}
+              aria-haspopup="menu"
+              aria-controls="document-pane"
+              aria-selected={selected}
+              title={title}
+              onClick={() => onSelect(tab)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+            >
+              {tab.kind === "review" ? <GitCompareArrowsIcon className="file-icon" aria-hidden="true" />
+                : tab.kind === "walkthrough" ? <RouteIcon className="file-icon" aria-hidden="true" />
+                : tab.kind === "welcome" ? <HouseIcon className="file-icon" aria-hidden="true" />
+                : <FileIcon path={tab.path} />}
+              <span>{name}</span>
+            </Button>
+            <IconButton
+              className="buffer-tab-close"
+              size="xs"
+              label={`Close ${title}`}
+              icon={<XIcon aria-hidden="true" />}
+              onClick={() => onClose(tab)}
+            />
+          </>
+        )
+        if (showContextMenu) {
+          return (
+            <div key={tabKey(tab)} className={className} onContextMenu={(event) => openNativeMenu(event, tab, index)}>
+              {content}
+            </div>
+          )
+        }
         return (
           <ContextMenu.Root key={tabKey(tab)}>
-            <ContextMenu.Trigger className={`buffer-tab${selected ? " active" : ""}`}>
-              <Button
-                className="buffer-tab-target"
-                variant="plain"
-                size="inline"
-                role="tab"
-                data-tab={tabKey(tab)}
-                aria-haspopup="menu"
-                aria-controls="document-pane"
-                aria-selected={selected}
-                title={title}
-                onClick={() => onSelect(tab)}
-                onKeyDown={(event) => handleKeyDown(event, index)}
-              >
-                {tab.kind === "review" ? <GitCompareArrowsIcon className="file-icon" aria-hidden="true" />
-                  : tab.kind === "walkthrough" ? <RouteIcon className="file-icon" aria-hidden="true" />
-                  : tab.kind === "welcome" ? <HouseIcon className="file-icon" aria-hidden="true" />
-                  : <FileIcon path={tab.path} />}
-                <span>{name}</span>
-              </Button>
-              <IconButton
-                className="buffer-tab-close"
-                size="xs"
-                label={`Close ${title}`}
-                icon={<XIcon aria-hidden="true" />}
-                onClick={() => onClose(tab)}
-              />
+            <ContextMenu.Trigger className={className}>
+              {content}
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Positioner className={menuPositionerClass} sideOffset={2}>
@@ -134,6 +177,12 @@ export function TabBar({ active, name: tabName, onClose, onCloseMany, onSelect, 
                   <ContextMenu.Item className={menuItemClass} onClick={() => closeFromMenu(tabs, tab)}>
                     Close All
                   </ContextMenu.Item>
+                  {revealPath && revealablePath(tab) !== null && <>
+                    <ContextMenu.Separator className={menuSeparatorClass} />
+                    <ContextMenu.Item className={menuItemClass} onClick={() => reveal(tab)}>
+                      {REVEAL_LABEL}
+                    </ContextMenu.Item>
+                  </>}
                 </ContextMenu.Popup>
               </ContextMenu.Positioner>
             </ContextMenu.Portal>

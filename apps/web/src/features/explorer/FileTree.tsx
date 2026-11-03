@@ -12,6 +12,9 @@ import { openDirectoryPaths } from "../../api/page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"
 import { Button } from "../../components/ui/button.tsx"
 import { treeCSS } from "../../lib/tree-css.ts"
+import { writeClipboard } from "../../lib/clipboard.ts"
+import { desktopBridge } from "../../lib/desktop-bridge.ts"
+import { absolutePath, isTreeMenuAction, treeMenuItems, treeRowPath } from "./tree-menu.ts"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { TextField } from "../../components/ui/text-field.tsx"
 import { treeRowHeight } from "../../components/ui/tree-rows.ts"
@@ -123,7 +126,32 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
   const searchButton = useRef<HTMLButtonElement>(null)
   const syncing = useRef(false)
   const current = useRef({ onNavigate, onDismiss, page })
+  // The desktop app gives rows a native menu with Reveal (decision 0081);
+  // browsers keep rows without a menu.
+  const [rowMenu] = useState(() => {
+    const bridge = desktopBridge()
+    const show = bridge?.showContextMenu ?? null
+    const reveal = bridge?.revealPath ?? null
+    return show && reveal ? { show, reveal } : null
+  })
   const { model } = useFileTree({
+    ...(rowMenu ? {
+      composition: {
+        // Right-click and the context-menu keys open it (Pierre's default).
+        contextMenu: {
+          onOpen(item: { path: string }, context: { anchorRect: { x: number; y: number }; close(): void }) {
+            const project = current.current.page.project
+            const path = treeRowPath(item.path)
+            void rowMenu.show(treeMenuItems(), context.anchorRect.x, context.anchorRect.y).then((id) => {
+              context.close()
+              if (!isTreeMenuAction(id) || !project) return
+              if (id === "reveal") rowMenu.reveal(project, path)
+              else writeClipboard(id === "copy-path" ? absolutePath(project, path) : path).catch(() => undefined)
+            })
+          },
+        },
+      },
+    } : {}),
     paths,
     initialExpandedPaths: state.current.expanded ?? openDirectoryPaths(page.tree),
     initialSearchQuery: state.current.search,
