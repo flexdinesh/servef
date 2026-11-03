@@ -118,6 +118,33 @@ func TestLinesLaysOutHunksAsJSDiff(t *testing.T) {
 	}
 }
 
+// Many edits far apart need a long search; each change keeps its own hunk.
+func TestLinesSeparatesManyDistantChanges(t *testing.T) {
+	var old, changed strings.Builder
+	for line := 1; line <= 2000; line++ {
+		fmt.Fprintf(&old, "line %d\n", line)
+		if line%20 == 10 {
+			fmt.Fprintf(&changed, "changed %d\n", line)
+		} else {
+			fmt.Fprintf(&changed, "line %d\n", line)
+		}
+	}
+	result := Lines([]byte(old.String()), []byte(changed.String()), Options{})
+	if len(result.Hunks) != 100 || result.Additions != 100 || result.Deletions != 100 {
+		t.Fatalf("Lines = %d hunks, +%d -%d; want 100 hunks, +100 -100", len(result.Hunks), result.Additions, result.Deletions)
+	}
+	for i, hunk := range result.Hunks {
+		want := Hunk{OldStart: 20*i + 6, OldCount: 9, NewStart: 20*i + 6, NewCount: 9, Additions: 1, Deletions: 1, Blocks: []Block{
+			{OldStart: 20*i + 6, OldCount: 4, NewStart: 20*i + 6, NewCount: 4},
+			{Change: true, OldStart: 20*i + 10, OldCount: 1, NewStart: 20*i + 10, NewCount: 1},
+			{OldStart: 20*i + 11, OldCount: 4, NewStart: 20*i + 11, NewCount: 4},
+		}}
+		if !reflect.DeepEqual(hunk, want) {
+			t.Fatalf("hunk %d = %+v, want %+v", i, hunk, want)
+		}
+	}
+}
+
 func TestLinesBoundsChangeRuns(t *testing.T) {
 	defer func(previous int) { maxChanges = previous }(maxChanges)
 	maxChanges = 2

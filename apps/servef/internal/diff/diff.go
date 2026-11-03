@@ -95,7 +95,7 @@ type op struct {
 	lines int
 }
 
-type opKind int
+type opKind uint8
 
 const (
 	equal opKind = iota
@@ -151,7 +151,7 @@ func lineKey(options Options) func([]byte) []byte {
 // lineIDsOf numbers each side's lines so equal lines share an id.
 func lineIDsOf(oldLines, newLines [][]byte, options Options) ([]int32, []int32) {
 	key := lineKey(options)
-	ids := map[string]int32{}
+	ids := make(map[string]int32, len(oldLines))
 	number := func(lines [][]byte) []int32 {
 		result := make([]int32, len(lines))
 		for i, line := range lines {
@@ -394,7 +394,7 @@ func gaps(hunks []Hunk, oldLines, newLines int) []Gap {
 // splitLines splits content after each "\n", keeping it; a last line
 // without one is kept as it is.
 func splitLines(content []byte) [][]byte {
-	var lines [][]byte
+	lines := make([][]byte, 0, bytes.Count(content, []byte{'\n'})+1)
 	for len(content) > 0 {
 		end := bytes.IndexByte(content, '\n') + 1
 		if end == 0 {
