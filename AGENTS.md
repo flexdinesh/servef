@@ -169,6 +169,7 @@ see `docs/validation.md`).
 | Formatting and Go modules | `mise run fmt:check`, `mise run tidy:check` |
 | Docs site | `mise run typecheck`; `mise run validate -- --group docs` after committing |
 | Browser behavior | `mise run test:browser -- tests/browser/<spec>.ts` |
+| WebKit compatibility (opt-in, not in `check:pr`) | `mise run test:browser:webkit -- tests/browser/<spec>.ts` |
 | Desktop app (`desktop/`) | `mise run test:desktop` (unit, real-sshd ssh tests, then Electron smoke); `mise run typecheck`, `mise run lint` |
 | Desktop packaging | `mise run package:desktop:dir` (unpacked) or `mise run package:desktop` (installers), host OS and arch; `actionlint` for `release.yml` |
 

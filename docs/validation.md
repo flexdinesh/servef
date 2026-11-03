@@ -64,13 +64,22 @@ container execution from recursively launching the host coordinator.
 | frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
 | tooling | Dagger | Release, runner, and browser harness tests |
 | docs | Dagger | Production site build and internal-link validation |
-| browser | Dagger | Chromium integration tests and fixture servers |
+| browser | Dagger | Chromium integration tests and fixture servers (WebKit opt-in) |
 | desktop | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
 architecture or validation tooling remain tests and run there too. Git, Ruby,
 and repository-local TypeScript are prerequisites: missing tooling must fail
 preparation rather than silently skip formula or navigation coverage.
+
+### WebKit (opt-in)
+
+`mise run test:browser:webkit` runs the browser suite on Playwright's WebKit
+project. It reports UI compatibility with WebKit-based shells and Safari; it is
+not part of `check:pr`, and failures do not block PRs. Only this task installs
+WebKit and its system libraries; the gate prepares Chromium alone. Playwright's
+WebKit tracks recent WebKit, so passing here is an upper bound: distribution
+WebKitGTK builds can lag it.
 
 ### Desktop
 

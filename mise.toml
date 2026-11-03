@@ -185,6 +185,10 @@ run = "go run ./tools/validate working --group desktop --task _container:test:de
 description = "Run test:browser against a private current-edit snapshot"
 run = "go run ./tools/validate working --group browser --task _container:test:browser"
 
+[tasks."test:browser:webkit"]
+description = "Run the browser tests on Playwright WebKit (opt-in, not in check:pr)"
+run = "go run ./tools/validate working --group browser --task _container:test:browser:webkit"
+
 [tasks."lint"]
 description = "Lint web and desktop in private current-edit snapshots"
 run = [
@@ -284,7 +288,7 @@ run = "pnpm build:site"
 
 [tasks."_container:browser"]
 hide = true
-run = "pnpm exec node scripts/test-browser.ts"
+run = "pnpm exec node scripts/test-browser.ts --project=chromium"
 
 # Unit tests, ssh integration tests (real sshd), bundle, then the Electron
 # smoke under Xvfb. Arguments select smoke specs relative to desktop/.
@@ -314,7 +318,12 @@ run = "ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release"
 
 [tasks."_container:test:browser"]
 hide = true
-run = "pnpm exec node scripts/test-browser.ts"
+run = "pnpm exec node scripts/test-browser.ts --project=chromium"
+
+# Opt-in WebKit compatibility run; never part of check:pr.
+[tasks."_container:test:browser:webkit"]
+hide = true
+run = "pnpm exec node scripts/test-browser.ts --project=webkit"
 
 [tasks."_container:test:desktop"]
 hide = true
