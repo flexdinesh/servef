@@ -1,5 +1,6 @@
 // Folder paths the OS hands the app (decision 0072): `--open-path <paths…>`
-// argv from file manager actions, and second-instance additionalData.
+// argv from file manager actions, second-instance additionalData, and
+// folders dropped on a local window (decision 0081).
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -54,6 +55,24 @@ export function openPathsOf(data: unknown): string[] {
     valid.push(entry)
   }
   return valid
+}
+
+// MAX_DROPPED_PATHS bounds a drop message; the opener still opens MAX_OPEN_PATHS.
+export const MAX_DROPPED_PATHS = 64
+// MAX_DROPPED_PATH bounds one dropped path's length.
+const MAX_DROPPED_PATH = 4096
+
+// droppedPathsOf validates a drop message from a local window's preload: an
+// array of at most MAX_DROPPED_PATHS absolute paths without NUL bytes.
+// Anything else yields []. Deduplicated, order kept.
+export function droppedPathsOf(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > MAX_DROPPED_PATHS) return []
+  const paths: string[] = []
+  for (const entry of value) {
+    if (typeof entry !== "string" || entry.length > MAX_DROPPED_PATH || entry.includes("\0") || !path.isAbsolute(entry)) return []
+    if (!paths.includes(entry)) paths.push(entry)
+  }
+  return paths
 }
 
 // projectLanding is the landing URL of project on a servef-app origin.

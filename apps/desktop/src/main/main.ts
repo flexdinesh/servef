@@ -1,23 +1,26 @@
-// Main process composition (decisions 0067, 0070, 0072): lifecycle, routing, menu, and wiring.
+// Main process composition (decisions 0067, 0070, 0072, 0081): lifecycle, routing, menu, and wiring.
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions, type OpenDialogOptions } from "electron"
 import { existsSync } from "node:fs"
+import { realpath } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { CONNECT_PATH, createAppPages } from "./app-pages.ts"
 import { findOnPath, locateServef } from "./binary.ts"
-import { APP_MENU_CHANNEL, APP_SCHEME, isLocalFrame, OPEN_FOLDER_CHANNEL } from "./bridge.ts"
+import { APP_MENU_CHANNEL, APP_SCHEME, CONTEXT_MENU_CHANNEL, DROP_PATHS_CHANNEL, isLocalFrame, OPEN_FOLDER_CHANNEL, REVEAL_CHANNEL } from "./bridge.ts"
 import { cliId, cliPort, listCliServers, type CliList } from "./cli-servers.ts"
 import { createFileStore } from "./connection-store.ts"
+import { parseContextMenuRequest } from "./context-menu.ts"
 import { APP_HOST, connectionOrigin, createConnections, LOCAL_CONNECTION, serverLabel, type ConnectionLookup, type DaemonConnection } from "./connections.ts"
 import { EXPECTED_PROTOCOL } from "./daemon-contract.ts"
 import { devFlags, ensureDaemon, listDirectories, nodeExecFile, openPath, probeDaemon, readStatus, stopDaemon, type EnsureResult, type ProbeOutcome } from "./daemon.ts"
+import { popupContextMenu } from "./electron-context-menu.ts"
 import { confirmServer, showReport } from "./electron-dialogs.ts"
 import { createLoginItem, showLoginApproval } from "./electron-login.ts"
 import { createNotifier } from "./electron-notify.ts"
 import { handleAppScheme, registerAppScheme } from "./electron-protocol.ts"
 import { createWindowManager } from "./electron-windows.ts"
-import { createFolderOpener } from "./folder-opener.ts"
+import { createFolderOpener, DAEMON_NOT_RUNNING } from "./folder-opener.ts"
 import { createForwarder, isDaemonGone, type Forward } from "./forward.ts"
 import { releaseOf, sshFailureInstructions } from "./instructions.ts"
 import { NOT_A_SERVEF_LINK, parsePastedLocation } from "./location.ts"
@@ -32,9 +35,11 @@ import {
   type Notice,
   type NoticeSource,
 } from "./notifications.ts"
-import { openPathsOf, parseOpenPaths, type InstanceData } from "./open-paths.ts"
+import { droppedPathsOf, openPathsOf, parseOpenPaths, type InstanceData } from "./open-paths.ts"
 import { createProxy } from "./proxy.ts"
+import { addRecent, createRecentStore, newlyShown, RECENT_FILE, recentLabel, removeRecent } from "./recent-folders.ts"
 import { createRemoteHosts } from "./remote-hosts.ts"
+import { parseRevealRequest, resolveRevealTarget, servedProject } from "./reveal.ts"
 import { chooseRuntimeDir, prepareRuntimeDir, sweepRuntimeDir } from "./runtime-dir.ts"
 import { routeSchemeURL, schemeArgument } from "./scheme.ts"
 import { muxControlArgs } from "./ssh-args.ts"
@@ -544,6 +549,55 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     if (at !== null) Menu.getApplicationMenu()?.popup({ window, ...at })
   })
 
+  // Bridge v2 (decision 0081). localRoots is the local daemon's served roots;
+  // null when it is not running.
+  const localRoots = async (): Promise<string[] | null> => {
+    const socket = daemonConnection(await connections.lookup(LOCAL_CONNECTION))?.socket ?? null
+    if (socket === null) return null
+    return (await readStatus(forwarder.forward, socket))?.roots ?? null
+  }
+  // Reveal in file manager: only paths inside a served project.
+  ipcMain.handle(REVEAL_CHANNEL, async (event, value: unknown): Promise<boolean> => {
+    if (!isLocalFrame(event.senderFrame?.url ?? "")) return false
+    const request = parseRevealRequest(value)
+    if (request === null) return false
+    const roots = await localRoots()
+    if (roots === null) {
+      report("Could not reveal the file", DAEMON_NOT_RUNNING)
+      return false
+    }
+    const outcome = await resolveRevealTarget(roots, request, realpath)
+    if (!outcome.ok) {
+      report("Could not reveal the file", `${request.path}: ${outcome.reason}`)
+      return false
+    }
+    shell.showItemInFolder(outcome.target)
+    return true
+  })
+  // Native context menus: one at a time per window, at a point inside it.
+  const menusOpen = new Set<number>()
+  ipcMain.handle(CONTEXT_MENU_CHANNEL, async (event, value: unknown): Promise<string | null> => {
+    if (!isLocalFrame(event.senderFrame?.url ?? "")) return null
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window === null || menusOpen.has(window.id)) return null
+    const [width, height] = window.getContentSize()
+    const request = parseContextMenuRequest(value, { width: width ?? 0, height: height ?? 0 })
+    if (request === null) return null
+    const id = window.id
+    menusOpen.add(id)
+    try {
+      return await popupContextMenu(window, request)
+    } finally {
+      menusOpen.delete(id)
+    }
+  })
+  // Folders dropped on a local window open as --open-path folders do.
+  ipcMain.on(DROP_PATHS_CHANNEL, (event, value: unknown) => {
+    if (!isLocalFrame(event.senderFrame?.url ?? "")) return
+    const paths = droppedPathsOf(value)
+    if (paths.length > 0) openFolders(paths)
+  })
+
   // Open at Login (decision 0072): the checkbox shows the OS state; only a click changes it.
   const loginItem = createLoginItem({ platform: process.platform, packaged, env, home: os.homedir(), execPath: process.execPath, appPath: app.getAppPath() })
   const loginEnabled = (): boolean => {
@@ -555,14 +609,62 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
     }
   }
   let loginShown = false
+  // Recent folders (decision 0081): projects local windows showed, within the daemon's roots.
+  const recentStore = createRecentStore(path.join(userData, RECENT_FILE))
+  let recent = recentStore.load()
+  const osRecents = process.platform === "darwin" || process.platform === "win32"
+  const setRecent = (next: string[]): void => {
+    recent = next
+    try {
+      recentStore.save(next)
+    } catch (error) {
+      console.error("servef: save recent folders:", error)
+    }
+    buildMenu()
+  }
+  const openRecent = (folder: string): void => {
+    folders.open([folder]).then((result) => {
+      if (result.failed.length > 0 && !existsSync(folder)) setRecent(removeRecent(recent, folder))
+    }).catch((error: unknown) => {
+      console.error("servef: open recent folder:", error)
+      report("Could not open folder", String(error))
+    })
+  }
+  const clearRecent = (): void => {
+    if (osRecents) app.clearRecentDocuments()
+    setRecent([])
+  }
+  const recordRecent = (project: string): void => {
+    localRoots()
+      .then((roots) => roots === null ? null : servedProject(roots, project, realpath))
+      .then((folder) => {
+        if (folder === null || recent[0] === folder) return
+        setRecent(addRecent(recent, folder))
+        if (osRecents) app.addRecentDocument(folder)
+      })
+      .catch((error: unknown) => console.error("servef: record recent folder:", error))
+  }
+  const recentItems = (): RecentItem[] => {
+    const home = os.homedir()
+    // Outside macOS "&" marks a mnemonic; "&&" shows one.
+    const escape = (label: string): string => process.platform === "darwin" ? label : label.replaceAll("&", "&&")
+    return recent.map((folder) => ({ label: escape(recentLabel(folder, home)), open: () => openRecent(folder) }))
+  }
   const buildMenu = (): void => {
     loginShown = loginEnabled()
+    const items = recentItems()
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate({
       newWindow: () => windows.newWindow(HOME),
       openFolder: runOpenFolder,
       connect: () => windows.route(CONNECT_URL),
       login: loginItem === null ? null : { checked: loginShown, toggle: toggleLogin },
+      recent: { items, clear: clearRecent },
     })))
+    // The macOS Dock menu: recent folders and a new window.
+    const dock: MenuItemConstructorOptions[] = items.map((item) => ({ label: item.label, click: item.open }))
+    if (dock.length > 0) dock.push({ type: "separator" })
+    dock.push({ label: "New Window", click: () => windows.newWindow(HOME) })
+    app.dock?.setMenu(Menu.buildFromTemplate(dock))
   }
   const toggleLogin = (): void => {
     if (loginItem === null) return
@@ -576,6 +678,13 @@ function start(launch: readonly LaunchItem[]): (item: LaunchItem) => void {
       .finally(buildMenu)
   }
   buildMenu()
+  let shownLocal = new Set<string>()
+  windows.onWindowsChanged(() => {
+    const next = windows.shownProjects(ORIGIN)
+    const fresh = newlyShown(shownLocal, next)
+    shownLocal = new Set(next)
+    for (const project of fresh) recordRecent(project)
+  })
   // Users may change it in OS settings: refresh on focus when it differs.
   app.on("browser-window-focus", () => {
     if (loginItem !== null && loginEnabled() !== loginShown) buildMenu()
@@ -644,12 +753,19 @@ function nonEmpty(value: string | undefined): string | null {
   return value === undefined || value === "" ? null : value
 }
 
+interface RecentItem {
+  label: string
+  open(): void
+}
+
 interface MenuActions {
   newWindow(): void
   openFolder(): void
   connect(): void
   // login is the Open at Login checkbox; null hides it.
   login: { checked: boolean; toggle(): void } | null
+  // recent fills File > Open Recent, most recent first.
+  recent: { items: RecentItem[]; clear(): void }
 }
 
 function menuTemplate(actions: MenuActions): MenuItemConstructorOptions[] {
@@ -657,10 +773,19 @@ function menuTemplate(actions: MenuActions): MenuItemConstructorOptions[] {
   const login: MenuItemConstructorOptions[] = actions.login === null
     ? []
     : [{ id: "open-at-login", label: "Open at Login", type: "checkbox", checked: actions.login.checked, click: actions.login.toggle }]
+  const recent = actions.recent.items
+  const openRecent: MenuItemConstructorOptions[] = [
+    ...(recent.length === 0
+      ? [{ id: "open-recent-none", label: "No Recent Folders", enabled: false }]
+      : recent.map((item, index): MenuItemConstructorOptions => ({ id: `open-recent-${index}`, label: item.label, click: item.open }))),
+    { type: "separator" },
+    { id: "clear-recent", label: "Clear Recently Opened", enabled: recent.length > 0, click: actions.recent.clear },
+  ]
   // No accelerators on keys the UI binds (P, F, Shift-F, C).
   const file: MenuItemConstructorOptions[] = [
     { label: "New Window", accelerator: "CmdOrCtrl+N", click: actions.newWindow },
     { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: actions.openFolder },
+    { id: "open-recent", label: "Open Recent", submenu: openRecent },
     { label: "Connect…", click: actions.connect },
     { type: "separator" },
     { label: "Close Window", accelerator: "CmdOrCtrl+W", role: "close" },
