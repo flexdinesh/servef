@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { gitStatusError, isChangesResponse, type ChangedFile, type ChangesResponse } from "../../api/changes-contract.ts"
+import { isChangesResponse, type ChangedFile, type ChangesResponse } from "@servef/contracts"
+import { gitStatusError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON } from "../../api/http.ts"
 import { projectUrl } from "../../api/project-url.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"

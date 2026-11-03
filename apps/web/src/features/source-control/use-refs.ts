@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react"
 
-import { historyError } from "../../api/commits-contract.ts"
+import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { projectUrl } from "../../api/project-url.ts"
-import { isRefsResponse, type RefsResponse } from "../../api/refs-contract.ts"
+import { isRefsResponse, type RefsResponse } from "@servef/contracts"
 
 export interface RefsState {
   result: RefsResponse | null

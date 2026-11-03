@@ -35,6 +35,7 @@ import { Sidebar, sidebarViewName } from "./workspace/Sidebar.tsx"
 import { SourceControlView } from "./features/source-control/SourceControlView.tsx"
 import { ReviewDocument, type HunkStep, type ReviewStatus } from "./features/source-control/ReviewDocument.tsx"
 import { DiffToolbar } from "./features/source-control/DiffToolbar.tsx"
+import { countedLines } from "./features/source-control/diff-stats.ts"
 import type { CollapseRequest } from "./features/source-control/FilesTree.tsx"
 import {
   branchCompare, compareKey, compareSearch, isLiveCompare, parseReviewFragment, reviewFragment, reviewScope, routeCompare, sameCompare,
@@ -123,7 +124,7 @@ function reviewStatusBar(status: ReviewStatus | null, currentFile: string, data:
   return {
     path,
     lines: status?.target ?? null,
-    stats: stats?.status === "counted" ? { additions: stats.additions, deletions: stats.deletions } : null,
+    stats: countedLines(stats),
     typeLabel: status?.typeLabel ?? "",
   }
 }

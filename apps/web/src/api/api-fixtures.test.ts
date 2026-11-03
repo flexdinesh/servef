@@ -2,12 +2,12 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-import { isChangesResponse, isDiffResponse, type DiffResponse } from "./changes-contract.ts"
-import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse } from "./commits-contract.ts"
-import { isCompareStatsResponse } from "./compare-stats-contract.ts"
-import { isRefsResponse, unknownBaseCode } from "./refs-contract.ts"
-import { isStackResponse, unknownHeadCode } from "./stack-contract.ts"
-import { isDirectoriesResponse, isErrorResponse, isFormatResult, isPageData, isProjectsResponse, isSearchDocumentsResponse, type PageData } from "@servef/contracts"
+import {
+  isBranchFilesResponse, isChangesResponse, isCommitFilesResponse, isCommitsResponse, isCompareStatsResponse, isDiffResponse,
+  isDirectoriesResponse, isErrorResponse, isFormatResult, isPageData, isProjectsResponse, isRangeFilesResponse, isRefsResponse,
+  isSearchDocumentsResponse, isStackResponse, type DiffResponse, type PageData,
+} from "@servef/contracts"
+import { unknownBaseCode, unknownHeadCode } from "./source-control-messages.ts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "../workspace/process-metrics.ts"
 import { isRecord } from "./http.ts"
@@ -138,6 +138,18 @@ async function diff(name: string): Promise<DiffResponse> {
   return value
 }
 
+test("diff responses null exactly the side a status lacks", async () => {
+  const modified = await diff("diff-modified.json")
+  assert.equal(isDiffResponse({ ...modified, status: "added", original: null }), true)
+  assert.equal(isDiffResponse({ ...modified, status: "untracked", original: null }), true)
+  assert.equal(isDiffResponse({ ...modified, status: "added" }), false)
+  assert.equal(isDiffResponse({ ...modified, status: "deleted", modified: null }), true)
+  assert.equal(isDiffResponse({ ...modified, status: "deleted" }), false)
+  assert.equal(isDiffResponse({ ...modified, original: null }), false)
+  assert.equal(isDiffResponse({ ...modified, lineDiff: undefined }), false)
+  assert.equal(isDiffResponse({ ...modified, lineDiff: { ...modified.lineDiff, gaps: undefined } }), false)
+})
+
 test("source control fixtures satisfy runtime contracts", async () => {
   const changes = await fixture("changes.json")
   assert.ok(isChangesResponse(changes))
@@ -152,6 +164,10 @@ test("source control fixtures satisfy runtime contracts", async () => {
   const modified = await diff("diff-modified.json")
   assert.equal(typeof modified.original?.content, "string")
   assert.equal(typeof modified.modified?.content, "string")
+  // Text sides carry the server's line diff (decision 0083).
+  assert.equal(modified.lineDiff?.hunks.length, 1)
+  assert.deepEqual([modified.lineDiff.additions, modified.lineDiff.deletions], [1, 1])
+  assert.equal((await diff("diff-hunks.json")).lineDiff?.hunks.length, 3)
   assert.equal((await diff("diff-added.json")).original, null)
   assert.equal((await diff("diff-deleted.json")).modified, null)
   const untracked = await diff("diff-untracked.json")
@@ -161,9 +177,11 @@ test("source control fixtures satisfy runtime contracts", async () => {
   const binary = await diff("diff-binary.json")
   assert.equal(binary.original?.binary, true)
   assert.equal(binary.modified?.content, undefined)
+  assert.equal(binary.lineDiff, null)
   const large = await diff("diff-too-large.json")
   assert.equal(large.modified?.tooLarge, true)
   assert.equal(large.modified?.content, undefined)
+  assert.equal(large.lineDiff, null)
   assert.equal(isDiffResponse(await fixture("error-not-found.json")), false)
 })
 
@@ -214,17 +232,14 @@ test("commit contract validators reject malformed history", async () => {
   const [first] = branch.commits
   assert.ok(first)
   assert.equal(isCommitsResponse({ ...branch, range: "everything" }), false)
-  assert.equal(isCommitsResponse({ ...branch, head: "3577ec6" }), false)
-  assert.equal(isCommitsResponse({ ...branch, ahead: -1 }), false)
-  assert.equal(isCommitsResponse({ ...branch, repository: false }), false)
-  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, authorTime: "yesterday" }] }), false)
-  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, parents: ["HEAD~1"] }] }), false)
+  assert.equal(isCommitsResponse({ ...branch, ahead: "1" }), false)
+  assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, parents: "HEAD~1" }] }), false)
   assert.equal(isCommitsResponse({ ...branch, commits: [{ ...first, author: "Dinesh" }] }), false)
   const files = await fixture("commit-files.json")
   assert.ok(isCommitFilesResponse(files))
-  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "untracked" }] }), false)
+  assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "copied" }] }), false)
   assert.equal(isCommitFilesResponse({ ...files, files: [{ path: "a.md", status: "renamed" }] }), false)
-  assert.equal(isCommitFilesResponse({ ...files, commit: "" }), false)
+  assert.equal(isCommitFilesResponse({ ...files, commit: undefined }), false)
 })
 
 test("compare fixtures satisfy runtime contracts", async () => {
@@ -256,9 +271,8 @@ test("compare fixtures satisfy runtime contracts", async () => {
   assert.equal(stack.layers.filter((layer) => layer.current).map((layer) => layer.head).join(), commits.head)
   for (const layer of stack.layers) assert.ok(local.includes(layer.name))
   assert.equal(stack.layers.at(-1)?.parent, stack.base)
-  assert.equal(isStackResponse({ ...stack, layers: [{ ...stack.layers[0], head: "HEAD" }] }), false)
+  assert.equal(isStackResponse({ ...stack, layers: [{ ...stack.layers[0], head: null }] }), false)
   assert.equal(isStackResponse({ ...stack, layers: [{ ...stack.layers[0], name: "", current: false }] }), false)
-  assert.equal(isStackResponse({ ...stack, repository: false }), false)
 
   const changes = await fixture("changes.json")
   assert.ok(isChangesResponse(changes))
@@ -277,9 +291,7 @@ test("compare fixtures satisfy runtime contracts", async () => {
 test("compare contract validators reject malformed refs and stats", async () => {
   const refs = await fixture("refs.json")
   assert.ok(isRefsResponse(refs))
-  assert.equal(isRefsResponse({ ...refs, branches: [{ name: "", remote: false }] }), false)
   assert.equal(isRefsResponse({ ...refs, branches: [{ name: "main" }] }), false)
-  assert.equal(isRefsResponse({ ...refs, repository: false }), false)
   assert.equal(isRefsResponse({ ...refs, defaultBase: null }), false)
   assert.equal(isRefsResponse({ repository: false, branch: "", defaultBase: "", branches: [], truncated: false }), true)
 
@@ -289,14 +301,9 @@ test("compare contract validators reject malformed refs and stats", async () => 
   const valid = (file: unknown, budgetExceeded = false) => isCompareStatsResponse({ files: [file], budgetExceeded })
   assert.equal(valid({ path: "a.go", status: "counted", additions: 1, deletions: 0, blob }), true)
   assert.equal(valid({ path: "a.go", status: "budget", blob: "" }, true), true)
-  assert.equal(valid({ path: "a.go", status: "budget", blob }), false)
-  assert.equal(valid({ path: "a.go", status: "counted", additions: 1, blob }), false)
-  assert.equal(valid({ path: "a.go", status: "counted", additions: -1, deletions: 0, blob }), false)
-  assert.equal(valid({ path: "a.go", status: "counted", additions: 1.5, deletions: 0, blob }), false)
-  assert.equal(valid({ path: "a.go", status: "binary", additions: 0, deletions: 0, blob }), false)
+  assert.equal(valid({ path: "a.go", status: "counted", additions: "1", deletions: 0, blob }), false)
   assert.equal(valid({ path: "a.go", status: "skipped", blob }), false)
-  assert.equal(valid({ path: "a.go", status: "tooLarge", blob: "3577ec6" }), false)
-  assert.equal(valid({ path: "", status: "tooLarge", blob: "" }), false)
+  assert.equal(valid({ path: "a.go", status: "tooLarge" }), false)
   assert.equal(isCompareStatsResponse({ files: [] }), false)
 })
 

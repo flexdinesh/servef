@@ -1,5 +1,4 @@
-import type { ChangedFile } from "../../api/changes-contract.ts"
-import type { Commit } from "../../api/commits-contract.ts"
+import type { ChangedFile, Commit } from "@servef/contracts"
 import type { Compare } from "./compare.ts"
 
 // Pure file-list states shared by every compare's change list, Files rail,

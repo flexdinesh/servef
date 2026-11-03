@@ -1,5 +1,5 @@
-import type { FileStats } from "../../api/compare-stats-contract.ts"
-import type { DiffStats } from "./diff-stats.ts"
+import type { FileStats } from "@servef/contracts"
+import { countedLines, type DiffStats } from "./diff-stats.ts"
 import { statsLabel } from "./use-compare-stats.ts"
 
 // DiffStatsText renders "+12 −3" with additions in success and deletions in
@@ -15,5 +15,6 @@ export function DiffStatsText({ additions, deletions }: DiffStats) {
 // FileStatsText colors counted stats and keeps statsLabel's plain notes
 // ("binary", "large") for the rest.
 export function FileStatsText({ stats }: { stats: FileStats | undefined }) {
-  return stats?.status === "counted" ? <DiffStatsText additions={stats.additions} deletions={stats.deletions} /> : statsLabel(stats)
+  const lines = countedLines(stats)
+  return lines ? <DiffStatsText additions={lines.additions} deletions={lines.deletions} /> : statsLabel(stats)
 }

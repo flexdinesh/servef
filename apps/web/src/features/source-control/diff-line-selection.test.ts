@@ -1,16 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { FileDiffMetadata } from "@pierre/diffs"
-
-import { parseTextDiff } from "./diff-content.ts"
+import type { LineDiff } from "@servef/contracts"
+import { lineDiffOf } from "./line-diff-testing.ts"
 import { diffLineAnchor, diffLineTarget, parseDiffLineAnchor } from "./diff-line-selection.ts"
 
-function diff(before: string | null, after: string | null): FileDiffMetadata {
-  const side = (contents: string | null) => contents === null ? null : { name: "notes.txt", contents }
-  const fileDiff = parseTextDiff({ kind: "text", oldFile: side(before), newFile: side(after) }, false)
-  assert.ok(fileDiff)
-  return fileDiff
+function diff(before: string | null, after: string | null): LineDiff {
+  return lineDiffOf(before, after)
 }
 
 function lines(...values: string[]): string {

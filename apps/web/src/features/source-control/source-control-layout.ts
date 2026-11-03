@@ -1,4 +1,4 @@
-import { isCommitRange, type CommitRange } from "../../api/commits-contract.ts"
+import { isCommitRange, type CommitRange } from "@servef/contracts"
 import { isRecord } from "../../api/http.ts"
 
 // Source Control's layout, commit range, and chosen base branches,

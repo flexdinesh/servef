@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
-import type { CommitRange } from "../../api/commits-contract.ts"
+import type { CommitRange } from "@servef/contracts"
 import {
   clampRailWidth, defaultLayout, readLayout, resizePair, withBase, writeLayout,
   type ChangesView, type PaneId, type SourceControlLayout,

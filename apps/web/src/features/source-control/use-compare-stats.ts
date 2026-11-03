@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
 
-import { isCompareStatsResponse, type CompareStatsResponse, type FileStats } from "../../api/compare-stats-contract.ts"
-import { historyError } from "../../api/commits-contract.ts"
+import { isCompareStatsResponse, type CompareStatsResponse, type FileStats } from "@servef/contracts"
+import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON } from "../../api/http.ts"
 import { boundedCache } from "../../lib/bounded-cache.ts"
 import { compareKey, type Compare } from "./compare.ts"
-import { diffStatsLabel } from "./diff-stats.ts"
+import { countedLines, diffStatsLabel } from "./diff-stats.ts"
 
 // Line stats are on-demand work (decision 0035): the Files pane and the
 // review tab read them after the file list, from /api/compare-stats. Reads
@@ -72,8 +72,8 @@ export function statsLabel(stats: FileStats | undefined): string {
   if (!stats) return ""
   if (stats.status === "binary") return "binary"
   if (stats.status === "tooLarge") return "large"
-  if (stats.status !== "counted") return ""
-  return diffStatsLabel(stats)
+  const lines = countedLines(stats)
+  return lines ? diffStatsLabel(lines) : ""
 }
 
 // totals sums counted files' lines.
@@ -82,9 +82,10 @@ export function totals(stats: CompareStats | null): { additions: number; deletio
   let additions = 0
   let deletions = 0
   for (const file of stats.byPath.values()) {
-    if (file.status !== "counted") continue
-    additions += file.additions
-    deletions += file.deletions
+    const lines = countedLines(file)
+    if (!lines) continue
+    additions += lines.additions
+    deletions += lines.deletions
   }
   return { additions, deletions }
 }

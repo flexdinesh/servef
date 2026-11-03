@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { Commit } from "../../api/commits-contract.ts"
+import type { Commit } from "@servef/contracts"
 import {
   branchCompare, commitAge, compareKey, compareName, compareSearch, isLiveCompare, legacyCompare, parseReviewFragment, parseStoredCompare,
   rangeCount, reviewFragment, reviewScope, routeCompare, sameCompare, selectedHashes, selectionCompare, storedCompare, type Compare,

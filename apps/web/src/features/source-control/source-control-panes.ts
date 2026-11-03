@@ -1,4 +1,4 @@
-import type { StackLayer, StackResponse } from "../../api/stack-contract.ts"
+import type { StackLayer, StackResponse } from "@servef/contracts"
 import { branchCompare, type Compare } from "./compare.ts"
 
 // Pure decisions behind Source Control's panes (decision 0040): when the

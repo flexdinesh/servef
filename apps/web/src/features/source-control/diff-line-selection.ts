@@ -1,5 +1,6 @@
-import type { FileDiffMetadata, SelectedLineRange, SelectionSide } from "@pierre/diffs"
+import type { SelectedLineRange, SelectionSide } from "@pierre/diffs"
 
+import type { LineDiff } from "@servef/contracts"
 import type { DiffStyle } from "./diff-options.ts"
 import type { LineRange } from "../../lib/line-selection.ts"
 
@@ -55,30 +56,21 @@ interface Block {
   additions: number
 }
 
-function blocks(fileDiff: FileDiffMetadata): Block[] {
+// blocks lists the rows a diff can show, in order: the server's gaps as
+// unchanged runs around its hunks' blocks.
+function blocks(lineDiff: LineDiff): Block[] {
   const result: Block[] = []
-  let oldLine = 1
-  let newLine = 1
-  const context = (lines: number) => {
-    if (lines <= 0) return
-    result.push({ change: false, oldStart: oldLine, newStart: newLine, deletions: lines, additions: lines })
-    oldLine += lines
-    newLine += lines
+  const gap = (index: number) => {
+    const found = lineDiff.gaps.find((candidate) => candidate.hunk === index)
+    if (found) result.push({ change: false, oldStart: found.oldStart, newStart: found.newStart, deletions: found.lines, additions: found.lines })
   }
-  for (const hunk of fileDiff.hunks) {
-    // Hunk headers name the line before an empty side.
-    context(hunk.additionStart + (hunk.additionCount === 0 ? 1 : 0) - newLine)
-    for (const content of hunk.hunkContent) {
-      if (content.type === "context") {
-        context(content.lines)
-        continue
-      }
-      result.push({ change: true, oldStart: oldLine, newStart: newLine, deletions: content.deletions, additions: content.additions })
-      oldLine += content.deletions
-      newLine += content.additions
+  for (const [index, hunk] of lineDiff.hunks.entries()) {
+    gap(index)
+    for (const block of hunk.blocks) {
+      result.push({ change: block.kind === "change", oldStart: block.oldStart, newStart: block.newStart, deletions: block.oldCount, additions: block.newCount })
     }
   }
-  context(fileDiff.additionLines.length - newLine + 1)
+  gap(lineDiff.hunks.length)
   return result
 }
 
@@ -117,8 +109,8 @@ function newLinesBefore(block: Block, row: number, style: DiffStyle): number {
 // diffLineTarget resolves a selection to the lines it addresses. One side
 // keeps its own numbers; a range across sides covers the new lines between
 // its ends, in the rows as shown.
-export function diffLineTarget(fileDiff: FileDiffMetadata, selection: SelectedLineRange, style: DiffStyle): DiffLineTarget | null {
-  const rows = blocks(fileDiff)
+export function diffLineTarget(lineDiff: LineDiff, selection: SelectedLineRange, style: DiffStyle): DiffLineTarget | null {
+  const rows = blocks(lineDiff)
   const startSide = selection.side ?? "additions"
   const first = rowPoint(rows, startSide, selection.start, style)
   const second = rowPoint(rows, selection.endSide ?? startSide, selection.end, style)
