@@ -1,0 +1,71 @@
+# Native app (experimental)
+
+`servef-native` is an experiment: servef drawn with native widgets instead of
+a web view. It browses the same projects through the same servef daemon or
+servers, with a smaller feature set than the [desktop app](/docs/desktop),
+which stays the recommended app. Expect rough edges; things may change or go
+away.
+
+What it does today:
+
+- Opens projects on this computer (through the servef daemon) or on a servef
+  server started with `servef browser`, on this machine or another.
+- Browses the file tree, shows highlighted source with line numbers, find,
+  and copy, and previews Markdown with its links and images. Mermaid diagrams
+  show as code.
+- Reviews uncommitted changes: **Changes** in the sidebar lists the working
+  tree's changes since the last commit; choosing one shows its diff side by
+  side or unified, as hunks or the full file, optionally ignoring leading and
+  trailing whitespace. Binary and large files say so instead.
+- Follows live updates: the open file, the change list, and the open diff
+  reread when the project changes on disk.
+
+Not yet: commit history, branch and range compares, search, Format, code
+navigation, walkthroughs, and tabs. Use the desktop app or the browser for
+those.
+
+## Install
+
+macOS and Linux, no sudo:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native.sh | sh
+```
+
+Latest `main` (the `edge` prerelease):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native-edge.sh | sh
+```
+
+The app carries its own `servef` binary for the daemon, so it needs no other
+install. The scripts link `servef-native` into `~/.local/bin` (or `~/bin`).
+
+- macOS: `servef-native.app` goes to `/Applications` (or `~/Applications`).
+  Builds are ad-hoc signed, not notarized.
+- Linux: the app goes to `~/.local/share/servef-native/`, with a desktop
+  entry that opens `servef-native://` links and an icon.
+
+Run a script again to update; quit the app first. Remove it with
+`scripts/uninstall.sh`, which keeps its settings.
+
+## Use
+
+```sh
+servef-native .
+```
+
+opens the current directory. Only one copy runs: a second `servef-native`
+command or link opens in the running app. The `servef` command never opens
+the native app.
+
+Links use the `servef-native://` scheme:
+
+- `servef-native://local/?project=/path/to/repo&path=README.md` opens a file
+  through the daemon on this computer.
+- `servef-native://<host>:<port>/?project=/path/to/repo` opens a servef
+  server. The app asks once before it connects to a server that is not on
+  this computer.
+
+The start page lists servef servers running on this computer and connects to
+any server by address.

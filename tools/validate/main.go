@@ -17,7 +17,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -112,7 +111,7 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	o.Args = flags.Args()
-	if o.Group != "" && !slices.Contains(groups, o.Group) {
+	if o.Group != "" && !knownGroup(o.Group) {
 		return fmt.Errorf("unknown group %q", o.Group)
 	}
 	if (o.Task != "" || len(o.Args) > 0) && o.Group == "" {

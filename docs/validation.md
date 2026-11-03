@@ -67,6 +67,7 @@ container execution from recursively launching the host coordinator.
 | docs | Dagger | Production site build and internal-link validation |
 | browser | Dagger | Chromium integration tests and fixture servers (WebKit opt-in) |
 | desktop | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
+| native (opt-in) | Dagger | Native app tests on Go 1.27; not in `check:pr` |
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
 architecture or validation tooling remain tests and run there too. Git, Ruby,
@@ -81,6 +82,21 @@ not part of `check:pr`, and failures do not block PRs. Only this task installs
 WebKit and its system libraries; the gate prepares Chromium alone. Playwright's
 WebKit tracks recent WebKit, so passing here is an upper bound: distribution
 WebKitGTK builds can lag it.
+
+### Native (opt-in)
+
+`mise run test:native` runs the experimental native app's checks (decision
+0082) in a `native` Dagger group that `check:pr` and `check:status` never
+include; failures do not block PRs. `apps/native` is a Go 1.27 module outside
+`go.work`, so its preparation installs the Go 1.27.3 tarball after checking
+its sha256, and the leaf sets `GOROOT` to it (mise's points at the locked
+Go). The leaf runs shellcheck on `apps/native/scripts`, `go mod tidy -diff`,
+`go vet`, and `go test -race` with `GOWORK=off`. The group reads
+`apps/native/`, `apps/servef/` (the module it replaces), and the shared
+files its tests compare with (`testdata/document-families.json`, the API
+fixtures in `testdata/api/default/`, and `apps/web/src/styles/tokens.css`). `pkg/client` links no server code
+(decision 0084), so no web build is needed. `fmt:check` covers
+`apps/native`; `tidy:check` does not.
 
 ### Desktop
 

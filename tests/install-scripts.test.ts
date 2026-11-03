@@ -43,12 +43,17 @@ const STUBS: Record<string, string[]> = {
     '  esac',
     'fi',
   ],
-  // macOS only: extracts a release zip as servef.app, or copies a directory.
+  // macOS only: extracts a release zip as servef.app (servef-native.app for
+  // native zips), or copies a directory.
   ditto: [
     'echo "ditto $*" >> "$STUB_LOG"',
     'if [ "$1" = -x ]; then',
-    '  mkdir -p "$4/servef.app/Contents/MacOS"',
-    "  printf 'app' > \"$4/servef.app/Contents/MacOS/servef\"",
+    '  case "$3" in',
+    '    *servef-native*) app=servef-native ;;',
+    '    *) app=servef ;;',
+    '  esac',
+    '  mkdir -p "$4/$app.app/Contents/MacOS"',
+    "  printf 'app' > \"$4/$app.app/Contents/MacOS/$app\"",
     'else',
     '  cp -R "$1" "$2"',
     'fi',
@@ -191,6 +196,27 @@ async function createDarwinArchive(sandbox: Sandbox, version: string): Promise<v
     })
   })
   await rm(join(release, name), { recursive: true })
+}
+
+// createNativeRelease writes the native app's assets for version: the Linux
+// archive for arch (the app, its bundled servef, and its icon) and the
+// darwin/arm64 zip.
+async function createNativeRelease(sandbox: Sandbox, options: { arch?: string; version?: string } = {}): Promise<void> {
+  const arch = options.arch ?? 'amd64'
+  const version = options.version ?? '0.1.7'
+  const release = sandbox.env.STUB_RELEASE_DIR ?? ''
+  const staging = join(release, 'native-staging')
+  await writeExecutable(join(staging, 'servef-native'), `#!/bin/sh\necho "servef-native ${version} abc123"\n`)
+  await writeExecutable(join(staging, 'bin', 'servef'), fakeServef(`${version} (abc123)`))
+  await writeFile(join(staging, 'servef-native.png'), 'native png')
+  await new Promise<void>((resolve, reject) => {
+    execFile('tar', ['-czf', join(release, `servef-native_${version}_linux_${arch}.tar.gz`), '-C', staging, '.'], (error) => {
+      if (error === null) resolve()
+      else reject(error)
+    })
+  })
+  await rm(staging, { recursive: true })
+  await writeFile(join(release, `servef-native_${version}_darwin_arm64.zip`), 'zip')
 }
 
 function run(script: string, sandbox: Sandbox, env: Record<string, string> = {}): Promise<Result> {
@@ -411,6 +437,89 @@ void test('install-desktop-edge.sh stops before installing when it cannot', asyn
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
+// --- install-native.sh, install-native-edge.sh ---
+
+void test('install-native-edge.sh installs the Linux app, registers servef-native://, and links it on PATH', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t), { homeName: 'home 50%' })
+  await createNativeRelease(sandbox, { version: '0.0.0-edge' })
+  const share = join(sandbox.home, '.local', 'share')
+  await writeExecutable(join(share, 'servef-native', 'stale'), 'earlier build')
+
+  const result = await run('install-native-edge.sh', sandbox)
+
+  assertOk(result)
+  const app = join(share, 'servef-native')
+  assert.ok(await isExecutable(join(app, 'servef-native')))
+  assert.ok(await isExecutable(join(app, 'bin', 'servef')), 'the app bundles the servef it runs the daemon with')
+  assert.equal(await exists(join(app, 'stale')), false, 'a new install replaces the earlier one')
+  assert.match(result.stdout, /installed .*servef-native \(servef-native 0\.0\.0-edge abc123\)/)
+  const link = join(sandbox.home, '.local', 'bin', 'servef-native')
+  assert.equal((await readFile(link, 'utf8')).includes('servef-native 0.0.0-edge'), true)
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false, 'the CLI is not installed')
+
+  const exec = `"${join(app, 'servef-native').replaceAll('%', '%%')}"`
+  const entry = await readFile(join(share, 'applications', 'servef-native.desktop'), 'utf8')
+  assert.match(entry, /^MimeType=x-scheme-handler\/servef-native;$/m)
+  assert.ok(entry.includes(`\nExec=${exec} %U\n`), entry)
+  assert.match(entry, /^Icon=servef-native$/m)
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-native.png'), 'utf8'), 'native png')
+
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-native_0.0.0-edge_linux_amd64.tar.gz`), log)
+  assert.doesNotMatch(log, /servef_0\.0\.0-edge_linux_amd64\.tar\.gz/)
+  assert.doesNotMatch(log, /releases\/latest/)
+  assert.match(log, /^xdg-mime default servef-native\.desktop x-scheme-handler\/servef-native$/m)
+  assert.doesNotMatch(log, /x-scheme-handler\/servef$/m)
+  assert.match(result.stdout, /servef-native \./)
+})
+
+void test('install-native.sh installs the latest release for the machine', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createNativeRelease(sandbox, { arch: 'arm64' })
+
+  const result = await run('install-native.sh', sandbox, { STUB_UNAME_M: 'aarch64' })
+
+  assertOk(result)
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'servef-native', 'servef-native')))
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-native_0.1.7_linux_arm64.tar.gz'), log)
+})
+
+void test('install-native.sh installs servef-native.app on macOS and links its executable', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createNativeRelease(sandbox)
+
+  const result = await run('install-native.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
+
+  assertOk(result)
+  const apps = (await exists('/Applications')) ? '/Applications' : join(sandbox.home, 'Applications')
+  t.after(async () => {
+    if (apps === '/Applications') await rm('/Applications/servef-native.app', { recursive: true, force: true })
+  })
+  const executable = join(apps, 'servef-native.app', 'Contents', 'MacOS', 'servef-native')
+  assert.equal(await readFile(executable, 'utf8'), 'app')
+  assert.equal(await readFile(join(sandbox.home, '.local', 'bin', 'servef-native'), 'utf8'), 'app')
+  assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-native_0.1.7_darwin_arm64.zip'), log)
+  assert.doesNotMatch(log, /xdg-mime/)
+})
+
+void test('install-native.sh stops on a release without the native app or while it runs', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox)
+
+  const noPackage = await run('install-native.sh', sandbox)
+  assert.notEqual(noPackage.code, 0)
+  assert.match(noPackage.stderr, /servef v0\.1\.7 has no servef-native_0\.1\.7_linux_amd64\.tar\.gz; releases before the native app have none/)
+
+  const running = await run('install-native-edge.sh', sandbox, { STUB_PGREP: '0' })
+  assert.notEqual(running.code, 0)
+  assert.match(running.stderr, /the servef native app is running; quit it, then run this again/)
+  assert.equal(await exists(join(sandbox.home, '.local')), false)
+})
+
 // --- install.sh ---
 
 void test('install.sh installs the CLI from the release the latest page redirects to', async (t) => {
@@ -571,6 +680,29 @@ void test('uninstall.sh removes every install, reports package-managed copies, a
   assert.match(result.stdout, /mise\/shims\/servef is installed by mise/)
   assert.match(result.stdout, /kept your data/)
   assert.ok(result.stdout.includes(join(config, 'servef')))
+})
+
+void test('uninstall.sh removes the native app and keeps its data', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createNativeRelease(sandbox, { version: '0.0.0-edge' })
+  assertOk(await run('install-native-edge.sh', sandbox))
+  const config = join(sandbox.home, '.config', 'servef-native')
+  await mkdir(config, { recursive: true })
+
+  const result = await run('uninstall.sh', sandbox)
+
+  assertOk(result)
+  const share = join(sandbox.home, '.local', 'share')
+  for (const path of [
+    join(sandbox.home, '.local', 'bin', 'servef-native'),
+    join(share, 'servef-native'),
+    join(share, 'applications', 'servef-native.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-native.png'),
+  ]) {
+    assert.equal(await exists(path), false, `${path} is removed`)
+  }
+  assert.ok(await exists(config), 'native app data is kept')
+  assert.ok(result.stdout.includes(config))
 })
 
 void test('uninstall.sh stops while servef runs and reports an empty home', async (t) => {

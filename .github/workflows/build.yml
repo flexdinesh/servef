@@ -2,9 +2,9 @@ name: Build
 
 # Builds every distribution asset for one commit (decision 0079); release.yml
 # (stable tags) and ci.yml (the edge prerelease) call it and publish the
-# result. cli (Go archives, archive smoke) -> desktop-linux and desktop-macos
-# (packages bundling those binaries, smoke checks) -> assets (the expected
-# set, checksums.txt). Every job uploads an assets-* artifact; callers
+# result. cli (Go archives, archive smoke) -> desktop-linux, desktop-macos,
+# native-linux, and native-macos (packages bundling those binaries, smoke
+# checks) -> assets (the expected set, checksums.txt). Every job uploads an assets-* artifact; callers
 # download them all with pattern assets-*. Nothing is committed or pushed.
 
 on:
@@ -338,12 +338,118 @@ jobs:
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
 
-  # Extension point: the native phase (decision 0079, phase 5) adds an
-  # apps/native packaging job here that uploads an assets-native-* artifact,
-  # adds it to assets' needs, and adds its file names to the expected list.
+  # The experimental native app (decision 0082) bundles the archives' Go
+  # binary as resources/bin/servef. mygo needs no cgo, so one Linux runner
+  # builds both architectures. apps/native needs Go 1.27: GOTOOLCHAIN fetches
+  # the toolchain go.mod names, verified against sum.golang.org.
+  native-linux:
+    needs: cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.18
+
+      - name: Download CLI archives
+        uses: actions/download-artifact@v8
+        with:
+          name: assets-archives
+          path: release-dist
+
+      - name: Package native app
+        env:
+          VERSION: ${{ inputs.version }}
+          GOTOOLCHAIN: go1.27.3
+        run: apps/native/scripts/package.sh linux "$VERSION" release-dist native-dist
+
+      # amd64 only: the runner cannot execute arm64 binaries.
+      - name: Smoke test native packages
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          dir="$(mktemp -d)"
+          tar -C "$dir" -xzf "native-dist/servef-native_${VERSION}_linux_amd64.tar.gz"
+          "$dir/servef-native" --version | grep -Fx "servef-native ${VERSION} $(git rev-parse --short=12 HEAD)"
+          "$dir/bin/servef" --version | grep -F "servef ${VERSION} "
+          grep -E '^MimeType=(.*;)?x-scheme-handler/servef-native(;|$)' "$dir/servef-native.desktop"
+          test -f "$dir/servef-native.png"
+
+      - name: Upload native packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-native-linux
+          path: native-dist/*
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+          compression-level: 0
+
+  # Ad-hoc signed (mygo.json macos.signingIdentity "-"); signing needs macOS.
+  native-macos:
+    needs: cli
+    runs-on: macos-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.18
+
+      - name: Download CLI archives
+        uses: actions/download-artifact@v8
+        with:
+          name: assets-archives
+          path: release-dist
+
+      - name: Package native app
+        env:
+          VERSION: ${{ inputs.version }}
+          GOTOOLCHAIN: go1.27.3
+        run: apps/native/scripts/package.sh darwin "$VERSION" release-dist native-dist
+
+      # arm64 only: macos-latest runs on Apple silicon.
+      - name: Smoke test native packages
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          dir="$(mktemp -d)"
+          ditto -x -k "native-dist/servef-native_${VERSION}_darwin_arm64.zip" "$dir"
+          app="$dir/servef-native.app/Contents"
+          "$app/MacOS/servef-native" --version | grep -Fx "servef-native ${VERSION} $(git rev-parse --short=12 HEAD)"
+          "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
+          codesign --verify "$dir/servef-native.app"
+          scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
+          if [[ "$scheme" != "servef-native" ]]; then
+            echo "Info.plist registers URL scheme '$scheme', want servef-native" >&2
+            exit 1
+          fi
+
+      - name: Upload native packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-native-macos
+          path: native-dist/*
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+          compression-level: 0
 
   assets:
-    needs: [cli, desktop-linux, desktop-macos]
+    needs: [cli, desktop-linux, desktop-macos, native-linux, native-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Download assets
@@ -374,7 +480,12 @@ jobs:
               "servef-desktop_${VERSION}_linux_${arch}.deb"
             )
           done
-          # The native phase adds its packages here.
+          for arch in amd64 arm64; do
+            expected+=(
+              "servef-native_${VERSION}_darwin_${arch}.zip"
+              "servef-native_${VERSION}_linux_${arch}.tar.gz"
+            )
+          done
 
           cd release-dist
           diff <(printf '%s\n' "${expected[@]}" | sort) <(find . -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)

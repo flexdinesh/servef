@@ -11,6 +11,7 @@ export default defineConfig({
     { text: 'Getting started', link: '/docs/getting-started' },
     { text: 'Usage', link: '/docs/usage' },
     { text: 'Desktop app', link: '/docs/desktop' },
+    { text: 'Native app (experimental)', link: '/docs/native' },
     { text: 'Remote hosts', link: '/docs/remote' },
     { text: 'Browsing', link: '/docs/browsing' },
     { text: 'Code navigation', link: '/docs/code-navigation' },

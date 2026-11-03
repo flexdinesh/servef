@@ -252,7 +252,7 @@ func selected(group, name string) bool {
 		return true
 	}
 	prefixes := map[string][]string{
-		"repo":           {"apps/servef/", "tools/", "packages/contracts/"},
+		"repo":           {"apps/servef/", "apps/native/", "tools/", "packages/contracts/"},
 		"web-static":     {"apps/web/", "packages/"},
 		"tooling-static": {"scripts/", "tests/"},
 		"site-static":    {"apps/site/"},
@@ -263,6 +263,7 @@ func selected(group, name string) bool {
 		"docs":           {"apps/site/"},
 		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/"},
 		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/"},
+		"native":         {"apps/native/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {

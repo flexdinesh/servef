@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -230,6 +231,36 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 	}
 	if taskBelongsToGroup("_container:test:browser:webkit", "desktop") {
 		t.Fatal("WebKit browser task accepted for desktop group")
+	}
+}
+
+func TestNativeGroupIsOptIn(t *testing.T) {
+	if slices.Contains(groups, "native") || !knownGroup("native") {
+		t.Fatal("native must be accepted by --group and stay out of check:pr")
+	}
+	if len(groups) != 11 {
+		t.Fatalf("check:pr covers %d groups, want 11", len(groups))
+	}
+	if !taskBelongsToGroup("_container:test:native", "native") || taskBelongsToGroup("_container:test:native", "go") {
+		t.Fatal("test:native belongs to the native group alone")
+	}
+	for _, name := range []string{"apps/native/main.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css"} {
+		if !selected("native", name) {
+			t.Fatalf("native does not select %s", name)
+		}
+	}
+	for _, name := range []string{"apps/desktop/src/main/main.ts", "apps/web/src/App.tsx"} {
+		if selected("native", name) {
+			t.Fatalf("native selects %s", name)
+		}
+	}
+	if !selected("repo", "apps/native/main.go") {
+		t.Fatal("fmt:check must see native Go files")
+	}
+	for _, group := range []string{"go", "frontend", "browser", "desktop"} {
+		if selected(group, "apps/native/main.go") {
+			t.Fatalf("native sources invalidate %s", group)
+		}
 	}
 }
 
