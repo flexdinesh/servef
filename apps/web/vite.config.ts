@@ -62,7 +62,7 @@ const diffsSubset: Plugin = {
 }
 
 const mockFixturesDirectory = fileURLToPath(
-  new URL("../testdata/api/default", import.meta.url),
+  new URL("../../testdata/api/default", import.meta.url),
 )
 
 function mockApi(enabled: boolean): Plugin {
@@ -103,7 +103,7 @@ export default defineConfig(({ command, mode }) => ({
   build: {
     assetsDir: "",
     emptyOutDir: true,
-    outDir: "../apps/servef/internal/web/dist",
+    outDir: "../servef/internal/web/dist",
   },
   plugins: [diffsSubset, react(), tailwindcss(), devServerBanner, mockApi(mode === "mock")],
   resolve: {

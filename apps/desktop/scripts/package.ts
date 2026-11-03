@@ -1,6 +1,6 @@
 // Packages the desktop app for the host OS, one arch per run (decision 0068):
-//   node desktop/scripts/package.ts --arch amd64|arm64 --servef <binary> [--version <x.y.z>] [--dir]
-// darwin: dmg + zip; linux: AppImage + deb; --dir: unpacked app. Output in desktop/dist/.
+//   node apps/desktop/scripts/package.ts --arch amd64|arm64 --servef <binary> [--version <x.y.z>] [--dir]
+// darwin: dmg + zip; linux: AppImage + deb; --dir: unpacked app. Output in apps/desktop/dist/.
 import { execFileSync } from "node:child_process"
 import { chmodSync, copyFileSync, mkdirSync, statSync } from "node:fs"
 import path from "node:path"
@@ -12,7 +12,7 @@ import { Arch, build, Platform } from "electron-builder"
 import { debFpmArgs } from "./linux-files.ts"
 
 const desktop = fileURLToPath(new URL("..", import.meta.url))
-const USAGE = "usage: node desktop/scripts/package.ts --arch amd64|arm64 --servef <binary> [--version <x.y.z>] [--dir]"
+const USAGE = "usage: node apps/desktop/scripts/package.ts --arch amd64|arm64 --servef <binary> [--version <x.y.z>] [--dir]"
 // Semantic version, as electron-builder requires.
 const VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 

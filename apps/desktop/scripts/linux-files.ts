@@ -7,7 +7,7 @@ import path from "node:path"
 // installPrefix /opt, productName servef, executableName servef-desktop).
 export const LINUX_INSTALLED_EXECUTABLE = "/opt/servef/servef-desktop"
 
-// LINUX_EXTRA_FILES sources are relative to desktop/.
+// LINUX_EXTRA_FILES sources are relative to apps/desktop/.
 export const LINUX_EXTRA_FILES: readonly { source: string; target: string }[] = [
   // Dolphin service menu (KF5 5.85+ and KF6 location).
   { source: "resources/linux/servef-desktop.servicemenu.desktop", target: "/usr/share/kio/servicemenus/servef-desktop.desktop" },

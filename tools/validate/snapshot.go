@@ -230,8 +230,8 @@ func excluded(name string) bool {
 			return true
 		}
 	}
-	return strings.HasPrefix(name, ".scratch/") || strings.HasPrefix(name, ".dev/") || strings.HasPrefix(name, "apps/servef/internal/web/dist/") || strings.HasPrefix(name, "site/dist/") || strings.HasPrefix(name, "test-results/") || strings.HasPrefix(name, "playwright-report/") ||
-		strings.HasPrefix(name, "desktop/build/") || strings.HasPrefix(name, "desktop/test-results/")
+	return strings.HasPrefix(name, ".scratch/") || strings.HasPrefix(name, ".dev/") || strings.HasPrefix(name, "apps/servef/internal/web/dist/") || strings.HasPrefix(name, "apps/site/dist/") || strings.HasPrefix(name, "test-results/") || strings.HasPrefix(name, "playwright-report/") ||
+		strings.HasPrefix(name, "apps/desktop/build/") || strings.HasPrefix(name, "apps/desktop/test-results/")
 }
 
 func selected(group, name string) bool {
@@ -239,7 +239,7 @@ func selected(group, name string) bool {
 		return true
 	}
 	switch name {
-	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "web/package.json", "site/package.json", "desktop/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
+	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
 		return true
 	}
 	for _, prefix := range []string{".dagger/", "patches/", "tools/validate/"} {
@@ -253,16 +253,16 @@ func selected(group, name string) bool {
 	}
 	prefixes := map[string][]string{
 		"repo":           {"apps/servef/", "tools/"},
-		"web-static":     {"web/"},
+		"web-static":     {"apps/web/"},
 		"tooling-static": {"scripts/", "tests/"},
-		"site-static":    {"site/"},
-		"desktop-static": {"desktop/", "web/src/api/"},
-		"go":             {"apps/servef/", "tools/", "testdata/", "web/"},
-		"frontend":       {"web/", "testdata/"},
+		"site-static":    {"apps/site/"},
+		"desktop-static": {"apps/desktop/", "apps/web/src/api/"},
+		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/"},
+		"frontend":       {"apps/web/", "testdata/"},
 		"tooling":        {"scripts/", "tests/", "tools/validate/", "testdata/"},
-		"docs":           {"site/"},
-		"browser":        {"apps/servef/", "testdata/", "web/", "tests/", "scripts/"},
-		"desktop":        {"desktop/", "apps/servef/", "web/", "testdata/"},
+		"docs":           {"apps/site/"},
+		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/"},
+		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {

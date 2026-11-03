@@ -13,7 +13,7 @@ import (
 
 func TestRerunRevokesSuccessUntilNewCertification(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/a.ts", "source")
+	put(t, root, "apps/web/a.ts", "source")
 	commit(t, root, "initial")
 	s := snap(t, root)
 	key := key(t, s, "frontend")
@@ -57,7 +57,7 @@ func TestRerunRevokesSuccessUntilNewCertification(t *testing.T) {
 
 func TestCancelledValidationCannotReuseCertificate(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/a.ts", "source")
+	put(t, root, "apps/web/a.ts", "source")
 	commit(t, root, "initial")
 	a := app{Root: root, Cache: t.TempDir(), Global: t.TempDir()}
 	s := snap(t, root)
@@ -77,7 +77,7 @@ func TestCancelledValidationCannotReuseCertificate(t *testing.T) {
 
 func TestChangedHEADCannotFinishAggregate(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/a.ts", "source")
+	put(t, root, "apps/web/a.ts", "source")
 	commit(t, root, "initial")
 	s := snap(t, root)
 	if _, err := git(root, "-c", "commit.gpgsign=false", "commit", "--amend", "-qm", "history"); err != nil {

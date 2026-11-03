@@ -18,7 +18,7 @@ import { isLiveChange, isLiveStatus } from "./events-contract.ts"
 
 async function fixture(name: string): Promise<unknown> {
   const source = await readFile(
-    new URL(`../../../testdata/api/default/${name}`, import.meta.url),
+    new URL(`../../../../testdata/api/default/${name}`, import.meta.url),
     "utf8",
   )
   const value: unknown = JSON.parse(source)

@@ -64,7 +64,7 @@ export function electronExecutable(): string {
   const pkg = path.dirname(require.resolve("electron/package.json"))
   const pathFile = path.join(pkg, "path.txt")
   const executable = existsSync(pathFile) ? path.join(pkg, "dist", readFileSync(pathFile, "utf8")) : ""
-  if (!executable || !existsSync(executable)) throw new Error("Electron binary missing: run node desktop/node_modules/electron/install.js")
+  if (!executable || !existsSync(executable)) throw new Error("Electron binary missing: run node apps/desktop/node_modules/electron/install.js")
   return executable
 }
 

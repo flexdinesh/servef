@@ -3,9 +3,9 @@
 /servef.exe
 /bin/
 /node_modules/
-/web/node_modules/
-/site/node_modules/
-/site/dist/
+/apps/web/node_modules/
+/apps/site/node_modules/
+/apps/site/dist/
 /playwright-report/
 /test-results/
 /.impeccable/review/
@@ -27,11 +27,11 @@
 # go.sum stays authoritative.
 /go.work.sum
 
-# Desktop bundle (desktop/build.ts)
-/desktop/node_modules/
-/desktop/build/
-/desktop/test-results/
+# Desktop bundle (apps/desktop/build.ts)
+/apps/desktop/node_modules/
+/apps/desktop/build/
+/apps/desktop/test-results/
 
-# Desktop packages (desktop/scripts/package.ts)
-/desktop/dist/
-/desktop/.build/
+# Desktop packages (apps/desktop/scripts/package.ts)
+/apps/desktop/dist/
+/apps/desktop/.build/

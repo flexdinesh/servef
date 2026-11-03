@@ -7,7 +7,7 @@ import { isRecord } from "../../../web/src/api/http.ts"
 // TITLEBAR_HEIGHT is the band height in CSS pixels.
 export const TITLEBAR_HEIGHT = 32
 
-// DEFAULT_CANVAS is the Servef canvas per OS polarity (web/src/styles/tokens.css),
+// DEFAULT_CANVAS is the Servef canvas per OS polarity (apps/web/src/styles/tokens.css),
 // used until a page reports its theme color.
 export const DEFAULT_CANVAS: Readonly<{ light: string; dark: string }> = { light: "#ffffff", dark: "#0b0b0b" }
 

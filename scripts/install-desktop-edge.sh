@@ -332,17 +332,17 @@ step "building the desktop app ($OS/$ARCH)"
 (cd "$SRC" && mise run package:desktop:dir)
 
 if [ "$OS" = linux ]; then
-  app="$SRC/desktop/dist/linux-unpacked"
+  app="$SRC/apps/desktop/dist/linux-unpacked"
 else
-  app="$SRC/desktop/dist/mac-arm64/servef.app"
+  app="$SRC/apps/desktop/dist/mac-arm64/servef.app"
 fi
 [ -d "$app" ] || fail "the build did not produce $app"
 
 if [ "$OS" = linux ]; then
   install_linux_dir "$app"
-  register_linux_app "$APP_EXEC" "$SRC/desktop/resources/icon.png"
+  register_linux_app "$APP_EXEC" "$SRC/apps/desktop/resources/icon.png"
 else
   install_macos_app "$app"
 fi
-install_cli "$SRC/desktop/.build/servef-host"
+install_cli "$SRC/apps/desktop/.build/servef-host"
 finish_desktop

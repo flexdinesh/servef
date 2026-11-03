@@ -59,7 +59,7 @@ run = "pnpm dev:web"
 description = "Run the desktop app against a private dev daemon"
 depends = ["build:desktop"]
 env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/desktop/servef", SERVEF_DESKTOP_SOCKET = "{{config_root}}/.dev/desktop/daemon.sock", SERVEF_DESKTOP_ROOTS_FILE = "{{config_root}}/.dev/desktop/roots.json", SERVEF_DESKTOP_USER_DATA = "{{config_root}}/.dev/desktop/user-data", XDG_CACHE_HOME = "{{config_root}}/.dev/cache" }
-run = "desktop/node_modules/.bin/electron --no-sandbox desktop"
+run = "apps/desktop/node_modules/.bin/electron --no-sandbox apps/desktop"
 
 [tasks."dev:mock"]
 description = "Run Vite with API fixtures"
@@ -75,16 +75,16 @@ run = "pnpm dev:site"
 description = "Build embedded frontend assets; skipped when inputs are unchanged"
 run = "pnpm build:web"
 sources = [
+  "apps/web/src/**/*",
   "patches/**/*",
-  "web/src/**/*",
+  "apps/web/dev-server.ts",
+  "apps/web/index.html",
+  "apps/web/package.json",
+  "apps/web/tsconfig.json",
+  "apps/web/vite.config.ts",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
-  "web/dev-server.ts",
-  "web/index.html",
-  "web/package.json",
-  "web/tsconfig.json",
-  "web/vite.config.ts",
 ]
 outputs = ["apps/servef/internal/web/dist/**/*"]
 
@@ -96,18 +96,18 @@ depends = ["build:web"]
 run = [
   "go build -o .dev/desktop/servef ./apps/servef",
   "pnpm --filter @servef/desktop build",
-  "node desktop/node_modules/electron/install.js",
+  "node apps/desktop/node_modules/electron/install.js",
 ]
 
 # Host OS and arch, bundling a release-style servef (decision 0068). The release
-# workflow calls desktop/scripts/package.ts per arch itself.
+# workflow calls apps/desktop/scripts/package.ts per arch itself.
 [tasks."package:desktop"]
 description = "Package desktop installers for the host OS and arch"
 depends = ["build:web"]
 env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
 run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host ./apps/servef",
-  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/desktop/.build/servef-host ./apps/servef",
+  "node apps/desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
 ]
 
 [tasks."package:desktop:dir"]
@@ -115,8 +115,8 @@ description = "Package the unpacked desktop app for the host OS and arch"
 depends = ["build:web"]
 env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
 run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host ./apps/servef",
-  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/desktop/.build/servef-host ./apps/servef",
+  "node apps/desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
 ]
 
 [tasks."build:go"]
@@ -128,15 +128,15 @@ run = "go build ./apps/servef/... ./tools/..."
 description = "Build the docs site; skipped when inputs are unchanged"
 run = "pnpm build:site"
 sources = [
-  "site/src/**/*",
+  "apps/site/src/**/*",
+  "apps/site/package.json",
+  "apps/site/tsconfig.json",
+  "apps/site/vocs.config.ts",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
-  "site/package.json",
-  "site/tsconfig.json",
-  "site/vocs.config.ts",
 ]
-outputs = ["site/dist/**/*"]
+outputs = ["apps/site/dist/**/*"]
 
 [tasks.install]
 description = "Install the local CLI with go install"
@@ -215,7 +215,7 @@ run = [
 description = "Measure desktop, daemon, and language-server memory in a scripted scenario"
 depends = ["build:desktop"]
 env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/desktop/servef" }
-run = "node desktop/scripts/measure-memory.ts"
+run = "node apps/desktop/scripts/measure-memory.ts"
 
 [tasks."check:pr"]
 description = "Validate clean committed HEAD before PR work"
@@ -291,7 +291,7 @@ hide = true
 run = "pnpm exec node scripts/test-browser.ts --project=chromium"
 
 # Unit tests, ssh integration tests (real sshd), bundle, then the Electron
-# smoke under Xvfb. Arguments select smoke specs relative to desktop/.
+# smoke under Xvfb. Arguments select smoke specs relative to apps/desktop/.
 [tasks."_container:desktop"]
 hide = true
 run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop test:ssh && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"

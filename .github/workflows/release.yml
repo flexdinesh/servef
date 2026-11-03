@@ -252,9 +252,9 @@ jobs:
             name="servef_${NUMBER}_linux_${arch}"
             bin_dir="$(mktemp -d)"
             tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
+            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
             for ext in AppImage deb; do
-              mv "desktop/dist/servef-desktop_${NUMBER}_linux_${arch}.${ext}" desktop-dist/
+              mv "apps/desktop/dist/servef-desktop_${NUMBER}_linux_${arch}.${ext}" desktop-dist/
             done
           done
 
@@ -387,9 +387,9 @@ jobs:
             name="servef_${NUMBER}_darwin_${arch}"
             bin_dir="$(mktemp -d)"
             tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
+            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
             for ext in dmg zip; do
-              mv "desktop/dist/servef-desktop_${NUMBER}_darwin_${arch}.${ext}" desktop-dist/
+              mv "apps/desktop/dist/servef-desktop_${NUMBER}_darwin_${arch}.${ext}" desktop-dist/
             done
           done
 

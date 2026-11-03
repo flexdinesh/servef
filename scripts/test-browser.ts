@@ -69,8 +69,8 @@ try {
   const api = await serve("testdata/markdown", base)
   const git = await serve(env.SERVEF_BROWSER_GIT_ROOT, base === 0 ? 0 : base + 2)
   const vite = await serverPort(launch(process.execPath, [
-    "web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
-    "--config", "web/vite.config.ts",
+    "apps/web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
+    "--config", "apps/web/vite.config.ts",
   ], { SERVEF_API_TARGET: `http://127.0.0.1:${api}` }, true))
 
   const result = await launch("playwright", ["test", ...process.argv.slice(2)], {

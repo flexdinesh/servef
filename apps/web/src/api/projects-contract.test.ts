@@ -6,7 +6,7 @@ import { isRecord } from "./http.ts"
 import { isProjectsResponse } from "./projects-contract.ts"
 
 async function projectsFixture(): Promise<Record<string, unknown>> {
-  const value: unknown = JSON.parse(await readFile(new URL("../../../testdata/api/default/projects.json", import.meta.url), "utf8"))
+  const value: unknown = JSON.parse(await readFile(new URL("../../../../testdata/api/default/projects.json", import.meta.url), "utf8"))
   assert.ok(isRecord(value))
   return value
 }
