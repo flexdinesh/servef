@@ -22,5 +22,30 @@
     "size": 282,
     "binary": false,
     "tooLarge": false
+  },
+  "lineDiff": {
+    "ignoreWhitespace": false,
+    "additions": 2,
+    "deletions": 0,
+    "hunks": [
+      {
+        "oldStart": 1,
+        "oldCount": 0,
+        "newStart": 1,
+        "newCount": 2,
+        "additions": 2,
+        "deletions": 0,
+        "blocks": [
+          {
+            "kind": "change",
+            "oldStart": 1,
+            "oldCount": 0,
+            "newStart": 1,
+            "newCount": 2
+          }
+        ]
+      }
+    ],
+    "gaps": []
   }
 }

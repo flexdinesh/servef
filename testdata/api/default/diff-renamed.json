@@ -27,5 +27,12 @@
     "size": 362,
     "binary": false,
     "tooLarge": false
+  },
+  "lineDiff": {
+    "ignoreWhitespace": false,
+    "additions": 0,
+    "deletions": 0,
+    "hunks": [],
+    "gaps": []
   }
 }

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { DiffResponse, DiffSide } from "../../api/changes-contract.ts"
+import type { DiffResponse, DiffSide } from "@servef/contracts"
 import type { FileType } from "@servef/contracts"
-import { binaryChangeLabel, diffContent, parseTextDiff } from "./diff-content.ts"
-import { diffStats, diffStatsLabel } from "./diff-stats.ts"
+import { binaryChangeLabel, diffContent } from "./diff-content.ts"
+import { countedLines, diffStatsLabel } from "./diff-stats.ts"
 
 const documentType: FileType = {
   id: "go", label: "Go", extensions: [".go"], filenames: [], language: "go",
@@ -16,7 +16,7 @@ function text(content: string): DiffSide {
 }
 
 function response(original: DiffSide | null, modified: DiffSide | null, status: DiffResponse["status"] = "modified"): DiffResponse {
-  return { path: "main.go", status, documentType, original, modified }
+  return { path: "main.go", status, documentType, original, modified, lineDiff: null }
 }
 
 test("text diffs carry both sides with the server's language", () => {
@@ -41,16 +41,11 @@ test("binary changes name the sizes on each side", () => {
   assert.equal(binaryChangeLabel(512, null), "Binary file deleted · 512 B")
 })
 
-test("stats count changed lines and whitespace can be ignored", () => {
-  const content = diffContent(response(text("one\ntwo\nthree\n"), text("one\n  two\nfour\nfive\n")))
-  const parsed = parseTextDiff(content, false)
-  assert.ok(parsed)
-  assert.deepEqual(diffStats(parsed), { additions: 3, deletions: 2 })
-  assert.equal(diffStatsLabel(diffStats(parsed)), "+3 −2")
-  const trimmed = parseTextDiff(content, true)
-  assert.ok(trimmed)
-  assert.deepEqual(diffStats(trimmed), { additions: 2, deletions: 1 })
-  const indented = parseTextDiff(diffContent(response(text("a\n"), text("  a\n"))), true)
-  assert.deepEqual(indented?.hunks, [])
-  assert.equal(parseTextDiff(diffContent(response({ size: 1, binary: true, tooLarge: false }, text("x"))), false), null)
+test("only counted stats carry line counts", () => {
+  const blob = ""
+  assert.deepEqual(countedLines({ path: "a.go", status: "counted", additions: 3, deletions: 2, blob }), { additions: 3, deletions: 2 })
+  assert.equal(diffStatsLabel({ additions: 3, deletions: 2 }), "+3 −2")
+  assert.equal(countedLines({ path: "a.go", status: "binary", blob }), null)
+  assert.equal(countedLines({ path: "a.go", status: "counted", blob }), null)
+  assert.equal(countedLines(undefined), null)
 })

@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
 import type { CompareFile, FileList } from "./compare-files.ts"
 import {
-  historyError, isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
+  isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRangeFilesResponse,
   type BranchFilesResponse, type CommitRange, type CommitsResponse,
-} from "../../api/commits-contract.ts"
+} from "@servef/contracts"
+import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 

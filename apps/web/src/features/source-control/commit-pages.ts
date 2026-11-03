@@ -1,4 +1,4 @@
-import type { CommitsResponse } from "../../api/commits-contract.ts"
+import type { CommitsResponse } from "@servef/contracts"
 
 // Pure paging for the Commits list: pages pin the head they started from, and
 // a refresh that finds the same history keeps the pages already loaded.

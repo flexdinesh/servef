@@ -49,9 +49,13 @@ type typeDecl struct {
 	rules  []rule
 }
 
+// field is a struct field. An optional field may be absent: an omitempty
+// string, absent when empty (rules compare it as ""), or an omitempty
+// pointer to a scalar, absent when nil (rules may not name it).
 type field struct {
 	json     string
 	optional bool
+	pointer  bool
 	ref      typeRef
 	doc      []string
 }
@@ -192,13 +196,32 @@ func load(dir string, generated, goOnly []string) (*model, error) {
 		}
 		for _, rule := range decl.rules {
 			for _, condition := range []condition{rule.when, rule.then} {
-				if !slices.ContainsFunc(decl.fields, func(f field) bool { return f.json == condition.field }) {
+				named, ok := decl.field(condition.field)
+				if !ok {
 					return nil, fmt.Errorf("%s: %s rule names unknown field %q", decl.file.name, decl.name, condition.field)
+				}
+				if named.pointer {
+					return nil, fmt.Errorf("%s: %s rule names %q, which may be absent", decl.file.name, decl.name, condition.field)
 				}
 			}
 		}
 	}
 	return m, nil
+}
+
+// field finds a struct's field by JSON name.
+func (d *typeDecl) field(name string) (field, bool) {
+	for _, f := range d.fields {
+		if f.json == name {
+			return f, true
+		}
+	}
+	return field{}, false
+}
+
+// isScalar reports a JSON string, boolean, or number.
+func (r typeRef) isScalar() bool {
+	return r.kind == stringRef || r.kind == booleanRef || r.kind == numberRef
 }
 
 func (m *model) checkRef(ref typeRef) error {
@@ -279,8 +302,12 @@ func parseType(files *token.FileSet, source *sourceFile, spec *ast.TypeSpec, doc
 			if options != "" && !optional {
 				return nil, fmt.Errorf("%s: json option %q is unsupported", fieldAt, options)
 			}
-			if optional && ref.kind != stringRef {
-				return nil, fmt.Errorf("%s: omitempty is supported on strings only", fieldAt)
+			pointer := optional && ref.kind == nullableRef && ref.elem.isScalar()
+			if pointer {
+				ref = *ref.elem
+			}
+			if optional && ref.kind != stringRef && !pointer {
+				return nil, fmt.Errorf("%s: omitempty is supported on strings and pointers to scalars only", fieldAt)
 			}
 			doc := docLines(item.Doc)
 			// Docs name the field as TypeScript does.
@@ -291,7 +318,7 @@ func parseType(files *token.FileSet, source *sourceFile, spec *ast.TypeSpec, doc
 					doc[0] = name + ":" + rest
 				}
 			}
-			decl.fields = append(decl.fields, field{json: name, optional: optional, ref: ref, doc: doc})
+			decl.fields = append(decl.fields, field{json: name, optional: optional, pointer: pointer, ref: ref, doc: doc})
 		}
 	default:
 		return nil, fmt.Errorf("%s: generated types are structs or string enums", at)

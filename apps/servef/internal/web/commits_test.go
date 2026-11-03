@@ -15,6 +15,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/git"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // historyRepo is master at an initial commit and a checked-out feature
@@ -101,32 +102,32 @@ func TestCommitsListsBranchAndFullHistory(t *testing.T) {
 	root, initial, change := historyRepo(t)
 	app := newTestApp(t, root)
 
-	changeCommit := commitResponse{
+	changeCommit := contract.Commit{
 		Hash:       change.String(),
 		Parents:    []string{initial.String()},
 		Subject:    "Change everything",
 		Body:       "With a body.",
-		Author:     git.Author{Name: "servef", Email: "servef@example.com"},
+		Author:     contract.Author{Name: "servef", Email: "servef@example.com"},
 		AuthorTime: "2023-11-15T09:15:00+11:00",
 	}
-	initialCommit := commitResponse{
+	initialCommit := contract.Commit{
 		Hash:       initial.String(),
 		Parents:    []string{},
 		Subject:    "initial",
-		Author:     git.Author{Name: "servef", Email: "servef@example.com"},
+		Author:     contract.Author{Name: "servef", Email: "servef@example.com"},
 		AuthorTime: "2023-11-15T09:13:20+11:00",
 	}
 	for _, test := range []struct {
 		query string
-		want  commitsResponse
+		want  contract.CommitsResponse
 	}{
-		{"", commitsResponse{Repository: true, Branch: "feature", Base: "master", Range: git.RangeBranch, Head: change.String(), Ahead: 1, Commits: []commitResponse{changeCommit}}},
-		{"&range=all", commitsResponse{Repository: true, Branch: "feature", Base: "master", Range: git.RangeAll, Head: change.String(), Ahead: 1, Commits: []commitResponse{changeCommit, initialCommit}}},
-		{"&range=all&limit=1", commitsResponse{Repository: true, Branch: "feature", Base: "master", Range: git.RangeAll, Head: change.String(), Ahead: 1, Commits: []commitResponse{changeCommit}, More: true}},
-		{"&range=all&skip=1&head=" + change.String(), commitsResponse{Repository: true, Branch: "feature", Base: "master", Range: git.RangeAll, Head: change.String(), Ahead: 1, Commits: []commitResponse{initialCommit}}},
-		{"&range=branch&head=" + initial.String(), commitsResponse{Repository: true, Branch: "feature", Base: "master", Range: git.RangeBranch, Head: initial.String(), Commits: []commitResponse{}}},
+		{"", contract.CommitsResponse{Repository: true, Branch: "feature", Base: "master", Range: contract.RangeBranch, Head: change.String(), Ahead: 1, Commits: []contract.Commit{changeCommit}}},
+		{"&range=all", contract.CommitsResponse{Repository: true, Branch: "feature", Base: "master", Range: contract.RangeAll, Head: change.String(), Ahead: 1, Commits: []contract.Commit{changeCommit, initialCommit}}},
+		{"&range=all&limit=1", contract.CommitsResponse{Repository: true, Branch: "feature", Base: "master", Range: contract.RangeAll, Head: change.String(), Ahead: 1, Commits: []contract.Commit{changeCommit}, More: true}},
+		{"&range=all&skip=1&head=" + change.String(), contract.CommitsResponse{Repository: true, Branch: "feature", Base: "master", Range: contract.RangeAll, Head: change.String(), Ahead: 1, Commits: []contract.Commit{initialCommit}}},
+		{"&range=branch&head=" + initial.String(), contract.CommitsResponse{Repository: true, Branch: "feature", Base: "master", Range: contract.RangeBranch, Head: initial.String(), Commits: []contract.Commit{}}},
 	} {
-		var got commitsResponse
+		var got contract.CommitsResponse
 		if status := requestJSON(t, app, "/api/commits?project=."+test.query, &got); status != http.StatusOK {
 			t.Fatalf("%s status = %d", test.query, status)
 		}
@@ -166,7 +167,7 @@ func TestCommitsRejectsInvalidQueries(t *testing.T) {
 	if status := requestJSON(t, app, "/api/commits?project=.&head="+strings.Repeat("1", 40), &failure); status != http.StatusNotFound || failure.Error != commitUnavailableMessage {
 		t.Fatalf("unknown head = %d %+v", status, failure)
 	}
-	var page commitsResponse
+	var page contract.CommitsResponse
 	if status := requestJSON(t, app, "/api/commits?project=.&range=all&limit=100&skip=5", &page); status != http.StatusOK || len(page.Commits) != 0 || page.More {
 		t.Fatalf("past the end = %d %+v", status, page)
 	}
@@ -200,18 +201,18 @@ func TestCommitFilesListsChanges(t *testing.T) {
 	root, initial, change := historyRepo(t)
 	app := newTestApp(t, root)
 
-	var got commitFilesResponse
+	var got contract.CommitFilesResponse
 	if status := requestJSON(t, app, "/api/commit-files?project=.&commit="+change.String(), &got); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	want := commitFilesResponse{Commit: change.String(), Files: []git.Change{
-		{Path: "added.go", Status: git.Added},
-		{Path: "data.bin", Status: git.Modified},
-		{Path: "doc.md", Status: git.Modified},
-		{Path: "gone.md", Status: git.Deleted},
-		{Path: "large.txt", Status: git.Modified},
-		{Path: "moved.md", OldPath: "old.md", Status: git.Renamed},
-		{Path: "scope/x.zzz", Status: git.Modified},
+	want := contract.CommitFilesResponse{Commit: change.String(), Files: []contract.ChangedFile{
+		{Path: "added.go", Status: contract.ChangeAdded},
+		{Path: "data.bin", Status: contract.ChangeModified},
+		{Path: "doc.md", Status: contract.ChangeModified},
+		{Path: "gone.md", Status: contract.ChangeDeleted},
+		{Path: "large.txt", Status: contract.ChangeModified},
+		{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed},
+		{Path: "scope/x.zzz", Status: contract.ChangeModified},
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("files = %+v\nwant  %+v", got, want)
@@ -239,24 +240,24 @@ func TestCommitFilesListsChanges(t *testing.T) {
 func TestCommitDiffReadsParentAndCommitSides(t *testing.T) {
 	root, _, change := historyRepo(t)
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("doc.md").Type()
+	markdown := documentType(app, "doc.md")
 	commit := "commit=" + change.String() + "&"
 
 	for _, test := range []struct {
 		query string
-		want  diffResponse
+		want  contract.DiffResponse
 	}{
-		{"path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
-		{"path=added.go", diffResponse{Path: "added.go", Status: git.Added, DocumentType: app.config.Types.Lookup("added.go").Type(), Modified: text("package main\n")}},
-		{"path=gone.md", diffResponse{Path: "gone.md", Status: git.Deleted, DocumentType: markdown, Original: text("# Gone\n")}},
-		{"path=moved.md&oldPath=old.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{"path=doc.md", contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{"path=added.go", contract.DiffResponse{Path: "added.go", Status: contract.ChangeAdded, DocumentType: documentType(app, "added.go"), Modified: text("package main\n")}},
+		{"path=gone.md", contract.DiffResponse{Path: "gone.md", Status: contract.ChangeDeleted, DocumentType: markdown, Original: text("# Gone\n")}},
+		{"path=moved.md&oldPath=old.md", contract.DiffResponse{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
 		// Commit diff tabs remember only the path; the rename is found again.
-		{"path=moved.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
-		{"path=scope/x.zzz", diffResponse{Path: "scope/x.zzz", Status: git.Modified, DocumentType: app.config.Types.Lookup("scope/x.zzz").Type(), Original: text("unregistered extension\n"), Modified: text("changed\n")}},
-		{"path=data.bin", diffResponse{Path: "data.bin", Status: git.Modified, DocumentType: app.config.Types.Lookup("data.bin").Type(),
-			Original: &diffSide{Size: 11, Binary: true}, Modified: &diffSide{Size: 11, Binary: true}}},
-		{"path=large.txt", diffResponse{Path: "large.txt", Status: git.Modified, DocumentType: app.config.Types.Lookup("large.txt").Type(),
-			Original: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
+		{"path=moved.md", contract.DiffResponse{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{"path=scope/x.zzz", contract.DiffResponse{Path: "scope/x.zzz", Status: contract.ChangeModified, DocumentType: documentType(app, "scope/x.zzz"), Original: text("unregistered extension\n"), Modified: text("changed\n")}},
+		{"path=data.bin", contract.DiffResponse{Path: "data.bin", Status: contract.ChangeModified, DocumentType: documentType(app, "data.bin"),
+			Original: &contract.DiffSide{Size: 11, Binary: true}, Modified: &contract.DiffSide{Size: 11, Binary: true}}},
+		{"path=large.txt", contract.DiffResponse{Path: "large.txt", Status: contract.ChangeModified, DocumentType: documentType(app, "large.txt"),
+			Original: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
 	} {
 		if got := diff(t, app, commit+test.query); !reflect.DeepEqual(got, test.want) {
 			t.Errorf("%s = %s\nwant %s", test.query, describeDiff(got), describeDiff(test.want))
@@ -264,7 +265,7 @@ func TestCommitDiffReadsParentAndCommitSides(t *testing.T) {
 	}
 
 	// The working tree diff still compares HEAD with the disk.
-	if got, want := diff(t, app, "path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# After\n"), Modified: text("# Uncommitted\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "path=doc.md"), (contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# After\n"), Modified: text("# Uncommitted\n")}); !reflect.DeepEqual(got, want) {
 		t.Errorf("working tree diff = %s", describeDiff(got))
 	}
 }
@@ -301,18 +302,18 @@ func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 	root, initial, change := historyRepo(t)
 	app := newTestApp(t, root)
 
-	var got branchFilesResponse
+	var got contract.BranchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.", &got); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	want := branchFilesResponse{Repository: true, Branch: "feature", Base: "master", MergeBase: initial.String(), Head: change.String(), Ahead: 1, Files: []git.Change{
-		{Path: "added.go", Status: git.Added},
-		{Path: "data.bin", Status: git.Modified},
-		{Path: "doc.md", Status: git.Modified},
-		{Path: "gone.md", Status: git.Deleted},
-		{Path: "large.txt", Status: git.Modified},
-		{Path: "moved.md", OldPath: "old.md", Status: git.Renamed},
-		{Path: "scope/x.zzz", Status: git.Modified},
+	want := contract.BranchFilesResponse{Repository: true, Branch: "feature", Base: "master", MergeBase: initial.String(), Head: change.String(), Ahead: 1, Files: []contract.ChangedFile{
+		{Path: "added.go", Status: contract.ChangeAdded},
+		{Path: "data.bin", Status: contract.ChangeModified},
+		{Path: "doc.md", Status: contract.ChangeModified},
+		{Path: "gone.md", Status: contract.ChangeDeleted},
+		{Path: "large.txt", Status: contract.ChangeModified},
+		{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed},
+		{Path: "scope/x.zzz", Status: contract.ChangeModified},
 	}, Warnings: []string{}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("branch files = %+v\nwant %+v", got, want)
@@ -335,9 +336,9 @@ func TestBranchFilesListMergeBaseToHeadChanges(t *testing.T) {
 	}
 	// With uncommitted changes, nothing ahead lists the working tree's
 	// changes since HEAD.
-	var working branchFilesResponse
+	var working contract.BranchFilesResponse
 	requestJSON(t, app, "/api/branch-files?project=.&uncommitted=1", &working)
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	requestJSON(t, app, "/api/changes?project=.", &changes)
 	if working.Ahead != 0 || len(working.Files) == 0 || !reflect.DeepEqual(working.Files, changes.Files) {
 		t.Fatalf("nothing ahead with uncommitted = %+v, changes %+v", working.Files, changes.Files)
@@ -352,23 +353,23 @@ func TestRangeFilesCompareOldestParentWithNewest(t *testing.T) {
 	root, initial, change := historyRepo(t)
 	app := newTestApp(t, root)
 
-	var single rangeFilesResponse
+	var single contract.RangeFilesResponse
 	if status := requestJSON(t, app, "/api/range-files?project=.&from="+change.String()+"&to="+change.String(), &single); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	var commit commitFilesResponse
+	var commit contract.CommitFilesResponse
 	requestJSON(t, app, "/api/commit-files?project=.&commit="+change.String(), &commit)
 	if single.From != change.String() || single.To != change.String() || !reflect.DeepEqual(single.Files, commit.Files) || single.Truncated {
 		t.Fatalf("single commit range = %+v, commit = %+v", single, commit)
 	}
 	// A root oldest commit compares with an empty tree.
-	var rooted rangeFilesResponse
+	var rooted contract.RangeFilesResponse
 	if status := requestJSON(t, app, "/api/range-files?project=.&from="+initial.String()+"&to="+change.String(), &rooted); status != http.StatusOK {
 		t.Fatalf("root range status = %d", status)
 	}
 	var names []string
 	for _, file := range rooted.Files {
-		if file.Status != git.Added || file.OldPath != "" {
+		if file.Status != contract.ChangeAdded || file.OldPath != "" {
 			t.Errorf("root range change %+v, want added", file)
 		}
 		names = append(names, file.Path)
@@ -421,22 +422,22 @@ func TestBranchAndRangeFilesInFolders(t *testing.T) {
 func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
 	root, initial, change := historyRepo(t)
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("doc.md").Type()
+	markdown := documentType(app, "doc.md")
 	ranged := "from=" + change.String() + "&to=" + change.String() + "&"
 
 	for _, test := range []struct {
 		query string
-		want  diffResponse
+		want  contract.DiffResponse
 	}{
-		{ranged + "path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
-		{ranged + "path=moved.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
-		{ranged + "path=gone.md", diffResponse{Path: "gone.md", Status: git.Deleted, DocumentType: markdown, Original: text("# Gone\n")}},
-		{"from=" + initial.String() + "&to=" + change.String() + "&path=doc.md", diffResponse{Path: "doc.md", Status: git.Added, DocumentType: markdown, Modified: text("# After\n")}},
-		{"branch=1&path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
-		{"branch=1&path=moved.md&oldPath=old.md", diffResponse{Path: "moved.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
-		{"branch=1&path=added.go", diffResponse{Path: "added.go", Status: git.Added, DocumentType: app.config.Types.Lookup("added.go").Type(), Modified: text("package main\n")}},
-		{"branch=1&path=large.txt", diffResponse{Path: "large.txt", Status: git.Modified, DocumentType: app.config.Types.Lookup("large.txt").Type(),
-			Original: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
+		{ranged + "path=doc.md", contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{ranged + "path=moved.md", contract.DiffResponse{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{ranged + "path=gone.md", contract.DiffResponse{Path: "gone.md", Status: contract.ChangeDeleted, DocumentType: markdown, Original: text("# Gone\n")}},
+		{"from=" + initial.String() + "&to=" + change.String() + "&path=doc.md", contract.DiffResponse{Path: "doc.md", Status: contract.ChangeAdded, DocumentType: markdown, Modified: text("# After\n")}},
+		{"branch=1&path=doc.md", contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{"branch=1&path=moved.md&oldPath=old.md", contract.DiffResponse{Path: "moved.md", OldPath: "old.md", Status: contract.ChangeRenamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{"branch=1&path=added.go", contract.DiffResponse{Path: "added.go", Status: contract.ChangeAdded, DocumentType: documentType(app, "added.go"), Modified: text("package main\n")}},
+		{"branch=1&path=large.txt", contract.DiffResponse{Path: "large.txt", Status: contract.ChangeModified, DocumentType: documentType(app, "large.txt"),
+			Original: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
 	} {
 		if got := diff(t, app, test.query); !reflect.DeepEqual(got, test.want) {
 			t.Errorf("%s = %s\nwant %s", test.query, describeDiff(got), describeDiff(test.want))
@@ -479,9 +480,9 @@ func TestRangeAndBranchDiffsReadEndpointSides(t *testing.T) {
 func TestBranchDiffFollowsNewCommits(t *testing.T) {
 	root, _, _ := historyRepo(t)
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("doc.md").Type()
+	markdown := documentType(app, "doc.md")
 
-	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "branch=1&path=doc.md"), (contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("before commit = %s", describeDiff(got))
 	}
 	var unchanged errorResponse
@@ -508,13 +509,13 @@ func TestBranchDiffFollowsNewCommits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := diff(t, app, "branch=1&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# Uncommitted\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "branch=1&path=doc.md"), (contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# Uncommitted\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("after commit = %s", describeDiff(got))
 	}
-	if got, want := diff(t, app, "branch=1&path=fresh.md"), (diffResponse{Path: "fresh.md", Status: git.Added, DocumentType: markdown, Modified: text("# Fresh\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "branch=1&path=fresh.md"), (contract.DiffResponse{Path: "fresh.md", Status: contract.ChangeAdded, DocumentType: markdown, Modified: text("# Fresh\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("fresh.md after commit = %s", describeDiff(got))
 	}
-	var files branchFilesResponse
+	var files contract.BranchFilesResponse
 	if requestJSON(t, app, "/api/branch-files?project=.", &files); files.Ahead != 2 {
 		t.Fatalf("ahead after commit = %d", files.Ahead)
 	}
@@ -524,19 +525,19 @@ func TestBranchDiffFollowsNewCommits(t *testing.T) {
 // and agree on the branch they describe.
 func TestHistoryFixturesMatchServerContract(t *testing.T) {
 	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
-	var commits, all, folder commitsResponse
+	var commits, all, folder contract.CommitsResponse
 	decodeFixture(t, filepath.Join(dir, "commits.json"), &commits)
 	decodeFixture(t, filepath.Join(dir, "commits-all.json"), &all)
 	decodeFixture(t, filepath.Join(dir, "commits-not-repo.json"), &folder)
-	var files commitFilesResponse
+	var files contract.CommitFilesResponse
 	decodeFixture(t, filepath.Join(dir, "commit-files.json"), &files)
-	var branch branchFilesResponse
+	var branch contract.BranchFilesResponse
 	decodeFixture(t, filepath.Join(dir, "branch-files.json"), &branch)
-	var ranged rangeFilesResponse
+	var ranged contract.RangeFilesResponse
 	decodeFixture(t, filepath.Join(dir, "range-files.json"), &ranged)
-	var stack branchStackResponse
+	var stack contract.StackResponse
 	decodeFixture(t, filepath.Join(dir, "branch-stack.json"), &stack)
-	var refs refsResponse
+	var refs contract.RefsResponse
 	decodeFixture(t, filepath.Join(dir, "refs.json"), &refs)
 
 	hashes := []string{branch.MergeBase, branch.Head, ranged.From, ranged.To, stack.MergeBase, stack.Head}
@@ -552,9 +553,9 @@ func TestHistoryFixturesMatchServerContract(t *testing.T) {
 	// The branch with uncommitted changes shares the branch's range and lists
 	// the working tree's files, which hold the branch's, as the dev server
 	// pairs it with compare-stats.json and the working tree's diffs.
-	var working branchFilesResponse
+	var working contract.BranchFilesResponse
 	decodeFixture(t, filepath.Join(dir, "branch-files-uncommitted.json"), &working)
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	decodeFixture(t, filepath.Join(dir, "changes.json"), &changes)
 	if working.Branch != branch.Branch || working.Base != branch.Base || working.MergeBase != branch.MergeBase || working.Head != branch.Head ||
 		working.Ahead != branch.Ahead || !reflect.DeepEqual(working.Files, changes.Files) {
@@ -571,7 +572,7 @@ func TestHistoryFixturesMatchServerContract(t *testing.T) {
 	for _, ref := range refs.Branches {
 		local[ref.Name] = local[ref.Name] || !ref.Remote
 	}
-	byName := map[string]stackLayerResponse{}
+	byName := map[string]contract.StackLayer{}
 	for _, layer := range stack.Layers {
 		if !local[layer.Name] {
 			t.Errorf("layer %q is not a local branch in refs.json", layer.Name)

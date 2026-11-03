@@ -1,19 +1,14 @@
-import type { FileDiffMetadata } from "@pierre/diffs"
+import type { FileStats } from "@servef/contracts"
 
 export interface DiffStats {
   additions: number
   deletions: number
 }
 
-// diffStats counts added and deleted lines across a diff's hunks.
-export function diffStats(diff: Pick<FileDiffMetadata, "hunks">): DiffStats {
-  let additions = 0
-  let deletions = 0
-  for (const hunk of diff.hunks) {
-    additions += hunk.additionLines
-    deletions += hunk.deletionLines
-  }
-  return { additions, deletions }
+// countedLines is a file's line counts, or null unless they were counted.
+export function countedLines(stats: FileStats | undefined): DiffStats | null {
+  if (stats?.status !== "counted" || stats.additions === undefined || stats.deletions === undefined) return null
+  return { additions: stats.additions, deletions: stats.deletions }
 }
 
 // diffStatsLabel reads like VS Code's footer: "+12 −3" (U+2212 minus).

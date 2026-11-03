@@ -21,7 +21,7 @@ import { Chevron } from "../../components/ui/section-toggle.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { ToggleButton } from "../../components/ui/toggle-button.tsx"
-import type { FileStats } from "../../api/compare-stats-contract.ts"
+import type { FileStats, LineDiff } from "@servef/contracts"
 import { formatBytes } from "../../lib/format-bytes.ts"
 import { shortHash } from "../../lib/commit-hash.ts"
 import { lineReference } from "../../lib/line-selection.ts"
@@ -40,7 +40,7 @@ import { effectiveDiffStyle, type DiffOptions, type InlineChanges } from "./diff
 import { DiffStatsText, FileStatsText } from "./DiffStatsText.tsx"
 import { DIFF_THEME } from "./diff-theme.ts"
 import type { CollapseRequest } from "./FilesTree.tsx"
-import { loadReviewDiff, useReviewDiff } from "./review-diffs.ts"
+import { loadReviewDiff, useReviewDiff, type RenderedDiff } from "./review-diffs.ts"
 import type { CompareData } from "./use-compare-data.ts"
 import { statsLabel, totals } from "./use-compare-stats.ts"
 
@@ -158,7 +158,7 @@ export type HunkStep = (direction: 1 | -1) => void
 
 // A ShownDiff is a rendered file diff, which places and expands its rows.
 interface ShownDiff {
-  fileDiff: FileDiffMetadata
+  rendered: RenderedDiff
   // lineBox is a line's box in the pane's scroll content, null when unplaced.
   lineBox(side: SelectionSide, line: number): { top: number; height: number } | null
   // expandTo opens the collapsed gap holding a line, whole.
@@ -409,25 +409,25 @@ function ReviewBody({
     stepping.current = controller
     const { files: all, isOpen: opened, selection: selected, style: shownStyle, version, ignoreWhitespace, root } = latestStep.current
     const candidates = all.filter(opened)
-    const load = async (file: CompareFile): Promise<FileDiffMetadata | null> => {
+    const load = async (file: CompareFile): Promise<LineDiff | null> => {
       const view = shown.current.get(file.path)
-      if (view) return view.fileDiff
+      if (view) return view.rendered.lineDiff
       const diff = await loadReviewDiff({ project, compare, file, version, ignoreWhitespace }, controller.signal)
-      return diff.kind === "ready" ? diff.fileDiff : null
+      return diff.kind === "ready" ? diff.rendered?.lineDiff ?? null : null
     }
     // cursor places the step in its first file: at the selection, else below
     // the pane's top.
-    const cursor = (path: string, fileDiff: FileDiffMetadata): HunkCursor => {
+    const cursor = (path: string, lineDiff: LineDiff): HunkCursor => {
       const lines = selected?.path === path ? selected.lines : null
-      if (lines) return hunkCursor(fileDiff, lines.side ?? "additions", lines.start)
+      if (lines) return hunkCursor(lineDiff, lines.side ?? "additions", lines.start)
       const view = shown.current.get(path)
       const scrollTop = root?.scrollTop ?? 0
-      const below = view ? fileDiff.hunks.findIndex((_, index) => {
-        const first = hunkSelection(fileDiff, index, shownStyle)
+      const below = view ? lineDiff.hunks.findIndex((_, index) => {
+        const first = hunkSelection(lineDiff, index, shownStyle)
         const line = first ? view.lineBox(first.side ?? "additions", first.start) : null
         return line !== null && line.top >= scrollTop
       }) : -1
-      return { kind: "before", index: below >= 0 ? below : direction === 1 && !view ? 0 : fileDiff.hunks.length }
+      return { kind: "before", index: below >= 0 ? below : direction === 1 && !view ? 0 : lineDiff.hunks.length }
     }
     const step = async () => {
       const fromPath = selected?.lines ? selected.path : currentFile.current
@@ -441,9 +441,9 @@ function ReviewBody({
       }
       for (const index of fileOrder(candidates.length, from, direction)) {
         const file = candidates[index]
-        const fileDiff = file ? await load(file) : null
-        const count = fileDiff?.hunks.length ?? 0
-        const next = file && fileDiff && count > 0 ? hunkSelection(fileDiff, direction === 1 ? 0 : count - 1, shownStyle) : null
+        const lineDiff = file ? await load(file) : null
+        const count = lineDiff?.hunks.length ?? 0
+        const next = file && lineDiff && count > 0 ? hunkSelection(lineDiff, direction === 1 ? 0 : count - 1, shownStyle) : null
         if (file && next) return onSelectLines(file.path, next)
       }
     }
@@ -653,9 +653,9 @@ function ReviewFile({
     return () => observer.disconnect()
   }, [wanted])
 
-  const fileDiff = diff.kind === "ready" ? diff.fileDiff : null
+  const rendered = diff.kind === "ready" ? diff.rendered : null
   const style = effectiveDiffStyle(options, narrow)
-  const target = fileDiff && lines ? diffLineTarget(fileDiff, lines, style) : null
+  const target = rendered && lines ? diffLineTarget(rendered.lineDiff, lines, style) : null
   const oldPath = diff.kind === "ready" && diff.diff.oldPath ? diff.diff.oldPath : file.oldPath ?? file.path
   const reference = target ? lineReference(target.side === "old" ? oldPath : file.path, target.range) : ""
   // The file holding the selection reports it to the status bar.
@@ -698,7 +698,7 @@ function ReviewFile({
       </div>
       <div id={bodyId} ref={body} className="review-file-body" hidden={!open}
         style={open && !wanted && height > 0 ? { minHeight: height } : undefined}>
-        {wanted && <FileBody diff={diff} file={file} compare={compare} fileDiff={fileDiff} options={options} narrow={narrow}
+        {wanted && <FileBody diff={diff} file={file} compare={compare} rendered={rendered} options={options} narrow={narrow}
           scrollRoot={scrollRoot} lines={lines} reference={reference} annotation={annotation} onRetry={retry}
           onSelectLines={onSelectLines} />}
       </div>
@@ -710,7 +710,7 @@ interface FileBodyProps {
   diff: ReturnType<typeof useReviewDiff>["diff"]
   file: CompareFile
   compare: Compare
-  fileDiff: FileDiffMetadata | null
+  rendered: RenderedDiff | null
   options: DiffOptions
   narrow: boolean
   scrollRoot: RefObject<HTMLElement | null>
@@ -722,19 +722,19 @@ interface FileBodyProps {
 }
 
 function FileBody(props: FileBodyProps) {
-  const { annotation, fileDiff } = props
+  const { annotation, rendered } = props
   // The annotation follows its line in the diff; without a line or a shown
   // diff it leads the file.
-  const inDiff = annotation !== undefined && annotation.line > 0 && fileDiff !== null && fileDiff.hunks.length > 0
+  const inDiff = annotation !== undefined && annotation.line > 0 && rendered !== null && rendered.lineDiff.hunks.length > 0
   return <>
     {annotation && !inDiff && (
-      <div className="review-annotation">{annotation.render(sideLines(fileDiff, annotation.side))}</div>
+      <div className="review-annotation">{annotation.render(sideLines(rendered?.fileDiff ?? null, annotation.side))}</div>
     )}
     <FileContent {...props} annotation={inDiff ? annotation : undefined} />
   </>
 }
 
-function FileContent({ annotation, compare, diff, file, fileDiff, lines, narrow, options, reference, scrollRoot, onRetry, onSelectLines }: FileBodyProps) {
+function FileContent({ annotation, compare, diff, file, rendered, lines, narrow, options, reference, scrollRoot, onRetry, onSelectLines }: FileBodyProps) {
   if (diff.kind === "loading") return <StatusMessage className="review-file-note">Loading diff…</StatusMessage>
   if (diff.kind === "error") {
     return (
@@ -749,22 +749,22 @@ function FileContent({ annotation, compare, diff, file, fileDiff, lines, narrow,
       No changes to <code>{file.path}</code> {compare.kind === "working" ? "since the last commit" : "in this compare"}.
     </StatusMessage>
   }
-  const { content, parseFailed } = diff
+  const { content, missingLineDiff } = diff
   return <>
     {content.kind === "binary" && <Notice tone="warning" layout="bar" role="note">{binaryChangeLabel(content.before, content.after)}</Notice>}
     {content.kind === "tooLarge" && <Notice tone="warning" layout="bar" role="note">Large file ({formatBytes(content.size)}): diff is off.</Notice>}
-    {content.kind === "text" && parseFailed && <Notice tone="error" layout="bar">Couldn't compute this diff.</Notice>}
-    {fileDiff && fileDiff.hunks.length === 0 && (
+    {content.kind === "text" && missingLineDiff && <Notice tone="error" layout="bar">Couldn't compute this diff.</Notice>}
+    {rendered && rendered.lineDiff.hunks.length === 0 && (
       <Notice layout="bar" role="note">{options.ignoreWhitespace ? "No changes apart from whitespace." : "File contents are unchanged."}</Notice>
     )}
-    {fileDiff && fileDiff.hunks.length > 0 && <DiffView path={file.path} fileDiff={fileDiff} narrow={narrow} options={options} scrollRoot={scrollRoot}
+    {rendered && rendered.lineDiff.hunks.length > 0 && <DiffView path={file.path} rendered={rendered} narrow={narrow} options={options} scrollRoot={scrollRoot}
       lines={lines} reference={reference} annotation={annotation} onSelectLines={onSelectLines} />}
   </>
 }
 
 interface DiffViewProps {
   path: string
-  fileDiff: FileDiffMetadata
+  rendered: RenderedDiff
   narrow: boolean
   options: DiffOptions
   scrollRoot: RefObject<HTMLElement | null>
@@ -777,7 +777,7 @@ interface DiffViewProps {
 type DiffInstance = VirtualizedFileDiff<undefined, undefined>
 
 // DiffView renders only the rows near the pane's viewport.
-function DiffView({ annotation, fileDiff, lines, narrow, options, path, reference, scrollRoot, onSelectLines }: DiffViewProps) {
+function DiffView({ annotation, rendered, lines, narrow, options, path, reference, scrollRoot, onSelectLines }: DiffViewProps) {
   const { resolvedTheme } = useTheme()
   // Pierre hands over its virtualized instance, which places and expands
   // rows; the review reveals and steps through it.
@@ -790,7 +790,7 @@ function DiffView({ annotation, fileDiff, lines, narrow, options, path, referenc
   useEffect(() => {
     if (!instance) return
     register(path, {
-      fileDiff,
+      rendered,
       // The diff's place comes from the DOM: Pierre's own top trails a
       // scroll until its next frame.
       lineBox(side, line) {
@@ -802,12 +802,12 @@ function DiffView({ annotation, fileDiff, lines, narrow, options, path, referenc
         return { top: top + position.top, height: position.height }
       },
       expandTo(side, line) {
-        const gap = gapForLine(fileDiff, side, line)
+        const gap = gapForLine(rendered.lineDiff, side, line)
         if (gap && !instance.isLineRenderable(gap.newLine)) instance.expandHunk(gap.hunkIndex, "up", gap.lines)
       },
     })
     return () => register(path, null)
-  }, [fileDiff, instance, path, register, scrollRoot])
+  }, [instance, path, register, rendered, scrollRoot])
   // Escape clears the selection while focus is in the pane, as in Source.
   const hasSelection = lines !== null
   useEffect(() => {
@@ -859,10 +859,10 @@ function DiffView({ annotation, fileDiff, lines, narrow, options, path, referenc
     : [], [annotationLine, annotationSide])
   return (
     <div ref={host}>
-      <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={fileDiff} options={diffOptions} metrics={metrics}
+      <FileDiff key={metrics.lineHeight} className="diff-view" fileDiff={rendered.fileDiff} options={diffOptions} metrics={metrics}
         selectedLines={lines} onInstance={onInstance} lineAnnotations={lineAnnotations}
         renderAnnotation={() => annotation
-          ? <div className="review-annotation">{annotation.render(sideLines(fileDiff, annotation.side))}</div>
+          ? <div className="review-annotation">{annotation.render(sideLines(rendered.fileDiff, annotation.side))}</div>
           : null}
         renderGutterUtility={() => lines && reference
           ? <span className="diff-line-copy"><LineCopyButton reference={reference} /></span>

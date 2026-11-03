@@ -1,6 +1,6 @@
-import { parseDiffFromFile, type FileContents, type FileDiffMetadata } from "@pierre/diffs"
+import type { FileContents } from "@pierre/diffs"
 
-import type { DiffResponse, DiffSide } from "../../api/changes-contract.ts"
+import type { DiffResponse, DiffSide } from "@servef/contracts"
 import { formatBytes } from "../../lib/format-bytes.ts"
 
 // DiffContent is what a working-tree diff can show: text sides for Pierre, or
@@ -37,11 +37,4 @@ export function binaryChangeLabel(before: number | null, after: number | null): 
   if (before !== null && after !== null) return `Binary file changed · ${formatBytes(before)} → ${formatBytes(after)}`
   if (after !== null) return `Binary file added · ${formatBytes(after)}`
   return `Binary file deleted · ${formatBytes(before ?? 0)}`
-}
-
-// parseTextDiff runs jsdiff over both text sides; whitespace is ignored at the
-// start and end of lines when asked. It returns null for non-text content.
-export function parseTextDiff(content: DiffContent, ignoreWhitespace: boolean): FileDiffMetadata | null {
-  if (content.kind !== "text" || (!content.oldFile && !content.newFile)) return null
-  return parseDiffFromFile(content.oldFile, content.newFile, { ignoreWhitespace })
 }

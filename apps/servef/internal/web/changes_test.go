@@ -16,7 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/flexdinesh/servef/internal/document"
-	"github.com/flexdinesh/servef/internal/git"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // changesRepo is a repository with one change of every kind.
@@ -100,22 +100,22 @@ func TestChangesListsRepositoryChanges(t *testing.T) {
 	root := changesRepo(t)
 	app := newTestApp(t, root)
 
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	if status := requestJSON(t, app, "/api/changes?project=.", &changes); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	want := changesResponse{
+	want := contract.ChangesResponse{
 		Repository: true,
 		Branch:     "master",
-		Files: []git.Change{
-			{Path: "added.go", Status: git.Added},
-			{Path: "data.bin", Status: git.Modified},
-			{Path: "doc.md", Status: git.Modified},
-			{Path: "gone.md", Status: git.Deleted},
-			{Path: "large.txt", Status: git.Modified},
-			{Path: "moved/new.md", OldPath: "old.md", Status: git.Renamed},
-			{Path: "notes.txt", Status: git.Untracked},
-			{Path: "scope/x.zzz", Status: git.Modified},
+		Files: []contract.ChangedFile{
+			{Path: "added.go", Status: contract.ChangeAdded},
+			{Path: "data.bin", Status: contract.ChangeModified},
+			{Path: "doc.md", Status: contract.ChangeModified},
+			{Path: "gone.md", Status: contract.ChangeDeleted},
+			{Path: "large.txt", Status: contract.ChangeModified},
+			{Path: "moved/new.md", OldPath: "old.md", Status: contract.ChangeRenamed},
+			{Path: "notes.txt", Status: contract.ChangeUntracked},
+			{Path: "scope/x.zzz", Status: contract.ChangeModified},
 		},
 		Warnings: []string{},
 	}
@@ -129,11 +129,11 @@ func TestChangesReportsFoldersAndProjectErrors(t *testing.T) {
 	writeMarkdown(t, filepath.Join(root, "README.md"), "# Folder")
 	app := newTestApp(t, root)
 
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	if status := requestJSON(t, app, "/api/changes?project=.", &changes); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	if want := (changesResponse{Files: []git.Change{}, Warnings: []string{}}); !reflect.DeepEqual(changes, want) {
+	if want := (contract.ChangesResponse{Files: []contract.ChangedFile{}, Warnings: []string{}}); !reflect.DeepEqual(changes, want) {
 		t.Fatalf("folder changes = %+v", changes)
 	}
 	var failure errorResponse
@@ -148,37 +148,39 @@ func TestChangesReportsFoldersAndProjectErrors(t *testing.T) {
 	}
 }
 
-func diff(t *testing.T, app *App, query string) diffResponse {
+// diff reads a diff's sides; TestDiffCarriesTheLineDiff covers line diffs.
+func diff(t *testing.T, app *App, query string) contract.DiffResponse {
 	t.Helper()
-	var response diffResponse
+	var response contract.DiffResponse
 	if status := requestJSON(t, app, "/api/diff?project=.&"+query, &response); status != http.StatusOK {
 		t.Fatalf("%s status = %d", query, status)
 	}
+	response.LineDiff = nil
 	return response
 }
 
-func text(content string) *diffSide {
-	return &diffSide{Content: &content, Size: int64(len(content))}
+func text(content string) *contract.DiffSide {
+	return &contract.DiffSide{Content: &content, Size: int64(len(content))}
 }
 
 func TestDiffReadsBothSidesUnderSizeLimits(t *testing.T) {
 	root := changesRepo(t)
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("doc.md").Type()
+	markdown := documentType(app, "doc.md")
 
 	for _, test := range []struct {
 		query string
-		want  diffResponse
+		want  contract.DiffResponse
 	}{
-		{"path=doc.md", diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
-		{"path=added.go", diffResponse{Path: "added.go", Status: git.Added, DocumentType: app.config.Types.Lookup("added.go").Type(), Modified: text("package main\n")}},
-		{"path=notes.txt", diffResponse{Path: "notes.txt", Status: git.Untracked, DocumentType: app.config.Types.Lookup("notes.txt").Type(), Modified: text("loose\n")}},
-		{"path=gone.md", diffResponse{Path: "gone.md", Status: git.Deleted, DocumentType: markdown, Original: text("# Gone\n")}},
-		{"path=moved/new.md&oldPath=old.md", diffResponse{Path: "moved/new.md", OldPath: "old.md", Status: git.Renamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
-		{"path=data.bin", diffResponse{Path: "data.bin", Status: git.Modified, DocumentType: app.config.Types.Lookup("data.bin").Type(),
-			Original: &diffSide{Size: 11, Binary: true}, Modified: &diffSide{Size: 11, Binary: true}}},
-		{"path=large.txt", diffResponse{Path: "large.txt", Status: git.Modified, DocumentType: app.config.Types.Lookup("large.txt").Type(),
-			Original: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &diffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
+		{"path=doc.md", contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}},
+		{"path=added.go", contract.DiffResponse{Path: "added.go", Status: contract.ChangeAdded, DocumentType: documentType(app, "added.go"), Modified: text("package main\n")}},
+		{"path=notes.txt", contract.DiffResponse{Path: "notes.txt", Status: contract.ChangeUntracked, DocumentType: documentType(app, "notes.txt"), Modified: text("loose\n")}},
+		{"path=gone.md", contract.DiffResponse{Path: "gone.md", Status: contract.ChangeDeleted, DocumentType: markdown, Original: text("# Gone\n")}},
+		{"path=moved/new.md&oldPath=old.md", contract.DiffResponse{Path: "moved/new.md", OldPath: "old.md", Status: contract.ChangeRenamed, DocumentType: markdown, Original: text("# Moved\n"), Modified: text("# Moved\n")}},
+		{"path=data.bin", contract.DiffResponse{Path: "data.bin", Status: contract.ChangeModified, DocumentType: documentType(app, "data.bin"),
+			Original: &contract.DiffSide{Size: 11, Binary: true}, Modified: &contract.DiffSide{Size: 11, Binary: true}}},
+		{"path=large.txt", contract.DiffResponse{Path: "large.txt", Status: contract.ChangeModified, DocumentType: documentType(app, "large.txt"),
+			Original: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}, Modified: &contract.DiffSide{Size: document.PreviewLimit + 1, TooLarge: true}}},
 	} {
 		if got := diff(t, app, test.query); !reflect.DeepEqual(got, test.want) {
 			t.Errorf("%s = %s\nwant %s", test.query, describeDiff(got), describeDiff(test.want))
@@ -186,7 +188,49 @@ func TestDiffReadsBothSidesUnderSizeLimits(t *testing.T) {
 	}
 }
 
-func describeDiff(response diffResponse) string {
+// The line diff covers text sides only; ignoreWhitespace=1 compares lines
+// without their leading and trailing whitespace.
+func TestDiffCarriesTheLineDiff(t *testing.T) {
+	root := changesRepo(t)
+	writeMarkdown(t, filepath.Join(root, "doc.md"), "  # Before\n")
+	app := newTestApp(t, root)
+	lineDiff := func(query string) *contract.LineDiff {
+		t.Helper()
+		var response contract.DiffResponse
+		if status := requestJSON(t, app, "/api/diff?project=.&"+query, &response); status != http.StatusOK {
+			t.Fatalf("%s status = %d", query, status)
+		}
+		return response.LineDiff
+	}
+	changed := &contract.LineDiff{Additions: 1, Deletions: 1, Gaps: []contract.DiffGap{}, Hunks: []contract.DiffHunk{{
+		OldStart: 1, OldCount: 1, NewStart: 1, NewCount: 1, Additions: 1, Deletions: 1,
+		Blocks: []contract.DiffBlock{{Kind: contract.DiffBlockChange, OldStart: 1, OldCount: 1, NewStart: 1, NewCount: 1}},
+	}}}
+	if got := lineDiff("path=doc.md"); !reflect.DeepEqual(got, changed) {
+		t.Errorf("doc.md line diff = %+v, want %+v", got, changed)
+	}
+	if got, want := lineDiff("path=doc.md&ignoreWhitespace=1"), (&contract.LineDiff{IgnoreWhitespace: true, Hunks: []contract.DiffHunk{}, Gaps: []contract.DiffGap{}}); !reflect.DeepEqual(got, want) {
+		t.Errorf("doc.md ignoring whitespace = %+v, want %+v", got, want)
+	}
+	added := &contract.LineDiff{Additions: 1, Gaps: []contract.DiffGap{}, Hunks: []contract.DiffHunk{{
+		OldStart: 1, NewStart: 1, NewCount: 1, Additions: 1,
+		Blocks: []contract.DiffBlock{{Kind: contract.DiffBlockChange, OldStart: 1, NewStart: 1, NewCount: 1}},
+	}}}
+	if got := lineDiff("path=added.go"); !reflect.DeepEqual(got, added) {
+		t.Errorf("added.go line diff = %+v, want %+v", got, added)
+	}
+	for _, query := range []string{"path=data.bin", "path=large.txt"} {
+		if got := lineDiff(query); got != nil {
+			t.Errorf("%s line diff = %+v, want none for binary and too-large sides", query, got)
+		}
+	}
+	var failure errorResponse
+	if status := requestJSON(t, app, "/api/diff?project=.&path=doc.md&ignoreWhitespace=true", &failure); status != http.StatusBadRequest || failure.Error != "IgnoreWhitespace must be 1." {
+		t.Errorf("ignoreWhitespace=true = %d %+v", status, failure)
+	}
+}
+
+func describeDiff(response contract.DiffResponse) string {
 	encoded, _ := json.Marshal(response)
 	return string(encoded)
 }
@@ -210,7 +254,7 @@ func TestDiffNeverReadsWorktreeFilesOverDisplayLimit(t *testing.T) {
 	}
 
 	got := diff(t, app, "path=huge.txt")
-	if want := (&diffSide{Size: document.DisplayLimit + 1, TooLarge: true}); got.Status != git.Untracked || got.Original != nil || !reflect.DeepEqual(got.Modified, want) {
+	if want := (&contract.DiffSide{Size: document.DisplayLimit + 1, TooLarge: true}); got.Status != contract.ChangeUntracked || got.Original != nil || !reflect.DeepEqual(got.Modified, want) {
 		t.Fatalf("huge diff = %s", describeDiff(got))
 	}
 }
@@ -256,19 +300,19 @@ func TestChangeFixturesMatchServerContract(t *testing.T) {
 		t.Fatalf("diff fixtures = %v, %v", names, err)
 	}
 	for _, name := range names {
-		var fixture diffResponse
+		var fixture contract.DiffResponse
 		decodeFixture(t, name, &fixture)
-		if want := types.Lookup(fixture.Path).Type(); !reflect.DeepEqual(fixture.DocumentType, want) {
+		if want := fileTypeContract(types.Lookup(fixture.Path).Type()); !reflect.DeepEqual(fixture.DocumentType, want) {
 			t.Errorf("%s documentType = %+v, want %+v", name, fixture.DocumentType, want)
 		}
-		for _, side := range []*diffSide{fixture.Original, fixture.Modified} {
+		for _, side := range []*contract.DiffSide{fixture.Original, fixture.Modified} {
 			if side != nil && side.Content != nil && (side.Binary || side.TooLarge || int64(len(*side.Content)) != side.Size) {
 				t.Errorf("%s side %+v carries content it should not, or a wrong size", name, *side)
 			}
 		}
 	}
 	for _, name := range []string{"changes.json", "changes-not-repo.json"} {
-		var fixture changesResponse
+		var fixture contract.ChangesResponse
 		decodeFixture(t, filepath.Join(dir, name), &fixture)
 	}
 }

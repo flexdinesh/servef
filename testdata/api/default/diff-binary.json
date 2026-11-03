@@ -28,5 +28,6 @@
     "size": 14336,
     "binary": true,
     "tooLarge": false
-  }
+  },
+  "lineDiff": null
 }

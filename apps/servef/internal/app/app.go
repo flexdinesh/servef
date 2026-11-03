@@ -37,13 +37,17 @@ type Config struct {
 	OpenFile func(name string) (fs.File, error)
 	// Watches follows projects for live updates; Events requires it.
 	Watches *watch.Hub
+	// StatsBudget bounds the bytes one compare-stats read takes; zero or
+	// less uses DefaultStatsBudget.
+	StatsBudget int64
 }
 
 // App holds the domain services. Each is safe for concurrent use.
 type App struct {
-	Projects  *Projects
-	Documents *Documents
-	Events    *Events
+	Projects      *Projects
+	Documents     *Documents
+	Events        *Events
+	SourceControl *SourceControl
 }
 
 // state is the configuration every service shares.
@@ -67,9 +71,10 @@ func New(config Config) (*App, error) {
 	}
 	shared := &state{config: config}
 	return &App{
-		Projects:  &Projects{state: shared},
-		Documents: &Documents{state: shared},
-		Events:    &Events{state: shared},
+		Projects:      &Projects{state: shared},
+		Documents:     &Documents{state: shared},
+		Events:        &Events{state: shared},
+		SourceControl: &SourceControl{state: shared},
 	}, nil
 }
 

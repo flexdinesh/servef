@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -76,8 +77,16 @@ func (m *model) validateDecl(decl *typeDecl, value any, at string) error {
 			return err
 		}
 	}
+	// An absent optional string is "", as Go omits it.
+	compared := object
+	for _, field := range decl.fields {
+		if _, present := object[field.json]; !present && field.optional && field.ref.kind == stringRef {
+			compared = maps.Clone(compared)
+			compared[field.json] = ""
+		}
+	}
 	for _, rule := range decl.rules {
-		if rule.when.holds(object) && !rule.then.holds(object) {
+		if rule.when.holds(compared) && !rule.then.holds(compared) {
 			return fmt.Errorf("%s: %s breaks rule %s => %s", at, decl.name, rule.when, rule.then)
 		}
 	}

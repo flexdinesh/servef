@@ -25,5 +25,51 @@
     "size": 149,
     "binary": false,
     "tooLarge": false
+  },
+  "lineDiff": {
+    "ignoreWhitespace": false,
+    "additions": 1,
+    "deletions": 1,
+    "hunks": [
+      {
+        "oldStart": 3,
+        "oldCount": 6,
+        "newStart": 3,
+        "newCount": 6,
+        "additions": 1,
+        "deletions": 1,
+        "blocks": [
+          {
+            "kind": "context",
+            "oldStart": 3,
+            "oldCount": 4,
+            "newStart": 3,
+            "newCount": 4
+          },
+          {
+            "kind": "change",
+            "oldStart": 7,
+            "oldCount": 1,
+            "newStart": 7,
+            "newCount": 1
+          },
+          {
+            "kind": "context",
+            "oldStart": 8,
+            "oldCount": 1,
+            "newStart": 8,
+            "newCount": 1
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      {
+        "hunk": 0,
+        "oldStart": 1,
+        "newStart": 1,
+        "lines": 2
+      }
+    ]
   }
 }

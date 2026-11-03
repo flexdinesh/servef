@@ -79,6 +79,46 @@ func (c *InProcess) Events(ctx context.Context, request contract.EventsRequest) 
 	return &Stream[contract.Event]{next: next, close: func() { cancel(); subscription.Close() }}, nil
 }
 
+func (c *InProcess) Changes(ctx context.Context, project string) (contract.ChangesResponse, error) {
+	return call(ctx, func() (contract.ChangesResponse, error) { return c.app.SourceControl.Changes(ctx, project) })
+}
+
+func (c *InProcess) Diff(ctx context.Context, request contract.DiffRequest) (contract.DiffResponse, error) {
+	return call(ctx, func() (contract.DiffResponse, error) { return c.app.SourceControl.Diff(ctx, request) })
+}
+
+func (c *InProcess) Commits(ctx context.Context, request contract.CommitsRequest) (contract.CommitsResponse, error) {
+	return call(ctx, func() (contract.CommitsResponse, error) { return c.app.SourceControl.Commits(ctx, request) })
+}
+
+func (c *InProcess) CommitFiles(ctx context.Context, project, commit string) (contract.CommitFilesResponse, error) {
+	return call(ctx, func() (contract.CommitFilesResponse, error) {
+		return c.app.SourceControl.CommitFiles(ctx, project, commit)
+	})
+}
+
+func (c *InProcess) BranchFiles(ctx context.Context, request contract.BranchFilesRequest) (contract.BranchFilesResponse, error) {
+	return call(ctx, func() (contract.BranchFilesResponse, error) { return c.app.SourceControl.BranchFiles(ctx, request) })
+}
+
+func (c *InProcess) RangeFiles(ctx context.Context, project, from, to string) (contract.RangeFilesResponse, error) {
+	return call(ctx, func() (contract.RangeFilesResponse, error) {
+		return c.app.SourceControl.RangeFiles(ctx, project, from, to)
+	})
+}
+
+func (c *InProcess) Refs(ctx context.Context, project string) (contract.RefsResponse, error) {
+	return call(ctx, func() (contract.RefsResponse, error) { return c.app.SourceControl.Refs(project) })
+}
+
+func (c *InProcess) BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error) {
+	return call(ctx, func() (contract.StackResponse, error) { return c.app.SourceControl.BranchStack(ctx, project, base) })
+}
+
+func (c *InProcess) CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error) {
+	return call(ctx, func() (contract.CompareStatsResponse, error) { return c.app.SourceControl.CompareStats(ctx, request) })
+}
+
 func (c *InProcess) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonStatus, error) { return c.control.Status(), nil })
 }

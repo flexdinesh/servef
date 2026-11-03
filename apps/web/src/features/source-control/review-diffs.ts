@@ -1,21 +1,31 @@
 import type { FileDiffMetadata } from "@pierre/diffs"
 import { useEffect, useState } from "react"
 
-import { isDiffResponse, type DiffResponse } from "../../api/changes-contract.ts"
-import { failureReason, fetchJSON, isAbort, RequestError, type RequestFailure } from "../../api/http.ts"
+import { isDiffResponse, type DiffResponse, type LineDiff } from "@servef/contracts"
+import { failureReason, fetchJSON, RequestError, type RequestFailure } from "../../api/http.ts"
 import { boundedCache } from "../../lib/bounded-cache.ts"
 import { compareKey, type Compare } from "./compare.ts"
 import type { CompareFile } from "./compare-files.ts"
 import { diffContent, type DiffContent } from "./diff-content.ts"
-import { parseDiff, releaseDiffResources } from "./use-parsed-diff.ts"
+import { fileDiffMetadata } from "./diff-metadata.ts"
+import { releaseDiffResources } from "./diff-resources.ts"
 
 // A review tab reads each file's diff when its section nears the viewport
-// (decision 0035). Parsed diffs stay in a bounded cache shared by review
-// tabs, so scrolling back is instant while memory stays bounded.
+// (decision 0035). The server computes each diff's hunks (decision 0083);
+// read diffs stay in a bounded cache shared by review tabs, so scrolling
+// back is instant while memory stays bounded.
+
+// A RenderedDiff is a text diff Pierre shows and the server's line diff it
+// was laid out from, which places selections and steps.
+export interface RenderedDiff {
+  fileDiff: FileDiffMetadata
+  lineDiff: LineDiff
+}
 
 export type ReviewDiff =
   | { kind: "loading" }
-  | { kind: "ready"; diff: DiffResponse; content: DiffContent; fileDiff: FileDiffMetadata | null; parseFailed: boolean }
+  // missingLineDiff: text sides came without a line diff, so none shows.
+  | { kind: "ready"; diff: DiffResponse; content: DiffContent; rendered: RenderedDiff | null; missingLineDiff: boolean }
   // unchanged: the file no longer differs, e.g. a branch dropped it.
   | { kind: "unchanged"; message: string }
   | { kind: "error"; message: string }
@@ -25,8 +35,8 @@ export const maxParsedDiffs = 30
 // cache holds settled diffs.
 const cache = boundedCache<ReviewDiff>(maxParsedDiffs)
 
-// releaseReviewDiffs drops cached diffs and the parse worker once no review
-// tab is open.
+// releaseReviewDiffs drops cached diffs and Pierre's resources once no
+// review tab is open.
 export function releaseReviewDiffs(): void {
   cache.clear()
   releaseDiffResources()
@@ -37,7 +47,7 @@ function diffError(failure: RequestFailure): string {
   return failure.kind === "rejected" ? failure.error : `Couldn't load this diff: ${failureReason(failure)}.`
 }
 
-export function diffUrl(project: string, compare: Compare, file: CompareFile): string {
+export function diffUrl(project: string, compare: Compare, file: CompareFile, ignoreWhitespace: boolean): string {
   const params = new URLSearchParams({ project, path: file.path })
   if (file.oldPath) params.set("oldPath", file.oldPath)
   if (compare.kind === "commit") params.set("commit", compare.hash)
@@ -51,10 +61,11 @@ export function diffUrl(project: string, compare: Compare, file: CompareFile): s
     params.set("from", compare.from)
     params.set("to", compare.to)
   }
+  if (ignoreWhitespace) params.set("ignoreWhitespace", "1")
   return `/api/diff?${params.toString()}`
 }
 
-async function readDiff(url: string, ignoreWhitespace: boolean, signal: AbortSignal): Promise<ReviewDiff> {
+async function readDiff(url: string, signal: AbortSignal): Promise<ReviewDiff> {
   let diff: DiffResponse
   try {
     diff = await fetchJSON(url, { signal }, isDiffResponse, diffError)
@@ -67,15 +78,11 @@ async function readDiff(url: string, ignoreWhitespace: boolean, signal: AbortSig
   }
   const content = diffContent(diff)
   if (content.kind !== "text" || (!content.oldFile && !content.newFile)) {
-    return { kind: "ready", diff, content, fileDiff: null, parseFailed: false }
+    return { kind: "ready", diff, content, rendered: null, missingLineDiff: false }
   }
-  try {
-    const fileDiff = await parseDiff(content.oldFile, content.newFile, ignoreWhitespace, signal)
-    return { kind: "ready", diff, content, fileDiff, parseFailed: false }
-  } catch (error: unknown) {
-    if (isAbort(error)) throw error
-    return { kind: "ready", diff, content, fileDiff: null, parseFailed: true }
-  }
+  if (!diff.lineDiff) return { kind: "ready", diff, content, rendered: null, missingLineDiff: true }
+  const rendered = { fileDiff: fileDiffMetadata(content.oldFile, content.newFile, diff.lineDiff), lineDiff: diff.lineDiff }
+  return { kind: "ready", diff, content, rendered, missingLineDiff: false }
 }
 
 interface ReviewDiffSource {
@@ -104,17 +111,17 @@ export async function loadReviewDiff(source: ReviewDiffSource, signal: AbortSign
   const key = diffKey(source)
   const cached = cache.get(key)
   if (cached) return cached
-  const diff = await readDiff(diffUrl(source.project, source.compare, source.file), source.ignoreWhitespace, signal)
+  const diff = await readDiff(diffUrl(source.project, source.compare, source.file, source.ignoreWhitespace), signal)
   if (diff.kind !== "error") cache.set(key, diff)
   return diff
 }
 
-// useReviewDiff reads and parses one file's diff while wanted.
+// useReviewDiff reads one file's diff while wanted.
 export function useReviewDiff({ project, compare, file, version, ignoreWhitespace, wanted }: ReviewDiffOptions) {
   const key = diffKey({ project, compare, file, version, ignoreWhitespace })
   const [entry, setEntry] = useState<{ key: string; diff: ReviewDiff } | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const url = diffUrl(project, compare, file)
+  const url = diffUrl(project, compare, file, ignoreWhitespace)
   const cached = wanted ? cache.get(key) : undefined
   // A section scrolled away lets go of its diff; the cache may keep it.
   if (!wanted && entry) setEntry(null)
@@ -122,7 +129,7 @@ export function useReviewDiff({ project, compare, file, version, ignoreWhitespac
   useEffect(() => {
     if (!wanted || !project || cache.has(key)) return
     const controller = new AbortController()
-    readDiff(url, ignoreWhitespace, controller.signal).then((diff) => {
+    readDiff(url, controller.signal).then((diff) => {
       // Failures are not kept, so scrolling back retries them.
       if (diff.kind !== "error") cache.set(key, diff)
       setEntry({ key, diff })
@@ -130,7 +137,7 @@ export function useReviewDiff({ project, compare, file, version, ignoreWhitespac
       // Aborted by scrolling away, a newer read, or unmount.
     })
     return () => controller.abort()
-  }, [attempt, ignoreWhitespace, key, project, url, wanted])
+  }, [attempt, key, project, url, wanted])
 
   const retry = () => {
     cache.delete(key)
