@@ -1,12 +1,12 @@
 #!/bin/sh
-# Installs the servef CLI built from the edge branch (latest main with the
-# built frontend) on this machine. For development; stable installs use
-# scripts/install.sh. Decision 0073.
+# Installs the servef CLI from the edge prerelease: latest main, rebuilt by
+# CI after every green push. Stable installs use scripts/install.sh.
+# Decisions 0073 and 0079.
 #
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh
 #
-# Needs git and Go. Writes only the servef binary to ~/.local/bin (or ~/bin
-# when that is on PATH). Remove with scripts/uninstall.sh.
+# Writes only the servef binary to ~/.local/bin (or ~/bin when that is on
+# PATH). Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
@@ -137,28 +137,36 @@ install_cli() {
 # shared:cli:end
 
 # shared:edge:begin
-EDGE_URL="https://github.com/$REPO.git"
-
-# clone_edge sets SRC to a shallow clone of the edge branch in TMP.
-clone_edge() {
-  has git || fail "git is required"
-  SRC="$TMP/servef"
-  step "cloning the edge branch of $REPO"
-  git clone --quiet --depth 1 --branch edge "$EDGE_URL" "$SRC"
-  ok "edge $(git -C "$SRC" rev-parse --short=12 HEAD): $(git -C "$SRC" log -1 --format=%s)"
+# edge_release selects the edge prerelease: after every green push to main, CI
+# replaces its assets with that commit's build, named for version 0.0.0-edge.
+edge_release() {
+  TAG=edge
+  VERSION=0.0.0-edge
 }
 # shared:edge:end
 
-detect_platform
-has go || fail "Go is required to build servef: install it from https://go.dev/dl/ (or run: mise use -g go)"
-make_tmp
-clone_edge
+# shared:release:begin
+# release_url FILE prints FILE's download URL in release TAG.
+release_url() {
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
+}
 
-commit="$(git -C "$SRC" rev-parse --short=12 HEAD)"
-date="$(git -C "$SRC" show -s --format=%cI HEAD)"
-module="github.com/$REPO/internal/version"
-step "building servef ($OS/$ARCH)"
-(cd "$SRC" && CGO_ENABLED=0 go build -trimpath \
-  -ldflags "-s -w -X $module.Version=0.0.0-dev -X $module.Commit=$commit -X $module.Date=$date" \
-  -o "$TMP/servef-bin" ./apps/servef)
-install_cli "$TMP/servef-bin"
+# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# named for VERSION.
+download_cli() {
+  name="servef_${VERSION}_${OS}_${ARCH}"
+  step "downloading servef $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
+  tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
+  CLI="$TMP/$name/servef"
+  [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
+}
+# shared:release:end
+
+detect_platform
+make_tmp
+edge_release
+download_cli
+install_cli "$CLI"
+ok "done; open the current directory with:"
+note "servef ."

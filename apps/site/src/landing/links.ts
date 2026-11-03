@@ -10,10 +10,13 @@ export type InstallMethod = { id: string; label: string; command: string }
 
 export const installMethods: InstallMethod[] = [
   {
-    id: 'script',
-    label: 'Script',
+    id: 'cli',
+    label: 'CLI',
     command: 'curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh',
   },
-  { id: 'brew', label: 'Homebrew', command: 'brew install flexdinesh/tap/servef' },
-  { id: 'go', label: 'Go', command: 'go install github.com/flexdinesh/servef@latest' },
+  {
+    id: 'desktop',
+    label: 'Desktop app',
+    command: 'curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh',
+  },
 ]

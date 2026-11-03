@@ -34,34 +34,19 @@ The desktop app and the CLI:
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
 ```
 
-Remove either with `scripts/uninstall.sh` the same way.
-
-### Homebrew
+Latest `main`, rebuilt after every green push (the `edge` prerelease):
 
 ```sh
-brew install flexdinesh/tap/servef
+# CLI
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh
+# desktop app and CLI
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
 ```
 
-### Go
-
-Requires Go 1.26 or later.
-
-Latest stable release:
-
-```sh
-go install github.com/flexdinesh/servef@latest
-```
-
-Specific stable version:
-
-```sh
-go install github.com/flexdinesh/servef@v0.1.3
-```
-
-These installs include the embedded frontend; Node.js and pnpm are not required.
-Only release tags from before the `apps/` layout (decision 0078) build with
-`go install`; later releases drop it. Branches and commits never include the
-frontend.
+Remove any of them with `scripts/uninstall.sh` the same way. Run a script
+again to update, or a stable one to leave edge. The scripts are the only
+supported install; Homebrew and `go install` are no longer offered
+(decision 0079). Installs need no Node.js, Go, or other runtime.
 
 ### Desktop app
 

@@ -7,8 +7,8 @@
 # Linux: the AppImage goes to ~/.local/share/servef-desktop with a desktop
 # entry for servef:// links, an icon, and Dolphin and Nemo "Open in servef"
 # actions. macOS: servef.app in /Applications (or ~/Applications). The CLI
-# goes to ~/.local/bin (or ~/bin when that is on PATH). Remove with
-# scripts/uninstall.sh.
+# goes to ~/.local/bin (or ~/bin when that is on PATH). Latest main:
+# scripts/install-desktop-edge.sh. Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
@@ -251,15 +251,6 @@ EOF
   fi
 }
 
-# install_linux_dir DIR installs an unpacked Linux app; sets APP_EXEC.
-install_linux_dir() {
-  mkdir -p "$APP_HOME"
-  replace_path "$1" "$APP_HOME/app"
-  rm -f "$APP_HOME/servef-desktop.AppImage"
-  APP_EXEC="$APP_HOME/app/servef-desktop"
-  ok "installed $APP_HOME/app"
-}
-
 # install_linux_appimage FILE installs a Linux AppImage; sets APP_EXEC.
 install_linux_appimage() {
   mkdir -p "$APP_HOME"
@@ -296,16 +287,46 @@ install_macos_app() {
   fi
 }
 
-finish_desktop() {
+# install_desktop_release installs the desktop app and CLI of release TAG.
+install_desktop_release() {
+  if [ "$OS" = linux ]; then
+    package="servef-desktop_${VERSION}_linux_${ARCH}.AppImage"
+  else
+    package="servef-desktop_${VERSION}_darwin_${ARCH}.zip"
+  fi
+
+  step "downloading the servef desktop app $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$package")" "$TMP/$package" ||
+    fail "servef $TAG has no $package; releases before desktop packages have none"
+  download_cli
+
+  if [ "$OS" = linux ]; then
+    install_linux_appimage "$TMP/$package"
+    # Releases before the apps/ layout keep the icon under desktop/.
+    fetch "https://raw.githubusercontent.com/$REPO/$TAG/apps/desktop/resources/icon.png" "$TMP/icon.png" ||
+      fetch "https://raw.githubusercontent.com/$REPO/$TAG/desktop/resources/icon.png" "$TMP/icon.png" ||
+      fail "could not download the servef icon for $TAG"
+    register_linux_app "$APP_EXEC" "$TMP/icon.png"
+  else
+    mkdir -p "$TMP/app"
+    if has ditto; then
+      ditto -x -k "$TMP/$package" "$TMP/app"
+    else
+      unzip -q "$TMP/$package" -d "$TMP/app"
+    fi
+    [ -d "$TMP/app/servef.app" ] || fail "$package has no servef.app"
+    install_macos_app "$TMP/app/servef.app"
+  fi
+  install_cli "$CLI"
   ok "done; open a directory in the app with:"
   note "servef ."
 }
 # shared:desktop-install:end
 
-# shared:release:begin
-# latest_version sets VERSION (no leading v) from the tag the
-# releases/latest page redirects to; the GitHub API is rate limited.
-latest_version() {
+# shared:latest:begin
+# latest_release sets TAG and VERSION (TAG without its leading v) from the tag
+# the releases/latest page redirects to; the GitHub API is rate limited.
+latest_release() {
   url="https://github.com/$REPO/releases/latest"
   location=""
   if has curl; then
@@ -317,21 +338,27 @@ latest_version() {
   fi
   tag="${location##*/tag/}"
   case "$tag" in
-    v[0-9]*) VERSION="${tag#v}" ;;
+    v[0-9]*)
+      TAG="$tag"
+      VERSION="${tag#v}"
+      ;;
     *) fail "could not find the latest servef release at $url" ;;
   esac
 }
+# shared:latest:end
 
-# release_url FILE prints FILE's download URL in release VERSION.
+# shared:release:begin
+# release_url FILE prints FILE's download URL in release TAG.
 release_url() {
-  printf 'https://github.com/%s/releases/download/v%s/%s' "$REPO" "$VERSION" "$1"
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
 }
 
-# download_cli sets CLI to the servef binary of release VERSION.
+# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# named for VERSION.
 download_cli() {
   name="servef_${VERSION}_${OS}_${ARCH}"
-  step "downloading servef $VERSION ($OS/$ARCH)"
-  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $VERSION"
+  step "downloading servef $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
   tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
   CLI="$TMP/$name/servef"
   [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
@@ -341,34 +368,5 @@ download_cli() {
 detect_platform
 check_desktop_conflicts
 make_tmp
-latest_version
-if [ "$OS" = linux ]; then
-  package="servef-desktop_${VERSION}_linux_${ARCH}.AppImage"
-else
-  package="servef-desktop_${VERSION}_darwin_${ARCH}.zip"
-fi
-
-step "downloading the servef desktop app $VERSION ($OS/$ARCH)"
-fetch "$(release_url "$package")" "$TMP/$package" ||
-  fail "servef $VERSION has no $package; releases before desktop packages have none"
-download_cli
-
-if [ "$OS" = linux ]; then
-  install_linux_appimage "$TMP/$package"
-  # Releases before the apps/ layout keep the icon under desktop/.
-  fetch "https://raw.githubusercontent.com/$REPO/v$VERSION/apps/desktop/resources/icon.png" "$TMP/icon.png" ||
-    fetch "https://raw.githubusercontent.com/$REPO/v$VERSION/desktop/resources/icon.png" "$TMP/icon.png" ||
-    fail "could not download the servef icon for $VERSION"
-  register_linux_app "$APP_EXEC" "$TMP/icon.png"
-else
-  mkdir -p "$TMP/app"
-  if has ditto; then
-    ditto -x -k "$TMP/$package" "$TMP/app"
-  else
-    unzip -q "$TMP/$package" -d "$TMP/app"
-  fi
-  [ -d "$TMP/app/servef.app" ] || fail "$package has no servef.app"
-  install_macos_app "$TMP/app/servef.app"
-fi
-install_cli "$CLI"
-finish_desktop
+latest_release
+install_desktop_release

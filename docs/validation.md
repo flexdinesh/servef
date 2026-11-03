@@ -4,7 +4,7 @@ Use this machine for validation before PR creation and updates. All tests and
 their prerequisite builds run in Dagger. Safe static checks run on the host
 against private snapshots. Development commands and formatting stay on the host.
 Linux test coverage qualifies; native macOS checks are optional supplements.
-CI edge publication and release workflows remain independent.
+The edge prerelease and release workflows remain independent.
 
 ## Commands and PR workflow
 

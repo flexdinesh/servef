@@ -1,6 +1,6 @@
 # 0074: Landing page and Cloudflare Pages
 
-- Status: Accepted
+- Status: Accepted; install tabs (the CLI and desktop scripts) revised by [0079](0079-releases-edge-prerelease-and-install-scripts.md)
 - Date: 2026-11-02
 - Supersedes: [0026](0026-vocs-user-docs-site.md) docs pages at `/` and
   "not deployed yet"

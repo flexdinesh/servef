@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	headTags, err := tagsBuiltOnHead(".", tags)
+	headTags, err := tagsAtHead(".", tags)
 	if err != nil {
 		fail(err)
 	}
@@ -114,20 +114,20 @@ func gitTags(arguments ...string) ([]string, error) {
 	return strings.Split(value, "\n"), nil
 }
 
-// tagsBuiltOnHead returns the tags whose commit has HEAD as its first parent:
-// release commits add the built frontend on top of main.
-func tagsBuiltOnHead(dir string, tags []string) ([]string, error) {
+// tagsAtHead returns the tags that name HEAD: release tags point at plain main
+// commits (decision 0079).
+func tagsAtHead(dir string, tags []string) ([]string, error) {
 	head, err := gitRevision(dir, "HEAD")
 	if err != nil {
 		return nil, err
 	}
 	var built []string
 	for _, tag := range tags {
-		parent, err := gitRevision(dir, "refs/tags/"+tag+"^{commit}^1")
+		commit, err := gitRevision(dir, "refs/tags/"+tag+"^{commit}")
 		if err != nil {
 			continue
 		}
-		if parent == head {
+		if commit == head {
 			built = append(built, tag)
 		}
 	}

@@ -14,32 +14,10 @@ It installs the latest release's `servef` in `~/.local/bin` (or `~/bin` when
 that is on your `PATH`), and prints the line to add when the directory is not
 on `PATH`. Run it again to update.
 
-### Homebrew
-
-```sh
-brew install flexdinesh/tap/servef
-```
-
-### Go
-
-Requires Go 1.26 or later.
-
-Latest stable release:
-
-```sh
-go install github.com/flexdinesh/servef@latest
-```
-
-Specific stable version:
-
-```sh
-go install github.com/flexdinesh/servef@v0.1.3
-```
-
-These installs include the embedded frontend; Node.js and pnpm are not required.
-Only releases tagged before the repository moved to its `apps/` layout build
-with `go install`; later releases drop it.
-Branches and commits never include the frontend.
+The install scripts are the supported way to install servef; Homebrew and
+`go install` are no longer offered. A specific version's archive is on
+[GitHub Releases](https://github.com/flexdinesh/servef/releases): put its
+`servef` binary in `~/.local/bin`.
 
 ### Desktop app
 
@@ -60,8 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/unin
 ```
 
 It removes the CLI and the desktop app however they were installed in your
-home directory, prints the command for Homebrew or the deb, and keeps your
-data.
+home directory, prints the command for the deb or a copy that Homebrew,
+mise, or another tool installed earlier, and keeps your data.
 
 ## Run
 

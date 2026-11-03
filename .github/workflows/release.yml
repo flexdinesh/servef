@@ -1,651 +1,108 @@
 name: Release
 
+# Pushing a vX.Y.Z tag that points at a main commit publishes that stable
+# release (decision 0079): check -> build (build.yml) -> publish. The tag is
+# the plain main commit; nothing is committed or pushed. A published release
+# is never rebuilt or replaced.
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: release
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
-# prepare (version, release commit, Go archives) -> desktop-linux and
-# desktop-macos (packages bundling those binaries) -> publish (tag, release,
-# Homebrew tap). Desktop jobs run only for a new release; edge (ci.yml) never
-# builds desktop packages.
 jobs:
-  prepare:
-    if: github.ref == 'refs/heads/main'
+  check:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      number: ${{ steps.version.outputs.number }}
-      tag_exists: ${{ steps.version.outputs.tag_exists }}
-      release_exists: ${{ steps.version.outputs.release_exists }}
-      source_commit: ${{ steps.version.outputs.source_commit }}
-      release_commit: ${{ steps.release.outputs.commit }}
+      tag: ${{ steps.tag.outputs.tag }}
+      number: ${{ steps.tag.outputs.number }}
+      commit: ${{ steps.tag.outputs.commit }}
+      published: ${{ steps.tag.outputs.published }}
     steps:
-      - name: Check out main
+      - name: Check out repository
         uses: actions/checkout@v7
         with:
-          ref: main
           fetch-depth: 0
 
-      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
-      # `version` with mise.toml min_version.
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-        with:
-          version: 2026.10.18
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/pnpm/store
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/servef/go.sum') }}
-          restore-keys: ${{ runner.os }}-dependencies-
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Select release version
-        id: version
+      - name: Check tag
+        id: tag
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
 
-          git fetch --tags --force
-          release_version="$(go run ./tools/release-version)"
-          head_commit="$(git rev-parse HEAD)"
-          tag_exists=false
-          if tag_commit="$(git rev-list -n 1 "$release_version" 2>/dev/null)"; then
-            source_commit="$(git rev-parse "${tag_commit}^1")"
-            if [[ "$source_commit" != "$head_commit" ]]; then
-              echo "$release_version is built from $source_commit, not current main $head_commit" >&2
-              exit 1
-            fi
-            tag_exists=true
+          number='(0|[1-9][0-9]*)'
+          if [[ ! "$TAG" =~ ^v${number}\.${number}\.${number}$ ]]; then
+            echo "$TAG is not a vX.Y.Z release tag" >&2
+            exit 1
+          fi
+          # Annotated tags resolve to the commit they name.
+          commit="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$commit" refs/remotes/origin/main; then
+            echo "$TAG points at $commit, which is not on main" >&2
+            exit 1
           fi
 
-          release_exists=false
-          if gh release view "$release_version" >/dev/null 2>&1; then
-            release_exists=true
+          published=false
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already published; its assets are never rebuilt."
+            published=true
           fi
 
           {
-            echo "tag=$release_version"
-            echo "number=${release_version#v}"
-            echo "tag_exists=$tag_exists"
-            echo "release_exists=$release_exists"
-            echo "source_commit=$head_commit"
+            echo "tag=$TAG"
+            echo "number=${TAG#v}"
+            echo "commit=$commit"
+            echo "published=$published"
           } >> "$GITHUB_OUTPUT"
 
-      # Checks run locally before push; release still builds its shipped assets.
-      - name: Build frontend
-        run: mise run build:web
-
-      # Release tags point at main plus the built frontend so go install works;
-      # main itself never tracks apps/servef/internal/web/dist.
-      - name: Check out release commit
-        id: release
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.version.outputs.tag }}
-          TAG_EXISTS: ${{ steps.version.outputs.tag_exists }}
-        run: |
-          set -euo pipefail
-
-          if [[ "$TAG_EXISTS" == "true" ]]; then
-            rm -rf apps/servef/internal/web/dist
-            git checkout --detach "$RELEASE_VERSION"
-          else
-            git add -f apps/servef/internal/web/dist
-            tree="$(git write-tree)"
-            export GIT_AUTHOR_NAME="github-actions[bot]"
-            export GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"
-            export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
-            export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
-            release_commit="$(git commit-tree "$tree" -p HEAD -m "release: $RELEASE_VERSION")"
-            git checkout --detach "$release_commit"
-          fi
-
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      # The binaries stamp this commit's hash and date, so publish must tag this
-      # exact commit, not a re-created one. A bundle carries it (its parent,
-      # main, is the prerequisite) until publish pushes the tag.
-      - name: Bundle release commit
-        if: steps.version.outputs.tag_exists != 'true'
-        shell: bash
-        env:
-          SOURCE_COMMIT: ${{ steps.version.outputs.source_commit }}
-          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
-        run: |
-          set -euo pipefail
-
-          git update-ref refs/servef/release "$RELEASE_COMMIT"
-          git bundle create release-commit.bundle refs/servef/release "^${SOURCE_COMMIT}"
-
-      - name: Upload release commit
-        if: steps.version.outputs.tag_exists != 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-commit
-          path: release-commit.bundle
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Build release archives
-        if: steps.version.outputs.release_exists != 'true'
-        shell: bash
-        env:
-          NUMBER: ${{ steps.version.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          version="$NUMBER"
-          commit="$(git rev-parse --short=12 HEAD)"
-          date="$(git show -s --format=%cI HEAD)"
-          module="github.com/flexdinesh/servef/internal/version"
-
-          rm -rf release-dist
-          mkdir -p release-dist
-
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-            goos="${target%/*}"
-            goarch="${target#*/}"
-            archive_dir="servef_${version}_${goos}_${goarch}"
-            mkdir -p "release-dist/${archive_dir}"
-
-            CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
-              -trimpath \
-              -ldflags="-s -w -X ${module}.Version=${version} -X ${module}.Commit=${commit} -X ${module}.Date=${date}" \
-              -o "release-dist/${archive_dir}/servef" \
-              ./apps/servef
-
-            cp README.md LICENSE "release-dist/${archive_dir}/"
-            tar -C release-dist -czf "release-dist/${archive_dir}.tar.gz" "${archive_dir}"
-            rm -rf "release-dist/${archive_dir}"
-          done
-
-      # Run the shipped linux/amd64 binary: version stamp and embedded UI.
-      - name: Smoke test release archive
-        if: steps.version.outputs.release_exists != 'true'
-        shell: bash
-        env:
-          NUMBER: ${{ steps.version.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          dir="$(mktemp -d)"
-          tar -C "$dir" -xzf "release-dist/servef_${NUMBER}_linux_amd64.tar.gz"
-          bin="$dir/servef_${NUMBER}_linux_amd64/servef"
-          "$bin" --version | grep -F "servef ${NUMBER} "
-          "$bin" "$dir" --port 7999 --no-open &
-          trap 'kill $!' EXIT
-          for _ in $(seq 50); do curl -fsS -o /dev/null http://127.0.0.1:7999/ && break; sleep 0.2; done
-          curl -fsS http://127.0.0.1:7999/ | grep -q '<div id="root"'
-
-      - name: Upload release archives
-        if: steps.version.outputs.release_exists != 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: assets-archives
-          path: release-dist/*.tar.gz
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
-
-  # Packages bundle the release archives' Go binary as resources/bin/servef.
-  # Checked out at prepare's main commit; the release commit adds only
-  # apps/servef/internal/web/dist, which desktop packaging does not read.
-  desktop-linux:
-    needs: prepare
-    if: needs.prepare.outputs.release_exists != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out release source
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
-
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-        with:
-          version: 2026.10.18
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/pnpm/store
-            ~/.cache/electron
-            ~/.cache/electron-builder
-          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-desktop-
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download release archives
-        uses: actions/download-artifact@v8
-        with:
-          name: assets-archives
-          path: release-dist
-
-      - name: Package desktop app
-        shell: bash
-        env:
-          NUMBER: ${{ needs.prepare.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          rm -rf desktop-dist
-          mkdir -p desktop-dist
-          for arch in amd64 arm64; do
-            name="servef_${NUMBER}_linux_${arch}"
-            bin_dir="$(mktemp -d)"
-            tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
-            for ext in AppImage deb; do
-              mv "apps/desktop/dist/servef-desktop_${NUMBER}_linux_${arch}.${ext}" desktop-dist/
-            done
-          done
-
-      # amd64 only: the runner cannot execute arm64 binaries.
-      - name: Smoke test desktop packages
-        shell: bash
-        env:
-          NUMBER: ${{ needs.prepare.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          # Reads the asar header (pickle size, then a JSON file tree) to find
-          # an entry without fetching an asar tool.
-          asar_has() {
-            node --input-type=commonjs - "$1" "$2" <<'JS'
-          const fs = require('node:fs')
-          const [asar, entry] = process.argv.slice(2)
-          const fd = fs.openSync(asar, 'r')
-          const size = Buffer.alloc(8)
-          fs.readSync(fd, size, 0, 8, 0)
-          const header = Buffer.alloc(size.readUInt32LE(4))
-          fs.readSync(fd, header, 0, header.length, 8)
-          fs.closeSync(fd)
-          let node = JSON.parse(header.toString('utf8', 8, 8 + header.readUInt32LE(4)))
-          for (const part of entry.split('/')) {
-            node = node.files?.[part]
-            if (node === undefined) {
-              console.error(`${asar} does not contain ${entry}`)
-              process.exit(1)
-            }
-          }
-          JS
-          }
-
-          check_resources() {
-            "$1/bin/servef" --version | grep -F "servef ${NUMBER} "
-            asar_has "$1/app.asar" build/main.mjs
-          }
-
-          package="$PWD/desktop-dist/servef-desktop_${NUMBER}_linux_amd64"
-
-          appimage_dir="$(mktemp -d)"
-          chmod +x "${package}.AppImage"
-          (cd "$appimage_dir" && "${package}.AppImage" --appimage-extract >/dev/null)
-          check_resources "$appimage_dir/squashfs-root/resources"
-
-          deb_dir="$(mktemp -d)"
-          dpkg-deb -x "${package}.deb" "$deb_dir"
-          mapfile -t asars < <(find "$deb_dir" -path '*/resources/app.asar' -type f)
-          if [[ ${#asars[@]} -ne 1 ]]; then
-            echo "expected one resources/app.asar in the deb, found ${#asars[@]}" >&2
-            exit 1
-          fi
-          check_resources "$(dirname "${asars[0]}")"
-          mapfile -t entries < <(find "$deb_dir/usr/share/applications" -name '*.desktop' -type f)
-          if [[ ${#entries[@]} -ne 1 ]]; then
-            echo "expected one desktop entry in the deb, found ${#entries[@]}" >&2
-            exit 1
-          fi
-          grep -E '^MimeType=(.*;)?x-scheme-handler/servef(;|$)' "${entries[0]}"
-          # Never the default folder opener; folders open through the actions below (decision 0072).
-          if grep -E '^MimeType=(.*;)?inode/directory(;|$)' "${entries[0]}"; then
-            echo "the desktop entry must not claim inode/directory" >&2
-            exit 1
-          fi
-          test -x "$deb_dir/opt/servef/servef-desktop"
-          for action in usr/share/kio/servicemenus/servef-desktop.desktop usr/share/nemo/actions/servef-desktop.nemo_action; do
-            grep -Fx 'Exec=/opt/servef/servef-desktop --open-path %F' "$deb_dir/$action"
-          done
-
-      - name: Upload desktop packages
-        uses: actions/upload-artifact@v7
-        with:
-          name: assets-desktop-linux
-          path: desktop-dist/*
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
-
-  # Ad-hoc signed (electron-builder.yml mac.identity "-"); no secrets. Signing
-  # and notarization would need an Apple Developer ID Application cert
-  # (CSC_LINK, CSC_KEY_PASSWORD), an App Store Connect API key (APPLE_API_KEY,
-  # APPLE_API_KEY_ID, APPLE_API_ISSUER), hardened runtime with
-  # com.apple.security.cs.allow-jit, the bundled servef signed (mac.binaries),
-  # and a notarized, stapled dmg.
-  desktop-macos:
-    needs: prepare
-    if: needs.prepare.outputs.release_exists != 'true'
-    runs-on: macos-latest
-    steps:
-      - name: Check out release source
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
-
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-        with:
-          version: 2026.10.18
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/pnpm/store
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-desktop-
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download release archives
-        uses: actions/download-artifact@v8
-        with:
-          name: assets-archives
-          path: release-dist
-
-      - name: Package desktop app
-        shell: bash
-        env:
-          NUMBER: ${{ needs.prepare.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          rm -rf desktop-dist
-          mkdir -p desktop-dist
-          for arch in amd64 arm64; do
-            name="servef_${NUMBER}_darwin_${arch}"
-            bin_dir="$(mktemp -d)"
-            tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$NUMBER"
-            for ext in dmg zip; do
-              mv "apps/desktop/dist/servef-desktop_${NUMBER}_darwin_${arch}.${ext}" desktop-dist/
-            done
-          done
-
-      # arm64 only: macos-latest runs on Apple silicon.
-      - name: Smoke test desktop packages
-        shell: bash
-        env:
-          NUMBER: ${{ needs.prepare.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          dir="$(mktemp -d)"
-          ditto -x -k "desktop-dist/servef-desktop_${NUMBER}_darwin_arm64.zip" "$dir"
-          app="$dir/servef.app/Contents"
-          "$app/Resources/bin/servef" --version | grep -F "servef ${NUMBER} "
-          scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
-          if [[ "$scheme" != "servef" ]]; then
-            echo "Info.plist registers URL scheme '$scheme', want servef" >&2
-            exit 1
-          fi
-          # Folders dropped on the Dock or app icon arrive as open-file (decision 0072).
-          folder="$(plutil -extract CFBundleDocumentTypes.0.LSItemContentTypes.0 raw -o - "$app/Info.plist")"
-          rank="$(plutil -extract CFBundleDocumentTypes.0.LSHandlerRank raw -o - "$app/Info.plist")"
-          if [[ "$folder" != "public.folder" || "$rank" != "Alternate" ]]; then
-            echo "Info.plist document type is '$folder' at rank '$rank', want public.folder at Alternate" >&2
-            exit 1
-          fi
-
-      - name: Upload desktop packages
-        uses: actions/upload-artifact@v7
-        with:
-          name: assets-desktop-macos
-          path: desktop-dist/*
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
+  build:
+    needs: check
+    if: needs.check.outputs.published != 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.check.outputs.commit }}
+      version: ${{ needs.check.outputs.number }}
 
   publish:
-    needs: [prepare, desktop-linux, desktop-macos]
-    # Desktop jobs are skipped when the release exists; publish still runs then
-    # to repair the Homebrew tap.
-    if: >-
-      !cancelled()
-      && needs.prepare.result == 'success'
-      && (needs.prepare.outputs.release_exists == 'true'
-        || (needs.desktop-linux.result == 'success' && needs.desktop-macos.result == 'success'))
+    needs: [check, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Check out release source
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
-          fetch-depth: 0
-
-      - name: Set up mise
-        uses: jdx/mise-action@v5
-        with:
-          version: 2026.10.18
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/share/pnpm/store
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/servef/go.sum') }}
-          restore-keys: ${{ runner.os }}-dependencies-
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Re-checked here, not taken from prepare, so re-running this job after a
-      # failed tap update reuses the release it already published.
-      - name: Check published release
-        id: published
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ needs.prepare.outputs.tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          exists=false
-          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
-            exists=true
-          fi
-          echo "exists=$exists" >> "$GITHUB_OUTPUT"
-
-      - name: Download release assets
-        if: needs.prepare.outputs.release_exists != 'true' && steps.published.outputs.exists != 'true'
+      - name: Download assets
         uses: actions/download-artifact@v8
         with:
           pattern: assets-*
           path: release-dist
           merge-multiple: true
 
-      - name: Write checksums
-        if: needs.prepare.outputs.release_exists != 'true' && steps.published.outputs.exists != 'true'
-        shell: bash
-        env:
-          NUMBER: ${{ needs.prepare.outputs.number }}
-        run: |
-          set -euo pipefail
-
-          expected=()
-          for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
-            expected+=("servef_${NUMBER}_${target}.tar.gz")
-          done
-          for arch in amd64 arm64; do
-            expected+=(
-              "servef-desktop_${NUMBER}_darwin_${arch}.dmg"
-              "servef-desktop_${NUMBER}_darwin_${arch}.zip"
-              "servef-desktop_${NUMBER}_linux_${arch}.AppImage"
-              "servef-desktop_${NUMBER}_linux_${arch}.deb"
-            )
-          done
-
-          cd release-dist
-          diff <(printf '%s\n' "${expected[@]}" | sort) <(find . -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
-          shasum -a 256 "${expected[@]}" > checksums.txt
-
-      - name: Download release commit
-        if: needs.prepare.outputs.tag_exists != 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: release-commit
-          path: release-commit
-
-      # Pushing an identical tag again is a no-op, so reruns are safe.
-      - name: Push release tag
-        if: needs.prepare.outputs.tag_exists != 'true'
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ needs.prepare.outputs.tag }}
-          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-          RELEASE_COMMIT: ${{ needs.prepare.outputs.release_commit }}
-        run: |
-          set -euo pipefail
-
-          git fetch --no-tags release-commit/release-commit.bundle refs/servef/release:refs/servef/release
-          if [[ "$(git rev-parse refs/servef/release)" != "$RELEASE_COMMIT" ]] \
-            || [[ "$(git rev-parse "${RELEASE_COMMIT}^1")" != "$SOURCE_COMMIT" ]]; then
-            echo "release commit bundle does not hold $RELEASE_COMMIT on $SOURCE_COMMIT" >&2
-            exit 1
-          fi
-          git push --no-verify origin "${RELEASE_COMMIT}:refs/tags/${RELEASE_VERSION}"
-
+      # Re-checked here, so re-running only this job after a partial failure
+      # never replaces a release.
       - name: Publish GitHub release
-        if: needs.prepare.outputs.release_exists != 'true' && steps.published.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ needs.prepare.outputs.tag }}
-          RELEASE_COMMIT: ${{ needs.prepare.outputs.release_commit }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.check.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
 
-          gh release create "$RELEASE_VERSION" \
-            release-dist/*.tar.gz \
-            release-dist/*.dmg \
-            release-dist/*.zip \
-            release-dist/*.AppImage \
-            release-dist/*.deb \
-            release-dist/checksums.txt \
-            --target "$RELEASE_COMMIT" \
-            --title "$RELEASE_VERSION" \
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already published."
+            exit 0
+          fi
+          gh release create "$TAG" release-dist/* \
+            --title "$TAG" \
             --generate-notes \
             --verify-tag \
             --latest
-
-      - name: Download existing release
-        if: needs.prepare.outputs.release_exists == 'true' || steps.published.outputs.exists == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ needs.prepare.outputs.tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          rm -rf release-dist
-          mkdir -p release-dist
-          gh release download "$RELEASE_VERSION" --dir release-dist
-
-      - name: Check out Homebrew tap
-        uses: actions/checkout@v7
-        with:
-          repository: flexdinesh/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
-          fetch-depth: 0
-
-      - name: Generate Homebrew formula
-        run: |
-          pnpm generate:homebrew -- \
-            --version "${{ needs.prepare.outputs.number }}" \
-            --tag "${{ needs.prepare.outputs.tag }}" \
-            --checksums release-dist/checksums.txt \
-            --output homebrew-tap/Formula/servef.rb
-
-      - name: Validate Homebrew formula syntax
-        run: ruby -c homebrew-tap/Formula/servef.rb
-
-      - name: Open Homebrew tap pull request
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          version="${{ needs.prepare.outputs.number }}"
-          tag="${{ needs.prepare.outputs.tag }}"
-          branch="servef-v${version}"
-          tap_repo="flexdinesh/homebrew-tap"
-
-          cd homebrew-tap
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$branch"
-
-          if [[ -z "$(git status --porcelain -- Formula/servef.rb)" ]]; then
-            echo "Homebrew formula is already up to date for servef v${version}."
-            exit 0
-          fi
-
-          git add Formula/servef.rb
-          git commit -m "Update servef to v${version}"
-          git push --no-verify --force-with-lease origin "HEAD:${branch}"
-
-          pr_number="$(gh pr list \
-            --repo "$tap_repo" \
-            --head "$branch" \
-            --state open \
-            --json number \
-            --jq '.[0].number // ""')"
-
-          pr_body="$(mktemp)"
-          cat > "$pr_body" <<EOF
-          Updates the servef formula to v${version}.
-
-          Source release: https://github.com/flexdinesh/servef/releases/tag/${tag}
-
-          This PR was generated by the servef release workflow.
-          EOF
-
-          if [[ -n "$pr_number" ]]; then
-            gh pr edit "$pr_number" \
-              --repo "$tap_repo" \
-              --title "Update servef to v${version}" \
-              --body-file "$pr_body"
-          else
-            gh pr create \
-              --repo "$tap_repo" \
-              --head "$branch" \
-              --base main \
-              --title "Update servef to v${version}" \
-              --body-file "$pr_body"
-          fi

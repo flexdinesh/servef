@@ -1,6 +1,6 @@
 # 0021: Built frontend on release tags and edge
 
-- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (release tags add desktop packages; `edge` unchanged)
+- Status: Superseded by [0079](0079-releases-edge-prerelease-and-install-scripts.md) (no built files on tags or branches; `edge` is a prerelease); earlier revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (release tags add desktop packages; `edge` unchanged) and [0078](0078-apps-and-packages-layout.md) (`go install` from the repository root)
 - Date: 2026-10-18
 
 ## Context

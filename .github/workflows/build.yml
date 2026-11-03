@@ -1,0 +1,390 @@
+name: Build
+
+# Builds every distribution asset for one commit (decision 0079); release.yml
+# (stable tags) and ci.yml (the edge prerelease) call it and publish the
+# result. cli (Go archives, archive smoke) -> desktop-linux and desktop-macos
+# (packages bundling those binaries, smoke checks) -> assets (the expected
+# set, checksums.txt). Every job uploads an assets-* artifact; callers
+# download them all with pattern assets-*. Nothing is committed or pushed.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Full commit SHA to build
+        required: true
+        type: string
+      version:
+        description: Version stamped into the binaries and packages and used in asset names (X.Y.Z, or 0.0.0-edge)
+        required: true
+        type: string
+      retention-days:
+        description: Days to keep the asset artifacts
+        required: false
+        type: number
+        default: 30
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      # Installs Go, Node, and pnpm from mise.lock (decision 0038). Bump
+      # `version` with mise.toml min_version.
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.18
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/servef/go.sum') }}
+          restore-keys: ${{ runner.os }}-dependencies-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Checks run locally before push; the build still makes its shipped assets.
+      - name: Build frontend
+        run: mise run build:web
+
+      - name: Build CLI archives
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          commit="$(git rev-parse --short=12 HEAD)"
+          date="$(git show -s --format=%cI HEAD)"
+          module="github.com/flexdinesh/servef/internal/version"
+
+          rm -rf release-dist
+          mkdir -p release-dist
+
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            archive_dir="servef_${VERSION}_${goos}_${goarch}"
+            mkdir -p "release-dist/${archive_dir}"
+
+            CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
+              -trimpath \
+              -ldflags="-s -w -X ${module}.Version=${VERSION} -X ${module}.Commit=${commit} -X ${module}.Date=${date}" \
+              -o "release-dist/${archive_dir}/servef" \
+              ./apps/servef
+
+            cp README.md LICENSE "release-dist/${archive_dir}/"
+            tar -C release-dist -czf "release-dist/${archive_dir}.tar.gz" "${archive_dir}"
+            rm -rf "release-dist/${archive_dir}"
+          done
+
+      # Run the shipped linux/amd64 binary: version stamp and embedded UI.
+      - name: Smoke test CLI archive
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          dir="$(mktemp -d)"
+          tar -C "$dir" -xzf "release-dist/servef_${VERSION}_linux_amd64.tar.gz"
+          bin="$dir/servef_${VERSION}_linux_amd64/servef"
+          "$bin" --version | grep -F "servef ${VERSION} $(git rev-parse --short=12 HEAD) "
+          "$bin" "$dir" --port 7999 --no-open &
+          trap 'kill $!' EXIT
+          for _ in $(seq 50); do curl -fsS -o /dev/null http://127.0.0.1:7999/ && break; sleep 0.2; done
+          curl -fsS http://127.0.0.1:7999/ | grep -q '<div id="root"'
+
+      - name: Upload CLI archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-archives
+          path: release-dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+          compression-level: 0
+
+  # Packages bundle the archives' Go binary as resources/bin/servef.
+  desktop-linux:
+    needs: cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.18
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-desktop-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download CLI archives
+        uses: actions/download-artifact@v8
+        with:
+          name: assets-archives
+          path: release-dist
+
+      - name: Package desktop app
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          rm -rf desktop-dist
+          mkdir -p desktop-dist
+          for arch in amd64 arm64; do
+            name="servef_${VERSION}_linux_${arch}"
+            bin_dir="$(mktemp -d)"
+            tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
+            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
+            for ext in AppImage deb; do
+              mv "apps/desktop/dist/servef-desktop_${VERSION}_linux_${arch}.${ext}" desktop-dist/
+            done
+          done
+
+      # amd64 only: the runner cannot execute arm64 binaries.
+      - name: Smoke test desktop packages
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Reads the asar header (pickle size, then a JSON file tree) to find
+          # an entry without fetching an asar tool.
+          asar_has() {
+            node --input-type=commonjs - "$1" "$2" <<'JS'
+          const fs = require('node:fs')
+          const [asar, entry] = process.argv.slice(2)
+          const fd = fs.openSync(asar, 'r')
+          const size = Buffer.alloc(8)
+          fs.readSync(fd, size, 0, 8, 0)
+          const header = Buffer.alloc(size.readUInt32LE(4))
+          fs.readSync(fd, header, 0, header.length, 8)
+          fs.closeSync(fd)
+          let node = JSON.parse(header.toString('utf8', 8, 8 + header.readUInt32LE(4)))
+          for (const part of entry.split('/')) {
+            node = node.files?.[part]
+            if (node === undefined) {
+              console.error(`${asar} does not contain ${entry}`)
+              process.exit(1)
+            }
+          }
+          JS
+          }
+
+          check_resources() {
+            "$1/bin/servef" --version | grep -F "servef ${VERSION} "
+            asar_has "$1/app.asar" build/main.mjs
+          }
+
+          package="$PWD/desktop-dist/servef-desktop_${VERSION}_linux_amd64"
+
+          appimage_dir="$(mktemp -d)"
+          chmod +x "${package}.AppImage"
+          (cd "$appimage_dir" && "${package}.AppImage" --appimage-extract >/dev/null)
+          check_resources "$appimage_dir/squashfs-root/resources"
+
+          deb_dir="$(mktemp -d)"
+          dpkg-deb -x "${package}.deb" "$deb_dir"
+          mapfile -t asars < <(find "$deb_dir" -path '*/resources/app.asar' -type f)
+          if [[ ${#asars[@]} -ne 1 ]]; then
+            echo "expected one resources/app.asar in the deb, found ${#asars[@]}" >&2
+            exit 1
+          fi
+          check_resources "$(dirname "${asars[0]}")"
+          mapfile -t entries < <(find "$deb_dir/usr/share/applications" -name '*.desktop' -type f)
+          if [[ ${#entries[@]} -ne 1 ]]; then
+            echo "expected one desktop entry in the deb, found ${#entries[@]}" >&2
+            exit 1
+          fi
+          grep -E '^MimeType=(.*;)?x-scheme-handler/servef(;|$)' "${entries[0]}"
+          # Never the default folder opener; folders open through the actions below (decision 0072).
+          if grep -E '^MimeType=(.*;)?inode/directory(;|$)' "${entries[0]}"; then
+            echo "the desktop entry must not claim inode/directory" >&2
+            exit 1
+          fi
+          test -x "$deb_dir/opt/servef/servef-desktop"
+          for action in usr/share/kio/servicemenus/servef-desktop.desktop usr/share/nemo/actions/servef-desktop.nemo_action; do
+            grep -Fx 'Exec=/opt/servef/servef-desktop --open-path %F' "$deb_dir/$action"
+          done
+
+      - name: Upload desktop packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-desktop-linux
+          path: desktop-dist/*
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+          compression-level: 0
+
+  # Ad-hoc signed (electron-builder.yml mac.identity "-"); no secrets. Signing
+  # and notarization would need an Apple Developer ID Application cert
+  # (CSC_LINK, CSC_KEY_PASSWORD), an App Store Connect API key (APPLE_API_KEY,
+  # APPLE_API_KEY_ID, APPLE_API_ISSUER), hardened runtime with
+  # com.apple.security.cs.allow-jit, the bundled servef signed (mac.binaries),
+  # and a notarized, stapled dmg.
+  desktop-macos:
+    needs: cli
+    runs-on: macos-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.18
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/pnpm/store
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-desktop-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download CLI archives
+        uses: actions/download-artifact@v8
+        with:
+          name: assets-archives
+          path: release-dist
+
+      - name: Package desktop app
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          rm -rf desktop-dist
+          mkdir -p desktop-dist
+          for arch in amd64 arm64; do
+            name="servef_${VERSION}_darwin_${arch}"
+            bin_dir="$(mktemp -d)"
+            tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
+            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
+            for ext in dmg zip; do
+              mv "apps/desktop/dist/servef-desktop_${VERSION}_darwin_${arch}.${ext}" desktop-dist/
+            done
+          done
+
+      # arm64 only: macos-latest runs on Apple silicon.
+      - name: Smoke test desktop packages
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          dir="$(mktemp -d)"
+          ditto -x -k "desktop-dist/servef-desktop_${VERSION}_darwin_arm64.zip" "$dir"
+          app="$dir/servef.app/Contents"
+          "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
+          scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
+          if [[ "$scheme" != "servef" ]]; then
+            echo "Info.plist registers URL scheme '$scheme', want servef" >&2
+            exit 1
+          fi
+          # Folders dropped on the Dock or app icon arrive as open-file (decision 0072).
+          folder="$(plutil -extract CFBundleDocumentTypes.0.LSItemContentTypes.0 raw -o - "$app/Info.plist")"
+          rank="$(plutil -extract CFBundleDocumentTypes.0.LSHandlerRank raw -o - "$app/Info.plist")"
+          if [[ "$folder" != "public.folder" || "$rank" != "Alternate" ]]; then
+            echo "Info.plist document type is '$folder' at rank '$rank', want public.folder at Alternate" >&2
+            exit 1
+          fi
+
+      - name: Upload desktop packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-desktop-macos
+          path: desktop-dist/*
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}
+          compression-level: 0
+
+  # Extension point: the native phase (decision 0079, phase 5) adds an
+  # apps/native packaging job here that uploads an assets-native-* artifact,
+  # adds it to assets' needs, and adds its file names to the expected list.
+
+  assets:
+    needs: [cli, desktop-linux, desktop-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: assets-*
+          path: release-dist
+          merge-multiple: true
+
+      # The install scripts (decision 0073) download these names; renaming one
+      # breaks them for every user at once.
+      - name: Check assets and write checksums
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          expected=()
+          for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
+            expected+=("servef_${VERSION}_${target}.tar.gz")
+          done
+          for arch in amd64 arm64; do
+            expected+=(
+              "servef-desktop_${VERSION}_darwin_${arch}.dmg"
+              "servef-desktop_${VERSION}_darwin_${arch}.zip"
+              "servef-desktop_${VERSION}_linux_${arch}.AppImage"
+              "servef-desktop_${VERSION}_linux_${arch}.deb"
+            )
+          done
+          # The native phase adds its packages here.
+
+          cd release-dist
+          diff <(printf '%s\n' "${expected[@]}" | sort) <(find . -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+          mkdir -p ../checksums
+          shasum -a 256 "${expected[@]}" > ../checksums/checksums.txt
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets-checksums
+          path: checksums/checksums.txt
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention-days }}

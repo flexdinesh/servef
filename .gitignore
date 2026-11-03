@@ -10,7 +10,7 @@
 /test-results/
 /.impeccable/review/
 
-# Built frontend assets; committed only on release tags and edge
+# Built frontend assets; never committed to any branch or tag (decision 0079)
 /apps/servef/internal/web/dist/
 
 # Go test and coverage output
