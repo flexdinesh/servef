@@ -4,8 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
 #
 # Writes only the servef binary to ~/.local/bin (or ~/bin when that is on
-# PATH). The desktop app and CLI: scripts/install-desktop.sh. Remove with
-# scripts/uninstall.sh.
+# PATH). The desktop app and CLI: scripts/install-desktop.sh. Latest main:
+# scripts/install-edge.sh. Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
@@ -135,10 +135,10 @@ install_cli() {
 }
 # shared:cli:end
 
-# shared:release:begin
-# latest_version sets VERSION (no leading v) from the tag the
-# releases/latest page redirects to; the GitHub API is rate limited.
-latest_version() {
+# shared:latest:begin
+# latest_release sets TAG and VERSION (TAG without its leading v) from the tag
+# the releases/latest page redirects to; the GitHub API is rate limited.
+latest_release() {
   url="https://github.com/$REPO/releases/latest"
   location=""
   if has curl; then
@@ -150,21 +150,27 @@ latest_version() {
   fi
   tag="${location##*/tag/}"
   case "$tag" in
-    v[0-9]*) VERSION="${tag#v}" ;;
+    v[0-9]*)
+      TAG="$tag"
+      VERSION="${tag#v}"
+      ;;
     *) fail "could not find the latest servef release at $url" ;;
   esac
 }
+# shared:latest:end
 
-# release_url FILE prints FILE's download URL in release VERSION.
+# shared:release:begin
+# release_url FILE prints FILE's download URL in release TAG.
 release_url() {
-  printf 'https://github.com/%s/releases/download/v%s/%s' "$REPO" "$VERSION" "$1"
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
 }
 
-# download_cli sets CLI to the servef binary of release VERSION.
+# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# named for VERSION.
 download_cli() {
   name="servef_${VERSION}_${OS}_${ARCH}"
-  step "downloading servef $VERSION ($OS/$ARCH)"
-  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $VERSION"
+  step "downloading servef $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
   tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
   CLI="$TMP/$name/servef"
   [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
@@ -173,7 +179,7 @@ download_cli() {
 
 detect_platform
 make_tmp
-latest_version
+latest_release
 download_cli
 install_cli "$CLI"
 ok "done; open the current directory with:"

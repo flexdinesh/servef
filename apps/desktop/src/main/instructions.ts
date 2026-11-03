@@ -50,16 +50,14 @@ export function failureInstructions(failure: EnsureFailure, packaged: boolean): 
 }
 
 const RELEASES = "https://github.com/flexdinesh/servef/releases"
-const BREW_INSTALL = "brew install flexdinesh/tap/servef"
-const BREW_UPGRADE = "brew upgrade flexdinesh/tap/servef"
-const GO_INSTALL = "go install github.com/flexdinesh/servef@latest"
-// INSTALL_SCRIPT installs the latest release's CLI in ~/.local/bin or ~/bin (decision 0073).
+// INSTALL_SCRIPT installs or updates the latest release's CLI in ~/.local/bin
+// or ~/bin (decision 0073); the scripts are the only supported install (0079).
 const INSTALL_SCRIPT = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh"
 const STABLE_RELEASE = /^\d+\.\d+\.\d+$/
 
 // releaseOf is the servef release whose page and downloads the app links: its
-// version when packaged as a stable release; null in dev and edge builds
-// (0.0.0-dev), which have no release.
+// version when packaged as a stable release; null in dev (0.0.0-dev) and edge
+// (0.0.0-edge) builds, which have no versioned release.
 export function releaseOf(version: string, packaged: boolean): string | null {
   return packaged && STABLE_RELEASE.test(version) ? version : null
 }
@@ -120,8 +118,8 @@ export function sshFailureInstructions(failure: SshFailure, release: string | nu
       return {
         ...base,
         title: `servef on ${dest} is too old`,
-        paragraphs: [...lead, `This app needs a newer servef on ${dest}. Upgrade it there with the command matching how it was installed, or download a release from ${page}, then Retry.`],
-        commands: [onHost(dest, BREW_UPGRADE), onHost(dest, GO_INSTALL)],
+        paragraphs: [...lead, `This app needs a newer servef on ${dest}. Upgrade it there with the install script, or download a release from ${page}, then Retry.`],
+        commands: [onHost(dest, INSTALL_SCRIPT)],
       }
     case "mismatch": {
       const status = failure.status
@@ -133,7 +131,7 @@ export function sshFailureInstructions(failure: SshFailure, release: string | nu
         : status.protocol < EXPECTED_PROTOCOL
           ? [`servef on ${dest} is older than this app. Upgrade servef on ${dest}.`]
           : [`servef on ${dest} is newer than this app. Update the servef app (${page}).`]
-      const upgrade = status !== undefined && status.protocol < EXPECTED_PROTOCOL ? [onHost(dest, BREW_UPGRADE), onHost(dest, GO_INSTALL)] : []
+      const upgrade = status !== undefined && status.protocol < EXPECTED_PROTOCOL ? [onHost(dest, INSTALL_SCRIPT)] : []
       return {
         title: `The servef daemon on ${dest} is incompatible`,
         paragraphs: [`${daemon}; this app needs protocol ${EXPECTED_PROTOCOL}.`, ...advice, "Then stop the running daemon and retry."],
@@ -181,8 +179,8 @@ function servefMissing(failure: SshFailure, lead: string[], release: string | nu
   if (failure.os === "Darwin") {
     return {
       title,
-      paragraphs: [...lead, `Install servef on ${dest} with the install script or Homebrew:`, ...always],
-      commands: [onHost(dest, INSTALL_SCRIPT), onHost(dest, BREW_INSTALL)],
+      paragraphs: [...lead, `Install servef on ${dest} with the install script:`, ...always],
+      commands: [onHost(dest, INSTALL_SCRIPT)],
       stopAndRetry: false,
     }
   }
@@ -190,8 +188,8 @@ function servefMissing(failure: SshFailure, lead: string[], release: string | nu
   if (arch === null) {
     return {
       title,
-      paragraphs: [...lead, `Install servef on ${dest} with Homebrew or Go, or download a release from ${page}.`, ...always],
-      commands: [onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL)],
+      paragraphs: [...lead, `Releases cover macOS and Linux on amd64 and arm64. Install servef on ${dest} with the install script, or download a release from ${page}.`, ...always],
+      commands: [onHost(dest, INSTALL_SCRIPT)],
       stopAndRetry: false,
     }
   }
@@ -203,10 +201,10 @@ function servefMissing(failure: SshFailure, lead: string[], release: string | nu
     title,
     paragraphs: [
       ...lead,
-      `Install servef on ${dest} with the install script, Homebrew, or Go, or download ${archive}.tar.gz from ${page} and put its servef binary in ~/.local/bin.`,
+      `Install servef on ${dest} with the install script, or download ${archive}.tar.gz from ${page} and put its servef binary in ~/.local/bin.`,
       ...always,
     ],
-    commands: [onHost(dest, INSTALL_SCRIPT), onHost(dest, BREW_INSTALL), onHost(dest, GO_INSTALL), ...download],
+    commands: [onHost(dest, INSTALL_SCRIPT), ...download],
     stopAndRetry: false,
   }
 }

@@ -65,25 +65,25 @@ func TestParseSeriesRejectsFullOrPaddedVersions(t *testing.T) {
 	}
 }
 
-func TestTagsBuiltOnHeadFindsReleaseCommitsOnTopOfHead(t *testing.T) {
+func TestTagsAtHeadFindsTagsNamingHead(t *testing.T) {
 	isolateGit(t)
 	dir := t.TempDir()
 	git(t, dir, "init", "--quiet")
 	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "older main")
 	git(t, dir, "tag", "v0.1.0")
 	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "main")
+	git(t, dir, "tag", "-a", "-m", "v0.1.1", "v0.1.1")
 	main := git(t, dir, "rev-parse", "HEAD")
-	git(t, dir, "tag", "v0.1.1")
 	git(t, dir, "commit", "--allow-empty", "--quiet", "-m", "release: v0.1.2")
 	git(t, dir, "tag", "v0.1.2")
 	git(t, dir, "checkout", "--quiet", "--detach", main)
 
-	got, err := tagsBuiltOnHead(dir, []string{"v0.1.0", "v0.1.1", "v0.1.2", "missing"})
+	got, err := tagsAtHead(dir, []string{"v0.1.0", "v0.1.1", "v0.1.2", "missing"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"v0.1.2"}; !slices.Equal(got, want) {
-		t.Fatalf("tagsBuiltOnHead() = %q, want %q", got, want)
+	if want := []string{"v0.1.1"}; !slices.Equal(got, want) {
+		t.Fatalf("tagsAtHead() = %q, want %q", got, want)
 	}
 }
 

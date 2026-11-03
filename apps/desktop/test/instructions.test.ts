@@ -77,12 +77,14 @@ const INSTALL_SCRIPT = "# on devbox\ncurl -fsSL https://raw.githubusercontent.co
 test("releaseOf links only packaged stable releases", () => {
   assert.equal(releaseOf("1.2.3", true), "1.2.3")
   assert.equal(releaseOf("1.2.3", false), null)
-  assert.equal(releaseOf("0.0.0-dev", true), null, "edge builds from install-desktop-edge.sh have no release page")
+  assert.equal(releaseOf("0.0.0-dev", true), null, "local package builds have no release page")
+  assert.equal(releaseOf("0.0.0-edge", true), null, "edge prerelease builds have no versioned release page")
 })
 
-test("servefMissing on Darwin offers the install script and Homebrew", () => {
+test("servefMissing on Darwin offers the install script", () => {
   const instructions = sshFailureInstructions(ssh("servefMissing", { os: "Darwin", arch: "arm64" }), "1.2.3")
-  assert.deepEqual(instructions.commands, [INSTALL_SCRIPT, "# on devbox\nbrew install flexdinesh/tap/servef"])
+  assert.deepEqual(instructions.commands, [INSTALL_SCRIPT])
+  assert.doesNotMatch(text(instructions), /Homebrew|go install/)
   assert.match(text(instructions), new RegExp(`in one of: ${escape(REMOTE_PATH_DIRS.join(", "))}\\.`))
   assert.match(text(instructions), /The app never installs anything on devbox\./)
 })
@@ -93,8 +95,6 @@ test("servefMissing on Linux maps uname -m to the release archive", () => {
     const archive = `servef_1.2.3_linux_${arch}`
     assert.deepEqual(instructions.commands, [
       INSTALL_SCRIPT,
-      "# on devbox\nbrew install flexdinesh/tap/servef",
-      "# on devbox\ngo install github.com/flexdinesh/servef@latest",
       `# on devbox\nmkdir -p ~/.local/bin\ncurl -fsSL https://github.com/flexdinesh/servef/releases/download/v1.2.3/${archive}.tar.gz | tar -xz -C ~/.local/bin --strip-components=1 ${archive}/servef`,
     ], machine)
     assert.match(text(instructions), new RegExp(`${archive}\\.tar\\.gz from https://github\\.com/flexdinesh/servef/releases/tag/v1\\.2\\.3`))
@@ -105,25 +105,25 @@ test("servefMissing on Linux maps uname -m to the release archive", () => {
 
 test("servefMissing in a dev build links the latest release without a versioned download", () => {
   const instructions = sshFailureInstructions(ssh("servefMissing", { os: "Linux", arch: "x86_64" }), null)
-  assert.equal(instructions.commands.length, 3)
-  assert.equal(instructions.commands[0], INSTALL_SCRIPT)
+  assert.deepEqual(instructions.commands, [INSTALL_SCRIPT])
   assert.match(text(instructions), /releases\/latest/)
   assert.doesNotMatch(text(instructions), /releases\/tag/)
 })
 
-test("servefMissing with an unknown arch or os offers Homebrew, Go, and the releases page", () => {
+test("servefMissing with an unknown arch or os names the supported platforms and the releases page", () => {
   for (const extra of [{ os: "Linux", arch: "riscv64" }, { os: "FreeBSD", arch: "amd64" }, {}]) {
     const instructions = sshFailureInstructions(ssh("servefMissing", extra), "1.2.3")
-    assert.deepEqual(instructions.commands, ["# on devbox\nbrew install flexdinesh/tap/servef", "# on devbox\ngo install github.com/flexdinesh/servef@latest"])
+    assert.deepEqual(instructions.commands, [INSTALL_SCRIPT])
+    assert.match(text(instructions), /macOS and Linux on amd64 and arm64/)
     assert.match(text(instructions), /releases\/tag\/v1\.2\.3/)
     assert.doesNotMatch(text(instructions), /linux_/)
     assert.match(text(instructions), /must be on PATH/)
   }
 })
 
-test("servefTooOld offers upgrade commands on the host", () => {
+test("servefTooOld offers the install script on the host", () => {
   const instructions = sshFailureInstructions(ssh("servefTooOld"), "1.2.3")
-  assert.deepEqual(instructions.commands, ["# on devbox\nbrew upgrade flexdinesh/tap/servef", "# on devbox\ngo install github.com/flexdinesh/servef@latest"])
+  assert.deepEqual(instructions.commands, [INSTALL_SCRIPT])
 })
 
 test("mismatch tells which side to update and offers stop and retry on the host", () => {
@@ -132,7 +132,7 @@ test("mismatch tells which side to update and offers stop and retry on the host"
   assert.match(text(older), /Upgrade servef on devbox/)
   assert.match(text(older), /version 0\.9\.0\) speaks protocol 0; this app needs protocol 1/)
   assert.equal(older.commands.at(-1), "# on devbox\nservef daemon stop")
-  assert.ok(older.commands.includes("# on devbox\nbrew upgrade flexdinesh/tap/servef"))
+  assert.deepEqual(older.commands, [INSTALL_SCRIPT, "# on devbox\nservef daemon stop"])
 
   const newer = sshFailureInstructions(ssh("mismatch", { status }), "1.2.3")
   assert.equal(newer.stopAndRetry, true)

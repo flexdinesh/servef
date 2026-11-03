@@ -99,8 +99,8 @@ run = [
   "node apps/desktop/node_modules/electron/install.js",
 ]
 
-# Host OS and arch, bundling a release-style servef (decision 0068). The release
-# workflow calls apps/desktop/scripts/package.ts per arch itself.
+# Host OS and arch, bundling a release-style servef (decision 0068).
+# .github/workflows/build.yml calls apps/desktop/scripts/package.ts per arch itself.
 [tasks."package:desktop"]
 description = "Package desktop installers for the host OS and arch"
 depends = ["build:web"]
@@ -280,7 +280,7 @@ run = "pnpm test:web"
 
 [tasks."_container:tooling"]
 hide = true
-run = "ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release"
+run = "shellcheck -s sh scripts/*.sh && pnpm test:release"
 
 [tasks."_container:docs"]
 hide = true
@@ -314,7 +314,7 @@ run = "pnpm test:web"
 
 [tasks."_container:test:release"]
 hide = true
-run = "ruby --version && shellcheck -s sh scripts/*.sh && pnpm test:release"
+run = "shellcheck -s sh scripts/*.sh && pnpm test:release"
 
 [tasks."_container:test:browser"]
 hide = true

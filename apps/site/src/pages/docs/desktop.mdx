@@ -230,8 +230,8 @@ The uninstall script removes the app and CLI however you installed them in
 your home directory: the install scripts, an AppImage you registered, the
 desktop and login entries, the file manager actions, a Nautilus script or
 Quick Action from the steps above, and `servef.app`. Quit the app and run
-`servef daemon stop` first. It prints the command for the deb or Homebrew
-and keeps your data:
+`servef daemon stop` first. It prints the command for the deb or a copy
+another tool installed, and keeps your data:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh

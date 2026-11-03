@@ -1,6 +1,6 @@
 # 0073: Install scripts
 
-- Status: Accepted
+- Status: Accepted; paths revised by [0078](0078-apps-and-packages-layout.md); edge scripts (prebuilt `edge` prerelease assets) and Homebrew and `go install` (dropped) revised by [0079](0079-releases-edge-prerelease-and-install-scripts.md)
 - Date: 2026-11-02
 - Revises: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   Packages (an AppImage registers `servef://` through `install-desktop.sh`)

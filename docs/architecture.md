@@ -96,15 +96,17 @@ engine. No local convention provides remote enforcement.
 
 ## Distribution
 
-Vite writes hashed assets to `apps/servef/internal/web/dist`, which `main` ignores. Release
-tags and the CI-published `edge` branch commit it on top of `main`, so builds
-from them need no JavaScript toolchain. `go install` from the repository root
-works only for releases tagged before the `apps/` layout (decision 0078).
-Installed releases contain no Node.js runtime or frontend sidecar.
+Vite writes hashed assets to `apps/servef/internal/web/dist`, which no branch
+or tag tracks. `.github/workflows/build.yml` builds it before Go compilation
+and publishes only GitHub release assets (decision 0079): a `vX.Y.Z` tag on a
+`main` commit publishes that stable release, and every green push to `main`
+replaces the assets of the `edge` prerelease. Installed releases contain no
+Node.js runtime or frontend sidecar; the install scripts are the supported
+install.
 
-Release tags also publish desktop packages (macOS dmg/zip, Linux
-AppImage/deb per arch): electron-builder bundles that release's Go binary as
-`resources/bin/servef` with Electron's Chromium and Node. `edge` has none.
+Both publish CLI archives and desktop packages (macOS dmg/zip, Linux
+AppImage/deb per arch): electron-builder bundles that build's Go binary as
+`resources/bin/servef` with Electron's Chromium and Node.
 Bare `servef [path]` opens the installed app through the daemon and otherwise
 serves in a browser.
 

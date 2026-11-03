@@ -20,36 +20,30 @@ raise `jdx/mise-action` `version` in `.github/workflows/` with it.
 
 ## Install from edge
 
-`main` does not track `apps/servef/internal/web/dist/`. After the frontend build
-on `main`, CI force-pushes `edge`: that `main` commit plus the built frontend.
-The Go module lives in `apps/servef/` (decision 0078), so
-`go install github.com/flexdinesh/servef@edge` no longer builds; use the edge
-scripts below.
+No branch or tag tracks `apps/servef/internal/web/dist/`. After every push to
+`main` whose build passes, CI replaces the assets of the `edge` GitHub
+prerelease with that commit's CLI archives and desktop packages and moves the
+`edge` tag to it (decision 0079). Edge builds report version `0.0.0-edge`
+and the commit (`servef --version`); local `mise run package:desktop` builds
+report `0.0.0-dev`.
 
 ### Edge on another machine
 
-To try unreleased code on a machine without a checkout, build `edge` there
-(decision 0073). The CLI needs git and Go:
+To try unreleased code on a machine without a checkout, install the edge
+prerelease there. The scripts download prebuilt assets like the stable ones
+and need no git, Go, or mise:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh
-```
-
-The desktop app and CLI need git and mise (linux/amd64 or darwin/arm64);
-the script clones `edge` to a temporary directory, trusts its `mise.toml`,
-installs the toolchain, and runs `mise run package:desktop:dir`, which takes
-minutes:
-
-```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
 ```
 
-Both replace a stable install in the same places (`~/.local/bin`; Linux
+The first installs the CLI; the second the desktop app and CLI. Both replace
+a stable install in the same places (`~/.local/bin`; Linux
 `~/.local/share/servef-desktop/`, macOS `/Applications`). On Linux the
 desktop script registers `servef://` and the Dolphin and Nemo actions for the
-user; it stops if the deb is installed or the app is running. Builds report
-`0.0.0-dev` and the edge commit. To go back, run a stable install script, or
-remove everything (user data stays) with:
+user; it stops if the deb is installed or the app is running. To go back,
+run a stable install script, or remove everything (user data stays) with:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
@@ -109,8 +103,8 @@ rerun revokes earlier success until it completes successfully.
 
 See [local validation](validation.md) for explicit engine setup, source/cache
 identities, resource limits, force reruns, artifacts, and status.
-There is no mandatory pre-push suite and no remote validation gate. Existing
-CI edge publication and release builds remain unchanged. Validation never
+There is no mandatory pre-push suite and no remote validation gate. The edge
+prerelease and release workflows remain independent. Validation never
 publishes a PR; local conventions are bypassable.
 
 Browser validation uses a prepared Go binary, ordinary and Git fixture servers,

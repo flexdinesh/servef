@@ -1,15 +1,12 @@
 #!/bin/sh
-# Installs the servef desktop app and CLI built from the edge branch (latest
-# main with the built frontend) on this machine. For development; stable
-# installs use scripts/install-desktop.sh. Decision 0073.
+# Installs the servef desktop app and CLI from the edge prerelease: latest
+# main, rebuilt by CI after every green push. Stable installs use
+# scripts/install-desktop.sh. Decisions 0073 and 0079.
 #
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
 #
-# Needs git and mise (Go, Node, and pnpm come from the repository's mise.lock);
-# linux/amd64 and darwin/arm64 only. Linux: the app goes to
-# ~/.local/share/servef-desktop/app with a desktop entry for servef:// links,
-# an icon, and Dolphin and Nemo "Open in servef" actions. macOS: servef.app in
-# /Applications (or ~/Applications). Remove with scripts/uninstall.sh.
+# Installs in the same places as scripts/install-desktop.sh and replaces
+# either install. Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
@@ -252,15 +249,6 @@ EOF
   fi
 }
 
-# install_linux_dir DIR installs an unpacked Linux app; sets APP_EXEC.
-install_linux_dir() {
-  mkdir -p "$APP_HOME"
-  replace_path "$1" "$APP_HOME/app"
-  rm -f "$APP_HOME/servef-desktop.AppImage"
-  APP_EXEC="$APP_HOME/app/servef-desktop"
-  ok "installed $APP_HOME/app"
-}
-
 # install_linux_appimage FILE installs a Linux AppImage; sets APP_EXEC.
 install_linux_appimage() {
   mkdir -p "$APP_HOME"
@@ -297,52 +285,71 @@ install_macos_app() {
   fi
 }
 
-finish_desktop() {
+# install_desktop_release installs the desktop app and CLI of release TAG.
+install_desktop_release() {
+  if [ "$OS" = linux ]; then
+    package="servef-desktop_${VERSION}_linux_${ARCH}.AppImage"
+  else
+    package="servef-desktop_${VERSION}_darwin_${ARCH}.zip"
+  fi
+
+  step "downloading the servef desktop app $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$package")" "$TMP/$package" ||
+    fail "servef $TAG has no $package; releases before desktop packages have none"
+  download_cli
+
+  if [ "$OS" = linux ]; then
+    install_linux_appimage "$TMP/$package"
+    # Releases before the apps/ layout keep the icon under desktop/.
+    fetch "https://raw.githubusercontent.com/$REPO/$TAG/apps/desktop/resources/icon.png" "$TMP/icon.png" ||
+      fetch "https://raw.githubusercontent.com/$REPO/$TAG/desktop/resources/icon.png" "$TMP/icon.png" ||
+      fail "could not download the servef icon for $TAG"
+    register_linux_app "$APP_EXEC" "$TMP/icon.png"
+  else
+    mkdir -p "$TMP/app"
+    if has ditto; then
+      ditto -x -k "$TMP/$package" "$TMP/app"
+    else
+      unzip -q "$TMP/$package" -d "$TMP/app"
+    fi
+    [ -d "$TMP/app/servef.app" ] || fail "$package has no servef.app"
+    install_macos_app "$TMP/app/servef.app"
+  fi
+  install_cli "$CLI"
   ok "done; open a directory in the app with:"
   note "servef ."
 }
 # shared:desktop-install:end
 
 # shared:edge:begin
-EDGE_URL="https://github.com/$REPO.git"
-
-# clone_edge sets SRC to a shallow clone of the edge branch in TMP.
-clone_edge() {
-  has git || fail "git is required"
-  SRC="$TMP/servef"
-  step "cloning the edge branch of $REPO"
-  git clone --quiet --depth 1 --branch edge "$EDGE_URL" "$SRC"
-  ok "edge $(git -C "$SRC" rev-parse --short=12 HEAD): $(git -C "$SRC" log -1 --format=%s)"
+# edge_release selects the edge prerelease: after every green push to main, CI
+# replaces its assets with that commit's build, named for version 0.0.0-edge.
+edge_release() {
+  TAG=edge
+  VERSION=0.0.0-edge
 }
 # shared:edge:end
 
+# shared:release:begin
+# release_url FILE prints FILE's download URL in release TAG.
+release_url() {
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
+}
+
+# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# named for VERSION.
+download_cli() {
+  name="servef_${VERSION}_${OS}_${ARCH}"
+  step "downloading servef $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
+  tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
+  CLI="$TMP/$name/servef"
+  [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
+}
+# shared:release:end
+
 detect_platform
-case "$OS/$ARCH" in
-  linux/amd64 | darwin/arm64) ;;
-  *) fail "edge desktop builds support linux/amd64 and darwin/arm64 (the mise.lock platforms), not $OS/$ARCH" ;;
-esac
-has mise || fail "mise is required to build the desktop app; install it with: curl https://mise.run | sh"
 check_desktop_conflicts
 make_tmp
-clone_edge
-
-step "installing build tools and dependencies"
-(cd "$SRC" && mise trust mise.toml && mise install && mise exec -- pnpm install --frozen-lockfile)
-step "building the desktop app ($OS/$ARCH)"
-(cd "$SRC" && mise run package:desktop:dir)
-
-if [ "$OS" = linux ]; then
-  app="$SRC/apps/desktop/dist/linux-unpacked"
-else
-  app="$SRC/apps/desktop/dist/mac-arm64/servef.app"
-fi
-[ -d "$app" ] || fail "the build did not produce $app"
-
-if [ "$OS" = linux ]; then
-  install_linux_dir "$app"
-  register_linux_app "$APP_EXEC" "$SRC/apps/desktop/resources/icon.png"
-else
-  install_macos_app "$app"
-fi
-install_cli "$SRC/apps/desktop/.build/servef-host"
-finish_desktop
+edge_release
+install_desktop_release

@@ -4,9 +4,10 @@ import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, wr
 import { dirname, join } from 'node:path'
 import test from 'node:test'
 
-// The install scripts (decision 0073) run under /bin/sh with a fake HOME and
-// stub git, go, mise, uname, xdg-mime, update-desktop-database, and pgrep
-// first on PATH. Stubs log their arguments to STUB_LOG.
+// The install scripts (decisions 0073, 0079) run under /bin/sh with a fake
+// HOME and stub uname, curl, wget, go, ditto, xdg-mime,
+// update-desktop-database, and pgrep first on PATH. Stubs log their arguments
+// to STUB_LOG.
 
 const repositoryRoot = process.cwd()
 const scriptsDir = join(repositoryRoot, 'scripts')
@@ -33,47 +34,23 @@ const STUBS: Record<string, string[]> = {
     '  -m) echo "$STUB_UNAME_M" ;;',
     'esac',
   ],
-  git: [
-    'echo "git $*" >> "$STUB_LOG"',
-    'if [ "$1" = clone ]; then',
-    '  for last; do :; done',
-    '  mkdir -p "$last/apps/desktop/resources"',
-    "  printf 'png' > \"$last/apps/desktop/resources/icon.png\"",
-    '  echo "$last" > "$STUB_LOG.clone"',
-    '  exit 0',
-    'fi',
-    'case "$*" in',
-    '  *rev-parse*) echo 0123456789ab ;;',
-    '  *log*) echo "edge: abcdef012345 with built frontend" ;;',
-    '  *show*) echo 2026-11-02T00:00:00Z ;;',
-    'esac',
-  ],
   go: [
     'echo "go $*" >> "$STUB_LOG"',
-    'case "$1" in',
-    '  build)',
-    '    out=""',
-    '    while [ $# -gt 0 ]; do',
-    '      if [ "$1" = -o ]; then out="$2"; fi',
-    '      shift',
-    '    done',
-    '    cp "$STUB_FAKE_SERVEF" "$out"',
-    '    ;;',
-    '  env)',
-    '    case "$2" in',
-    '      GOBIN) echo "" ;;',
-    '      GOPATH) echo "$HOME/go" ;;',
-    '    esac',
-    '    ;;',
-    'esac',
+    'if [ "$1" = env ]; then',
+    '  case "$2" in',
+    '    GOBIN) echo "" ;;',
+    '    GOPATH) echo "$HOME/go" ;;',
+    '  esac',
+    'fi',
   ],
-  mise: [
-    'echo "mise $*" >> "$STUB_LOG"',
-    'if [ "$1 $2" = "run package:desktop:dir" ]; then',
-    '  mkdir -p apps/desktop/.build apps/desktop/dist/linux-unpacked apps/desktop/dist/mac-arm64/servef.app/Contents/MacOS',
-    '  cp "$STUB_FAKE_SERVEF" apps/desktop/.build/servef-host',
-    "  printf 'app' > apps/desktop/dist/linux-unpacked/servef-desktop",
-    "  printf 'app' > apps/desktop/dist/mac-arm64/servef.app/Contents/MacOS/servef",
+  // macOS only: extracts a release zip as servef.app, or copies a directory.
+  ditto: [
+    'echo "ditto $*" >> "$STUB_LOG"',
+    'if [ "$1" = -x ]; then',
+    '  mkdir -p "$4/servef.app/Contents/MacOS"',
+    "  printf 'app' > \"$4/servef.app/Contents/MacOS/servef\"",
+    'else',
+    '  cp -R "$1" "$2"',
     'fi',
   ],
   'xdg-mime': ['echo "xdg-mime $*" >> "$STUB_LOG"'],
@@ -156,8 +133,6 @@ async function createSandbox(
     if (options.without?.includes(name) === true) continue
     await writeExecutable(join(stubs, name), ['#!/bin/sh', ...lines, ''].join('\n'))
   }
-  const fake = join(root, 'fake-servef')
-  await writeExecutable(fake, fakeServef('0.0.0-dev (0123456789ab)'))
   const log = join(root, 'stub.log')
   await writeFile(log, '')
   return {
@@ -170,7 +145,6 @@ async function createSandbox(
       PATH: `${stubs}:${join(home, '.local', 'bin')}:${SYSTEM_PATH}`,
       SHELL: '/bin/bash',
       STUB_LOG: log,
-      STUB_FAKE_SERVEF: fake,
       STUB_UNAME_S: 'Linux',
       STUB_UNAME_M: 'x86_64',
       STUB_RELEASE_DIR: join(root, 'release'),
@@ -179,13 +153,18 @@ async function createSandbox(
   }
 }
 
-// createRelease writes release 0.1.7's assets for linux/<arch>: the CLI
-// archive, and with desktop the AppImage; plus the icon at the tag.
-async function createRelease(sandbox: Sandbox, options: { arch?: string; desktop?: boolean } = {}): Promise<void> {
+// createRelease writes a release's assets for linux/<arch>, named for version
+// (0.1.7 by default; the edge prerelease uses 0.0.0-edge): the CLI archive,
+// with desktop the AppImage and the darwin/arm64 zip, and the icon.
+async function createRelease(
+  sandbox: Sandbox,
+  options: { arch?: string; desktop?: boolean; version?: string } = {},
+): Promise<void> {
   const arch = options.arch ?? 'amd64'
+  const version = options.version ?? '0.1.7'
   const release = sandbox.env.STUB_RELEASE_DIR ?? ''
-  const name = `servef_0.1.7_linux_${arch}`
-  await writeExecutable(join(release, name, 'servef'), fakeServef('0.1.7 (abc123)'))
+  const name = `servef_${version}_linux_${arch}`
+  await writeExecutable(join(release, name, 'servef'), fakeServef(`${version} (abc123)`))
   await new Promise<void>((resolve, reject) => {
     execFile('tar', ['-czf', join(release, `${name}.tar.gz`), '-C', release, name], (error) => {
       if (error === null) resolve()
@@ -195,8 +174,23 @@ async function createRelease(sandbox: Sandbox, options: { arch?: string; desktop
   await rm(join(release, name), { recursive: true })
   await writeFile(join(release, 'icon.png'), 'png')
   if (options.desktop === true) {
-    await writeFile(join(release, `servef-desktop_0.1.7_linux_${arch}.AppImage`), 'appimage')
+    await writeFile(join(release, `servef-desktop_${version}_linux_${arch}.AppImage`), 'appimage')
+    await writeFile(join(release, `servef-desktop_${version}_darwin_arm64.zip`), 'zip')
   }
+}
+
+// createDarwinArchive writes the darwin/arm64 CLI archive for version.
+async function createDarwinArchive(sandbox: Sandbox, version: string): Promise<void> {
+  const release = sandbox.env.STUB_RELEASE_DIR ?? ''
+  const name = `servef_${version}_darwin_arm64`
+  await writeExecutable(join(release, name, 'servef'), fakeServef(`${version} (abc123)`))
+  await new Promise<void>((resolve, reject) => {
+    execFile('tar', ['-czf', join(release, `${name}.tar.gz`), '-C', release, name], (error) => {
+      if (error === null) resolve()
+      else reject(error)
+    })
+  })
+  await rm(join(release, name), { recursive: true })
 }
 
 function run(script: string, sandbox: Sandbox, env: Record<string, string> = {}): Promise<Result> {
@@ -255,26 +249,31 @@ void test('shared blocks are identical in every script that carries them', async
 
 // --- install-edge.sh ---
 
-void test('install-edge.sh builds the edge branch and installs the CLI on PATH', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
+const EDGE_DOWNLOAD = 'https://github.com/flexdinesh/servef/releases/download/edge/'
 
-  const result = await run('install-edge.sh', sandbox)
+void test('install-edge.sh installs the CLI from the edge prerelease on PATH', async (t) => {
+  for (const [machine, arch] of [['x86_64', 'amd64'], ['aarch64', 'arm64']] as const) {
+    const sandbox = await createSandbox(t.after.bind(t))
+    await createRelease(sandbox, { arch, version: '0.0.0-edge' })
 
-  assertOk(result)
-  const bin = join(sandbox.home, '.local', 'bin', 'servef')
-  assert.ok(await isExecutable(bin))
-  assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.0\.0-dev/)
-  assert.doesNotMatch(result.stdout, /not on PATH/)
-  const log = await readFile(sandbox.log, 'utf8')
-  assert.match(log, /git clone --quiet --depth 1 --branch edge https:\/\/github\.com\/flexdinesh\/servef\.git /)
-  assert.match(log, /go build -trimpath -ldflags -s -w -X github\.com\/flexdinesh\/servef\/internal\/version\.Version=0\.0\.0-dev -X github\.com\/flexdinesh\/servef\/internal\/version\.Commit=0123456789ab -X github\.com\/flexdinesh\/servef\/internal\/version\.Date=2026-11-02T00:00:00Z/)
-  assert.match(log, /^go build .* \.\/apps\/servef$/m)
-  const clone = (await readFile(`${sandbox.log}.clone`, 'utf8')).trim()
-  assert.equal(await exists(clone), false, 'the temporary clone is removed')
+    const result = await run('install-edge.sh', sandbox, { STUB_UNAME_M: machine })
+
+    assertOk(result)
+    const bin = join(sandbox.home, '.local', 'bin', 'servef')
+    assert.ok(await isExecutable(bin))
+    assert.match(result.stdout, /downloading servef edge \(linux\/(amd64|arm64)\)/)
+    assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.0\.0-edge \(abc123\)\)/)
+    assert.doesNotMatch(result.stdout, /not on PATH/)
+    const log = await readFile(sandbox.log, 'utf8')
+    assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_linux_${arch}.tar.gz`), log)
+    assert.doesNotMatch(log, /releases\/latest/)
+    assert.doesNotMatch(log, /api\.github\.com/)
+  }
 })
 
 void test('install-edge.sh prefers ~/bin when only it is on PATH', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { version: '0.0.0-edge' })
 
   const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, 'bin')}:${SYSTEM_PATH}` })
 
@@ -291,6 +290,7 @@ void test('install-edge.sh prints the PATH line for the shell and never edits rc
     ['/bin/dash', /export PATH=".*\/\.local\/bin:\$PATH" {3}# in ~\/\.profile/],
   ] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
+    await createRelease(sandbox, { version: '0.0.0-edge' })
 
     const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${SYSTEM_PATH}`, SHELL: shell })
 
@@ -304,6 +304,7 @@ void test('install-edge.sh prints the PATH line for the shell and never edits rc
 
 void test('install-edge.sh reports an update, a shadowing servef, and a running daemon', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { version: '0.0.0-edge' })
   await writeExecutable(join(sandbox.home, '.local', 'bin', 'servef'), fakeServef('0.1.6'))
   const earlier = join(sandbox.root, 'brew-bin')
   await writeExecutable(join(earlier, 'servef'), fakeServef('0.1.5'))
@@ -314,18 +315,17 @@ void test('install-edge.sh reports an update, a shadowing servef, and a running 
   })
 
   assertOk(result)
-  assert.match(result.stdout, /updated .*\/\.local\/bin\/servef \(servef 0\.1\.6 -> servef 0\.0\.0-dev/)
+  assert.match(result.stdout, /updated .*\/\.local\/bin\/servef \(servef 0\.1\.6 -> servef 0\.0\.0-edge/)
   assert.match(result.stdout, /brew-bin\/servef comes first on PATH and is not the servef just installed/)
   assert.match(result.stdout, /servef daemon stop/)
 })
 
-void test('install-edge.sh stops without Go or on an unsupported platform', async (t) => {
-  const noGo = await createSandbox(t.after.bind(t), { without: ['go'] })
-  const missing = await run('install-edge.sh', noGo)
-  assert.notEqual(missing.code, 0)
-  assert.match(missing.stderr, /Go is required to build servef: install it from https:\/\/go\.dev\/dl\//)
-
+void test('install-edge.sh stops without its archive or on an unsupported platform', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  const missing = await run('install-edge.sh', sandbox)
+  assert.notEqual(missing.code, 0)
+  assert.match(missing.stderr, /could not download servef_0\.0\.0-edge_linux_amd64\.tar\.gz from servef edge/)
+
   const windows = await run('install-edge.sh', sandbox, { STUB_UNAME_S: 'MINGW64_NT-10.0' })
   assert.notEqual(windows.code, 0)
   assert.match(windows.stderr, /unsupported OS MINGW64_NT-10\.0/)
@@ -337,20 +337,23 @@ void test('install-edge.sh stops without Go or on an unsupported platform', asyn
 
 // --- install-desktop-edge.sh ---
 
-void test('install-desktop-edge.sh installs the Linux app, registers servef://, and adds folder actions', async (t) => {
+void test('install-desktop-edge.sh installs the Linux AppImage, registers servef://, and adds folder actions', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t), { homeName: 'home 50%' })
+  await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
   const share = join(sandbox.home, '.local', 'share')
-  await writeExecutable(join(share, 'servef-desktop', 'servef-desktop.AppImage'), 'old')
+  await writeExecutable(join(share, 'servef-desktop', 'app', 'servef-desktop'), 'unpacked build')
 
   const result = await run('install-desktop-edge.sh', sandbox)
 
   assertOk(result)
-  const app = join(share, 'servef-desktop', 'app', 'servef-desktop')
-  assert.equal(await readFile(app, 'utf8'), 'app')
-  assert.equal(await exists(join(share, 'servef-desktop', 'servef-desktop.AppImage')), false, 'the unpacked app replaces an AppImage')
+  const appImage = join(share, 'servef-desktop', 'servef-desktop.AppImage')
+  assert.equal(await readFile(appImage, 'utf8'), 'appimage')
+  assert.ok(await isExecutable(appImage))
+  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
   assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'servef')))
+  assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.0\.0-edge/)
 
-  const exec = `"${app.replaceAll('%', '%%')}"`
+  const exec = `"${appImage.replaceAll('%', '%%')}"`
   const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
   assert.match(entry, /^MimeType=x-scheme-handler\/servef;$/m)
   assert.doesNotMatch(entry, /inode\/directory/)
@@ -364,10 +367,10 @@ void test('install-desktop-edge.sh installs the Linux app, registers servef://, 
   assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
 
   const log = await readFile(sandbox.log, 'utf8')
-  assert.match(log, /^mise trust mise\.toml$/m)
-  assert.match(log, /^mise install$/m)
-  assert.match(log, /^mise exec -- pnpm install --frozen-lockfile$/m)
-  assert.match(log, /^mise run package:desktop:dir$/m)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-desktop_0.0.0-edge_linux_amd64.AppImage`), log)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_linux_amd64.tar.gz`), log)
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/edge/apps/desktop/resources/icon.png'), log)
+  assert.doesNotMatch(log, /releases\/latest/)
   assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
   assert.match(log, /^update-desktop-database .*\/applications$/m)
   assert.match(result.stdout, /servef \./)
@@ -375,6 +378,8 @@ void test('install-desktop-edge.sh installs the Linux app, registers servef://, 
 
 void test('install-desktop-edge.sh installs servef.app on macOS without Linux registration', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
+  await createDarwinArchive(sandbox, '0.0.0-edge')
 
   const result = await run('install-desktop-edge.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
@@ -386,25 +391,23 @@ void test('install-desktop-edge.sh installs servef.app on macOS without Linux re
   assert.equal(await readFile(join(apps, 'servef.app', 'Contents', 'MacOS', 'servef'), 'utf8'), 'app')
   assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'servef')))
   assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
-  assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /xdg-mime/)
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-desktop_0.0.0-edge_darwin_arm64.zip`), log)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_darwin_arm64.tar.gz`), log)
+  assert.doesNotMatch(log, /xdg-mime/)
 })
 
-void test('install-desktop-edge.sh stops before building when it cannot install', async (t) => {
+void test('install-desktop-edge.sh stops before installing when it cannot', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  const arm = await run('install-desktop-edge.sh', sandbox, { STUB_UNAME_M: 'aarch64' })
-  assert.notEqual(arm.code, 0)
-  assert.match(arm.stderr, /support linux\/amd64 and darwin\/arm64 .*not linux\/arm64/)
+  await createRelease(sandbox, { version: '0.0.0-edge' })
+
+  const noPackage = await run('install-desktop-edge.sh', sandbox)
+  assert.notEqual(noPackage.code, 0)
+  assert.match(noPackage.stderr, /servef edge has no servef-desktop_0\.0\.0-edge_linux_amd64\.AppImage/)
 
   const running = await run('install-desktop-edge.sh', sandbox, { STUB_PGREP: '0' })
   assert.notEqual(running.code, 0)
   assert.match(running.stderr, /the servef desktop app is running; quit it, then run this again/)
-
-  const noMise = await createSandbox(t.after.bind(t), { without: ['mise'] })
-  const missing = await run('install-desktop-edge.sh', noMise)
-  assert.notEqual(missing.code, 0)
-  assert.match(missing.stderr, /mise is required .*curl https:\/\/mise\.run \| sh/)
-
-  assert.equal(await readFile(sandbox.log, 'utf8'), '', 'nothing cloned or built')
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
@@ -462,7 +465,7 @@ void test('install.sh stops when the latest release or its archive is missing', 
 
   const noArchive = await run('install.sh', sandbox)
   assert.notEqual(noArchive.code, 0)
-  assert.match(noArchive.stderr, /could not download servef_0\.1\.7_linux_amd64\.tar\.gz from servef 0\.1\.7/)
+  assert.match(noArchive.stderr, /could not download servef_0\.1\.7_linux_amd64\.tar\.gz from servef v0\.1\.7/)
   assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false)
 })
 
@@ -480,7 +483,7 @@ void test('install-desktop.sh installs the Linux AppImage, registers it, and ins
   const appImage = join(share, 'servef-desktop', 'servef-desktop.AppImage')
   assert.equal(await readFile(appImage, 'utf8'), 'appimage')
   assert.ok(await isExecutable(appImage))
-  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked edge build')
+  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
   const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
   assert.ok(entry.includes(`\nExec=${appImage} %U\n`), entry)
   assert.ok((await readFile(join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'), 'utf8')).includes(`\nExec=${appImage} --open-path %F\n`))
@@ -513,7 +516,7 @@ void test('install-desktop.sh stops on a release without desktop packages or whi
 
   const noPackage = await run('install-desktop.sh', sandbox)
   assert.notEqual(noPackage.code, 0)
-  assert.match(noPackage.stderr, /servef 0\.1\.7 has no servef-desktop_0\.1\.7_linux_amd64\.AppImage; releases before desktop packages have none/)
+  assert.match(noPackage.stderr, /servef v0\.1\.7 has no servef-desktop_0\.1\.7_linux_amd64\.AppImage; releases before desktop packages have none/)
 
   const running = await run('install-desktop.sh', sandbox, { STUB_PGREP: '0' })
   assert.notEqual(running.code, 0)
@@ -525,6 +528,7 @@ void test('install-desktop.sh stops on a release without desktop packages or whi
 
 void test('uninstall.sh removes every install, reports package-managed copies, and keeps user data', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
   assertOk(await run('install-desktop-edge.sh', sandbox))
   const manual = join(sandbox.home, 'Applications', 'servef-desktop_0.1.7_linux_amd64.AppImage')
   await writeExecutable(manual, 'appimage')
