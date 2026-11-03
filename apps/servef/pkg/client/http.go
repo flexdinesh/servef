@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,6 +111,105 @@ func (c *HTTP) Events(ctx context.Context, request contract.EventsRequest) (*Str
 		query.Set("lease", request.Lease)
 	}
 	return openStream(c, ctx, "/api/events", query, projectEvent)
+}
+
+func (c *HTTP) Changes(ctx context.Context, project string) (contract.ChangesResponse, error) {
+	var response contract.ChangesResponse
+	return response, c.getJSON(ctx, "/api/changes", url.Values{"project": {project}}, &response)
+}
+
+func (c *HTTP) Diff(ctx context.Context, request contract.DiffRequest) (contract.DiffResponse, error) {
+	query := url.Values{"project": {request.Project}, "path": {request.Path}}
+	setNonEmpty(query, "oldPath", request.OldPath)
+	switch request.Kind {
+	case contract.DiffCommit:
+		query.Set("commit", request.Commit)
+	case contract.DiffBranch:
+		query.Set("branch", "1")
+	case contract.DiffRange:
+		query.Set("from", request.From)
+		query.Set("to", request.To)
+	}
+	// Branch parameters go whatever the kind, so the server rejects them
+	// where they do not apply.
+	setNonEmpty(query, "base", request.Base)
+	setNonEmpty(query, "head", request.Head)
+	setFlag(query, "uncommitted", request.Uncommitted)
+	setFlag(query, "ignoreWhitespace", request.IgnoreWhitespace)
+	var response contract.DiffResponse
+	return response, c.getJSON(ctx, "/api/diff", query, &response)
+}
+
+func (c *HTTP) Commits(ctx context.Context, request contract.CommitsRequest) (contract.CommitsResponse, error) {
+	query := url.Values{"project": {request.Project}}
+	setNonEmpty(query, "range", string(request.Range))
+	if request.Skip != 0 {
+		query.Set("skip", strconv.Itoa(request.Skip))
+	}
+	if request.Limit != 0 {
+		query.Set("limit", strconv.Itoa(request.Limit))
+	}
+	setNonEmpty(query, "head", request.Head)
+	setNonEmpty(query, "base", request.Base)
+	var response contract.CommitsResponse
+	return response, c.getJSON(ctx, "/api/commits", query, &response)
+}
+
+func (c *HTTP) CommitFiles(ctx context.Context, project, commit string) (contract.CommitFilesResponse, error) {
+	var response contract.CommitFilesResponse
+	return response, c.getJSON(ctx, "/api/commit-files", url.Values{"project": {project}, "commit": {commit}}, &response)
+}
+
+func (c *HTTP) BranchFiles(ctx context.Context, request contract.BranchFilesRequest) (contract.BranchFilesResponse, error) {
+	query := url.Values{"project": {request.Project}}
+	setNonEmpty(query, "base", request.Base)
+	setNonEmpty(query, "head", request.Head)
+	setFlag(query, "uncommitted", request.Uncommitted)
+	var response contract.BranchFilesResponse
+	return response, c.getJSON(ctx, "/api/branch-files", query, &response)
+}
+
+func (c *HTTP) RangeFiles(ctx context.Context, project, from, to string) (contract.RangeFilesResponse, error) {
+	var response contract.RangeFilesResponse
+	return response, c.getJSON(ctx, "/api/range-files", url.Values{"project": {project}, "from": {from}, "to": {to}}, &response)
+}
+
+func (c *HTTP) Refs(ctx context.Context, project string) (contract.RefsResponse, error) {
+	var response contract.RefsResponse
+	return response, c.getJSON(ctx, "/api/refs", url.Values{"project": {project}}, &response)
+}
+
+func (c *HTTP) BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error) {
+	query := url.Values{"project": {project}}
+	setNonEmpty(query, "base", base)
+	var response contract.StackResponse
+	return response, c.getJSON(ctx, "/api/branch-stack", query, &response)
+}
+
+func (c *HTTP) CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error) {
+	query := url.Values{"project": {request.Project}, "compare": {string(request.Compare)}}
+	setNonEmpty(query, "base", request.Base)
+	setNonEmpty(query, "head", request.Head)
+	setFlag(query, "uncommitted", request.Uncommitted)
+	setNonEmpty(query, "commit", request.Commit)
+	setNonEmpty(query, "from", request.From)
+	setNonEmpty(query, "to", request.To)
+	var response contract.CompareStatsResponse
+	return response, c.getJSON(ctx, "/api/compare-stats", query, &response)
+}
+
+// setNonEmpty sets a query parameter the server reads as absent when empty.
+func setNonEmpty(query url.Values, name, value string) {
+	if value != "" {
+		query.Set(name, value)
+	}
+}
+
+// setFlag sets a parameter whose only value is 1.
+func setFlag(query url.Values, name string, on bool) {
+	if on {
+		query.Set(name, "1")
+	}
 }
 
 func (c *HTTP) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {

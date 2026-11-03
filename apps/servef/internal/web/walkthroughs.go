@@ -14,11 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/git"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // Walkthroughs (decision 0047) are published by agents and read by the
@@ -69,6 +71,9 @@ func writeForeignOrigin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+// publishTimeout bounds checking and storing one published walkthrough.
+const publishTimeout = 20 * time.Second
+
 func (a *App) servePublishWalkthrough(w http.ResponseWriter, r *http.Request) {
 	if writeForeignOrigin(w, r) {
 		return
@@ -88,7 +93,7 @@ func (a *App) servePublishWalkthrough(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), publishTimeout)
 	defer cancel()
 	published, err := a.walkthroughs.Publish(ctx, draft)
 	var problems walkthrough.Problems
@@ -237,7 +242,7 @@ func (t walkthroughTargets) Check(ctx context.Context, projectID string, steps [
 }
 
 type compareResult struct {
-	sides compareSides
+	sides app.CompareSides
 	// problem rejects every step of the compare; its field is relative to
 	// the step's diff.
 	problem *walkthrough.Problem
@@ -374,7 +379,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 
 	result, ok := c.compares[compare]
 	if !ok {
-		sides, err := compareSidesOf(c.ctx, c.targets.openFile, repo, c.root, compare.Kind, compare.Base, compare.Head, false, hashes)
+		sides, err := app.ReadCompareSides(c.ctx, repo, c.root, c.targets.openFile, contract.CompareKind(compare.Kind), compare.Base, compare.Head, false, hashes)
 		switch {
 		case errors.Is(err, git.ErrUnknownBase):
 			result.problem = &walkthrough.Problem{Field: ".compare.base", Message: "is not a branch servef lists"}
@@ -399,9 +404,9 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 	}
 
 	var change *git.Change
-	for i, candidate := range result.sides.changes {
+	for i, candidate := range result.sides.Changes {
 		if candidate.Path == diff.Path || candidate.OldPath == diff.Path {
-			change = &result.sides.changes[i]
+			change = &result.sides.Changes[i]
 			break
 		}
 	}
@@ -413,7 +418,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 	if diff.Lines == nil {
 		return nil
 	}
-	side := result.sides.modified
+	side := result.sides.Modified
 	switch {
 	case diff.Side == walkthrough.SideOld && (change.Status == git.Added || change.Status == git.Untracked):
 		c.problem(field+".side", "is old, but the file is %s and has no old side", change.Status)
@@ -422,7 +427,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 		c.problem(field+".side", "is new, but the file is deleted and has no new side")
 		return nil
 	case diff.Side == walkthrough.SideOld:
-		side = result.sides.original
+		side = result.sides.Original
 	}
 	read, err := side(*change)
 	if err != nil {
@@ -438,7 +443,7 @@ func (c *stepChecker) diff(field string, diff *walkthrough.DiffTarget) error {
 		expect = &diff.Expect
 	}
 	// Diffs show sides up to PreviewLimit (decision 0004).
-	return c.lines(field, diff.Lines, fileType, read.size, document.PreviewLimit, read.open, expect)
+	return c.lines(field, diff.Lines, fileType, read.Size, document.PreviewLimit, read.Open, expect)
 }
 
 // lines checks that lines fall within a text file of size bytes read from

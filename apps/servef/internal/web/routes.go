@@ -106,30 +106,14 @@ func (a *App) newRoutes() *http.ServeMux {
 	api("/api/changes", func(w http.ResponseWriter, r *http.Request, query url.Values) {
 		a.serveChanges(w, r, query.Get("project"))
 	})
-	api("/api/diff", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveDiffs(w, r, query.Get("project"), query)
-	})
-	api("/api/commits", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveCommits(w, r, query.Get("project"), query)
-	})
-	api("/api/commit-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveCommitFiles(w, r, query.Get("project"), query.Get("commit"))
-	})
-	api("/api/branch-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveBranchFiles(w, r, query.Get("project"), query)
-	})
-	api("/api/branch-stack", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveBranchStack(w, r, query.Get("project"), query.Get("base"))
-	})
-	api("/api/range-files", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveRangeFiles(w, r, query.Get("project"), query.Get("from"), query.Get("to"))
-	})
-	api("/api/refs", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
-		a.serveRefs(w, query.Get("project"))
-	})
-	api("/api/compare-stats", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveCompareStats(w, r, query.Get("project"), query)
-	})
+	api("/api/diff", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveDiffs(w, r, query) })
+	api("/api/commits", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveCommits(w, r, query) })
+	api("/api/commit-files", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveCommitFiles(w, r, query) })
+	api("/api/branch-files", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveBranchFiles(w, r, query) })
+	api("/api/branch-stack", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveBranchStack(w, r, query) })
+	api("/api/range-files", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveRangeFiles(w, r, query) })
+	api("/api/refs", func(w http.ResponseWriter, _ *http.Request, query url.Values) { a.serveRefs(w, query) })
+	api("/api/compare-stats", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveCompareStats(w, r, query) })
 
 	// Walkthroughs (decision 0047).
 	api("/api/walkthroughs", func(w http.ResponseWriter, _ *http.Request, query url.Values) {

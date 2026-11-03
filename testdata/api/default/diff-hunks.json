@@ -1,0 +1,169 @@
+{
+  "path": "notes/hunks.txt",
+  "status": "modified",
+  "documentType": {
+    "id": "text",
+    "label": "Plain text",
+    "extensions": [
+      ".txt",
+      ".log",
+      ".adoc"
+    ],
+    "filenames": [
+      ".gitignore",
+      ".dockerignore"
+    ],
+    "language": "text",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": false
+  },
+  "original": {
+    "content": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\nline 40\n",
+    "size": 311,
+    "binary": false,
+    "tooLarge": false
+  },
+  "modified": {
+    "content": "line 1\nline 2 changed\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\n  line 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\ninserted\nline 39\nline 40",
+    "size": 321,
+    "binary": false,
+    "tooLarge": false
+  },
+  "lineDiff": {
+    "ignoreWhitespace": false,
+    "additions": 4,
+    "deletions": 4,
+    "hunks": [
+      {
+        "oldStart": 1,
+        "oldCount": 6,
+        "newStart": 1,
+        "newCount": 6,
+        "additions": 1,
+        "deletions": 1,
+        "blocks": [
+          {
+            "kind": "context",
+            "oldStart": 1,
+            "oldCount": 1,
+            "newStart": 1,
+            "newCount": 1
+          },
+          {
+            "kind": "change",
+            "oldStart": 2,
+            "oldCount": 1,
+            "newStart": 2,
+            "newCount": 1
+          },
+          {
+            "kind": "context",
+            "oldStart": 3,
+            "oldCount": 4,
+            "newStart": 3,
+            "newCount": 4
+          }
+        ]
+      },
+      {
+        "oldStart": 16,
+        "oldCount": 9,
+        "newStart": 16,
+        "newCount": 8,
+        "additions": 0,
+        "deletions": 1,
+        "blocks": [
+          {
+            "kind": "context",
+            "oldStart": 16,
+            "oldCount": 4,
+            "newStart": 16,
+            "newCount": 4
+          },
+          {
+            "kind": "change",
+            "oldStart": 20,
+            "oldCount": 1,
+            "newStart": 20,
+            "newCount": 0
+          },
+          {
+            "kind": "context",
+            "oldStart": 21,
+            "oldCount": 4,
+            "newStart": 20,
+            "newCount": 4
+          }
+        ]
+      },
+      {
+        "oldStart": 26,
+        "oldCount": 15,
+        "newStart": 25,
+        "newCount": 16,
+        "additions": 3,
+        "deletions": 2,
+        "blocks": [
+          {
+            "kind": "context",
+            "oldStart": 26,
+            "oldCount": 4,
+            "newStart": 25,
+            "newCount": 4
+          },
+          {
+            "kind": "change",
+            "oldStart": 30,
+            "oldCount": 1,
+            "newStart": 29,
+            "newCount": 1
+          },
+          {
+            "kind": "context",
+            "oldStart": 31,
+            "oldCount": 8,
+            "newStart": 30,
+            "newCount": 8
+          },
+          {
+            "kind": "change",
+            "oldStart": 39,
+            "oldCount": 0,
+            "newStart": 38,
+            "newCount": 1
+          },
+          {
+            "kind": "context",
+            "oldStart": 39,
+            "oldCount": 1,
+            "newStart": 39,
+            "newCount": 1
+          },
+          {
+            "kind": "change",
+            "oldStart": 40,
+            "oldCount": 1,
+            "newStart": 40,
+            "newCount": 1
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      {
+        "hunk": 1,
+        "oldStart": 7,
+        "newStart": 7,
+        "lines": 9
+      },
+      {
+        "hunk": 2,
+        "oldStart": 25,
+        "newStart": 24,
+        "lines": 1
+      }
+    ]
+  }
+}

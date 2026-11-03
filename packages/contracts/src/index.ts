@@ -3,3 +3,4 @@
 export * from "./errors.ts"
 export * from "./projects.ts"
 export * from "./documents.ts"
+export * from "./sourcecontrol.ts"

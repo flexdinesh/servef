@@ -32,6 +32,15 @@ func TestAPIFixturesSatisfyGeneratedContracts(t *testing.T) {
 		"format-error.json":     "ErrorResponse",
 		"error-*.json":          "ErrorResponse",
 		"search-documents.json": "SearchDocumentsResponse",
+		"changes*.json":         "ChangesResponse",
+		"diff-*.json":           "DiffResponse",
+		"commits*.json":         "CommitsResponse",
+		"commit-files.json":     "CommitFilesResponse",
+		"branch-files*.json":    "BranchFilesResponse",
+		"range-files.json":      "RangeFilesResponse",
+		"refs.json":             "RefsResponse",
+		"branch-stack.json":     "StackResponse",
+		"compare-stats*.json":   "CompareStatsResponse",
 	}
 	checked := 0
 	for pattern, typeName := range shapes {
@@ -54,7 +63,7 @@ func TestAPIFixturesSatisfyGeneratedContracts(t *testing.T) {
 			checked++
 		}
 	}
-	if checked < 15 {
+	if checked < 35 {
 		t.Errorf("checked %d fixtures, want every generated shape's", checked)
 	}
 }
@@ -118,6 +127,7 @@ const (
 // Thing is a thing.
 //
 //contract:rule enabled == true => name != ""
+//contract:rule enabled == true => note != ""
 type Thing struct {
 	// Name names it.
 	Name    string   ` + "`json:\"name\"`" + `
@@ -126,6 +136,7 @@ type Thing struct {
 	Tags    []string ` + "`json:\"tags\"`" + `
 	Next    *Thing   ` + "`json:\"next\"`" + `
 	Note    string   ` + "`json:\"note,omitempty\"`" + `
+	Count   *int     ` + "`json:\"count,omitempty\"`" + `
 	Skip    string   ` + "`json:\"-\"`" + `
 }
 `,
@@ -137,11 +148,14 @@ type Thing struct {
 	output := emit(m)
 	b := output["b.ts"]
 	for _, want := range []string{
-		`import { isArrayOf, isBoolean, isRecord, isString } from "./guards.ts"`,
+		`import { isArrayOf, isBoolean, isNumber, isRecord, isString } from "./guards.ts"`,
 		`import { type Mode, isMode } from "./a.ts"`,
 		"  // name names it.\n  name: string",
 		"  next: Thing | null",
 		"  note?: string",
+		"  count?: number",
+		"&& (value.count === undefined || isNumber(value.count))",
+		`&& (value.enabled !== true || (value.note ?? "") !== "")`,
 		"&& (value.next === null || isThing(value.next))",
 		"&& (value.note === undefined || isString(value.note))",
 		`&& (value.enabled !== true || value.name !== "")`,
@@ -171,6 +185,8 @@ func TestGeneratorRejectsWhatGuardsCannotExpress(t *testing.T) {
 		"untyped const":   "const C = \"c\"\n",
 		"unknown named":   "type T struct {\n\tU Unknown `json:\"u\"`\n}\n",
 		"optional number": "type T struct {\n\tN int `json:\"n,omitempty\"`\n}\n",
+		"optional struct": "type U struct{}\ntype T struct {\n\tU *U `json:\"u,omitempty\"`\n}\n",
+		"optional rule":   "//contract:rule n == true => s != \"\"\ntype T struct {\n\tN *bool `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
 	}
 	for name, body := range cases {
 		dir := writeContract(t, map[string]string{"a.go": "package contract\n\n" + body})

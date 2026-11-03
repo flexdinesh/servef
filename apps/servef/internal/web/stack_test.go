@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
-	"github.com/flexdinesh/servef/internal/git"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // stackRepo is historyRepo with a branch above, one commit past feature that
@@ -101,8 +101,8 @@ func TestBranchStackListsLayers(t *testing.T) {
 		target string
 		want   errorResponse
 	}{
-		{"/api/branch-stack?project=.&base=missing", errorResponse{Error: unknownBaseMessage, Code: unknownBaseCode}},
-		{"/api/branch-stack?project=.&base=origin/HEAD", errorResponse{Error: unknownBaseMessage, Code: unknownBaseCode}},
+		{"/api/branch-stack?project=.&base=missing", errorResponse{Error: unknownBaseMessage, Code: contract.CodeUnknownBase}},
+		{"/api/branch-stack?project=.&base=origin/HEAD", errorResponse{Error: unknownBaseMessage, Code: contract.CodeUnknownBase}},
 		{"/api/branch-stack", errorResponse{Error: noProjectMessage}},
 	} {
 		var failure errorResponse
@@ -127,36 +127,36 @@ func TestBranchStackInFolders(t *testing.T) {
 func TestHeadParameterChoosesTheHeadBranch(t *testing.T) {
 	root, initial, change, above := stackRepo(t)
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("above.md").Type()
+	markdown := documentType(app, "above.md")
 
 	// A layer against its parent branch lists only its own changes.
-	var layer branchFilesResponse
+	var layer contract.BranchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.&base=feature&head=above", &layer); status != http.StatusOK {
 		t.Fatalf("base=feature&head=above status = %d", status)
 	}
-	if want := (branchFilesResponse{Repository: true, Branch: "above", Base: "feature", MergeBase: change.String(), Head: above.String(), Ahead: 1, Files: []git.Change{{Path: "above.md", Status: git.Added}}, Warnings: []string{}}); !reflect.DeepEqual(layer, want) {
+	if want := (contract.BranchFilesResponse{Repository: true, Branch: "above", Base: "feature", MergeBase: change.String(), Head: above.String(), Ahead: 1, Files: []contract.ChangedFile{{Path: "above.md", Status: contract.ChangeAdded}}, Warnings: []string{}}); !reflect.DeepEqual(layer, want) {
 		t.Fatalf("base=feature&head=above = %+v\nwant %+v", layer, want)
 	}
 	// A layer against the base lists the whole stack below it.
-	var full branchFilesResponse
+	var full contract.BranchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.&head=above", &full); status != http.StatusOK || full.Branch != "above" || full.Base != "master" || full.MergeBase != initial.String() || full.Head != above.String() || full.Ahead != 2 || len(full.Files) != 8 {
 		t.Fatalf("head=above = %d %+v", status, full)
 	}
 	// Naming HEAD's branch answers as HEAD does.
-	var byDefault, named branchFilesResponse
+	var byDefault, named contract.BranchFilesResponse
 	requestJSON(t, app, "/api/branch-files?project=.", &byDefault)
 	if status := requestJSON(t, app, "/api/branch-files?project=.&head=feature", &named); status != http.StatusOK || !reflect.DeepEqual(named, byDefault) {
 		t.Fatalf("head=feature = %d %+v, default %+v", status, named, byDefault)
 	}
 
-	if got, want := diff(t, app, "branch=1&base=feature&head=above&path=above.md"), (diffResponse{Path: "above.md", Status: git.Added, DocumentType: markdown, Modified: text("# Above\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "branch=1&base=feature&head=above&path=above.md"), (contract.DiffResponse{Path: "above.md", Status: contract.ChangeAdded, DocumentType: markdown, Modified: text("# Above\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("diff head=above = %s", describeDiff(got))
 	}
 	var unchanged errorResponse
-	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&base=feature&head=above&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != unchangedCode {
+	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&base=feature&head=above&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != contract.CodeUnchanged {
 		t.Fatalf("diff head=above doc.md = %d %+v", status, unchanged)
 	}
-	assertStats(t, "stats head=above", compareStats(t, app, "compare=branch&base=feature&head=above"), compareStatsResponse{Files: []fileStats{
+	assertStats(t, "stats head=above", compareStats(t, app, "compare=branch&base=feature&head=above"), contract.CompareStatsResponse{Files: []contract.FileStats{
 		counted("above.md", 1, 0, blobHash("# Above\n")),
 	}})
 
@@ -169,7 +169,7 @@ func TestHeadParameterChoosesTheHeadBranch(t *testing.T) {
 		"/api/compare-stats?project=.&compare=branch&head=missing",
 	} {
 		var failure errorResponse
-		if status := requestJSON(t, app, target, &failure); status != http.StatusBadRequest || failure != (errorResponse{Error: unknownHeadMessage, Code: unknownHeadCode}) {
+		if status := requestJSON(t, app, target, &failure); status != http.StatusBadRequest || failure != (errorResponse{Error: unknownHeadMessage, Code: contract.CodeUnknownHead}) {
 			t.Errorf("%s = %d %+v", target, status, failure)
 		}
 	}

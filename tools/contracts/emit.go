@@ -104,7 +104,7 @@ func emitModule(m *model, source *sourceFile) string {
 			if !rule.then.equal {
 				then = "!=="
 			}
-			checks = append(checks, fmt.Sprintf("(value.%s %s %s || value.%s %s %s)", rule.when.field, when, rule.when.literal, rule.then.field, then, rule.then.literal))
+			checks = append(checks, fmt.Sprintf("(%s %s %s || %s %s %s)", ruleAccess(decl, rule.when.field), when, rule.when.literal, ruleAccess(decl, rule.then.field), then, rule.then.literal))
 		}
 		fmt.Fprintf(&body, "export function is%s(value: unknown): value is %s {\n  return %s\n}\n", decl.name, decl.name, strings.Join(checks, "\n    && "))
 	}
@@ -123,6 +123,15 @@ func emitModule(m *model, source *sourceFile) string {
 	}
 	file.WriteString(body.String())
 	return file.String()
+}
+
+// ruleAccess reads a field for a rule; an absent optional string is "", as
+// Go omits it.
+func ruleAccess(decl *typeDecl, name string) string {
+	if named, _ := decl.field(name); named.optional {
+		return fmt.Sprintf("(value.%s ?? \"\")", name)
+	}
+	return "value." + name
 }
 
 func importLine(names []string, from string) string {

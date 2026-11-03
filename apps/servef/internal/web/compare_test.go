@@ -24,6 +24,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/git"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // blobHash is git hash-object of content, computed independently of go-git.
@@ -32,31 +33,31 @@ func blobHash(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func counted(path string, additions, deletions int, blob string) fileStats {
-	return fileStats{Path: path, Status: statsCounted, Additions: &additions, Deletions: &deletions, Blob: blob}
+func counted(path string, additions, deletions int, blob string) contract.FileStats {
+	return contract.FileStats{Path: path, Status: contract.StatsCounted, Additions: &additions, Deletions: &deletions, Blob: blob}
 }
 
-func uncounted(path string, status statsStatus, blob string) fileStats {
-	return fileStats{Path: path, Status: status, Blob: blob}
+func uncounted(path string, status contract.StatsStatus, blob string) contract.FileStats {
+	return contract.FileStats{Path: path, Status: status, Blob: blob}
 }
 
-func compareStats(t *testing.T, app *App, query string) compareStatsResponse {
+func compareStats(t *testing.T, app *App, query string) contract.CompareStatsResponse {
 	t.Helper()
-	var response compareStatsResponse
+	var response contract.CompareStatsResponse
 	if status := requestJSON(t, app, "/api/compare-stats?project=.&"+query, &response); status != http.StatusOK {
 		t.Fatalf("%s status = %d", query, status)
 	}
 	return response
 }
 
-func assertStats(t *testing.T, label string, got compareStatsResponse, want compareStatsResponse) {
+func assertStats(t *testing.T, label string, got contract.CompareStatsResponse, want contract.CompareStatsResponse) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("%s = %s\nwant %s", label, describeStats(got), describeStats(want))
 	}
 }
 
-func describeStats(response compareStatsResponse) string {
+func describeStats(response contract.CompareStatsResponse) string {
 	var lines []string
 	for _, file := range response.Files {
 		line := fmt.Sprintf("%s %s %s", file.Path, file.Status, file.Blob)
@@ -92,11 +93,11 @@ func TestRefsListBranchesAndDefaultBase(t *testing.T) {
 	}
 	app := newTestApp(t, root)
 
-	var got refsResponse
+	var got contract.RefsResponse
 	if status := requestJSON(t, app, "/api/refs?project=.", &got); status != http.StatusOK {
 		t.Fatalf("status = %d", status)
 	}
-	want := refsResponse{Repository: true, Branch: "feature", DefaultBase: "origin/main", Branches: []git.BranchRef{
+	want := contract.RefsResponse{Repository: true, Branch: "feature", DefaultBase: "origin/main", Branches: []contract.BranchRef{
 		{Name: "feature"}, {Name: "master"}, {Name: "origin/feature", Remote: true}, {Name: "origin/main", Remote: true},
 	}}
 	if !reflect.DeepEqual(got, want) {
@@ -131,15 +132,15 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := newTestApp(t, root)
-	markdown := app.config.Types.Lookup("doc.md").Type()
+	markdown := documentType(app, "doc.md")
 
 	// Naming the default base answers exactly as the heuristic does.
-	var byDefault, named commitsResponse
+	var byDefault, named contract.CommitsResponse
 	requestJSON(t, app, "/api/commits?project=.", &byDefault)
 	if status := requestJSON(t, app, "/api/commits?project=.&base=master", &named); status != http.StatusOK || !reflect.DeepEqual(named, byDefault) || named.Base != "master" {
 		t.Fatalf("base=master = %d %+v, default %+v", status, named, byDefault)
 	}
-	var defaultFiles, namedFiles branchFilesResponse
+	var defaultFiles, namedFiles contract.BranchFilesResponse
 	requestJSON(t, app, "/api/branch-files?project=.", &defaultFiles)
 	if status := requestJSON(t, app, "/api/branch-files?project=.&base=master", &namedFiles); status != http.StatusOK || !reflect.DeepEqual(namedFiles, defaultFiles) {
 		t.Fatalf("branch-files base=master = %d %+v, default %+v", status, namedFiles, defaultFiles)
@@ -149,11 +150,11 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 	}
 
 	// A remote-tracking base the branch has not left behind.
-	var remote commitsResponse
+	var remote contract.CommitsResponse
 	if status := requestJSON(t, app, "/api/commits?project=.&base=origin/feature", &remote); status != http.StatusOK || remote.Base != "origin/feature" || remote.Ahead != 0 || len(remote.Commits) != 0 {
 		t.Fatalf("base=origin/feature = %d %+v", status, remote)
 	}
-	var remoteAll commitsResponse
+	var remoteAll contract.CommitsResponse
 	if status := requestJSON(t, app, "/api/commits?project=.&range=all&base=origin/feature", &remoteAll); status != http.StatusOK || remoteAll.Base != "origin/feature" || len(remoteAll.Commits) != 2 {
 		t.Fatalf("range=all base=origin/feature = %d %+v", status, remoteAll)
 	}
@@ -162,7 +163,7 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 		t.Fatalf("branch-files base=origin/feature = %s", body)
 	}
 	var unchanged errorResponse
-	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&base=origin/feature&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != unchangedCode {
+	if status := requestJSON(t, app, "/api/diff?project=.&branch=1&base=origin/feature&path=doc.md", &unchanged); status != http.StatusNotFound || unchanged.Code != contract.CodeUnchanged {
 		t.Fatalf("diff base=origin/feature = %d %+v", status, unchanged)
 	}
 
@@ -170,10 +171,10 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 	if err := gitRepo.Storer.SetReference(plumbing.NewHashReference("refs/heads/old", initial)); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := diff(t, app, "branch=1&base=old&path=doc.md"), (diffResponse{Path: "doc.md", Status: git.Modified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
+	if got, want := diff(t, app, "branch=1&base=old&path=doc.md"), (contract.DiffResponse{Path: "doc.md", Status: contract.ChangeModified, DocumentType: markdown, Original: text("# Before\n"), Modified: text("# After\n")}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("diff base=old = %s", describeDiff(got))
 	}
-	var local branchFilesResponse
+	var local contract.BranchFilesResponse
 	if status := requestJSON(t, app, "/api/branch-files?project=.&base=old", &local); status != http.StatusOK || local.Base != "old" || local.MergeBase != initial.String() || len(local.Files) != 7 {
 		t.Fatalf("branch-files base=old = %d %+v", status, local)
 	}
@@ -190,7 +191,7 @@ func TestBaseParameterChoosesTheBaseBranch(t *testing.T) {
 		"/api/compare-stats?project=.&compare=branch&base=missing",
 	} {
 		var failure errorResponse
-		if status := requestJSON(t, app, target, &failure); status != http.StatusBadRequest || failure != (errorResponse{Error: unknownBaseMessage, Code: unknownBaseCode}) {
+		if status := requestJSON(t, app, target, &failure); status != http.StatusBadRequest || failure != (errorResponse{Error: unknownBaseMessage, Code: contract.CodeUnknownBase}) {
 			t.Errorf("%s = %d %+v", target, status, failure)
 		}
 	}
@@ -205,20 +206,20 @@ func TestCompareStatsCountWorkingTreeChanges(t *testing.T) {
 	app := newTestApp(t, root)
 
 	got := compareStats(t, app, "compare=working")
-	assertStats(t, "working", got, compareStatsResponse{Files: []fileStats{
+	assertStats(t, "working", got, contract.CompareStatsResponse{Files: []contract.FileStats{
 		counted("added.go", 1, 0, blobHash("package main\n")),
-		uncounted("data.bin", statsBinary, blobHash("work\x00binary")),
+		uncounted("data.bin", contract.StatsBinary, blobHash("work\x00binary")),
 		counted("doc.md", 1, 1, blobHash("# After\n")),
 		counted("gone.md", 0, 1, blobHash("# Gone\n")),
 		// The worktree side is over the limit, so it is never read or hashed.
-		uncounted("large.txt", statsTooLarge, ""),
+		uncounted("large.txt", contract.StatsTooLarge, ""),
 		counted("moved/new.md", 0, 0, blobHash("# Moved\n")),
 		counted("notes.txt", 1, 0, blobHash("loose\n")),
 		counted("scope/x.zzz", 1, 1, blobHash("changed\n")),
 	}})
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	requestJSON(t, app, "/api/changes?project=.", &changes)
-	if got, want := paths(got.Files, func(file fileStats) string { return file.Path }), paths(changes.Files, func(change git.Change) string { return change.Path }); !reflect.DeepEqual(got, want) {
+	if got, want := paths(got.Files, func(file contract.FileStats) string { return file.Path }), paths(changes.Files, func(change contract.ChangedFile) string { return change.Path }); !reflect.DeepEqual(got, want) {
 		t.Fatalf("stats paths = %v, changes = %v", got, want)
 	}
 	if body := request(t, app, "/api/compare-stats?project=.&compare=working").Body.String(); !strings.Contains(body, `{"path":"large.txt","status":"tooLarge","blob":""}`) || !strings.Contains(body, `"additions":0,"deletions":0`) {
@@ -231,13 +232,13 @@ func TestCompareStatsCountHistoryChanges(t *testing.T) {
 	app := newTestApp(t, root)
 	large := blobHash(strings.Repeat("b", document.PreviewLimit+1))
 
-	commitStats := compareStatsResponse{Files: []fileStats{
+	commitStats := contract.CompareStatsResponse{Files: []contract.FileStats{
 		counted("added.go", 1, 0, blobHash("package main\n")),
-		uncounted("data.bin", statsBinary, blobHash("work\x00binary")),
+		uncounted("data.bin", contract.StatsBinary, blobHash("work\x00binary")),
 		counted("doc.md", 1, 1, blobHash("# After\n")),
 		counted("gone.md", 0, 1, blobHash("# Gone\n")),
 		// Git sides are hashed in their trees, so even unread ones carry it.
-		uncounted("large.txt", statsTooLarge, large),
+		uncounted("large.txt", contract.StatsTooLarge, large),
 		counted("moved.md", 0, 0, blobHash("# Moved\n")),
 		counted("scope/x.zzz", 1, 1, blobHash("changed\n")),
 	}}
@@ -245,11 +246,11 @@ func TestCompareStatsCountHistoryChanges(t *testing.T) {
 	assertStats(t, "branch", compareStats(t, app, "compare=branch"), commitStats)
 	assertStats(t, "branch base=master", compareStats(t, app, "compare=branch&base=master"), commitStats)
 	assertStats(t, "single-commit range", compareStats(t, app, "compare=range&from="+change.String()+"&to="+change.String()), commitStats)
-	assertStats(t, "range from root", compareStats(t, app, "compare=range&from="+initial.String()+"&to="+change.String()), compareStatsResponse{Files: []fileStats{
+	assertStats(t, "range from root", compareStats(t, app, "compare=range&from="+initial.String()+"&to="+change.String()), contract.CompareStatsResponse{Files: []contract.FileStats{
 		counted("added.go", 1, 0, blobHash("package main\n")),
-		uncounted("data.bin", statsBinary, blobHash("work\x00binary")),
+		uncounted("data.bin", contract.StatsBinary, blobHash("work\x00binary")),
 		counted("doc.md", 1, 0, blobHash("# After\n")),
-		uncounted("large.txt", statsTooLarge, large),
+		uncounted("large.txt", contract.StatsTooLarge, large),
 		counted("moved.md", 1, 0, blobHash("# Moved\n")),
 		counted("same.md", 1, 0, blobHash("# Same\n")),
 		counted("scope/x.zzz", 1, 0, blobHash("changed\n")),
@@ -333,7 +334,7 @@ func TestCompareStatsMatchGitNumstat(t *testing.T) {
 	wantWorking := map[string][2]int{"a.txt": {1, 1}}
 	for _, check := range []struct {
 		label string
-		stats compareStatsResponse
+		stats contract.CompareStatsResponse
 		want  map[string][2]int
 		args  []string
 	}{
@@ -342,7 +343,7 @@ func TestCompareStatsMatchGitNumstat(t *testing.T) {
 	} {
 		got := map[string][2]int{}
 		for _, file := range check.stats.Files {
-			if file.Status != statsCounted || file.Additions == nil || file.Deletions == nil {
+			if file.Status != contract.StatsCounted || file.Additions == nil || file.Deletions == nil {
 				t.Fatalf("%s %s = %+v", check.label, file.Path, file)
 			}
 			got[file.Path] = [2]int{*file.Additions, *file.Deletions}
@@ -378,31 +379,32 @@ func TestCompareStatsStopAtTheReadBudget(t *testing.T) {
 	root := changesRepo(t)
 	app := newTestApp(t, root)
 	// added.go's 13 bytes fit; data.bin's two sides do not.
-	app.statsBudget = 20
+	withStatsBudget(t, app, 20)
 
 	got := compareStats(t, app, "compare=working")
-	assertStats(t, "working", got, compareStatsResponse{BudgetExceeded: true, Files: []fileStats{
+	assertStats(t, "working", got, contract.CompareStatsResponse{BudgetExceeded: true, Files: []contract.FileStats{
 		counted("added.go", 1, 0, blobHash("package main\n")),
-		uncounted("data.bin", statsBudget, ""),
-		uncounted("doc.md", statsBudget, ""),
+		uncounted("data.bin", contract.StatsBudget, ""),
+		uncounted("doc.md", contract.StatsBudget, ""),
 		// A deleted file's blob comes from HEAD's tree, free of the budget.
-		uncounted("gone.md", statsBudget, blobHash("# Gone\n")),
-		uncounted("large.txt", statsBudget, ""),
-		uncounted("moved/new.md", statsBudget, ""),
-		uncounted("notes.txt", statsBudget, ""),
-		uncounted("scope/x.zzz", statsBudget, ""),
+		uncounted("gone.md", contract.StatsBudget, blobHash("# Gone\n")),
+		uncounted("large.txt", contract.StatsBudget, ""),
+		uncounted("moved/new.md", contract.StatsBudget, ""),
+		uncounted("notes.txt", contract.StatsBudget, ""),
+		uncounted("scope/x.zzz", contract.StatsBudget, ""),
 	}})
 
 	historyRoot, _, change := historyRepo(t)
 	history := newTestApp(t, historyRoot)
-	history.statsBudget = 0
+	// A one-byte budget fits no file.
+	withStatsBudget(t, history, 1)
 	stats := compareStats(t, history, "compare=commit&commit="+change.String())
 	if !stats.BudgetExceeded || len(stats.Files) != 7 {
-		t.Fatalf("zero budget = %s", describeStats(stats))
+		t.Fatalf("one-byte budget = %s", describeStats(stats))
 	}
 	for _, file := range stats.Files {
-		if file.Status != statsBudget || len(file.Blob) != 40 || file.Additions != nil {
-			t.Errorf("zero budget %s = %+v, want budget with its tree blob", file.Path, file)
+		if file.Status != contract.StatsBudget || len(file.Blob) != 40 || file.Additions != nil {
+			t.Errorf("one-byte budget %s = %+v, want budget with its tree blob", file.Path, file)
 		}
 	}
 }
@@ -454,7 +456,7 @@ func TestCompareStatsReadWorktreeFilesInsideTheRootOnly(t *testing.T) {
 	}
 
 	got := compareStats(t, app, "compare=working")
-	byPath := map[string]fileStats{}
+	byPath := map[string]contract.FileStats{}
 	for _, file := range got.Files {
 		byPath[file.Path] = file
 	}
@@ -526,9 +528,9 @@ func TestCompareStatsInFolders(t *testing.T) {
 // list the same files, in order, as the change fixtures they describe.
 func TestCompareFixturesMatchServerContract(t *testing.T) {
 	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
-	var refs refsResponse
+	var refs contract.RefsResponse
 	decodeFixture(t, filepath.Join(dir, "refs.json"), &refs)
-	var commits commitsResponse
+	var commits contract.CommitsResponse
 	decodeFixture(t, filepath.Join(dir, "commits.json"), &commits)
 	listed := map[string]bool{}
 	for _, branch := range refs.Branches {
@@ -538,18 +540,18 @@ func TestCompareFixturesMatchServerContract(t *testing.T) {
 		t.Errorf("refs = %+v, commits branch %q base %q", refs, commits.Branch, commits.Base)
 	}
 
-	var changes changesResponse
+	var changes contract.ChangesResponse
 	decodeFixture(t, filepath.Join(dir, "changes.json"), &changes)
-	var commitFiles commitFilesResponse
+	var commitFiles contract.CommitFilesResponse
 	decodeFixture(t, filepath.Join(dir, "commit-files.json"), &commitFiles)
-	for name, files := range map[string][]git.Change{"compare-stats.json": changes.Files, "compare-stats-history.json": commitFiles.Files} {
-		var stats compareStatsResponse
+	for name, files := range map[string][]contract.ChangedFile{"compare-stats.json": changes.Files, "compare-stats-history.json": commitFiles.Files} {
+		var stats contract.CompareStatsResponse
 		decodeFixture(t, filepath.Join(dir, name), &stats)
-		if got, want := paths(stats.Files, func(file fileStats) string { return file.Path }), paths(files, func(change git.Change) string { return change.Path }); !reflect.DeepEqual(got, want) {
+		if got, want := paths(stats.Files, func(file contract.FileStats) string { return file.Path }), paths(files, func(change contract.ChangedFile) string { return change.Path }); !reflect.DeepEqual(got, want) {
 			t.Errorf("%s paths = %v, want %v", name, got, want)
 		}
 		for _, file := range stats.Files {
-			if (file.Status == statsCounted) != (file.Additions != nil && file.Deletions != nil) || (file.Status != statsCounted && (file.Additions != nil || file.Deletions != nil)) {
+			if (file.Status == contract.StatsCounted) != (file.Additions != nil && file.Deletions != nil) || (file.Status != contract.StatsCounted && (file.Additions != nil || file.Deletions != nil)) {
 				t.Errorf("%s %s counts do not match status %s", name, file.Path, file.Status)
 			}
 			if _, ok := git.ParseHash(file.Blob); !ok && file.Blob != "" {

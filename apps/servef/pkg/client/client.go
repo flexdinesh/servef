@@ -33,6 +33,27 @@ type Client interface {
 	// is closed.
 	Events(ctx context.Context, request contract.EventsRequest) (*Stream[contract.Event], error)
 
+	// Changes lists the working tree's changes since HEAD.
+	Changes(ctx context.Context, project string) (contract.ChangesResponse, error)
+	// Diff reads one changed file's sides and their line diff.
+	Diff(ctx context.Context, request contract.DiffRequest) (contract.DiffResponse, error)
+	// Commits pages history.
+	Commits(ctx context.Context, request contract.CommitsRequest) (contract.CommitsResponse, error)
+	// CommitFiles lists a commit's changes against its first parent.
+	CommitFiles(ctx context.Context, project, commit string) (contract.CommitFilesResponse, error)
+	// BranchFiles lists a branch's net changes.
+	BranchFiles(ctx context.Context, request contract.BranchFilesRequest) (contract.BranchFilesResponse, error)
+	// RangeFiles lists a commit range's net changes, from (the oldest
+	// commit) to to (the newest).
+	RangeFiles(ctx context.Context, project, from, to string) (contract.RangeFilesResponse, error)
+	// Refs lists the branches a compare may use as its base.
+	Refs(ctx context.Context, project string) (contract.RefsResponse, error)
+	// BranchStack lists the local branches stacked with HEAD on base, or
+	// else the default base branch.
+	BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error)
+	// CompareStats counts the changed lines of a compare's files.
+	CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error)
+
 	// DaemonStatus returns the daemon's status.
 	DaemonStatus(ctx context.Context) (contract.DaemonStatus, error)
 	// DaemonRoots returns the daemon's served and skipped roots.

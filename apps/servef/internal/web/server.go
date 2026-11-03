@@ -55,11 +55,9 @@ type App struct {
 	app *app.App
 	// roots are the canonical served roots; the browser keys stored state by
 	// them. Each request takes one List snapshot.
-	roots    *projects.RootSet
-	metrics  metricsCollector
-	openFile func(string) (fs.File, error)
-	// statsBudget bounds the bytes one compare-stats request reads.
-	statsBudget  int64
+	roots        *projects.RootSet
+	metrics      metricsCollector
+	openFile     func(string) (fs.File, error)
 	shell        string
 	servers      *lsp.Manager
 	watches      *watch.Hub
@@ -113,7 +111,7 @@ func New(config Config) (*App, error) {
 	if config.LiveUpdates == nil {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
-	a := &App{config: config, roots: config.Roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
+	a := &App{config: config, roots: config.Roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
 	servers := config.LanguageServers
 	a.app, err = app.New(app.Config{
 		Roots:      config.Roots,

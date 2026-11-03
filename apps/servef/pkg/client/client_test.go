@@ -54,6 +54,12 @@ func newFixture(t *testing.T) fixture {
 			t.Fatal(err)
 		}
 	}
+	return serveFixture(t, root)
+}
+
+// serveFixture serves root through every transport.
+func serveFixture(t *testing.T, root string) fixture {
+	t.Helper()
 	root, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
