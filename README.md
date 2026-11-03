@@ -17,6 +17,7 @@ else.
 - Walkthroughs: agents publish guided tours of files and diffs with narration inline in the code, with `servef walkthrough publish` and no server needed ([agent skill](skills/servef-walkthrough/SKILL.md): `npx skills add flexdinesh/servef --skill servef-walkthrough`)
 - 28 themes, including Omarchy's built-ins; Mermaid diagrams; line links
 - Desktop app (macOS, Linux; preview): `servef .` opens projects in their own windows, with notifications for branch switches, commits, settled edits, and walkthroughs; it also opens servers started in a terminal and pasted `http://localhost` links, folders from Finder or Linux file managers (or dropped on a window), with recent folders, native file menus, and Reveal in File Manager, and can start at login
+- Native app (macOS, Linux; experimental): `servef-native` browses projects with native widgets instead of a web view; source, Markdown preview, uncommitted changes with a diff viewer, and live updates for now
 
 ## Install
 
@@ -53,6 +54,19 @@ supported install; Homebrew and `go install` are no longer offered
 Optional: macOS and Linux packages on
 [GitHub Releases](https://github.com/flexdinesh/servef/releases). See
 [desktop](apps/site/src/pages/docs/desktop.mdx) for install and Gatekeeper steps.
+
+### Native app (experimental)
+
+A smaller app drawn with native widgets (decision 0082); the desktop app stays
+the recommended one. It bundles its own `servef` for the daemon:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native.sh | sh
+# latest main
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native-edge.sh | sh
+```
+
+See [native app](apps/site/src/pages/docs/native.mdx).
 
 ## Usage
 

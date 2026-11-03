@@ -27,7 +27,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	// +optional
 	task string,
 ) (*dagger.Directory, error) {
-	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true}
+	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true, "native": true}
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
@@ -36,6 +36,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
 		"test:browser:webkit": "browser", "test:desktop": "desktop",
+		"test:native": "native",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -95,6 +96,16 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("SERVEF_BROWSER_BINARY", "/opt/servef").WithEnvVariable("SERVEF_BROWSER_ISOLATED", "1").
 			WithEnvVariable("SERVEF_BROWSER_ARTIFACT_DIR", "/out/fixtures").WithEnvVariable("SERVEF_BROWSER_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("PORT", "18090").WithEnvVariable("SERVEF_BROWSER_WEB_PORT", "15183")
+	}
+	if group == "native" {
+		// Opt-in (decision 0082): apps/native is its own module on Go 1.27,
+		// outside go.work.
+		native := tools.WithExec([]string{"sh", "-ec", nativeGo}).
+			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_NATIVE_GOROOT", "/usr/local/go1.27")
+		modules := native.WithDirectory("/src", subset(source, []string{"apps/native/go.mod", "apps/native/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
+			WithEnvVariable("GOROOT", "/usr/local/go1.27").WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/native", "mod", "download"})
+		runner = native.WithDirectory("/src", source).
+			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	// The baseline index is private and independent of host Git metadata.
 	baseline := tools.WithDirectory("/src", source).WithExec([]string{"sh", "-ec", "git init -q; git add --force --all; git -c user.name=validation -c user.email=validation@example.invalid commit -qm baseline"})
@@ -201,6 +212,17 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   libxdamage1 libxrandr2 libxfixes3 libpango-1.0-0 libcairo2 libdbus-1-3 libexpat1 libx11-xcb1 \
   openssh-server openssh-client
 rm -rf /var/lib/apt/lists/*
+`
+
+// nativeGo installs the checksum-verified Go 1.27.3 apps/native requires
+// (mygo v0.7.4) beside the locked toolchain.
+const nativeGo = `
+curl -fsSL https://go.dev/dl/go1.27.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
+printf '%s\n' '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  /tmp/go.tar.gz' | sha256sum -c -
+mkdir -p /usr/local/go1.27
+tar -xzf /tmp/go.tar.gz -C /usr/local/go1.27 --strip-components=1
+rm /tmp/go.tar.gz
+/usr/local/go1.27/bin/go version
 `
 
 const installBase = `

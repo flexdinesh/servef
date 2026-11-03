@@ -2,7 +2,7 @@
 # Removes servef from this machine: the CLI the user can write in ~/.local/bin,
 # ~/bin, or Go's install directory; the desktop app, desktop entry, icon, file
 # manager actions, and login entry the install scripts or the documented
-# manual steps create. Prints how to remove package-managed copies (deb,
+# manual steps create; the experimental native app (decision 0082). Prints how to remove package-managed copies (deb,
 # Homebrew, mise). Never deletes user data (app data, roots.json, caches).
 # Decision 0073.
 #
@@ -114,6 +114,26 @@ check_desktop_conflicts() {
 }
 # shared:desktop:end
 
+# shared:native:begin
+NATIVE_DATA="${XDG_DATA_HOME:-}"
+case "$NATIVE_DATA" in
+  /*) ;;
+  *) NATIVE_DATA="$HOME/.local/share" ;;
+esac
+NATIVE_HOME="$NATIVE_DATA/servef-native"
+NATIVE_DESKTOP_ID="servef-native.desktop"
+NATIVE_ICON="$NATIVE_DATA/icons/hicolor/512x512/apps/servef-native.png"
+
+native_running() {
+  has pgrep || return 1
+  if [ "$OS" = darwin ]; then
+    pgrep -f 'servef-native\.app/Contents/MacOS/servef-native' >/dev/null 2>&1
+  else
+    pgrep -x -u "$(id -u)" servef-native >/dev/null 2>&1
+  fi
+}
+# shared:native:end
+
 REMOVED=0
 
 # remove PATH... deletes each existing PATH.
@@ -167,12 +187,16 @@ detect_platform
 if app_running; then
   fail "the servef desktop app is running; quit it, then run this again"
 fi
+if native_running; then
+  fail "the servef native app is running; quit it, then run this again"
+fi
 if has servef && servef daemon status >/dev/null 2>&1; then
   fail "a servef daemon is running; stop it with 'servef daemon stop', then run this again"
 fi
 
 step "removing servef"
-remove "$HOME/.local/bin/servef" "$HOME/bin/servef" "$(go_bin)/servef"
+remove "$HOME/.local/bin/servef" "$HOME/bin/servef" "$(go_bin)/servef" \
+  "$HOME/.local/bin/servef-native" "$HOME/bin/servef-native"
 
 if [ "$OS" = linux ]; then
   entry="$DATA_HOME/applications/$DESKTOP_ID"
@@ -187,18 +211,21 @@ if [ "$OS" = linux ]; then
   if [ -f "$CONFIG_HOME/Thunar/uca.xml" ] && grep -q servef-desktop "$CONFIG_HOME/Thunar/uca.xml"; then
     warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
   fi
+  remove "$NATIVE_HOME" "$NATIVE_DATA/applications/$NATIVE_DESKTOP_ID" "$NATIVE_ICON"
   if [ -e "$DEB_EXECUTABLE" ]; then
     warn "the servef-desktop deb is installed; remove it with:"
     note "sudo apt remove servef-desktop"
   fi
 else
   for dir in /Applications "$HOME/Applications"; do
-    if [ -e "$dir/servef.app" ] && ! [ -w "$dir" ]; then
-      warn "cannot remove $dir/servef.app; remove it with:"
-      note "sudo rm -rf \"$dir/servef.app\""
-    else
-      remove "$dir/servef.app"
-    fi
+    for app in servef.app servef-native.app; do
+      if [ -e "$dir/$app" ] && ! [ -w "$dir" ]; then
+        warn "cannot remove $dir/$app; remove it with:"
+        note "sudo rm -rf \"$dir/$app\""
+      else
+        remove "$dir/$app"
+      fi
+    done
   done
   remove "$HOME/Library/Services/Open in servef.workflow"
   note "If servef is in System Settings > General > Login Items, remove it there."
@@ -241,8 +268,8 @@ if [ "$OS" = linux ]; then
     /*) ;;
     *) cache="$HOME/.cache" ;;
   esac
-  report_kept "$CONFIG_HOME/servef-desktop" "$CONFIG_HOME/servef" "$cache/servef"
+  report_kept "$CONFIG_HOME/servef-desktop" "$CONFIG_HOME/servef-native" "$CONFIG_HOME/servef" "$cache/servef"
 else
   support="$HOME/Library/Application Support"
-  report_kept "$support/servef-desktop" "$support/servef" "$HOME/Library/Caches/servef"
+  report_kept "$support/servef-desktop" "$support/servef-native" "$support/servef" "$HOME/Library/Caches/servef"
 fi

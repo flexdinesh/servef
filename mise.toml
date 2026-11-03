@@ -200,6 +200,10 @@ run = "go run ./tools/validate working --group browser --task _container:test:br
 description = "Run the browser tests on Playwright WebKit (opt-in, not in check:pr)"
 run = "go run ./tools/validate working --group browser --task _container:test:browser:webkit"
 
+[tasks."test:native"]
+description = "Run the native app's tests (opt-in, not in check:pr)"
+run = "go run ./tools/validate working --group native --task _container:test:native"
+
 [tasks."lint"]
 description = "Lint web and desktop in private current-edit snapshots"
 run = [
@@ -335,6 +339,17 @@ run = "pnpm exec node scripts/test-browser.ts --project=chromium"
 [tasks."_container:test:browser:webkit"]
 hide = true
 run = "pnpm exec node scripts/test-browser.ts --project=webkit"
+
+# Opt-in native app (decision 0082): its own Go 1.27 module outside go.work,
+# never part of check:pr. SERVEF_NATIVE_GOROOT is the container's Go 1.27;
+# mise's GOROOT points at the locked Go.
+[tasks."_container:native"]
+hide = true
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; go -C apps/native mod tidy -diff; go -C apps/native vet ./...; go -C apps/native test -race -count=1 ./...'"
+
+[tasks."_container:test:native"]
+hide = true
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; go -C apps/native mod tidy -diff; go -C apps/native vet ./...; go -C apps/native test -race -count=1 ./...'"
 
 [tasks."_container:test:desktop"]
 hide = true

@@ -1,0 +1,22 @@
+{
+  "name": "servef-native",
+  "slug": "servef-native",
+  "identifier": "io.github.flexdinesh.servef.native",
+  "version": "0.0.0",
+  "copyright": "© 2026 Dinesh Pandiyan",
+  "out": "build",
+  "urlSchemes": [
+    "servef-native"
+  ],
+  "macos": {
+    "signingIdentity": "-"
+  },
+  "linux": {
+    "comment": "Browse local files with servef (experimental native app)",
+    "categories": [
+      "Development"
+    ],
+    "webview": false,
+    "command": "servef-native"
+  }
+}

@@ -35,3 +35,8 @@
 # Desktop packages (apps/desktop/scripts/package.ts)
 /apps/desktop/dist/
 /apps/desktop/.build/
+
+# Native app builds (apps/native, decision 0082): mygo build output and the
+# servef binary it bundles
+/apps/native/build/
+/apps/native/resources/bin/
