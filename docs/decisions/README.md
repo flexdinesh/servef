@@ -82,5 +82,6 @@ rewriting history; update `Status` on the old record.
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Accepted |
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
-| [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted |
+| [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted |
+| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted |
