@@ -1,0 +1,9 @@
+{
+  "name": "@servef/contracts",
+  "private": true,
+  "type": "module",
+  "description": "Transport contract types and runtime guards generated from apps/servef/pkg/contract by tools/contracts (decision 0080).",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

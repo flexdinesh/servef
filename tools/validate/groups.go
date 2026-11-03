@@ -12,7 +12,7 @@ func isHostGroup(group string) bool {
 
 func taskBelongsToGroup(task, group string) bool {
 	owners := map[string]string{
-		"fmt:check": "repo", "tidy:check": "repo", "mise:check": "repo",
+		"fmt:check": "repo", "tidy:check": "repo", "mise:check": "repo", "contracts:check": "repo",
 		"typecheck:web": "web-static", "lint": "web-static", "typecheck:root": "tooling-static", "typecheck:site": "site-static",
 		"typecheck:desktop": "desktop-static", "lint:desktop": "desktop-static",
 		"vet": "go", "test:go": "go", "test:race": "go", "test:web": "frontend", "test:release": "tooling", "build:site": "docs", "test:browser": "browser",

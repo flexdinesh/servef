@@ -76,6 +76,7 @@ description = "Build embedded frontend assets; skipped when inputs are unchanged
 run = "pnpm build:web"
 sources = [
   "apps/web/src/**/*",
+  "packages/contracts/**/*",
   "patches/**/*",
   "apps/web/dev-server.ts",
   "apps/web/index.html",
@@ -156,6 +157,16 @@ run = "go run ./tools/validate working --group repo --task _host:tidy:check"
 [tasks."mise:check"]
 description = "Run mise:check against a private current-edit snapshot"
 run = "go run ./tools/validate working --group repo --task _host:mise:check"
+
+[tasks."contracts:check"]
+description = "Run contracts:check against a private current-edit snapshot"
+run = "go run ./tools/validate working --group repo --task _host:contracts:check"
+
+# Writes packages/contracts from apps/servef/pkg/contract (decision 0080); a
+# host operation like formatting.
+[tasks."contracts:generate"]
+description = "Generate packages/contracts from apps/servef/pkg/contract"
+run = "go run ./tools/contracts"
 
 [tasks."vet"]
 description = "Run vet against a private current-edit snapshot"
@@ -252,7 +263,7 @@ run = "go run ./tools/validate prune"
 # Host leaves run only in coordinator-owned snapshots.
 [tasks."_host:repo"]
 hide = true
-run = "node scripts/check.ts _host:fmt:check _host:tidy:check _host:mise:check"
+run = "node scripts/check.ts _host:fmt:check _host:tidy:check _host:mise:check _host:contracts:check"
 
 [tasks."_host:web-static"]
 hide = true
@@ -371,6 +382,10 @@ fi
 [tasks."_host:mise:check"]
 hide = true
 run = ["mise tasks validate", "mise fmt --check"]
+
+[tasks."_host:contracts:check"]
+hide = true
+run = "go run ./tools/contracts -check"
 
 [tasks."_container:test:go"]
 hide = true

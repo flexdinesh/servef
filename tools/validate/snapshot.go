@@ -239,7 +239,7 @@ func selected(group, name string) bool {
 		return true
 	}
 	switch name {
-	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
+	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "packages/contracts/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
 		return true
 	}
 	for _, prefix := range []string{".dagger/", "patches/", "tools/validate/"} {
@@ -252,17 +252,17 @@ func selected(group, name string) bool {
 		return true
 	}
 	prefixes := map[string][]string{
-		"repo":           {"apps/servef/", "tools/"},
-		"web-static":     {"apps/web/"},
+		"repo":           {"apps/servef/", "tools/", "packages/contracts/"},
+		"web-static":     {"apps/web/", "packages/"},
 		"tooling-static": {"scripts/", "tests/"},
 		"site-static":    {"apps/site/"},
 		"desktop-static": {"apps/desktop/", "apps/web/src/api/"},
-		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/"},
-		"frontend":       {"apps/web/", "testdata/"},
+		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/", "packages/"},
+		"frontend":       {"apps/web/", "testdata/", "packages/"},
 		"tooling":        {"scripts/", "tests/", "tools/validate/", "testdata/"},
 		"docs":           {"apps/site/"},
-		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/"},
-		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/"},
+		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/"},
+		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {
