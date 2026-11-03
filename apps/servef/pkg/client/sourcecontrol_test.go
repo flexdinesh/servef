@@ -1,4 +1,4 @@
-package client
+package client_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
+	"github.com/flexdinesh/servef/pkg/client"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -70,88 +71,88 @@ func TestSourceControlParityAcrossTransports(t *testing.T) {
 	missing := filepath.Join(f.root, "gone")
 	cases := []struct {
 		name string
-		call func(Client) outcome
+		call func(client.Client) outcome
 		kind contract.ErrorKind
 		code string
 	}{
-		{"Changes", func(c Client) outcome { return result(c.Changes(ctx, f.root)) }, "", ""},
-		{"Changes without a project", func(c Client) outcome { return result(c.Changes(ctx, "")) }, contract.KindInvalid, ""},
-		{"Changes of a missing project", func(c Client) outcome { return result(c.Changes(ctx, missing)) }, contract.KindNotFound, ""},
-		{"Diff working", func(c Client) outcome {
+		{"Changes", func(c client.Client) outcome { return result(c.Changes(ctx, f.root)) }, "", ""},
+		{"Changes without a project", func(c client.Client) outcome { return result(c.Changes(ctx, "")) }, contract.KindInvalid, ""},
+		{"Changes of a missing project", func(c client.Client) outcome { return result(c.Changes(ctx, missing)) }, contract.KindNotFound, ""},
+		{"Diff working", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Path: "README.md"}))
 		}, "", ""},
-		{"Diff untracked", func(c Client) outcome {
+		{"Diff untracked", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Path: "untracked.txt"}))
 		}, "", ""},
-		{"Diff ignoring whitespace", func(c Client) outcome {
+		{"Diff ignoring whitespace", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Path: "README.md", IgnoreWhitespace: true}))
 		}, "", ""},
-		{"Diff unchanged", func(c Client) outcome {
+		{"Diff unchanged", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Path: "lines.txt"}))
 		}, contract.KindNotFound, contract.CodeUnchanged},
-		{"Diff commit", func(c Client) outcome {
+		{"Diff commit", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffCommit, Commit: f.feature, Path: "lines.txt"}))
 		}, "", ""},
-		{"Diff bad commit", func(c Client) outcome {
+		{"Diff bad commit", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffCommit, Commit: "HEAD", Path: "lines.txt"}))
 		}, contract.KindInvalid, ""},
-		{"Diff branch", func(c Client) outcome {
+		{"Diff branch", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffBranch, Base: "main", Path: "lines.txt"}))
 		}, "", ""},
-		{"Diff branch with uncommitted", func(c Client) outcome {
+		{"Diff branch with uncommitted", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffBranch, Base: "main", Uncommitted: true, Path: "README.md"}))
 		}, "", ""},
-		{"Diff unknown base", func(c Client) outcome {
+		{"Diff unknown base", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffBranch, Base: "nope", Path: "lines.txt"}))
 		}, contract.KindInvalid, contract.CodeUnknownBase},
-		{"Diff base on a working diff", func(c Client) outcome {
+		{"Diff base on a working diff", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Base: "main", Path: "README.md"}))
 		}, contract.KindInvalid, ""},
-		{"Diff range", func(c Client) outcome {
+		{"Diff range", func(c client.Client) outcome {
 			return result(c.Diff(ctx, contract.DiffRequest{Project: f.root, Kind: contract.DiffRange, From: f.feature, To: f.feature, Path: "added.txt"}))
 		}, "", ""},
-		{"Commits", func(c Client) outcome {
+		{"Commits", func(c client.Client) outcome {
 			return result(c.Commits(ctx, contract.CommitsRequest{Project: f.root, Range: contract.RangeAll}))
 		}, "", ""},
-		{"Commits on the branch", func(c Client) outcome {
+		{"Commits on the branch", func(c client.Client) outcome {
 			return result(c.Commits(ctx, contract.CommitsRequest{Project: f.root, Base: "main", Limit: 1}))
 		}, "", ""},
-		{"Commits from a bad head", func(c Client) outcome {
+		{"Commits from a bad head", func(c client.Client) outcome {
 			return result(c.Commits(ctx, contract.CommitsRequest{Project: f.root, Head: "main"}))
 		}, contract.KindInvalid, ""},
-		{"CommitFiles", func(c Client) outcome { return result(c.CommitFiles(ctx, f.root, f.feature)) }, "", ""},
-		{"CommitFiles of an unknown commit", func(c Client) outcome {
+		{"CommitFiles", func(c client.Client) outcome { return result(c.CommitFiles(ctx, f.root, f.feature)) }, "", ""},
+		{"CommitFiles of an unknown commit", func(c client.Client) outcome {
 			return result(c.CommitFiles(ctx, f.root, "0123456789012345678901234567890123456789"))
 		}, contract.KindNotFound, ""},
-		{"BranchFiles", func(c Client) outcome {
+		{"BranchFiles", func(c client.Client) outcome {
 			return result(c.BranchFiles(ctx, contract.BranchFilesRequest{Project: f.root, Base: "main"}))
 		}, "", ""},
-		{"BranchFiles with uncommitted", func(c Client) outcome {
+		{"BranchFiles with uncommitted", func(c client.Client) outcome {
 			return result(c.BranchFiles(ctx, contract.BranchFilesRequest{Project: f.root, Uncommitted: true}))
 		}, "", ""},
-		{"BranchFiles of an unknown head", func(c Client) outcome {
+		{"BranchFiles of an unknown head", func(c client.Client) outcome {
 			return result(c.BranchFiles(ctx, contract.BranchFilesRequest{Project: f.root, Head: "nope"}))
 		}, contract.KindInvalid, contract.CodeUnknownHead},
-		{"BranchFiles with head and uncommitted", func(c Client) outcome {
+		{"BranchFiles with head and uncommitted", func(c client.Client) outcome {
 			return result(c.BranchFiles(ctx, contract.BranchFilesRequest{Project: f.root, Head: "feature", Uncommitted: true}))
 		}, contract.KindInvalid, ""},
-		{"RangeFiles", func(c Client) outcome { return result(c.RangeFiles(ctx, f.root, f.main, f.feature)) }, "", ""},
-		{"Refs", func(c Client) outcome { return result(c.Refs(ctx, f.root)) }, "", ""},
-		{"BranchStack", func(c Client) outcome { return result(c.BranchStack(ctx, f.root, "")) }, "", ""},
-		{"BranchStack on an unknown base", func(c Client) outcome { return result(c.BranchStack(ctx, f.root, "nope")) }, contract.KindInvalid, contract.CodeUnknownBase},
-		{"CompareStats working", func(c Client) outcome {
+		{"RangeFiles", func(c client.Client) outcome { return result(c.RangeFiles(ctx, f.root, f.main, f.feature)) }, "", ""},
+		{"Refs", func(c client.Client) outcome { return result(c.Refs(ctx, f.root)) }, "", ""},
+		{"BranchStack", func(c client.Client) outcome { return result(c.BranchStack(ctx, f.root, "")) }, "", ""},
+		{"BranchStack on an unknown base", func(c client.Client) outcome { return result(c.BranchStack(ctx, f.root, "nope")) }, contract.KindInvalid, contract.CodeUnknownBase},
+		{"CompareStats working", func(c client.Client) outcome {
 			return result(c.CompareStats(ctx, contract.CompareStatsRequest{Project: f.root, Compare: contract.CompareWorking}))
 		}, "", ""},
-		{"CompareStats branch", func(c Client) outcome {
+		{"CompareStats branch", func(c client.Client) outcome {
 			return result(c.CompareStats(ctx, contract.CompareStatsRequest{Project: f.root, Compare: contract.CompareBranch, Base: "main", Uncommitted: true}))
 		}, "", ""},
-		{"CompareStats commit", func(c Client) outcome {
+		{"CompareStats commit", func(c client.Client) outcome {
 			return result(c.CompareStats(ctx, contract.CompareStatsRequest{Project: f.root, Compare: contract.CompareCommit, Commit: f.feature}))
 		}, "", ""},
-		{"CompareStats with a stray parameter", func(c Client) outcome {
+		{"CompareStats with a stray parameter", func(c client.Client) outcome {
 			return result(c.CompareStats(ctx, contract.CompareStatsRequest{Project: f.root, Compare: contract.CompareWorking, Commit: f.feature}))
 		}, contract.KindInvalid, ""},
-		{"CompareStats of an unknown compare", func(c Client) outcome {
+		{"CompareStats of an unknown compare", func(c client.Client) outcome {
 			return result(c.CompareStats(ctx, contract.CompareStatsRequest{Project: f.root, Compare: "nope"}))
 		}, contract.KindInvalid, ""},
 	}
@@ -188,7 +189,7 @@ func TestSourceControlParityAcrossTransports(t *testing.T) {
 }
 
 func codeOf(err error) string {
-	var failure *Error
+	var failure *client.Error
 	if errors.As(err, &failure) {
 		return failure.Code
 	}
