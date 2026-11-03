@@ -1,6 +1,7 @@
+import type { PageData } from "@servef/contracts"
 import { useEffect, useMemo, useState } from "react"
 
-import { filePaths, type PageData } from "../api/page-data.ts"
+import { filePaths } from "../api/page-data.ts"
 import {
   projectMemory,
   readMemory,

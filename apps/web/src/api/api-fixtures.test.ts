@@ -7,11 +7,9 @@ import { isBranchFilesResponse, isCommitFilesResponse, isCommitsResponse, isRang
 import { isCompareStatsResponse } from "./compare-stats-contract.ts"
 import { isRefsResponse, unknownBaseCode } from "./refs-contract.ts"
 import { isStackResponse, unknownHeadCode } from "./stack-contract.ts"
-import { isFormatResult, isPageData, type PageData } from "./page-contract.ts"
+import { isDirectoriesResponse, isErrorResponse, isFormatResult, isPageData, isProjectsResponse, isSearchDocumentsResponse, type PageData } from "@servef/contracts"
 import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
 import { isProcessMetrics } from "../workspace/process-metrics.ts"
-import { isDirectoriesResponse, isProjectsResponse } from "./projects-contract.ts"
-import { isSearchDocumentsResponse } from "../features/search/search-documents.ts"
 import { isRecord } from "./http.ts"
 import { isWalkthrough, isWalkthroughSummaries } from "./walkthrough-contract.ts"
 import { isLiveChange, isLiveStatus } from "./events-contract.ts"
@@ -40,6 +38,9 @@ test("frontend API fixtures satisfy runtime contracts", async () => {
   }
   assert.equal(isFormatResult(await fixture("format-settings.json")), true)
   assert.equal(isFormatResult(await fixture("format-error.json")), false)
+  for (const name of ["format-error.json", "error-not-found.json", "error-unknown-base.json", "error-unknown-head.json", "error-walkthrough-unavailable.json"]) {
+    assert.equal(isErrorResponse(await fixture(name)), true, name)
+  }
   assert.equal(isNavigationResult(await fixture("definition.json")), true)
   assert.equal(isNavigationResult(await fixture("references.json")), true)
   assert.equal(isNavigationResult(await fixture("error-not-found.json")), false)

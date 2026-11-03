@@ -1,5 +1,5 @@
 import { isRecord } from "./http.ts"
-import { isFileType, type FileType } from "./page-contract.ts"
+import { isFileType, type FileType } from "@servef/contracts"
 
 // Transport contracts for /api/changes and /api/diff (decision 0024).
 

@@ -1,4 +1,5 @@
-import type { ProjectsResponse } from "../../api/projects-contract.ts"
+import type { ProjectsResponse } from "@servef/contracts"
+
 import { projectSections, type ProjectRow } from "../projects/project-picker.ts"
 
 // Pure content for the Welcome tab (decision 0052); WelcomeTab.tsx renders it.

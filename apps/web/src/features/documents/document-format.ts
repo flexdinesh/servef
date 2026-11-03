@@ -1,5 +1,5 @@
 import { fetchJSON, RequestError, type RequestFailure } from "../../api/http.ts"
-import { isFormatResult } from "../../api/page-contract.ts"
+import { isFormatResult } from "@servef/contracts"
 import { projectUrl } from "../../api/project-url.ts"
 
 export type FormatState =

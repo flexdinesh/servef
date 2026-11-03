@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { ProjectsResponse } from "../../api/projects-contract.ts"
+import type { ProjectsResponse } from "@servef/contracts"
 import { guideEntries, listsProjects, projectLines, startEntries, welcomeSections, type ProjectFacts } from "./welcome-model.ts"
 
 const response: ProjectsResponse = {

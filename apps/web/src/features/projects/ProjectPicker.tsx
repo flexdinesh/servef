@@ -35,7 +35,7 @@ import {
   type PickerRow,
   type PickerSection,
 } from "./project-picker.ts"
-import type { DirectoriesResponse, ProjectsResponse } from "../../api/projects-contract.ts"
+import type { DirectoriesResponse, ProjectsResponse } from "@servef/contracts"
 import { fetchDirectories, fetchProjects, takeLandingPick } from "../../api/projects-data.ts"
 import { desktopBridge } from "../../lib/desktop-bridge.ts"
 import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"

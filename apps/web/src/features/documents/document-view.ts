@@ -1,6 +1,8 @@
+import type { PageData } from "@servef/contracts"
+
+import type { DocumentMode } from "../../api/page-contract.ts"
 import type { FormatState } from "./document-format.ts"
 import { formatBytes } from "../../lib/format-bytes.ts"
-import type { DocumentMode, PageData } from "../../api/page-contract.ts"
 
 export type DocumentView =
   | { kind: "none" }

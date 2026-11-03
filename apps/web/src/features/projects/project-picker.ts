@@ -1,4 +1,4 @@
-import type { Directory, Project, ProjectKind, ProjectsResponse } from "../../api/projects-contract.ts"
+import type { Directory, Project, ProjectKind, ProjectsResponse } from "@servef/contracts"
 
 // Pure list logic for the project picker; ProjectPicker.tsx only renders it.
 
