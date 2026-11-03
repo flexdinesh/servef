@@ -1,6 +1,6 @@
 # 0078: apps/ and packages/ layout
 
-- Status: Accepted
+- Status: Accepted; revised by [0080](0080-application-layer-contracts-and-transports.md) (creates `packages/contracts`)
 - Date: 2026-11-03
 - Revises: [0021](0021-built-frontend-on-release-tags-and-edge.md)
   (`go install` from the repository root),

@@ -202,7 +202,7 @@ func readDiffSide(size int64, open func() (io.ReadCloser, error), fileType docum
 	if side.TooLarge {
 		limit = document.SniffLength
 	}
-	text, binary, err := readText(reader, limit)
+	text, binary, err := document.ReadText(reader, limit)
 	if err != nil {
 		return nil, err
 	}

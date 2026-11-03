@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flexdinesh/servef/internal/app"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,11 +23,9 @@ const (
 	// author's own zone shows.
 	authorTimeLayout = "2006-01-02T15:04:05-07:00"
 
-	commitUnavailableMessage = "That commit is unavailable."
-	invalidCommitMessage     = "That commit hash is invalid."
-	// commitFileUnavailableMessage reports an unknown commit, or a path the
-	// commit does not have.
-	commitFileUnavailableMessage = "That file is unavailable at that commit."
+	commitUnavailableMessage     = app.CommitUnavailableMessage
+	invalidCommitMessage         = app.InvalidCommitMessage
+	commitFileUnavailableMessage = app.CommitFileUnavailableMessage
 	unknownBaseMessage           = "That base branch doesn't exist."
 	// unknownBaseCode marks a 400 for a base branch /api/refs does not list.
 	unknownBaseCode    = "unknownBase"

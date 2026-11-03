@@ -16,7 +16,7 @@ import {
   splitBrowseInput,
   type PickerSection,
 } from "./project-picker.ts"
-import { isProjectsResponse, type ProjectsResponse } from "../../api/projects-contract.ts"
+import { isProjectsResponse, type ProjectsResponse } from "@servef/contracts"
 
 async function projects(): Promise<ProjectsResponse> {
   const value: unknown = JSON.parse(await readFile(new URL("../../../../../testdata/api/default/projects.json", import.meta.url), "utf8"))

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/flexdinesh/servef/internal/walkthrough"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // contentSecurityPolicy lets pages load only servef's own scripts, styles,
@@ -176,8 +177,8 @@ func (a *App) serveShellPage(w http.ResponseWriter, r *http.Request) {
 	if required {
 		selected, at = query.Get("path"), query.Get("at")
 	}
-	data, status := a.page(projectID, selected, at, required)
-	a.serveShell(w, status, &data)
+	data, err := a.app.Documents.Page(contract.PageRequest{Project: projectID, Path: selected, At: at, Required: required})
+	a.serveShell(w, statusOf(err), &data)
 }
 
 // reviewQuery reports a pathless /view that opens a review tab (decision

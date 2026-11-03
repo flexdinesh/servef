@@ -79,14 +79,14 @@ func Run(ctx context.Context, config Config) error {
 
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	control := &control{
-		roots:     roots,
-		skipped:   skipped,
-		rootsFile: config.RootsFile,
-		stop:      func() { cancel(errStopRequested) },
-		done:      ctx.Done(),
-		notices:   rt,
-		status: Status{
+	control := NewController(ControllerConfig{
+		Roots:     roots,
+		Skipped:   skipped,
+		RootsFile: config.RootsFile,
+		Stop:      func() { cancel(errStopRequested) },
+		Done:      ctx.Done(),
+		Notices:   rt,
+		Status: Status{
 			Protocol:  ProtocolVersion,
 			Version:   version.Number(),
 			PID:       pid(),
@@ -96,11 +96,11 @@ func Run(ctx context.Context, config Config) error {
 			IdleExit:  config.IdleExit.String(),
 			StartedAt: time.Now().UTC().Truncate(time.Second),
 		},
-	}
+	})
 	idle := newIdleTracker(config.IdleExit, func() { cancel(errIdle) })
 	defer idle.stop()
 	_, _ = fmt.Fprintf(log, "servef daemon %s (protocol %d) listening on %s with %d roots\n", version.Number(), ProtocolVersion, config.Socket, len(roots.List()))
-	err = rt.Serve(ctx, listener, idle.wrap(control.wrap(rt.Handler())))
+	err = rt.Serve(ctx, listener, idle.wrap(control.Handler(rt.Handler())))
 	_, _ = fmt.Fprintf(log, "servef daemon stopped: %v\n", context.Cause(ctx))
 	return err
 }

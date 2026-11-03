@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/web"
@@ -42,6 +43,10 @@ func New(config Config) (*Runtime, error) {
 	}
 	return &Runtime{app: app}, nil
 }
+
+// Application is the application layer the web app adapts, for in-process
+// clients (pkg/client).
+func (r *Runtime) Application() *app.App { return r.app.Application() }
 
 // Handler is the web application (Host check, CSP, routes).
 func (r *Runtime) Handler() http.Handler { return r.app }

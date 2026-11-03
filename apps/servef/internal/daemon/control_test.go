@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"io"
 	"net"
 	"net/http"
@@ -81,10 +82,10 @@ func serveControl(t *testing.T, handler http.Handler) *Client {
 	return NewClient(socket)
 }
 
-func testControl(t *testing.T, notices walkthroughNotices) (*control, chan struct{}) {
+func testControl(t *testing.T, notices WalkthroughNotices) (*Controller, chan struct{}) {
 	t.Helper()
 	done := make(chan struct{})
-	return &control{
+	return &Controller{
 		roots:     &projects.RootSet{},
 		rootsFile: filepath.Join(t.TempDir(), "servef", "roots.json"),
 		status:    Status{Protocol: ProtocolVersion, Version: "1.2.3"},
@@ -206,7 +207,7 @@ func receive(t *testing.T, signal <-chan struct{}, what string) {
 func TestControlEventsSendStatusThenWalkthroughs(t *testing.T) {
 	notices := newFakeNotices()
 	c, _ := testControl(t, notices)
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 
 	stream := openEvents(t, client)
 	stream.expect(t, ": servef\n")
@@ -224,7 +225,7 @@ func TestControlEventsSendStatusThenWalkthroughs(t *testing.T) {
 func TestControlEventsEndWithTheDaemonOrTheRequest(t *testing.T) {
 	notices := newFakeNotices()
 	c, done := testControl(t, notices)
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 
 	first := openEvents(t, client)
 	first.expect(t, ": servef\n")
@@ -243,7 +244,7 @@ func TestControlEventsEndWithTheDaemonOrTheRequest(t *testing.T) {
 func TestControlEventsRefuseBrowserRequests(t *testing.T) {
 	notices := newFakeNotices()
 	c, _ := testControl(t, notices)
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	for _, header := range []http.Header{{"Origin": {"http://localhost"}}, {"Sec-Fetch-Site": {"same-origin"}}} {
 		if code, _, body := controlRequest(t, client, http.MethodGet, "events", header, ""); code != http.StatusForbidden || !strings.Contains(string(body), "browserRequest") {
 			t.Errorf("GET /_daemon/events with %v = %d %s, want 403 browserRequest", header, code, body)
@@ -263,7 +264,7 @@ func TestControlEventsKeepTheDaemonFromIdling(t *testing.T) {
 	fired := make(chan struct{}, 1)
 	idle := newIdleTracker(idleExit, func() { fired <- struct{}{} })
 	t.Cleanup(idle.stop)
-	client := serveControl(t, idle.wrap(c.wrap(http.NotFoundHandler())))
+	client := serveControl(t, idle.wrap(c.Handler(http.NotFoundHandler())))
 
 	stream := openEvents(t, client)
 	stream.expect(t, ": servef\n")
@@ -279,7 +280,7 @@ func TestControlEventsKeepTheDaemonFromIdling(t *testing.T) {
 
 func TestControlRejectsWrongMethods(t *testing.T) {
 	c, _ := testControl(t, newFakeNotices())
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	for name, test := range map[string]struct{ method, allow string }{
 		"open":         {http.MethodGet, http.MethodPost},
 		"walkthroughs": {http.MethodGet, http.MethodPost},
@@ -295,7 +296,7 @@ func TestControlRejectsWrongMethods(t *testing.T) {
 func TestControlAnnouncesWalkthroughs(t *testing.T) {
 	notices := newFakeNotices()
 	c, _ := testControl(t, notices)
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 
 	code, _, body := controlRequest(t, client, http.MethodPost, "walkthroughs", jsonHeader, `{"project":"/work/repo","id":"tour","created":true}`)
 	if code != http.StatusAccepted || strings.TrimSpace(string(body)) != `{"announced":true}` {
@@ -343,7 +344,7 @@ func TestControlOpenReportsUnsavedRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.rootsFile = filepath.Join(blocker, "roots.json")
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	dir := canonicalDir(t, t.TempDir(), "work")
 
 	_, err := client.Open(context.Background(), dir)
@@ -493,7 +494,7 @@ func (d *testDaemon) status(t *testing.T) Status {
 
 func TestControlListsDirectories(t *testing.T) {
 	c, _ := testControl(t, newFakeNotices())
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	dir := t.TempDir()
 	for _, name := range []string{"beta", "Alpha", ".config", "repo/.git", "node_modules", "target"} {
 		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
@@ -518,10 +519,10 @@ func TestControlListsDirectories(t *testing.T) {
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatal(err)
 	}
-	entry := func(name string, repository, hidden bool) projects.BrowseEntry {
-		return projects.BrowseEntry{Name: name, Path: filepath.Join(dir, name), Repository: repository, Hidden: hidden}
+	entry := func(name string, repository, hidden bool) contract.BrowseEntry {
+		return contract.BrowseEntry{Name: name, Path: filepath.Join(dir, name), Repository: repository, Hidden: hidden}
 	}
-	want := directoriesResponse{Path: dir, Parent: filepath.Dir(dir), Entries: []projects.BrowseEntry{
+	want := directoriesResponse{Path: dir, Parent: filepath.Dir(dir), Entries: []contract.BrowseEntry{
 		entry(".config", false, true), entry("Alpha", false, false), entry("beta", false, false),
 		entry("linked", false, false), entry("repo", true, false), entry("target", false, false),
 	}}
@@ -532,7 +533,7 @@ func TestControlListsDirectories(t *testing.T) {
 
 func TestControlDirectoriesDefaultToHomeAndStopAtTheRoot(t *testing.T) {
 	c, _ := testControl(t, newFakeNotices())
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	var got directoriesResponse
@@ -548,7 +549,7 @@ func TestControlDirectoriesDefaultToHomeAndStopAtTheRoot(t *testing.T) {
 
 func TestControlDirectoriesTruncate(t *testing.T) {
 	c, _ := testControl(t, newFakeNotices())
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	dir := t.TempDir()
 	for i := range maxDirectoryEntries + 1 {
 		if err := os.Mkdir(filepath.Join(dir, fmt.Sprintf("d%05d", i)), 0o755); err != nil {
@@ -564,7 +565,7 @@ func TestControlDirectoriesTruncate(t *testing.T) {
 
 func TestControlDirectoriesErrors(t *testing.T) {
 	c, _ := testControl(t, newFakeNotices())
-	client := serveControl(t, c.wrap(http.NotFoundHandler()))
+	client := serveControl(t, c.Handler(http.NotFoundHandler()))
 	dir := t.TempDir()
 	file := filepath.Join(dir, "file")
 	if err := os.WriteFile(file, nil, 0o644); err != nil {

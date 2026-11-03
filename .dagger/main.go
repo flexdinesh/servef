@@ -17,7 +17,7 @@ const baseImage = "debian:bookworm-slim@sha256:a3bba7dc7dbcc1f37c2856c51fc9a7fac
 // Run returns diagnostics and status.json even for failed checks. The caller
 // must inspect exitCode before issuing a successful validation receipt.
 func (m *ServefValidation) Run(ctx context.Context,
-	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "apps/desktop/node_modules", "apps/desktop/build", "apps/desktop/test-results", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
+	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "apps/desktop/node_modules", "packages/contracts/node_modules", "apps/desktop/build", "apps/desktop/test-results", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
 	source *dagger.Directory, group string, attempt string,
 	// +optional
 	force bool,
@@ -53,7 +53,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	runner := prepared.WithDirectory("/src", source)
 	if group == "go" || group == "browser" || group == "desktop" {
 		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
-			Include: []string{"apps/web/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/desktop/package.json"},
+			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/desktop/package.json"},
 			Exclude: []string{"apps/web/**/*.test.ts", "apps/web/**/*.test.tsx", "apps/web/test-fixtures/**"},
 		})
 		web := prepared.WithDirectory("/src", webSource)
@@ -67,7 +67,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	}
 	var binary *dagger.File
 	if group == "browser" || group == "desktop" {
-		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**"})).
+		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"})).
 			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
 		if force {
@@ -179,7 +179,7 @@ func preparationTools(lock string) (string, string, error) {
 }
 
 func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
-	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "patches/**"})).
+	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "packages/contracts/package.json", "patches/**"})).
 		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
 }
 

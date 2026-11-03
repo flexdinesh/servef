@@ -189,7 +189,7 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 		if err := a.hostDependencies(ctx, source, private, m, tools, log, files); err != nil {
 			return err
 		}
-	} else if m.Task == "" || m.Task == "_host:tidy:check" {
+	} else if m.Task == "" || m.Task == "_host:tidy:check" || m.Task == "_host:contracts:check" {
 		if err := a.hostGoModules(ctx, private, m, tools, log, files); err != nil {
 			return err
 		}
@@ -233,7 +233,7 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 func (a app) hostDependencies(ctx context.Context, source, private string, m inputManifest, tools hostTools, log io.Writer, files []*os.File) error {
 	var inputs []entry
 	for _, e := range m.Files {
-		if e.Path == "package.json" || e.Path == "pnpm-lock.yaml" || e.Path == "pnpm-workspace.yaml" || e.Path == "apps/web/package.json" || e.Path == "apps/site/package.json" || e.Path == "apps/desktop/package.json" || e.Path == ".npmrc" || e.Path == ".pnpmfile.cjs" || e.Path == "tools/validate/host.go" || strings.HasPrefix(e.Path, "patches/") {
+		if e.Path == "package.json" || e.Path == "pnpm-lock.yaml" || e.Path == "pnpm-workspace.yaml" || e.Path == "apps/web/package.json" || e.Path == "apps/site/package.json" || e.Path == "apps/desktop/package.json" || e.Path == "packages/contracts/package.json" || e.Path == ".npmrc" || e.Path == ".pnpmfile.cjs" || e.Path == "tools/validate/host.go" || strings.HasPrefix(e.Path, "patches/") {
 			inputs = append(inputs, e)
 		}
 	}

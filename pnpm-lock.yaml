@@ -94,6 +94,9 @@ importers:
       '@pierre/trees':
         specifier: 1.0.0-beta.6
         version: 1.0.0-beta.6(patch_hash=d9023c6c356398cde15929db84dbb2a621f39a43dbb8d5f8163281671504ea89)(@pierre/theme@2.0.0)(@shikijs/themes@4.5.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(shiki@4.5.0)
+      '@servef/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@tanstack/react-router':
         specifier: 1.170.33
         version: 1.170.33(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -149,6 +152,8 @@ importers:
       vite:
         specifier: 8.2.2
         version: 8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
+
+  packages/contracts: {}
 
 packages:
 

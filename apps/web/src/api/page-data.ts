@@ -1,15 +1,12 @@
-import {
-  isPageData,
-  type PageData,
-  type PageLoadResult,
-  type TreeNode,
-} from "./page-contract.ts"
+import { isPageData, type PageData, type TreeNode } from "@servef/contracts"
+
+import type { PageLoadResult } from "./page-contract.ts"
 
 import { fetchJSON, RequestError, type RequestFailure } from "./http.ts"
 import { projectUrl } from "./project-url.ts"
 
-export { isPageData, isPageLoadResult } from "./page-contract.ts"
-export type { PageData, PageLoadResult, TreeNode } from "./page-contract.ts"
+export { isPageLoadResult } from "./page-contract.ts"
+export type { PageLoadResult } from "./page-contract.ts"
 
 export const emptyPage: PageData = {
   roots: [],

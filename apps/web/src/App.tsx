@@ -23,10 +23,10 @@ import { documentView, resolveDocumentMode } from "./features/documents/document
 import { FileTree } from "./features/explorer/FileTree.tsx"
 import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
 import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./lib/line-selection.ts"
+import type { PageData } from "@servef/contracts"
 import {
   emptyPage,
   isPageLoadResult,
-  type PageData,
   type PageLoadResult,
 } from "./api/page-data.ts"
 import type { SearchMatch } from "./features/search/search-engine.ts"

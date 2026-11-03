@@ -26,6 +26,7 @@ mise run typecheck
 mise run fmt:check
 mise run tidy:check
 mise run mise:check
+mise run contracts:check
 ```
 
 Before creating or updating a PR, commit changes and validate clean committed
@@ -55,7 +56,7 @@ container execution from recursively launching the host coordinator.
 
 | Group | Location | Coverage |
 | --- | --- | --- |
-| repo | Host | Go formatting, module tidy diff, mise validation |
+| repo | Host | Go formatting, module tidy diff, mise validation, generated-contract drift (`contracts:check`) |
 | web-static | Host | Web typecheck, oxlint, stylelint |
 | tooling-static | Host | Root TypeScript check for scripts and tests |
 | site-static | Host | Site TypeScript check |

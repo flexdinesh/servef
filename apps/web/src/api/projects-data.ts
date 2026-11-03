@@ -1,5 +1,6 @@
+import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "@servef/contracts"
+
 import { failureReason, fetchJSON } from "./http.ts"
-import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "./projects-contract.ts"
 import { lastProject, type WorkspaceMemory } from "../workspace/workspace-memory.ts"
 
 export function fetchProjects(signal?: AbortSignal): Promise<ProjectsResponse> {

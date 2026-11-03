@@ -1,6 +1,8 @@
+import type { PageData } from "@servef/contracts"
+
+import type { DocumentMode } from "../../api/page-contract.ts"
 import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { documentModes, modeDisabledReason } from "./document-view.ts"
-import type { DocumentMode, PageData } from "../../api/page-contract.ts"
 export type { DocumentMode } from "../../api/page-contract.ts"
 
 interface DocumentModeToggleProps {

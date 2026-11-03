@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import type { DiffResponse, DiffSide } from "../../api/changes-contract.ts"
-import type { FileType } from "../../api/page-contract.ts"
+import type { FileType } from "@servef/contracts"
 import { binaryChangeLabel, diffContent, parseTextDiff } from "./diff-content.ts"
 import { diffStats, diffStatsLabel } from "./diff-stats.ts"
 

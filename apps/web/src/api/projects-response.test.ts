@@ -2,8 +2,9 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
+import { isProjectsResponse } from "@servef/contracts"
+
 import { isRecord } from "./http.ts"
-import { isProjectsResponse } from "./projects-contract.ts"
 
 async function projectsFixture(): Promise<Record<string, unknown>> {
   const value: unknown = JSON.parse(await readFile(new URL("../../../../testdata/api/default/projects.json", import.meta.url), "utf8"))

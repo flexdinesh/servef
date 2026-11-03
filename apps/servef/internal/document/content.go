@@ -1,6 +1,9 @@
 package document
 
-import "bytes"
+import (
+	"bytes"
+	"io"
+)
 
 const (
 	// SniffLength is the prefix inspected for binary content.
@@ -54,4 +57,24 @@ func Available(fileType Type, size int64, binary bool) Availability {
 		HighlightDisabled: large || binary,
 		SearchExcluded:    binary || size > SearchLimit,
 	}
+}
+
+// ReadText sniffs r's prefix, then reads its text up to limit bytes in total
+// (when limit >= 0). A binary file stops at the prefix, which it returns.
+func ReadText(r io.Reader, limit int64) (text []byte, binary bool, err error) {
+	prefix, err := io.ReadAll(io.LimitReader(r, SniffLength))
+	if err != nil {
+		return nil, false, err
+	}
+	if IsBinary(prefix) {
+		return prefix, true, nil
+	}
+	if limit >= 0 {
+		r = io.LimitReader(r, max(limit-int64(len(prefix)), 0))
+	}
+	rest, err := io.ReadAll(r)
+	if err != nil {
+		return nil, false, err
+	}
+	return append(prefix, rest...), false, nil
 }

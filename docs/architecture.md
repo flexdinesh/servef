@@ -7,7 +7,10 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 
 - `apps/servef/main.go` and `apps/servef/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0076).
 - `apps/servef/internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
-- `apps/servef/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
+- `apps/servef/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API (typed `Controller` operations and their HTTP handler), roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
+- `apps/servef/internal/app/`: transport-agnostic application layer (decision 0080); domain services return `pkg/contract` types or typed errors; no `net/http`.
+- `apps/servef/pkg/contract/`: transport shapes, error kinds and codes, request parameters; the source `tools/contracts` generates `packages/contracts` from.
+- `apps/servef/pkg/client/`: Go client over HTTP/TCP, HTTP/Unix socket, and in process.
 - `apps/servef/internal/files/`: file discovery, always-skipped directories, and safe path resolution.
 - `apps/servef/internal/projects/`: root validation, repository/worktree discovery, project resolution.
 - `apps/servef/internal/git/`: go-git reads for Source Control; go-git types stay inside it.
@@ -16,10 +19,11 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 - `apps/servef/internal/control/`: authenticated discovery and shutdown of local servef processes.
 - `apps/servef/internal/browser/`, `apps/servef/internal/version/`: browser launch and build version.
 - `apps/servef/internal/desktopapp/`: desktop app detection (`servef://` handler), opening URLs in it, install hints.
-- `apps/servef/internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
+- `apps/servef/internal/web/`: HTTP adapter (`routes.go`, kind-to-status mapping, server-sent events, raw bytes), shell/static delivery, embedded assets, and the domains not yet moved to `internal/app`.
+- `packages/contracts/`: generated TypeScript types and runtime guards (`@servef/contracts`); never edited by hand.
 - `apps/web/`: React UI, Vite build, frontend tests and development tooling.
 - `apps/desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
-- `tools/`: validation and release tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
+- `tools/`: validation, release, and contract-generation tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
 - `docs/decisions/`: decision records for scope, file types, views, and limits.
@@ -57,12 +61,16 @@ preload bridge.
 ## Dependency direction
 
 ```text
-CLI -> daemon -> runtime -> web -> document, files, git, lsp, projects
+CLI -> daemon -> runtime -> web -> app -> document, files, git, projects, watch
+web -> document, files, git, lsp, projects (domains not yet in app)
+app, web, client -> pkg/contract
+client -> HTTP (TCP, Unix socket) | app + daemon.Controller (in process)
 desktop -> daemon socket -> runtime
 desktop -> ssh -> remote daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
-React -> HTTP API -> HTTP application
+React -> @servef/contracts guards -> HTTP API -> HTTP adapter -> app
+pkg/contract -> tools/contracts -> packages/contracts (committed, drift-checked)
 web source -> Vite -> apps/servef/internal/web/dist -> go:embed -> servef binary
 ```
 
@@ -113,9 +121,12 @@ serves in a browser.
 ## Growth rules
 
 1. Organize Go around capabilities before adding abstraction layers.
-2. Keep HTTP DTOs at the transport boundary; move document/search behavior out
-   of `apps/servef/internal/web` as those capabilities grow.
-3. Keep browser contracts runtime-validated. Introduce OpenAPI and generated
-   client types when manual contract maintenance becomes material.
-4. Create shared frontend packages only after a second consumer exists.
+2. Keep transport shapes in `pkg/contract` and domain operations in
+   `internal/app`; `internal/web` only adapts them to HTTP (decision 0080).
+3. Keep browser contracts runtime-validated with guards generated from
+   `pkg/contract`; move remaining hand-written guards there as their domains
+   migrate.
+4. Create shared frontend packages only after a second consumer exists;
+   generated contracts (`packages/contracts`, decision 0080) are shared by
+   design.
 5. Add task-graph caching only when multiple projects or CI timings justify it.

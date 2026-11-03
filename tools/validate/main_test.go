@@ -274,9 +274,20 @@ func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
 	}
 	// Every group installs the whole workspace from the frozen lockfile.
 	for _, group := range groups {
-		if !selected(group, "apps/desktop/package.json") {
-			t.Fatalf("%s lacks the desktop workspace manifest", group)
+		for _, manifest := range []string{"apps/desktop/package.json", "packages/contracts/package.json"} {
+			if !selected(group, manifest) {
+				t.Fatalf("%s lacks the workspace manifest %s", group, manifest)
+			}
 		}
+	}
+	// Generated contracts feed the drift check and every web consumer.
+	for _, group := range []string{"repo", "web-static", "go", "frontend", "browser", "desktop"} {
+		if !selected(group, "packages/contracts/src/index.ts") {
+			t.Fatalf("%s misses the generated contracts", group)
+		}
+	}
+	if !taskBelongsToGroup("_host:contracts:check", "repo") {
+		t.Fatal("contracts:check is not a repo check")
 	}
 	for _, name := range []string{"apps/desktop/build/main.mjs", "apps/desktop/test-results/trace.zip", "apps/desktop/node_modules/electron/index.js"} {
 		if !excluded(name) {

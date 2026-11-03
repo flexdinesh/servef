@@ -1,5 +1,5 @@
 import { formatBytes } from "../lib/format-bytes.ts"
-import type { PageData } from "../api/page-data.ts"
+import type { PageData } from "@servef/contracts"
 import { projectUrl } from "../api/project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"

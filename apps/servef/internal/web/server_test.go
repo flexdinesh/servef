@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -105,7 +106,7 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 	if search.Code != http.StatusOK {
 		t.Fatalf("search status = %d, want %d", search.Code, http.StatusOK)
 	}
-	var searchData searchDocumentsResponse
+	var searchData contract.SearchDocumentsResponse
 	if err := json.Unmarshal(search.Body.Bytes(), &searchData); err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +298,7 @@ func TestSearchDocumentsReturnsPathsNamesAndOriginalSource(t *testing.T) {
 		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
 
-	var payload searchDocumentsResponse
+	var payload contract.SearchDocumentsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +338,7 @@ func TestSearchDocumentsSkipFilesGitIgnoresInLinkedWorktree(t *testing.T) {
 	}
 
 	response := request(t, newTestApp(t, root), "/api/search-documents?project=.")
-	var payload searchDocumentsResponse
+	var payload contract.SearchDocumentsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +373,7 @@ func TestSearchDocumentsRescansAndReportsUnreadableFiles(t *testing.T) {
 	if partial.Code != http.StatusOK {
 		t.Fatalf("partial status = %d, want %d", partial.Code, http.StatusOK)
 	}
-	var payload searchDocumentsResponse
+	var payload contract.SearchDocumentsResponse
 	if err := json.Unmarshal(partial.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +392,7 @@ func TestSearchDocumentsEncodesHostileMarkdownAsJSON(t *testing.T) {
 	if strings.Contains(response.Body.String(), "</script>") {
 		t.Fatalf("JSON response contains an unescaped script terminator: %s", response.Body.String())
 	}
-	var payload searchDocumentsResponse
+	var payload contract.SearchDocumentsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
@@ -756,10 +757,10 @@ func request(t *testing.T, handler http.Handler, target string) *httptest.Respon
 	return response
 }
 
-func requestPageData(t *testing.T, handler http.Handler, target string) (*httptest.ResponseRecorder, pageData) {
+func requestPageData(t *testing.T, handler http.Handler, target string) (*httptest.ResponseRecorder, contract.PageData) {
 	t.Helper()
 	response := request(t, handler, target)
-	var data pageData
+	var data contract.PageData
 	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
 		t.Fatal(err)
 	}
@@ -801,7 +802,7 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		pattern string
 		value   func() any
 	}{
-		{"page-*.json", func() any { return &pageData{} }},
+		{"page-*.json", func() any { return &contract.PageData{} }},
 		{"changes*.json", func() any { return &changesResponse{} }},
 		{"diff-*.json", func() any { return &diffResponse{} }},
 		{"commits*.json", func() any { return &commitsResponse{} }},
@@ -811,20 +812,20 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"range-files.json", func() any { return &rangeFilesResponse{} }},
 		{"refs.json", func() any { return &refsResponse{} }},
 		{"compare-stats*.json", func() any { return &compareStatsResponse{} }},
-		{"projects.json", func() any { return &projectsResponse{} }},
-		{"directories.json", func() any { return &directoriesResponse{} }},
+		{"projects.json", func() any { return &contract.ProjectsResponse{} }},
+		{"directories.json", func() any { return &contract.DirectoriesResponse{} }},
 		{"navigation-status.json", func() any { return &navigationStatus{} }},
 		{"definition.json", func() any { return &navigationResponse{} }},
 		{"references.json", func() any { return &navigationResponse{} }},
-		{"search-documents.json", func() any { return &searchDocumentsResponse{} }},
-		{"format-settings.json", func() any { return &formatResponse{} }},
+		{"search-documents.json", func() any { return &contract.SearchDocumentsResponse{} }},
+		{"format-settings.json", func() any { return &contract.FormatResult{} }},
 		{"format-error.json", func() any { return &errorResponse{} }},
 		{"error-*.json", func() any { return &errorResponse{} }},
 		{"metrics*.json", func() any { return &processMetrics{} }},
 		{"walkthroughs.json", func() any { return &[]walkthrough.Summary{} }},
 		{"walkthrough-*.json", func() any { return &walkthroughResponse{} }},
-		{"events-status.json", func() any { return &statusEvent{} }},
-		{"events-change.json", func() any { return &changeEvent{} }},
+		{"events-status.json", func() any { return &contract.StatusEvent{} }},
+		{"events-change.json", func() any { return &contract.ChangeEvent{} }},
 	}
 	for _, name := range names {
 		matched := false

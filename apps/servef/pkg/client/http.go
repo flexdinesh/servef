@@ -1,0 +1,333 @@
+package client
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/flexdinesh/servef/pkg/contract"
+)
+
+// maxResponse bounds a JSON answer; search documents are the largest.
+const maxResponse = 512 << 20
+
+// HTTP is the HTTP transport: TCP to a CLI server (NewTCP) or a Unix socket
+// to the daemon (NewUnix).
+type HTTP struct {
+	base   string
+	http   *http.Client
+	daemon bool
+}
+
+var _ Client = (*HTTP)(nil)
+
+// NewTCP returns a client for the CLI server at base, such as
+// "http://127.0.0.1:7971". Daemon calls return ErrNoDaemon.
+func NewTCP(base string) *HTTP {
+	return &HTTP{base: strings.TrimSuffix(base, "/"), http: newHTTPClient(&http.Transport{Proxy: nil})}
+}
+
+// NewUnix returns a client for the daemon at socket, sending Host
+// "localhost" as the daemon's web routes require.
+func NewUnix(socket string) *HTTP {
+	dialer := &net.Dialer{Timeout: 2 * time.Second}
+	transport := &http.Transport{
+		Proxy: nil,
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "unix", socket)
+		},
+	}
+	return &HTTP{base: "http://localhost", http: newHTTPClient(transport), daemon: true}
+}
+
+func newHTTPClient(transport *http.Transport) *http.Client {
+	return &http.Client{
+		Transport:     transport,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+}
+
+func (c *HTTP) Projects(ctx context.Context) (contract.ProjectsResponse, error) {
+	var response contract.ProjectsResponse
+	return response, c.getJSON(ctx, "/api/projects", nil, &response)
+}
+
+func (c *HTTP) Directories(ctx context.Context, path string) (contract.DirectoriesResponse, error) {
+	var response contract.DirectoriesResponse
+	return response, c.getJSON(ctx, "/api/directories", url.Values{"path": {path}}, &response)
+}
+
+func (c *HTTP) Page(ctx context.Context, request contract.PageRequest) (contract.PageData, error) {
+	query := url.Values{"project": {request.Project}}
+	if request.Required || request.Path != "" {
+		query.Set("path", request.Path)
+	}
+	if request.At != "" {
+		query.Set("at", request.At)
+	}
+	response, err := c.do(ctx, http.MethodGet, "/api/page", query, nil)
+	if err != nil {
+		return contract.PageData{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	// A page answers at any status and carries its own error.
+	var page contract.PageData
+	if err := decode(response.Body, &page); err != nil {
+		return contract.PageData{}, fmt.Errorf("servef: page answer (%s): %w", response.Status, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return page, &Error{Kind: contract.KindForStatus(response.StatusCode), Message: page.Error}
+	}
+	return page, nil
+}
+
+func (c *HTTP) Format(ctx context.Context, request contract.FormatRequest) (contract.FormatResult, error) {
+	query := url.Values{"project": {request.Project}, "path": {request.Path}}
+	if request.At != "" {
+		query.Set("at", request.At)
+	}
+	var response contract.FormatResult
+	return response, c.getJSON(ctx, "/api/format", query, &response)
+}
+
+func (c *HTTP) SearchDocuments(ctx context.Context, project string) (contract.SearchDocumentsResponse, error) {
+	var response contract.SearchDocumentsResponse
+	return response, c.getJSON(ctx, "/api/search-documents", url.Values{"project": {project}}, &response)
+}
+
+func (c *HTTP) Events(ctx context.Context, request contract.EventsRequest) (*Stream[contract.Event], error) {
+	query := url.Values{"project": {request.Project}}
+	if request.Lease != "" {
+		query.Set("lease", request.Lease)
+	}
+	return openStream(c, ctx, "/api/events", query, projectEvent)
+}
+
+func (c *HTTP) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {
+	var status contract.DaemonStatus
+	if !c.daemon {
+		return status, ErrNoDaemon
+	}
+	return status, c.getJSON(ctx, "/_daemon/status", nil, &status)
+}
+
+func (c *HTTP) DaemonRoots(ctx context.Context) (contract.DaemonRoots, error) {
+	var roots contract.DaemonRoots
+	if !c.daemon {
+		return roots, ErrNoDaemon
+	}
+	return roots, c.getJSON(ctx, "/_daemon/roots", nil, &roots)
+}
+
+func (c *HTTP) DaemonOpen(ctx context.Context, path string) (contract.DaemonOpenResult, error) {
+	var result contract.DaemonOpenResult
+	if !c.daemon {
+		return result, ErrNoDaemon
+	}
+	body, err := json.Marshal(contract.DaemonPathRequest{Path: path})
+	if err != nil {
+		return result, err
+	}
+	response, err := c.do(ctx, http.MethodPost, "/_daemon/open", nil, body)
+	if err != nil {
+		return result, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return result, answer(response, &result)
+}
+
+func (c *HTTP) DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error) {
+	var listing contract.DaemonDirectories
+	if !c.daemon {
+		return listing, ErrNoDaemon
+	}
+	return listing, c.getJSON(ctx, "/_daemon/directories", url.Values{"path": {path}}, &listing)
+}
+
+func (c *HTTP) DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEvent], error) {
+	if !c.daemon {
+		return nil, ErrNoDaemon
+	}
+	return openStream(c, ctx, "/_daemon/events", nil, daemonEvent)
+}
+
+// do sends a request; a JSON body is sent as application/json.
+func (c *HTTP) do(ctx context.Context, method, path string, query url.Values, body []byte) (*http.Response, error) {
+	target := c.base + path
+	if len(query) > 0 {
+		target += "?" + query.Encode()
+	}
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	request, err := http.NewRequestWithContext(ctx, method, target, reader)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Accept", "application/json")
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	return c.http.Do(request)
+}
+
+func (c *HTTP) getJSON(ctx context.Context, path string, query url.Values, result any) error {
+	response, err := c.do(ctx, http.MethodGet, path, query, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return answer(response, result)
+}
+
+// answer decodes a 2xx body into result, or the error body into an *Error.
+func answer(response *http.Response, result any) error {
+	if response.StatusCode >= 200 && response.StatusCode < 300 {
+		return decode(response.Body, result)
+	}
+	return failure(response)
+}
+
+func failure(response *http.Response) error {
+	var body contract.ErrorResponse
+	if err := decode(response.Body, &body); err != nil || body.Error == "" {
+		return fmt.Errorf("servef: %s answered %s without an error body", response.Request.URL.Path, response.Status)
+	}
+	return &Error{Kind: contract.KindForStatus(response.StatusCode), Code: body.Code, Message: body.Error}
+}
+
+func decode(body io.Reader, result any) error {
+	return json.NewDecoder(io.LimitReader(body, maxResponse)).Decode(result)
+}
+
+// openStream opens a server-sent event stream; parse turns each named event
+// into T and skips names it does not know.
+func openStream[T any](c *HTTP, ctx context.Context, path string, query url.Values, parse func(name string, data []byte) (T, bool, error)) (*Stream[T], error) {
+	ctx, cancel := context.WithCancel(ctx)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path+encodeQuery(query), nil)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	request.Header.Set("Accept", "text/event-stream")
+	response, err := c.http.Do(request)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		defer cancel()
+		defer func() { _ = response.Body.Close() }()
+		return nil, failure(response)
+	}
+	reader := bufio.NewReader(response.Body)
+	next := func() (T, error) {
+		var zero T
+		for {
+			name, data, err := readEvent(reader)
+			if err != nil {
+				if ctx.Err() != nil {
+					return zero, ctx.Err()
+				}
+				return zero, err
+			}
+			event, ok, err := parse(name, data)
+			if err != nil {
+				return zero, err
+			}
+			if ok {
+				return event, nil
+			}
+		}
+	}
+	return &Stream[T]{next: next, close: func() { cancel(); _ = response.Body.Close() }}, nil
+}
+
+func encodeQuery(query url.Values) string {
+	if len(query) == 0 {
+		return ""
+	}
+	return "?" + query.Encode()
+}
+
+// readEvent reads one server-sent event, skipping comments; a stream that
+// ends between events is io.EOF.
+func readEvent(reader *bufio.Reader) (string, []byte, error) {
+	var name string
+	var data []byte
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return "", nil, io.EOF
+			}
+			return "", nil, err
+		}
+		line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
+		switch {
+		case line == "":
+			if name != "" || data != nil {
+				return name, data, nil
+			}
+		case strings.HasPrefix(line, ":"):
+		case strings.HasPrefix(line, "event:"):
+			name = strings.TrimPrefix(strings.TrimPrefix(line, "event:"), " ")
+		case strings.HasPrefix(line, "data:"):
+			if data != nil {
+				data = append(data, '\n')
+			}
+			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")...)
+		}
+	}
+}
+
+func projectEvent(name string, data []byte) (contract.Event, bool, error) {
+	event := contract.Event{Name: name}
+	var target any
+	switch name {
+	case contract.EventStatus:
+		event.Status = &contract.StatusEvent{}
+		target = event.Status
+	case contract.EventChange:
+		event.Change = &contract.ChangeEvent{}
+		target = event.Change
+	case contract.EventHead:
+		event.Head = &contract.HeadEvent{}
+		target = event.Head
+	default:
+		return contract.Event{}, false, nil
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		return contract.Event{}, false, fmt.Errorf("servef: %s event: %w", name, err)
+	}
+	return event, true, nil
+}
+
+func daemonEvent(name string, data []byte) (contract.DaemonEvent, bool, error) {
+	event := contract.DaemonEvent{Name: name}
+	var target any
+	switch name {
+	case contract.DaemonEventStatus:
+		event.Status = &contract.DaemonStatusEvent{}
+		target = event.Status
+	case contract.DaemonEventWalkthrough:
+		event.Walkthrough = &contract.WalkthroughEvent{}
+		target = event.Walkthrough
+	default:
+		return contract.DaemonEvent{}, false, nil
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		return contract.DaemonEvent{}, false, fmt.Errorf("servef: %s event: %w", name, err)
+	}
+	return event, true, nil
+}

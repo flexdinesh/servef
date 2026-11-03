@@ -1,9 +1,10 @@
+import type { SearchDocumentsResponse } from "@servef/contracts"
+
 import { isRecord } from "../../api/http.ts"
 import type { SearchDocument, SearchOutcome, SearchQuery } from "./search-engine.ts"
-import type { SearchDocumentsResponse } from "./search-documents.ts"
 import { isSearchOutcome } from "./search-results.ts"
 
-export type { SearchDocumentsResponse } from "./search-documents.ts"
+export type { SearchDocumentsResponse } from "@servef/contracts"
 
 export type SearchResults = Extract<SearchOutcome, { kind: "results" }>
 

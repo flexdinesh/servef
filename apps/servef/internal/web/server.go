@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
 	"github.com/flexdinesh/servef/internal/watch"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // Config controls project discovery and the live file scan performed for each
@@ -45,9 +47,12 @@ type Config struct {
 	SessionKey string
 }
 
-// App composes discovery and document handlers into the HTTP API.
+// App adapts the application layer (internal/app) and the remaining domain
+// handlers to the HTTP API.
 type App struct {
 	config Config
+	// app holds the migrated domain services (decision 0080).
+	app *app.App
 	// roots are the canonical served roots; the browser keys stored state by
 	// them. Each request takes one List snapshot.
 	roots    *projects.RootSet
@@ -64,12 +69,9 @@ type App struct {
 	routes  *http.ServeMux
 }
 
-// errorResponse is every JSON error body. Code, when set, names a failure
-// the browser handles specially.
-type errorResponse struct {
-	Error string `json:"error"`
-	Code  string `json:"code,omitempty"`
-}
+// errorResponse is every JSON error body (contract.ErrorResponse). Code,
+// when set, names a failure the browser handles specially.
+type errorResponse = contract.ErrorResponse
 
 // workspace is the project directory a request is scoped to.
 type workspace struct {
@@ -78,9 +80,9 @@ type workspace struct {
 }
 
 const (
-	noProjectMessage          = "No project was selected."
-	projectUnavailableMessage = "Project unavailable."
-	insideRepositoryMessage   = "Project unavailable: folders inside a repository open with the repository."
+	noProjectMessage          = app.NoProjectMessage
+	projectUnavailableMessage = app.ProjectUnavailableMessage
+	insideRepositoryMessage   = app.InsideRepositoryMessage
 )
 
 // New constructs a request-time scanning web interface.
@@ -111,11 +113,30 @@ func New(config Config) (*App, error) {
 	if config.LiveUpdates == nil {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
-	app := &App{config: config, roots: config.Roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
-	app.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: func(name string) (fs.File, error) { return app.openFile(name) }})
-	app.routes = app.newRoutes()
-	return app, nil
+	a := &App{config: config, roots: config.Roots, openFile: openFile, statsBudget: compareStatsBudget, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
+	servers := config.LanguageServers
+	a.app, err = app.New(app.Config{
+		Roots:      config.Roots,
+		ScanDepth:  config.ScanDepth,
+		Depth:      config.Depth,
+		Types:      config.Types,
+		Navigation: func(family string) bool { _, ok := servers.ServerFor(family); return ok },
+		SessionKey: config.SessionKey,
+		// Reads go through the App's openFile, which tests replace.
+		OpenFile: func(name string) (fs.File, error) { return a.openFile(name) },
+		Watches:  config.LiveUpdates,
+	})
+	if err != nil {
+		return nil, err
+	}
+	a.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: func(name string) (fs.File, error) { return a.openFile(name) }})
+	a.routes = a.newRoutes()
+	return a, nil
 }
+
+// Application is the application layer this App adapts, for in-process
+// clients (pkg/client).
+func (a *App) Application() *app.App { return a.app }
 
 // builtinServers intersects each built-in server with the registered text families.
 func builtinServers(types *document.Registry) []lsp.Server {
@@ -189,22 +210,29 @@ func (a *App) project(id string) (workspace, int, string) {
 	return projectIn(a.roots.List(), id)
 }
 
-// projectIn resolves a project ID within roots.
+// projectIn resolves a project ID within roots (app.ResolveProject), with
+// the status and message of a failure.
 func projectIn(roots []string, id string) (workspace, int, string) {
-	if id == "" {
-		return workspace{}, http.StatusBadRequest, noProjectMessage
-	}
-	root, err := projects.Resolve(roots, id)
-	if errors.Is(err, files.ErrPathEscape) {
-		return workspace{}, http.StatusBadRequest, projectUnavailableMessage
-	}
-	if errors.Is(err, projects.ErrInsideRepository) {
-		return workspace{}, http.StatusNotFound, insideRepositoryMessage
-	}
+	project, err := app.ResolveProject(roots, id)
 	if err != nil {
-		return workspace{}, http.StatusNotFound, projectUnavailableMessage
+		failure := app.AsError(err)
+		return workspace{}, contract.HTTPStatus(failure.Kind), failure.Message
 	}
-	return workspace{id: id, root: root}, http.StatusOK, ""
+	return workspace{id: project.ID, root: project.Root}, http.StatusOK, ""
+}
+
+// writeError writes err as an errorResponse with its kind's status.
+func writeError(w http.ResponseWriter, err error) {
+	failure := app.AsError(err)
+	writeJSON(w, contract.HTTPStatus(failure.Kind), failure.Response())
+}
+
+// statusOf is the status an operation's outcome answers: 200, or err's kind.
+func statusOf(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+	return contract.HTTPStatus(app.AsError(err).Kind)
 }
 
 func (a *App) scan(root string) (*files.Index, error) {
