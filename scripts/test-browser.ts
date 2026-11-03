@@ -56,7 +56,7 @@ try {
   const binary = process.env.SERVEF_BROWSER_BINARY
     ? path.resolve(process.env.SERVEF_BROWSER_BINARY)
     : path.join(root, process.platform === "win32" ? "servef.exe" : "servef")
-  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "."])
+  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "./apps/servef"])
   await run(process.execPath, ["tests/browser/git-fixture.ts"])
   mkdirSync(env.SERVEF_BROWSER_LIVE_ROOT, { recursive: true })
 
@@ -69,8 +69,8 @@ try {
   const api = await serve("testdata/markdown", base)
   const git = await serve(env.SERVEF_BROWSER_GIT_ROOT, base === 0 ? 0 : base + 2)
   const vite = await serverPort(launch(process.execPath, [
-    "web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
-    "--config", "web/vite.config.ts",
+    "apps/web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
+    "--config", "apps/web/vite.config.ts",
   ], { SERVEF_API_TARGET: `http://127.0.0.1:${api}` }, true))
 
   const result = await launch("playwright", ["test", ...process.argv.slice(2)], {

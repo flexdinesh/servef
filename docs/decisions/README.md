@@ -26,7 +26,7 @@ rewriting history; update `Status` on the old record.
 | [0018](0018-lsp-only-navigation.md) | LSP-only navigation and host-specific availability | Accepted |
 | [0019](0019-workspace-settings-and-memory.md) | Settings navigation and project explorer memory | Accepted |
 | [0020](0020-activity-bar-and-search-view.md) | Activity bar and VS Code-style Search view | Accepted |
-| [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted; revised by 0068 (desktop packages on release tags) |
+| [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Accepted; revised by 0068 (desktop packages on release tags), 0078 (`go install` from the root) |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
 | [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050 |
@@ -77,8 +77,9 @@ rewriting history; update `Status` on the old record.
 | [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Accepted; revised by 0076 |
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Accepted; revised by 0076 |
 | [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Accepted |
-| [0073](0073-install-scripts.md) | Install scripts | Accepted |
+| [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths) |
 | [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted |
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Accepted |
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
+| [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted |

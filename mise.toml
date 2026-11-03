@@ -15,7 +15,7 @@ minimum_release_age = "3d"
 idiomatic_version_file_enable_tools = ["node", "pnpm"]
 
 [tools]
-# go.mod's `go` line stays the language minimum; mise.lock pins the patch.
+# go.mod and go.work `go` lines stay the language minimum; mise.lock pins the patch.
 go = "1.26"
 dagger = "0.21.10"
 
@@ -41,7 +41,7 @@ description = "Run only the Go server"
 env = { SERVEF_BROWSER_GIT_ROOT = "{{config_root}}/.dev/git-fixture" }
 run = [
   "node tests/browser/git-fixture.ts",
-  "GOCACHE=\"$(go env GOCACHE)\" XDG_CACHE_HOME=\"{{config_root}}/.dev/cache\" go run . testdata/markdown --path \"$SERVEF_BROWSER_GIT_ROOT\" --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open",
+  "GOCACHE=\"$(go env GOCACHE)\" XDG_CACHE_HOME=\"{{config_root}}/.dev/cache\" go run ./apps/servef testdata/markdown --path \"$SERVEF_BROWSER_GIT_ROOT\" --port ${SERVEF_DEV_SERVER_PORT:-8080} --no-open",
 ]
 
 [tasks."dev:walkthroughs"]
@@ -59,7 +59,7 @@ run = "pnpm dev:web"
 description = "Run the desktop app against a private dev daemon"
 depends = ["build:desktop"]
 env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/desktop/servef", SERVEF_DESKTOP_SOCKET = "{{config_root}}/.dev/desktop/daemon.sock", SERVEF_DESKTOP_ROOTS_FILE = "{{config_root}}/.dev/desktop/roots.json", SERVEF_DESKTOP_USER_DATA = "{{config_root}}/.dev/desktop/user-data", XDG_CACHE_HOME = "{{config_root}}/.dev/cache" }
-run = "desktop/node_modules/.bin/electron --no-sandbox desktop"
+run = "apps/desktop/node_modules/.bin/electron --no-sandbox apps/desktop"
 
 [tasks."dev:mock"]
 description = "Run Vite with API fixtures"
@@ -75,18 +75,18 @@ run = "pnpm dev:site"
 description = "Build embedded frontend assets; skipped when inputs are unchanged"
 run = "pnpm build:web"
 sources = [
+  "apps/web/src/**/*",
   "patches/**/*",
-  "web/src/**/*",
+  "apps/web/dev-server.ts",
+  "apps/web/index.html",
+  "apps/web/package.json",
+  "apps/web/tsconfig.json",
+  "apps/web/vite.config.ts",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
-  "web/dev-server.ts",
-  "web/index.html",
-  "web/package.json",
-  "web/tsconfig.json",
-  "web/vite.config.ts",
 ]
-outputs = ["internal/web/dist/**/*"]
+outputs = ["apps/servef/internal/web/dist/**/*"]
 
 # Electron's binary downloads only here and in the desktop Dagger preparation
 # (pnpm allowBuilds: electron: false); install.js verifies its checksum.
@@ -94,20 +94,20 @@ outputs = ["internal/web/dist/**/*"]
 description = "Build the dev servef binary and desktop bundle; fetch Electron once"
 depends = ["build:web"]
 run = [
-  "go build -o .dev/desktop/servef .",
+  "go build -o .dev/desktop/servef ./apps/servef",
   "pnpm --filter @servef/desktop build",
-  "node desktop/node_modules/electron/install.js",
+  "node apps/desktop/node_modules/electron/install.js",
 ]
 
 # Host OS and arch, bundling a release-style servef (decision 0068). The release
-# workflow calls desktop/scripts/package.ts per arch itself.
+# workflow calls apps/desktop/scripts/package.ts per arch itself.
 [tasks."package:desktop"]
 description = "Package desktop installers for the host OS and arch"
 depends = ["build:web"]
 env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
 run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host .",
-  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/desktop/.build/servef-host ./apps/servef",
+  "node apps/desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
 ]
 
 [tasks."package:desktop:dir"]
@@ -115,33 +115,33 @@ description = "Package the unpacked desktop app for the host OS and arch"
 depends = ["build:web"]
 env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
 run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o desktop/.build/servef-host .",
-  "node desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
+  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/desktop/.build/servef-host ./apps/servef",
+  "node apps/desktop/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/desktop/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
 ]
 
 [tasks."build:go"]
 description = "Build all Go packages"
 depends = ["build:web"]
-run = "go build ./..."
+run = "go build ./apps/servef/... ./tools/..."
 
 [tasks."build:site"]
 description = "Build the docs site; skipped when inputs are unchanged"
 run = "pnpm build:site"
 sources = [
-  "site/src/**/*",
+  "apps/site/src/**/*",
+  "apps/site/package.json",
+  "apps/site/tsconfig.json",
+  "apps/site/vocs.config.ts",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
-  "site/package.json",
-  "site/tsconfig.json",
-  "site/vocs.config.ts",
 ]
-outputs = ["site/dist/**/*"]
+outputs = ["apps/site/dist/**/*"]
 
 [tasks.install]
 description = "Install the local CLI with go install"
 depends = ["build:web"]
-run = "go install ."
+run = "go install ./apps/servef"
 
 # Public checks snapshot current edits. Container leaves never call these wrappers.
 
@@ -215,7 +215,7 @@ run = [
 description = "Measure desktop, daemon, and language-server memory in a scripted scenario"
 depends = ["build:desktop"]
 env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/desktop/servef" }
-run = "node desktop/scripts/measure-memory.ts"
+run = "node apps/desktop/scripts/measure-memory.ts"
 
 [tasks."check:pr"]
 description = "Validate clean committed HEAD before PR work"
@@ -291,22 +291,22 @@ hide = true
 run = "pnpm exec node scripts/test-browser.ts --project=chromium"
 
 # Unit tests, ssh integration tests (real sshd), bundle, then the Electron
-# smoke under Xvfb. Arguments select smoke specs relative to desktop/.
+# smoke under Xvfb. Arguments select smoke specs relative to apps/desktop/.
 [tasks."_container:desktop"]
 hide = true
 run = "pnpm --filter @servef/desktop test && pnpm --filter @servef/desktop test:ssh && pnpm --filter @servef/desktop build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/desktop test:smoke"
 
 [tasks."_container:binary"]
 hide = true
-run = "go build -buildvcs=false -o /out/servef ."
+run = "go build -buildvcs=false -o /out/servef ./apps/servef"
 
 [tasks."_host:tidy:check"]
 hide = true
-run = "go mod tidy -diff"
+run = "go -C apps/servef mod tidy -diff && go -C tools mod tidy -diff"
 
 [tasks."_container:vet"]
 hide = true
-run = "go vet ./..."
+run = "go vet ./apps/servef/... ./tools/..."
 
 [tasks."_container:test:web"]
 hide = true
@@ -374,8 +374,8 @@ run = ["mise tasks validate", "mise fmt --check"]
 
 [tasks."_container:test:go"]
 hide = true
-run = "node -e 'const p=require(\"./node_modules/typescript/package.json\"); if(p.name !== \"typescript\" || Number(p.version.split(\".\")[0]) < 7) throw new Error(\"native TypeScript is required for Go navigation tests\")' && test -x node_modules/typescript/bin/tsc && node_modules/typescript/bin/tsc --version && bash -c 'if [ \"$#\" -eq 0 ]; then set -- ./...; fi; exec go test -count=1 \"$@\"' go-test"
+run = "node -e 'const p=require(\"./node_modules/typescript/package.json\"); if(p.name !== \"typescript\" || Number(p.version.split(\".\")[0]) < 7) throw new Error(\"native TypeScript is required for Go navigation tests\")' && test -x node_modules/typescript/bin/tsc && node_modules/typescript/bin/tsc --version && bash -c 'if [ \"$#\" -eq 0 ]; then set -- ./apps/servef/... ./tools/...; fi; exec go test -count=1 \"$@\"' go-test"
 
 [tasks."_container:test:race"]
 hide = true
-run = "node -e 'const p=require(\"./node_modules/typescript/package.json\"); if(p.name !== \"typescript\" || Number(p.version.split(\".\")[0]) < 7) throw new Error(\"native TypeScript is required for Go navigation tests\")' && test -x node_modules/typescript/bin/tsc && node_modules/typescript/bin/tsc --version && bash -c 'if [ \"$#\" -eq 0 ]; then set -- ./...; fi; exec go test -race -count=1 \"$@\"' go-test"
+run = "node -e 'const p=require(\"./node_modules/typescript/package.json\"); if(p.name !== \"typescript\" || Number(p.version.split(\".\")[0]) < 7) throw new Error(\"native TypeScript is required for Go navigation tests\")' && test -x node_modules/typescript/bin/tsc && node_modules/typescript/bin/tsc --version && bash -c 'if [ \"$#\" -eq 0 ]; then set -- ./apps/servef/... ./tools/...; fi; exec go test -race -count=1 \"$@\"' go-test"

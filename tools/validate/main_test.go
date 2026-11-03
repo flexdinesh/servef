@@ -61,12 +61,12 @@ func key(t *testing.T, s snapshot, group string) string {
 
 func TestSnapshotIgnoresUntrackedAndPreservesModes(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/source.ts", "original")
+	put(t, root, "apps/web/source.ts", "original")
 	put(t, root, "script", "script")
 	if err := os.Chmod(filepath.Join(root, "script"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink("web/source.ts", filepath.Join(root, "link")); err != nil {
+	if err := os.Symlink("apps/web/source.ts", filepath.Join(root, "link")); err != nil {
 		t.Fatal(err)
 	}
 	commit(t, root, "initial")
@@ -85,10 +85,10 @@ func TestSnapshotIgnoresUntrackedAndPreservesModes(t *testing.T) {
 		t.Fatalf("executable lost: %v %v", info, err)
 	}
 	target, err := os.Readlink(filepath.Join(out, "link"))
-	if err != nil || target != "web/source.ts" {
+	if err != nil || target != "apps/web/source.ts" {
 		t.Fatalf("link changed: %q %v", target, err)
 	}
-	put(t, root, "web/source.ts", "dirty")
+	put(t, root, "apps/web/source.ts", "dirty")
 	if _, err := readSnapshot(root); err == nil {
 		t.Fatal("dirty tracked source accepted")
 	}
@@ -96,8 +96,8 @@ func TestSnapshotIgnoresUntrackedAndPreservesModes(t *testing.T) {
 
 func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/a.ts", "a")
-	put(t, root, "site/page.mdx", "site")
+	put(t, root, "apps/web/a.ts", "a")
+	put(t, root, "apps/site/page.mdx", "site")
 	put(t, root, "pnpm-lock.yaml", "lock")
 	put(t, root, "mise.toml", "tasks")
 	commit(t, root, "initial")
@@ -115,7 +115,7 @@ func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 			t.Fatalf("history invalidated %s", g)
 		}
 	}
-	put(t, root, "site/page.mdx", "changed site")
+	put(t, root, "apps/site/page.mdx", "changed site")
 	commit(t, root, "site")
 	site := snap(t, root)
 	if key(t, site, "docs") == key(t, original, "docs") {
@@ -139,14 +139,14 @@ func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 
 func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T) {
 	root := repository(t)
-	put(t, root, "web/base.ts", "base")
-	put(t, root, "site/page.mdx", "docs")
+	put(t, root, "apps/web/base.ts", "base")
+	put(t, root, "apps/site/page.mdx", "docs")
 	commit(t, root, "base")
 	base := snap(t, root).Head
 	if _, err := git(root, "switch", "-qc", "feature"); err != nil {
 		t.Fatal(err)
 	}
-	put(t, root, "web/feature.ts", "feature")
+	put(t, root, "apps/web/feature.ts", "feature")
 	commit(t, root, "feature")
 	before := snap(t, root)
 	for _, args := range [][]string{
@@ -171,7 +171,7 @@ func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T
 	if _, err := git(root, "switch", "-q", "main"); err != nil {
 		t.Fatal(err)
 	}
-	put(t, root, "web/upstream.ts", "upstream")
+	put(t, root, "apps/web/upstream.ts", "upstream")
 	commit(t, root, "upstream content")
 	for _, args := range [][]string{{"switch", "-q", "feature"}, {"-c", "commit.gpgsign=false", "rebase", "main"}} {
 		if _, err := git(root, args...); err != nil {
@@ -190,7 +190,7 @@ func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T
 }
 
 func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
-	s := snapshot{Entries: []entry{{Path: "web/a.ts", Mode: "100644", Blob: "abc"}}}
+	s := snapshot{Entries: []entry{{Path: "apps/web/a.ts", Mode: "100644", Blob: "abc"}}}
 	_, full, _ := manifest(s, "frontend", "", nil)
 	_, empty, _ := manifest(s, "frontend", "", []string{})
 	if full != empty {
@@ -234,10 +234,10 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 }
 
 func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
-	if !selected("frontend", "internal/walkthrough/schema.json") {
+	if !selected("frontend", "apps/servef/internal/walkthrough/schema.json") {
 		t.Fatal("frontend example validation requires server schema")
 	}
-	if selected("frontend", "internal/walkthrough/store.go") {
+	if selected("frontend", "apps/servef/internal/walkthrough/store.go") {
 		t.Fatal("unrelated Go implementation entered frontend inputs")
 	}
 }
@@ -254,31 +254,31 @@ func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
 	if !taskBelongsToGroup("_container:test:desktop", "desktop") || taskBelongsToGroup("_container:test:desktop", "browser") {
 		t.Fatal("wrong owner for desktop tests")
 	}
-	for _, name := range []string{"desktop/src/main/proxy.ts", "web/src/api/events-contract.ts"} {
+	for _, name := range []string{"apps/desktop/src/main/proxy.ts", "apps/web/src/api/events-contract.ts"} {
 		if !selected("desktop-static", name) {
 			t.Fatalf("desktop-static misses %s", name)
 		}
 	}
-	for _, name := range []string{"internal/daemon/daemon.go", "web/src/App.tsx", "main.go"} {
+	for _, name := range []string{"apps/servef/internal/daemon/daemon.go", "apps/web/src/App.tsx", "apps/servef/main.go"} {
 		if selected("desktop-static", name) {
 			t.Fatalf("desktop-static selected unrelated %s", name)
 		}
 	}
-	for _, name := range []string{"desktop/test/smoke/app.spec.ts", "internal/daemon/daemon.go", "cmd/daemon.go", "web/src/App.tsx", "testdata/markdown/README.md", "main.go"} {
+	for _, name := range []string{"apps/desktop/test/smoke/app.spec.ts", "apps/servef/internal/daemon/daemon.go", "apps/servef/cmd/daemon.go", "apps/web/src/App.tsx", "testdata/markdown/README.md", "apps/servef/main.go"} {
 		if !selected("desktop", name) {
 			t.Fatalf("desktop misses %s", name)
 		}
 	}
-	if selected("desktop", "site/src/pages/index.mdx") || selected("desktop", "tests/browser/app.spec.ts") {
+	if selected("desktop", "apps/site/src/pages/index.mdx") || selected("desktop", "tests/browser/app.spec.ts") {
 		t.Fatal("desktop selected unrelated inputs")
 	}
 	// Every group installs the whole workspace from the frozen lockfile.
 	for _, group := range groups {
-		if !selected(group, "desktop/package.json") {
+		if !selected(group, "apps/desktop/package.json") {
 			t.Fatalf("%s lacks the desktop workspace manifest", group)
 		}
 	}
-	for _, name := range []string{"desktop/build/main.mjs", "desktop/test-results/trace.zip", "desktop/node_modules/electron/index.js"} {
+	for _, name := range []string{"apps/desktop/build/main.mjs", "apps/desktop/test-results/trace.zip", "apps/desktop/node_modules/electron/index.js"} {
 		if !excluded(name) {
 			t.Fatalf("generated %s entered snapshots", name)
 		}

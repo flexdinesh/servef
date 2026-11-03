@@ -37,8 +37,8 @@ const STUBS: Record<string, string[]> = {
     'echo "git $*" >> "$STUB_LOG"',
     'if [ "$1" = clone ]; then',
     '  for last; do :; done',
-    '  mkdir -p "$last/desktop/resources"',
-    "  printf 'png' > \"$last/desktop/resources/icon.png\"",
+    '  mkdir -p "$last/apps/desktop/resources"',
+    "  printf 'png' > \"$last/apps/desktop/resources/icon.png\"",
     '  echo "$last" > "$STUB_LOG.clone"',
     '  exit 0',
     'fi',
@@ -70,10 +70,10 @@ const STUBS: Record<string, string[]> = {
   mise: [
     'echo "mise $*" >> "$STUB_LOG"',
     'if [ "$1 $2" = "run package:desktop:dir" ]; then',
-    '  mkdir -p desktop/.build desktop/dist/linux-unpacked desktop/dist/mac-arm64/servef.app/Contents/MacOS',
-    '  cp "$STUB_FAKE_SERVEF" desktop/.build/servef-host',
-    "  printf 'app' > desktop/dist/linux-unpacked/servef-desktop",
-    "  printf 'app' > desktop/dist/mac-arm64/servef.app/Contents/MacOS/servef",
+    '  mkdir -p apps/desktop/.build apps/desktop/dist/linux-unpacked apps/desktop/dist/mac-arm64/servef.app/Contents/MacOS',
+    '  cp "$STUB_FAKE_SERVEF" apps/desktop/.build/servef-host',
+    "  printf 'app' > apps/desktop/dist/linux-unpacked/servef-desktop",
+    "  printf 'app' > apps/desktop/dist/mac-arm64/servef.app/Contents/MacOS/servef",
     'fi',
   ],
   'xdg-mime': ['echo "xdg-mime $*" >> "$STUB_LOG"'],
@@ -94,6 +94,7 @@ const STUBS: Record<string, string[]> = {
     '  shift',
     'done',
     'if [ -n "$write" ]; then printf "%s" "$STUB_LATEST"; exit 0; fi',
+    'if [ -n "${STUB_CURL_MISSING:-}" ] && [ "$url" = "$STUB_CURL_MISSING" ]; then exit 22; fi',
     'file="$STUB_RELEASE_DIR/${url##*/}"',
     '[ -f "$file" ] || exit 22',
     'cp "$file" "$out"',
@@ -267,6 +268,7 @@ void test('install-edge.sh builds the edge branch and installs the CLI on PATH',
   const log = await readFile(sandbox.log, 'utf8')
   assert.match(log, /git clone --quiet --depth 1 --branch edge https:\/\/github\.com\/flexdinesh\/servef\.git /)
   assert.match(log, /go build -trimpath -ldflags -s -w -X github\.com\/flexdinesh\/servef\/internal\/version\.Version=0\.0\.0-dev -X github\.com\/flexdinesh\/servef\/internal\/version\.Commit=0123456789ab -X github\.com\/flexdinesh\/servef\/internal\/version\.Date=2026-11-02T00:00:00Z/)
+  assert.match(log, /^go build .* \.\/apps\/servef$/m)
   const clone = (await readFile(`${sandbox.log}.clone`, 'utf8')).trim()
   assert.equal(await exists(clone), false, 'the temporary clone is removed')
 })
@@ -486,8 +488,23 @@ void test('install-desktop.sh installs the Linux AppImage, registers it, and ins
   assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7/)
   const log = await readFile(sandbox.log, 'utf8')
   assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-desktop_0.1.7_linux_amd64.AppImage'))
-  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/desktop/resources/icon.png'))
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/apps/desktop/resources/icon.png'))
   assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+})
+
+void test('install-desktop.sh fetches the icon from desktop/ for releases before the apps/ layout', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { desktop: true })
+  const moved = 'https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/apps/desktop/resources/icon.png'
+
+  const result = await run('install-desktop.sh', sandbox, { STUB_CURL_MISSING: moved })
+
+  assertOk(result)
+  const share = join(sandbox.home, '.local', 'share')
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
+  const log = await readFile(sandbox.log, 'utf8')
+  assert.ok(log.includes(moved))
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/desktop/resources/icon.png'))
 })
 
 void test('install-desktop.sh stops on a release without desktop packages or while the app runs', async (t) => {

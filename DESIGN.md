@@ -207,7 +207,7 @@ Workspace identity sits above the explorer as the project picker trigger. App id
 - Left-aligned proportional prose and monospace code.
 - Shared semantic roles across named editor themes.
 
-Implementation authority (decision 0033): tokens in `web/src/styles/tokens.css` and `themes.css`, UI primitives in `web/src/components/ui/` (each with co-located CSS), feature CSS beside each feature, and `web/src/style.css` as the import manifest and cascade-layer order. `pnpm dev:mock` serves every primitive and state at `/__ui`. Frontmatter captures base Light tokens and effective component roles; theme overrides remain in CSS.
+Implementation authority (decision 0033): tokens in `apps/web/src/styles/tokens.css` and `themes.css`, UI primitives in `apps/web/src/components/ui/` (each with co-located CSS), feature CSS beside each feature, and `apps/web/src/style.css` as the import manifest and cascade-layer order. `pnpm dev:mock` serves every primitive and state at `/__ui`. Frontmatter captures base Light tokens and effective component roles; theme overrides remain in CSS.
 
 ### Token tiers
 
@@ -295,7 +295,7 @@ Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px
 
 ### Primitives
 
-Every view composes these from `web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
+Every view composes these from `apps/web/src/components/ui/`; a missing capability is added to the primitive, never forked in a feature. Variants are data attributes; behavior stays in features.
 
 - **Button**: primary, outline, ghost, plain, destructive, link. md 28px default, sm 24, lg 32, `inline` for text-flow actions; 44px on narrow screens. 4px radius, 13px 500 label. Outline and ghost hover add the state layer; plain is ghost without hover or press layers, its pointer cursor the only hover cue (review file headers); disabled is 50% opacity. Actions such as Retry, Open File, and Clear filter are outline md.
 - **IconButton**: icon-only, required `label` (also the tooltip). xs 20px (12px glyph) in rows and tabs, sm 24px (16px) in headers, toolbars, and fields, md 28px (16px) in panels, `bar` fills its band (`--bar-size`, 14px glyph) in the status bar, activity bar, and toolbar. `disabledReason` keeps it focusable and explains why. With `aria-pressed`, the pressed state takes the selection tint. Dialogs raise targets to 44px on narrow screens.
@@ -699,4 +699,4 @@ One prose system across documents. Tables: 14px, neutral headers, horizontal ove
 - Don't center preview prose or substitute generic heading/body tokens for the preview scale.
 - Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.
 - Don't rely on color alone for selection, focus, errors, or status.
-- Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `internal/web/dist/` directly.
+- Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/servef/internal/web/dist/` directly.

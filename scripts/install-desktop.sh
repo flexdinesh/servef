@@ -355,7 +355,9 @@ download_cli
 
 if [ "$OS" = linux ]; then
   install_linux_appimage "$TMP/$package"
-  fetch "https://raw.githubusercontent.com/$REPO/v$VERSION/desktop/resources/icon.png" "$TMP/icon.png" ||
+  # Releases before the apps/ layout keep the icon under desktop/.
+  fetch "https://raw.githubusercontent.com/$REPO/v$VERSION/apps/desktop/resources/icon.png" "$TMP/icon.png" ||
+    fetch "https://raw.githubusercontent.com/$REPO/v$VERSION/desktop/resources/icon.png" "$TMP/icon.png" ||
     fail "could not download the servef icon for $VERSION"
   register_linux_app "$APP_EXEC" "$TMP/icon.png"
 else

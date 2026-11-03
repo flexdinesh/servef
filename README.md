@@ -58,21 +58,16 @@ Specific stable version:
 go install github.com/flexdinesh/servef@v0.1.3
 ```
 
-Latest `main` with embedded frontend assets:
-
-```sh
-go install github.com/flexdinesh/servef@edge
-```
-
 These installs include the embedded frontend; Node.js and pnpm are not required.
-Other branches and commits do not include it and fail to build with
-`go install`.
+Only release tags from before the `apps/` layout (decision 0078) build with
+`go install`; later releases drop it. Branches and commits never include the
+frontend.
 
 ### Desktop app
 
 Optional: macOS and Linux packages on
 [GitHub Releases](https://github.com/flexdinesh/servef/releases). See
-[desktop](site/src/pages/docs/desktop.mdx) for install and Gatekeeper steps.
+[desktop](apps/site/src/pages/docs/desktop.mdx) for install and Gatekeeper steps.
 
 ## Usage
 
@@ -87,7 +82,7 @@ otherwise (or with `--host`/`--port`) it serves in a browser. On a machine
 without a UI (an SSH session, or Linux without a display) it serves on that
 machine's address and prints a `web:` URL and a `desktop:` `servef://` URL to
 open from another computer; that server has no authentication
-([remote hosts](site/src/pages/docs/remote.mdx)). The desktop app can also
+([remote hosts](apps/site/src/pages/docs/remote.mdx)). The desktop app can also
 connect to SSH hosts itself. `servef browser [path]` always serves on
 localhost and takes the same flags.
 To open a directory named `browser`, run `servef ./browser`.
@@ -101,6 +96,6 @@ servef --help
 ## Documentation
 
 Usage, desktop app, browsing, code navigation, and walkthrough guides live in
-[`site/src/pages/docs`](https://github.com/flexdinesh/servef/tree/main/site/src/pages/docs).
+[`apps/site/src/pages/docs`](https://github.com/flexdinesh/servef/tree/main/apps/site/src/pages/docs).
 Contributors: see [development](docs/development.md) and
 [architecture](docs/architecture.md).

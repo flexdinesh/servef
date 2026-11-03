@@ -37,7 +37,7 @@ jobs:
             ~/.local/share/pnpm/store
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'go.sum') }}
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/servef/go.sum') }}
           restore-keys: ${{ runner.os }}-dependencies-
 
       - name: Install frontend dependencies
@@ -73,7 +73,7 @@ jobs:
             fi
           fi
 
-          git add -f internal/web/dist
+          git add -f apps/servef/internal/web/dist
           tree="$(git write-tree)"
           export GIT_AUTHOR_NAME="github-actions[bot]"
           export GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com"

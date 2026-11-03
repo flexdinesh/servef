@@ -40,22 +40,22 @@ Counts include parameterized cases. Paths below are relative to `tests/browser/`
 
 ## Cheaper coverage retained
 
-- `internal/document/*_test.go`: family lookup, original source, token-preserving
+- `apps/servef/internal/document/*_test.go`: family lookup, original source, token-preserving
   formatting, escaping, malformed input, binary/size boundaries.
-- `internal/web/*_test.go`: scoped access, HTTP contracts, images, navigation,
+- `apps/servef/internal/web/*_test.go`: scoped access, HTTP contracts, images, navigation,
   git comparisons, walkthroughs, and live-event transport.
-- `web/src/features/documents/document-view.test.ts`, `image-zoom.test.ts`, and
+- `apps/web/src/features/documents/document-view.test.ts`, `image-zoom.test.ts`, and
   `diagram.test.ts`: capabilities, mode policy, loading/failure decisions, zoom,
   and diagram errors.
-- `web/src/features/search/*.test.ts` and
-  `web/src/features/explorer/filename-filter.test.ts`: matching, globs, scopes,
+- `apps/web/src/features/search/*.test.ts` and
+  `apps/web/src/features/explorer/filename-filter.test.ts`: matching, globs, scopes,
   result models, cancellation, and worker-controller recovery.
-- `web/src/features/source-control/*.test.ts`: compare routes, branch/pane
+- `apps/web/src/features/source-control/*.test.ts`: compare routes, branch/pane
   models, layout memory, hunk selection, viewed hashes, and worker lifecycle.
-- `web/src/workspace/*.test.ts`, `web/src/settings/*.test.ts`, and
-  `web/src/features/projects/project-picker.test.ts`: stored state validation,
+- `apps/web/src/workspace/*.test.ts`, `apps/web/src/settings/*.test.ts`, and
+  `apps/web/src/features/projects/project-picker.test.ts`: stored state validation,
   theme aliases/selection, commands, tabs, and project choices.
-- `web/src/highlighting/*.test.ts` and `web/src/styles/themes.test.ts`: every
+- `apps/web/src/highlighting/*.test.ts` and `apps/web/src/styles/themes.test.ts`: every
   registered language, source-row preservation/escaping, and all theme tokens
   and contrast checks.
 

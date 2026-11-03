@@ -1,7 +1,7 @@
 packages:
-  - "web"
-  - "site"
-  - "desktop"
+  - "apps/web"
+  - "apps/site"
+  - "apps/desktop"
 
 engineStrict: true
 includeWorkspaceRoot: true
@@ -18,7 +18,7 @@ minimumReleaseAgeExclude:
   - "@pierre/theming@1.0.2"
 
 allowBuilds:
-  # Electron downloads its binary only where needed: node desktop/node_modules/electron/install.js.
+  # Electron downloads its binary only where needed: node apps/desktop/node_modules/electron/install.js.
   electron: false
   # Squirrel.Windows helper (electron-builder dep); its install picks a 7z binary for Windows builds only.
   electron-winstaller: false
