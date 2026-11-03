@@ -17,7 +17,7 @@ type familyFixture struct {
 // in step with Builtins(). The web tests read each family's language from that
 // fixture and check it is a Highlights language (decision 0029).
 func TestDocumentFamiliesFixtureMatchesBuiltins(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "document-families.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "testdata", "document-families.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

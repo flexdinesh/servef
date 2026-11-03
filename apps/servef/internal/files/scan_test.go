@@ -11,7 +11,7 @@ import (
 )
 
 func TestScanSharedMarkdownFixtures(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "markdown")
+	root := filepath.Join("..", "..", "..", "..", "testdata", "markdown")
 	index, err := Scan(root, -1, markdownFile)
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)

@@ -103,7 +103,7 @@ export default defineConfig(({ command, mode }) => ({
   build: {
     assetsDir: "",
     emptyOutDir: true,
-    outDir: "../internal/web/dist",
+    outDir: "../apps/servef/internal/web/dist",
   },
   plugins: [diffsSubset, react(), tailwindcss(), devServerBanner, mockApi(mode === "mock")],
   resolve: {

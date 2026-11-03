@@ -15,7 +15,7 @@ func TestNativeTypeScriptResolvesImportsReexportsAliasesAndSemanticReferences(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	native, ok := nativeTypeScript(filepath.Join(cwd, "..", "..", "node_modules", "typescript"), lookPath)
+	native, ok := nativeTypeScript(filepath.Join(cwd, "..", "..", "..", "..", "node_modules", "typescript"), lookPath)
 	if !ok {
 		t.Skip("repository-local native TypeScript not installed")
 	}

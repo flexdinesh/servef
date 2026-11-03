@@ -21,7 +21,7 @@ import (
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "markdown")
+	root := filepath.Join("..", "..", "..", "..", "testdata", "markdown")
 	app := newTestApp(t, root)
 
 	landing, landingData := requestPageData(t, app, "/api/page?project=.")
@@ -792,7 +792,7 @@ func assertContains(t *testing.T, value string, substrings ...string) {
 // TestEveryAPIFixtureDecodesStrictly keeps every frontend fixture in a server
 // response shape: unknown fields fail, and a new fixture needs a shape here.
 func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
 	names, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil || len(names) == 0 {
 		t.Fatalf("fixtures = %v, %v", names, err)

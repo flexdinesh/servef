@@ -160,5 +160,5 @@ module="github.com/$REPO/internal/version"
 step "building servef ($OS/$ARCH)"
 (cd "$SRC" && CGO_ENABLED=0 go build -trimpath \
   -ldflags "-s -w -X $module.Version=0.0.0-dev -X $module.Commit=$commit -X $module.Date=$date" \
-  -o "$TMP/servef-bin" .)
+  -o "$TMP/servef-bin" ./apps/servef)
 install_cli "$TMP/servef-bin"

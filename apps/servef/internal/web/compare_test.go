@@ -525,7 +525,7 @@ func TestCompareStatsInFolders(t *testing.T) {
 // Frontend refs and stats fixtures must decode into the server's shapes and
 // list the same files, in order, as the change fixtures they describe.
 func TestCompareFixturesMatchServerContract(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
 	var refs refsResponse
 	decodeFixture(t, filepath.Join(dir, "refs.json"), &refs)
 	var commits commitsResponse

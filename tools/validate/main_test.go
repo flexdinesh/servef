@@ -234,10 +234,10 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 }
 
 func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
-	if !selected("frontend", "internal/walkthrough/schema.json") {
+	if !selected("frontend", "apps/servef/internal/walkthrough/schema.json") {
 		t.Fatal("frontend example validation requires server schema")
 	}
-	if selected("frontend", "internal/walkthrough/store.go") {
+	if selected("frontend", "apps/servef/internal/walkthrough/store.go") {
 		t.Fatal("unrelated Go implementation entered frontend inputs")
 	}
 }
@@ -259,12 +259,12 @@ func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
 			t.Fatalf("desktop-static misses %s", name)
 		}
 	}
-	for _, name := range []string{"internal/daemon/daemon.go", "web/src/App.tsx", "main.go"} {
+	for _, name := range []string{"apps/servef/internal/daemon/daemon.go", "web/src/App.tsx", "apps/servef/main.go"} {
 		if selected("desktop-static", name) {
 			t.Fatalf("desktop-static selected unrelated %s", name)
 		}
 	}
-	for _, name := range []string{"desktop/test/smoke/app.spec.ts", "internal/daemon/daemon.go", "cmd/daemon.go", "web/src/App.tsx", "testdata/markdown/README.md", "main.go"} {
+	for _, name := range []string{"desktop/test/smoke/app.spec.ts", "apps/servef/internal/daemon/daemon.go", "apps/servef/cmd/daemon.go", "web/src/App.tsx", "testdata/markdown/README.md", "apps/servef/main.go"} {
 		if !selected("desktop", name) {
 			t.Fatalf("desktop misses %s", name)
 		}

@@ -8,7 +8,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-const schema: unknown = JSON.parse(readFileSync(new URL("../../../../internal/walkthrough/schema.json", import.meta.url), "utf8"))
+const schema: unknown = JSON.parse(readFileSync(new URL("../../../../apps/servef/internal/walkthrough/schema.json", import.meta.url), "utf8"))
 
 function resolve(node: unknown): Record<string, unknown> {
   assert.ok(isRecord(node) && isRecord(schema) && isRecord(schema.$defs))

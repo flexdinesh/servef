@@ -430,9 +430,9 @@ func TestSourceOnlyHandlerUsesSameAPIContracts(t *testing.T) {
 
 // Frontend API fixtures must describe documents the way the real server does.
 func TestAPIFixturesMatchServerDocumentContract(t *testing.T) {
-	root := filepath.Join("..", "..", "testdata", "markdown")
+	root := filepath.Join("..", "..", "..", "..", "testdata", "markdown")
 	app := newTestApp(t, root)
-	names, err := filepath.Glob(filepath.Join("..", "..", "testdata", "api", "default", "page-*.json"))
+	names, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "testdata", "api", "default", "page-*.json"))
 	if err != nil || len(names) == 0 {
 		t.Fatalf("fixtures = %v, %v", names, err)
 	}

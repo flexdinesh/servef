@@ -523,7 +523,7 @@ func TestBranchDiffFollowsNewCommits(t *testing.T) {
 // Frontend history fixtures must decode into the server's response shapes
 // and agree on the branch they describe.
 func TestHistoryFixturesMatchServerContract(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
 	var commits, all, folder commitsResponse
 	decodeFixture(t, filepath.Join(dir, "commits.json"), &commits)
 	decodeFixture(t, filepath.Join(dir, "commits-all.json"), &all)

@@ -249,7 +249,7 @@ func TestDiffRejectsPathsOutsideTheChangeSet(t *testing.T) {
 // Frontend change and diff fixtures must use the server's shapes and the
 // registry's real document types.
 func TestChangeFixturesMatchServerContract(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "api", "default")
+	dir := filepath.Join("..", "..", "..", "..", "testdata", "api", "default")
 	types := document.Builtins()
 	names, err := filepath.Glob(filepath.Join(dir, "diff-*.json"))
 	if err != nil || len(names) == 0 {

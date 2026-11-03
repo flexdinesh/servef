@@ -17,7 +17,7 @@ const baseImage = "debian:bookworm-slim@sha256:a3bba7dc7dbcc1f37c2856c51fc9a7fac
 // Run returns diagnostics and status.json even for failed checks. The caller
 // must inspect exitCode before issuing a successful validation receipt.
 func (m *ServefValidation) Run(ctx context.Context,
-	// +ignore=[".git", "node_modules", "web/node_modules", "site/node_modules", "desktop/node_modules", "desktop/build", "desktop/test-results", "internal/web/dist", "site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
+	// +ignore=[".git", "node_modules", "web/node_modules", "site/node_modules", "desktop/node_modules", "desktop/build", "desktop/test-results", "apps/servef/internal/web/dist", "site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
 	source *dagger.Directory, group string, attempt string,
 	// +optional
 	force bool,
@@ -61,14 +61,14 @@ func (m *ServefValidation) Run(ctx context.Context,
 			web = web.WithEnvVariable("SERVEF_BUILD_ATTEMPT", attempt)
 		}
 		web = web.WithExec([]string{"mise", "run", "--force", "build:web"})
-		runner = runner.WithDirectory("/src/internal/web/dist", web.Directory("/src/internal/web/dist"))
-		modules := tools.WithDirectory("/src", subset(source, []string{"go.mod", "go.sum"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
+		runner = runner.WithDirectory("/src/apps/servef/internal/web/dist", web.Directory("/src/apps/servef/internal/web/dist"))
+		modules := tools.WithDirectory("/src", subset(source, []string{"go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
 	if group == "browser" || group == "desktop" {
-		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "*.go", "go.mod", "go.sum", "cmd/**", "internal/**"})).
-			WithDirectory("/src/internal/web/dist", runner.Directory("/src/internal/web/dist")).
+		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**"})).
+			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
 		if force {
 			build = build.WithEnvVariable("SERVEF_BUILD_ATTEMPT", attempt)
@@ -90,7 +90,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 			engine = "webkit"
 		}
 		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", engine})
-		runner = browser.WithDirectory("/src", source).WithDirectory("/src/internal/web/dist", runner.Directory("/src/internal/web/dist")).
+		runner = browser.WithDirectory("/src", source).WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithFile("/opt/servef", binary).
 			WithEnvVariable("SERVEF_BROWSER_BINARY", "/opt/servef").WithEnvVariable("SERVEF_BROWSER_ISOLATED", "1").
 			WithEnvVariable("SERVEF_BROWSER_ARTIFACT_DIR", "/out/fixtures").WithEnvVariable("SERVEF_BROWSER_OUTPUT_DIR", "/out/playwright").

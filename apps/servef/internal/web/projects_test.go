@@ -337,7 +337,7 @@ func TestProjectFixturesMatchServerContract(t *testing.T) {
 		"projects.json":    &projectsResponse{},
 		"directories.json": &directoriesResponse{},
 	} {
-		content, err := os.ReadFile(filepath.Join("..", "..", "testdata", "api", "default", name))
+		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "testdata", "api", "default", name))
 		if err != nil {
 			t.Fatal(err)
 		}

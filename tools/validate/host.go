@@ -287,7 +287,7 @@ func (a app) hostDependencies(ctx context.Context, source, private string, m inp
 func (a app) hostGoModules(ctx context.Context, private string, m inputManifest, tools hostTools, log io.Writer, files []*os.File) error {
 	var inputs []entry
 	for _, e := range m.Files {
-		if e.Path == "go.mod" || e.Path == "go.sum" || e.Path == "tools/validate/host.go" {
+		if e.Path == "go.work" || e.Path == "apps/servef/go.mod" || e.Path == "apps/servef/go.sum" || e.Path == "tools/go.mod" || e.Path == "tools/validate/host.go" {
 			inputs = append(inputs, e)
 		}
 	}

@@ -56,7 +56,7 @@ try {
   const binary = process.env.SERVEF_BROWSER_BINARY
     ? path.resolve(process.env.SERVEF_BROWSER_BINARY)
     : path.join(root, process.platform === "win32" ? "servef.exe" : "servef")
-  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "."])
+  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "./apps/servef"])
   await run(process.execPath, ["tests/browser/git-fixture.ts"])
   mkdirSync(env.SERVEF_BROWSER_LIVE_ROOT, { recursive: true })
 

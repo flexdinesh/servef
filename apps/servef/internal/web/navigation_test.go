@@ -105,7 +105,7 @@ func TestLanguageServerCompositionUsesTextFamilies(t *testing.T) {
 
 func TestNavigationStatusFixtureMatchesServer(t *testing.T) {
 	servers := lsp.NewManager(lsp.Builtins(), lsp.Options{LookPath: func(string) (string, bool) { return "", false }})
-	app, err := New(Config{Roots: testRoots(t, filepath.Join("..", "..", "testdata", "markdown")), Depth: 5, LanguageServers: servers})
+	app, err := New(Config{Roots: testRoots(t, filepath.Join("..", "..", "..", "..", "testdata", "markdown")), Depth: 5, LanguageServers: servers})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestNavigationStatusFixtureMatchesServer(t *testing.T) {
 
 func readFixture(t *testing.T, name string, value any) {
 	t.Helper()
-	content, err := os.ReadFile(filepath.Join("..", "..", "testdata", "api", "default", name))
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "testdata", "api", "default", name))
 	if err != nil {
 		t.Fatal(err)
 	}
