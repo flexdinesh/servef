@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { openPathsOf, parseOpenPaths, projectLanding } from "../src/main/open-paths.ts"
+import { droppedPathsOf, MAX_DROPPED_PATHS, openPathsOf, parseOpenPaths, projectLanding } from "../src/main/open-paths.ts"
 
 test("parseOpenPaths reads arguments after --open-path only", () => {
   assert.deepEqual(parseOpenPaths(["/opt/servef/servef-desktop"], "/home/u"), [])
@@ -42,4 +42,14 @@ test("openPathsOf accepts absolute string arrays only", () => {
 
 test("projectLanding encodes the project", () => {
   assert.equal(projectLanding("servef-app://local", "/src/a b&c"), "servef-app://local/?project=%2Fsrc%2Fa%20b%26c")
+})
+
+test("droppedPathsOf accepts a bounded array of absolute paths only", () => {
+  assert.deepEqual(droppedPathsOf(["/a", "/b", "/a"]), ["/a", "/b"])
+  assert.deepEqual(droppedPathsOf([]), [])
+  for (const value of [["/a", "relative"], ["/a", 1], ["/a\u0000"], ["/" + "x".repeat(5000)], "/a", null, { paths: ["/a"] }]) {
+    assert.deepEqual(droppedPathsOf(value), [], JSON.stringify(value))
+  }
+  assert.deepEqual(droppedPathsOf(Array.from({ length: MAX_DROPPED_PATHS + 1 }, (_, index) => `/p${index}`)), [])
+  assert.equal(droppedPathsOf(Array.from({ length: MAX_DROPPED_PATHS }, (_, index) => `/p${index}`)).length, MAX_DROPPED_PATHS)
 })

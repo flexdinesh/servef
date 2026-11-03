@@ -691,6 +691,7 @@ export function App({ project }: AppProps) {
               active={activeTab}
               tabs={workspace.tabs}
               name={nameTab}
+              project={project}
               onClose={closeTab}
               onCloseMany={closeTabs}
               onSelect={selectTab}
