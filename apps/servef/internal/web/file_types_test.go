@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,13 +14,13 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 )
 
-func searchDocuments(t *testing.T, app *App) searchDocumentsResponse {
+func searchDocuments(t *testing.T, app *App) contract.SearchDocumentsResponse {
 	t.Helper()
 	response := request(t, app, "/api/search-documents?project=.")
 	if response.Code != http.StatusOK {
 		t.Fatalf("search status = %d", response.Code)
 	}
-	var search searchDocumentsResponse
+	var search contract.SearchDocumentsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &search); err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +297,7 @@ func TestFormatEndpoint(t *testing.T) {
 	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/json; charset=utf-8" {
 		t.Fatalf("format status = %d", response.Code)
 	}
-	var formatted formatResponse
+	var formatted contract.FormatResult
 	if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +311,7 @@ func TestFormatEndpoint(t *testing.T) {
 		"app.js":     "if(a) {\n  b()\n}\n",
 	} {
 		response := request(t, app, "/api/format?project=.&path="+path)
-		var formatted formatResponse
+		var formatted contract.FormatResult
 		if err := json.Unmarshal(response.Body.Bytes(), &formatted); err != nil || response.Code != http.StatusOK || formatted.Formatted != want {
 			t.Errorf("%s format = %d %s, want %q", path, response.Code, response.Body.String(), want)
 		}
@@ -441,15 +442,18 @@ func TestAPIFixturesMatchServerDocumentContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var fixture pageData
+		var fixture contract.PageData
 		if err := json.Unmarshal(content, &fixture); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		if fixture.DocumentType == nil {
 			continue
 		}
-		if want := app.config.Types.Lookup(fixture.Selected).Type(); !reflect.DeepEqual(*fixture.DocumentType, want) {
-			t.Errorf("%s documentType = %+v, want %+v", name, *fixture.DocumentType, want)
+		// The registry's type and the contract's encode identically.
+		got, _ := json.Marshal(*fixture.DocumentType)
+		want, _ := json.Marshal(app.config.Types.Lookup(fixture.Selected).Type())
+		if string(got) != string(want) {
+			t.Errorf("%s documentType = %s, want %s", name, got, want)
 		}
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(fixture.Selected))); err != nil {
 			continue

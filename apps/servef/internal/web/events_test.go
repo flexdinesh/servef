@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -141,7 +142,7 @@ func (s *eventStream) take() serverSentEvent {
 
 // nextHead skips to the next head event, checking that it follows a git
 // change or, for the first, the status.
-func (s *eventStream) nextHead() headEvent {
+func (s *eventStream) nextHead() contract.HeadEvent {
 	s.t.Helper()
 	var previous serverSentEvent
 	for {
@@ -150,11 +151,11 @@ func (s *eventStream) nextHead() headEvent {
 			previous = event
 			continue
 		}
-		var head headEvent
+		var head contract.HeadEvent
 		if err := json.Unmarshal([]byte(event.data), &head); err != nil {
 			s.t.Fatal(err)
 		}
-		var change changeEvent
+		var change contract.ChangeEvent
 		switch {
 		case head.Previous == nil && previous.name == "status":
 		case previous.name == "change" && json.Unmarshal([]byte(previous.data), &change) == nil && change.Git:
@@ -209,16 +210,16 @@ func TestEventsStreamStatusThenChanges(t *testing.T) {
 	server := liveServer(t, app, 0)
 
 	stream := openEvents(t, server, app.roots.List()[0])
-	var status statusEvent
+	var status contract.StatusEvent
 	stream.next("status", &status)
-	if status.Mode != watch.ModeWatching || status.Reason != "" {
+	if status.Mode != string(watch.ModeWatching) || status.Reason != "" {
 		t.Fatalf("status = %+v, want watching", status)
 	}
 
 	writeTestFile(t, filepath.Join(root, "README.md"), "# Two\n")
-	var change changeEvent
+	var change contract.ChangeEvent
 	stream.next("change", &change)
-	if !reflect.DeepEqual(change, changeEvent{Paths: []string{"README.md"}}) {
+	if !reflect.DeepEqual(change, contract.ChangeEvent{Paths: []string{"README.md"}}) {
 		t.Fatalf("change = %+v, want README.md written", change)
 	}
 
@@ -237,10 +238,10 @@ func TestEventsStreamGitStateChanges(t *testing.T) {
 	server := liveServer(t, app, 0)
 
 	stream := openEvents(t, server, app.roots.List()[0])
-	var status statusEvent
+	var status contract.StatusEvent
 	stream.next("status", &status)
 	writeTestFile(t, filepath.Join(root, ".git", "refs", "heads", "main"), "0123\n")
-	var change changeEvent
+	var change contract.ChangeEvent
 	stream.next("change", &change)
 	if !change.Git || len(change.Paths) != 0 {
 		t.Fatalf("change = %+v, want git only", change)
@@ -272,14 +273,14 @@ func TestEventsSendHeadFirstThenWhenItMoves(t *testing.T) {
 	if err := worktree.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("feature"), Create: true}); err != nil {
 		t.Fatal(err)
 	}
-	switched := headEvent{Branch: "feature", Commit: initial.String(), Subject: "Initial commit", Previous: &headRef{Branch: "master", Commit: initial.String()}}
+	switched := contract.HeadEvent{Branch: "feature", Commit: initial.String(), Subject: "Initial commit", Previous: &contract.HeadRef{Branch: "master", Commit: initial.String()}}
 	if got := stream.nextHead(); !reflect.DeepEqual(got, switched) {
 		t.Fatalf("head after switch = %+v (previous %+v), want %+v", got, got.Previous, switched)
 	}
 
 	writeTestFile(t, filepath.Join(root, "README.md"), "# Two\n")
 	next := commitAll(t, repo, "Second commit")
-	committed := headEvent{Branch: "feature", Commit: next.String(), Subject: "Second commit", Previous: &headRef{Branch: "feature", Commit: initial.String()}}
+	committed := contract.HeadEvent{Branch: "feature", Commit: next.String(), Subject: "Second commit", Previous: &contract.HeadRef{Branch: "feature", Commit: initial.String()}}
 	if got := stream.nextHead(); !reflect.DeepEqual(got, committed) {
 		t.Fatalf("head after commit = %+v (previous %+v), want %+v", got, got.Previous, committed)
 	}
@@ -308,8 +309,8 @@ func TestEventsWatchedLeaseFollowsGitStateOnly(t *testing.T) {
 
 	stream := openEventsQuery(t, server, url.Values{"project": {app.roots.List()[0]}, "lease": {"watched"}})
 	event := stream.take()
-	var status statusEvent
-	if event.name != "status" || json.Unmarshal([]byte(event.data), &status) != nil || status.Mode != watch.ModeWatching {
+	var status contract.StatusEvent
+	if event.name != "status" || json.Unmarshal([]byte(event.data), &status) != nil || status.Mode != string(watch.ModeWatching) {
 		t.Fatalf("first event = %+v, want watching status", event)
 	}
 	if event := stream.take(); event.name != "head" || !strings.Contains(event.data, initial.String()) || !strings.HasSuffix(event.data, `"previous":null}`) {
@@ -323,7 +324,7 @@ func TestEventsWatchedLeaseFollowsGitStateOnly(t *testing.T) {
 	for {
 		event := stream.take()
 		if event.name == "head" {
-			var head headEvent
+			var head contract.HeadEvent
 			if err := json.Unmarshal([]byte(event.data), &head); err != nil {
 				t.Fatal(err)
 			}
@@ -332,7 +333,7 @@ func TestEventsWatchedLeaseFollowsGitStateOnly(t *testing.T) {
 			}
 			return
 		}
-		var change changeEvent
+		var change contract.ChangeEvent
 		if event.name != "change" || json.Unmarshal([]byte(event.data), &change) != nil || !change.Git || change.Tree || change.Overflow || len(change.Paths) != 0 {
 			t.Fatalf("event = %+v, want git-only changes", event)
 		}
@@ -360,7 +361,7 @@ func TestEventsRejectInvalidLeases(t *testing.T) {
 	server := liveServer(t, app, 0)
 	for _, lease := range []string{"open", "watched"} {
 		stream := openEventsQuery(t, server, url.Values{"project": {app.roots.List()[0]}, "lease": {lease}})
-		var status statusEvent
+		var status contract.StatusEvent
 		stream.next("status", &status)
 	}
 }
@@ -371,11 +372,11 @@ func TestEventsOutliveTheServerWriteTimeout(t *testing.T) {
 	server := liveServer(t, app, 50*time.Millisecond)
 
 	stream := openEvents(t, server, app.roots.List()[0])
-	var status statusEvent
+	var status contract.StatusEvent
 	stream.next("status", &status)
 	time.Sleep(200 * time.Millisecond)
 	writeTestFile(t, filepath.Join(root, "late.md"), "x")
-	var change changeEvent
+	var change contract.ChangeEvent
 	stream.next("change", &change)
 	if !reflect.DeepEqual(change.Paths, []string{"late.md"}) {
 		t.Fatalf("change = %+v", change)
@@ -388,7 +389,7 @@ func TestStopLiveUpdatesEndsStreams(t *testing.T) {
 	server := liveServer(t, app, 0)
 
 	stream := openEvents(t, server, app.roots.List()[0])
-	var status statusEvent
+	var status contract.StatusEvent
 	stream.next("status", &status)
 	app.StopLiveUpdates()
 	select {

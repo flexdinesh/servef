@@ -6,84 +6,22 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/flexdinesh/servef/internal/files"
-	"github.com/flexdinesh/servef/internal/git"
-	"github.com/flexdinesh/servef/internal/projects"
-	"github.com/flexdinesh/servef/internal/watch"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // eventHeartbeat writes a comment to idle streams so a closed tab's stream
 // ends on the next write.
 const eventHeartbeat = 25 * time.Second
 
-// statusEvent is the event stream's "status": how the project is followed.
-type statusEvent struct {
-	Mode   watch.Mode `json:"mode"`
-	Reason string     `json:"reason"`
-}
-
-// changeEvent is the event stream's "change": one debounced batch of
-// project-relative paths (decision 0050).
-type changeEvent struct {
-	Paths    []string `json:"paths"`
-	Tree     bool     `json:"tree"`
-	Git      bool     `json:"git"`
-	Overflow bool     `json:"overflow"`
-}
-
-// headEvent is the event stream's "head": what a checkout has checked out.
-// Branch is empty when detached and Commit when unborn. Previous is the
-// stream's last head, null for the first.
-type headEvent struct {
-	Branch   string   `json:"branch"`
-	Commit   string   `json:"commit"`
-	Subject  string   `json:"subject"`
-	Previous *headRef `json:"previous"`
-}
-
-type headRef struct {
-	Branch string `json:"branch"`
-	Commit string `json:"commit"`
-}
-
-// leaseLevel parses the lease query parameter: open (the default) follows
-// files and git state; watched follows git state only (decision 0066).
-func leaseLevel(value string) (watch.Level, bool) {
-	switch value {
-	case "", "open":
-		return watch.LevelOpen, true
-	case "watched":
-		return watch.LevelWatched, true
-	}
-	return 0, false
-}
-
-// serveEvents streams a project's changes as server-sent events while the
-// browser shows it. The subscription is the project's interest: the hub
-// watches a project only while some stream follows it.
-// A checkout's stream also sends its head after the first status and after
-// each git change that moves it.
+// serveEvents streams a project's live updates (app.Events) as server-sent
+// events while the browser shows it; each event's name is its contract name.
 func (a *App) serveEvents(w http.ResponseWriter, r *http.Request) {
-	// The lease is checked before the project: it needs no file system.
-	level, ok := leaseLevel(r.URL.Query().Get("lease"))
-	if !ok {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "lease must be open or watched.", Code: "invalidLease"})
-		return
-	}
-	project, status, message := a.project(r.URL.Query().Get("project"))
-	if status != http.StatusOK {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, status, errorResponse{Error: message})
-		return
-	}
-	subscription, err := a.watches.Subscribe(a.watchTarget(project.root), level)
+	query := r.URL.Query()
+	subscription, err := a.app.Events.Subscribe(contract.EventsRequest{Project: query.Get("project"), Lease: query.Get("lease")})
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "Live updates are unavailable."})
+		writeError(w, err)
 		return
 	}
 	defer subscription.Close()
@@ -103,23 +41,6 @@ func (a *App) serveEvents(w http.ResponseWriter, r *http.Request) {
 	if !write(": servef\n\n") {
 		return
 	}
-	// last is the head this stream last sent. A folder, or a checkout whose
-	// head can't be read, sends none.
-	var last *headRef
-	baseline := false
-	writeHead := func() bool {
-		head, err := git.ReadHead(project.root)
-		if err != nil {
-			return true
-		}
-		current := headRef{Branch: head.Branch, Commit: head.Commit}
-		if last != nil && *last == current {
-			return true
-		}
-		event := headEvent{Branch: head.Branch, Commit: head.Commit, Subject: head.Subject, Previous: last}
-		last = &current
-		return write(serverEvent("head", event))
-	}
 	heartbeat := time.NewTicker(eventHeartbeat)
 	defer heartbeat.Stop()
 	for {
@@ -133,45 +54,12 @@ func (a *App) serveEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case <-subscription.Ready():
-			next, change := subscription.Next()
-			if next != nil {
-				if !write(serverEvent("status", statusEvent{Mode: next.Mode, Reason: next.Reason})) {
-					return
-				}
-				if !baseline {
-					baseline = true
-					if !writeHead() {
-						return
-					}
-				}
-			}
-			if change != nil {
-				if !write(serverEvent("change", changeEvent{Paths: change.Paths, Tree: change.Tree, Git: change.Git, Overflow: change.Overflow})) {
-					return
-				}
-				if change.Git && !writeHead() {
+			for _, event := range subscription.Next() {
+				if !write(serverEvent(event.Name, event.Payload())) {
 					return
 				}
 			}
 		}
-	}
-}
-
-// watchTarget is what following a project watches: the directories its scan
-// reads and, for a checkout, its git state.
-func (a *App) watchTarget(root string) watch.Target {
-	return watch.Target{
-		Root: root,
-		Directories: func() ([]string, int, error) {
-			return files.Directories(root, a.config.Depth)
-		},
-		Git: func() ([]string, func(string) bool) {
-			state, ok := projects.ReadGitState(root)
-			if !ok {
-				return nil, nil
-			}
-			return state.Directories, state.Records
-		},
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 //go:embed dist vendor/PX0-LICENSE.txt
@@ -53,7 +55,7 @@ func (a *App) serveFrontendAsset(w http.ResponseWriter, name string) {
 	_, _ = w.Write(content)
 }
 
-func (a *App) serveShell(w http.ResponseWriter, status int, data *pageData) {
+func (a *App) serveShell(w http.ResponseWriter, status int, data *contract.PageData) {
 	encoded, err := json.Marshal(data)
 	if err != nil {
 		http.Error(w, "could not render page", http.StatusInternalServerError)

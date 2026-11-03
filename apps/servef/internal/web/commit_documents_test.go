@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/flexdinesh/servef/pkg/contract"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -133,7 +134,7 @@ func TestFormatReadsDocumentAtCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var formatted formatResponse
+	var formatted contract.FormatResult
 	if status := requestJSON(t, app, "/api/format?project=.&path=data.json"+at, &formatted); status != http.StatusOK || formatted.Formatted != string(want) {
 		t.Errorf("format at commit = %d %q, want %q", status, formatted.Formatted, want)
 	}
@@ -153,7 +154,7 @@ func TestFormatReadsDocumentAtCommit(t *testing.T) {
 }
 
 // selectedNode returns the path of the tree's selected node, if any.
-func selectedNode(nodes []treeNode) string {
+func selectedNode(nodes []contract.TreeNode) string {
 	for _, node := range nodes {
 		if node.Selected {
 			return node.Path

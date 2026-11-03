@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"net/http"
 	"net/url"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/flexdinesh/servef/internal/projects"
 )
 
 func newProjectsApp(t *testing.T) (*App, string) {
@@ -57,7 +56,7 @@ func TestPageIsScopedToProject(t *testing.T) {
 		t.Fatalf("status = %d, body %s", response.Code, response.Body.String())
 	}
 	if data.Project != filepath.Join(root, "api") || data.ProjectUnavailable || data.RootName != "api" || data.Branch != "main" || data.FileCount != 3 ||
-		data.Repository != "api" || data.ProjectKind != projects.KindRepo || data.Worktrees != 1 {
+		data.Repository != "api" || data.ProjectKind != contract.ProjectRepo || data.Worktrees != 1 {
 		t.Fatalf("page = project %q root %q repository %q kind %q branch %q worktrees %d files %d",
 			data.Project, data.RootName, data.Repository, data.ProjectKind, data.Branch, data.Worktrees, data.FileCount)
 	}
@@ -133,7 +132,7 @@ func TestSwitchingProjectsReadsCurrentFiles(t *testing.T) {
 func TestProjectsEndpointRediscovers(t *testing.T) {
 	app, root := newProjectsApp(t)
 	first := requestProjects(t, app)
-	if want := []projects.Root{{Path: root, Name: filepath.Base(root)}}; !reflect.DeepEqual(first.Roots, want) {
+	if want := []contract.Root{{Path: root, Name: filepath.Base(root)}}; !reflect.DeepEqual(first.Roots, want) {
 		t.Fatalf("roots = %#v", first.Roots)
 	}
 	api, web := filepath.Join(root, "api"), filepath.Join(root, "web")
@@ -232,11 +231,11 @@ func TestRootAddedAfterStartIsServed(t *testing.T) {
 func TestDirectoriesEndpoint(t *testing.T) {
 	app, root := newProjectsApp(t)
 	response := request(t, app, "/api/directories?path="+url.QueryEscape(root))
-	var listing directoriesResponse
+	var listing contract.DirectoriesResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &listing); err != nil {
 		t.Fatal(err)
 	}
-	want := directoriesResponse{Path: root, Directories: []projects.Directory{
+	want := contract.DirectoriesResponse{Path: root, Directories: []contract.Directory{
 		{Name: "api", Path: filepath.Join(root, "api"), IsProject: true},
 		{Name: "web", Path: filepath.Join(root, "web"), IsProject: true},
 	}}
@@ -276,20 +275,20 @@ func projectQuery(root string, segments ...string) string {
 	return url.QueryEscape(filepath.Join(append([]string{root}, segments...)...))
 }
 
-func requestProjects(t *testing.T, app *App) projectsResponse {
+func requestProjects(t *testing.T, app *App) contract.ProjectsResponse {
 	t.Helper()
 	response := request(t, app, "/api/projects")
 	if response.Code != http.StatusOK {
 		t.Fatalf("projects status = %d", response.Code)
 	}
-	var payload projectsResponse
+	var payload contract.ProjectsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
 	return payload
 }
 
-func projectIDs(list []projects.Project) []string {
+func projectIDs(list []contract.Project) []string {
 	ids := make([]string, len(list))
 	for i, project := range list {
 		ids[i] = project.ID
@@ -334,8 +333,8 @@ func TestProjectsSessionKey(t *testing.T) {
 // Frontend project fixtures must decode into the server's response types.
 func TestProjectFixturesMatchServerContract(t *testing.T) {
 	for name, target := range map[string]any{
-		"projects.json":    &projectsResponse{},
-		"directories.json": &directoriesResponse{},
+		"projects.json":    &contract.ProjectsResponse{},
+		"directories.json": &contract.DirectoriesResponse{},
 	} {
 		content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "testdata", "api", "default", name))
 		if err != nil {

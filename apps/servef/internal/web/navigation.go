@@ -74,7 +74,7 @@ func (s *navigationSource) readFile(name string, source bool) ([]byte, string) {
 	if !family.HasTextSource() {
 		return nil, "Binary files do not support code navigation."
 	}
-	_, binary, err := readText(file, document.SniffLength)
+	_, binary, err := document.ReadText(file, document.SniffLength)
 	if err != nil {
 		return nil, "That file is unavailable."
 	}

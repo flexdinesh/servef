@@ -454,7 +454,7 @@ func (c *stepChecker) lines(field string, lines *walkthrough.Lines, fileType doc
 		return err
 	}
 	defer func() { _ = reader.Close() }()
-	text, binary, err := readText(reader, limit)
+	text, binary, err := document.ReadText(reader, limit)
 	if err != nil {
 		return err
 	}

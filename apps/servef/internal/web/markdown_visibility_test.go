@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/flexdinesh/servef/pkg/contract"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,7 @@ func TestAppMarkdownVisibilityPreservesSourceAndSearch(t *testing.T) {
 	if search.Code != http.StatusOK {
 		t.Fatalf("search status = %d", search.Code)
 	}
-	var results searchDocumentsResponse
+	var results contract.SearchDocumentsResponse
 	if err := json.Unmarshal(search.Body.Bytes(), &results); err != nil {
 		t.Fatal(err)
 	}
