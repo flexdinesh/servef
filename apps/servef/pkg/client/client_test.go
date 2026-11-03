@@ -1,17 +1,14 @@
-package client
+package client_test
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,13 +16,15 @@ import (
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/watch"
 	"github.com/flexdinesh/servef/internal/web"
+	"github.com/flexdinesh/servef/pkg/client"
+	"github.com/flexdinesh/servef/pkg/client/inprocess"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // transport is one way to reach the same served roots.
 type transport struct {
 	name   string
-	client Client
+	client client.Client
 	daemon bool
 }
 
@@ -106,9 +105,9 @@ func serveFixture(t *testing.T, root string) fixture {
 		_ = os.RemoveAll(dir)
 	})
 	return fixture{root: root, transports: []transport{
-		{name: "tcp", client: NewTCP(tcp.URL)},
-		{name: "unix", client: NewUnix(socket), daemon: true},
-		{name: "in-process", client: NewInProcess(webApp.Application(), control), daemon: true},
+		{name: "tcp", client: client.NewTCP(tcp.URL)},
+		{name: "unix", client: client.NewUnix(socket), daemon: true},
+		{name: "in-process", client: inprocess.New(webApp.Application(), control), daemon: true},
 	}}
 }
 
@@ -124,7 +123,7 @@ func result[T any](value T, err error) outcome {
 
 // same runs call on every transport and requires identical outcomes, then
 // returns the first.
-func (f fixture) same(t *testing.T, name string, call func(Client) outcome) outcome {
+func (f fixture) same(t *testing.T, name string, call func(client.Client) outcome) outcome {
 	t.Helper()
 	var first outcome
 	for i, transport := range f.transports {
@@ -141,7 +140,7 @@ func (f fixture) same(t *testing.T, name string, call func(Client) outcome) outc
 }
 
 func kindOf(err error) contract.ErrorKind {
-	var failure *Error
+	var failure *client.Error
 	if errors.As(err, &failure) {
 		return failure.Kind
 	}
@@ -152,12 +151,12 @@ func TestDataAPIParityAcrossTransports(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 
-	projectsOutcome := f.same(t, "Projects", func(c Client) outcome { return result(c.Projects(ctx)) })
+	projectsOutcome := f.same(t, "Projects", func(c client.Client) outcome { return result(c.Projects(ctx)) })
 	if listed, ok := projectsOutcome.Value.(contract.ProjectsResponse); !ok || projectsOutcome.Err != nil || len(listed.Projects) == 0 || listed.Projects[0].ID != f.root {
 		t.Fatalf("Projects = %+v", projectsOutcome)
 	}
-	f.same(t, "Directories", func(c Client) outcome { return result(c.Directories(ctx, f.root)) })
-	outside := f.same(t, "Directories outside", func(c Client) outcome { return result(c.Directories(ctx, filepath.Dir(f.root))) })
+	f.same(t, "Directories", func(c client.Client) outcome { return result(c.Directories(ctx, f.root)) })
+	outside := f.same(t, "Directories outside", func(c client.Client) outcome { return result(c.Directories(ctx, filepath.Dir(f.root))) })
 	if kindOf(outside.Err) != contract.KindInvalid {
 		t.Errorf("Directories outside the roots error = %v, want invalid", outside.Err)
 	}
@@ -177,7 +176,7 @@ func TestDataAPIParityAcrossTransports(t *testing.T) {
 		{"bad commit", contract.PageRequest{Project: f.root, Path: "README.md", At: "HEAD"}, contract.KindInvalid},
 	}
 	for _, page := range pages {
-		got := f.same(t, "Page "+page.name, func(c Client) outcome { return result(c.Page(ctx, page.request)) })
+		got := f.same(t, "Page "+page.name, func(c client.Client) outcome { return result(c.Page(ctx, page.request)) })
 		if kindOf(got.Err) != page.kind {
 			t.Errorf("Page %s error = %v, want kind %q", page.name, got.Err, page.kind)
 		}
@@ -197,7 +196,7 @@ func TestDataAPIParityAcrossTransports(t *testing.T) {
 		{"gone.json", contract.KindNotFound},
 	}
 	for _, format := range formats {
-		got := f.same(t, "Format "+format.path, func(c Client) outcome {
+		got := f.same(t, "Format "+format.path, func(c client.Client) outcome {
 			return result(c.Format(ctx, contract.FormatRequest{Project: f.root, Path: format.path}))
 		})
 		if kindOf(got.Err) != format.kind {
@@ -205,22 +204,22 @@ func TestDataAPIParityAcrossTransports(t *testing.T) {
 		}
 	}
 
-	search := f.same(t, "SearchDocuments", func(c Client) outcome { return result(c.SearchDocuments(ctx, f.root)) })
+	search := f.same(t, "SearchDocuments", func(c client.Client) outcome { return result(c.SearchDocuments(ctx, f.root)) })
 	if documents, ok := search.Value.(contract.SearchDocumentsResponse); !ok || len(documents.Documents) != 5 {
 		t.Errorf("SearchDocuments = %+v, want 5 documents", search)
 	}
-	f.same(t, "SearchDocuments without a project", func(c Client) outcome { return result(c.SearchDocuments(ctx, "")) })
+	f.same(t, "SearchDocuments without a project", func(c client.Client) outcome { return result(c.SearchDocuments(ctx, "")) })
 }
 
 func TestEventsParityAcrossTransports(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 
-	invalid := f.same(t, "Events invalid lease", func(c Client) outcome {
+	invalid := f.same(t, "Events invalid lease", func(c client.Client) outcome {
 		stream, err := c.Events(ctx, contract.EventsRequest{Project: f.root, Lease: "forever"})
 		return outcome{Value: stream == nil, Err: err}
 	})
-	var failure *Error
+	var failure *client.Error
 	if !errors.As(invalid.Err, &failure) || failure.Kind != contract.KindInvalid || failure.Code != contract.CodeInvalidLease {
 		t.Errorf("Events invalid lease error = %v, want invalid %s", invalid.Err, contract.CodeInvalidLease)
 	}
@@ -275,34 +274,34 @@ func TestDaemonCallsParityAcrossTransports(t *testing.T) {
 			daemons.transports = append(daemons.transports, transport)
 			continue
 		}
-		if _, err := transport.client.DaemonStatus(ctx); !errors.Is(err, ErrNoDaemon) {
-			t.Errorf("DaemonStatus over %s error = %v, want ErrNoDaemon", transport.name, err)
+		if _, err := transport.client.DaemonStatus(ctx); !errors.Is(err, client.ErrNoDaemon) {
+			t.Errorf("DaemonStatus over %s error = %v, want client.ErrNoDaemon", transport.name, err)
 		}
-		if _, err := transport.client.DaemonEvents(ctx); !errors.Is(err, ErrNoDaemon) {
-			t.Errorf("DaemonEvents over %s error = %v, want ErrNoDaemon", transport.name, err)
+		if _, err := transport.client.DaemonEvents(ctx); !errors.Is(err, client.ErrNoDaemon) {
+			t.Errorf("DaemonEvents over %s error = %v, want client.ErrNoDaemon", transport.name, err)
 		}
 	}
 
-	status := daemons.same(t, "DaemonStatus", func(c Client) outcome { return result(c.DaemonStatus(ctx)) })
+	status := daemons.same(t, "DaemonStatus", func(c client.Client) outcome { return result(c.DaemonStatus(ctx)) })
 	if got, ok := status.Value.(contract.DaemonStatus); !ok || !reflect.DeepEqual(got.Roots, []string{f.root}) {
 		t.Errorf("DaemonStatus = %+v", status)
 	}
-	daemons.same(t, "DaemonRoots", func(c Client) outcome { return result(c.DaemonRoots(ctx)) })
-	opened := daemons.same(t, "DaemonOpen within a root", func(c Client) outcome { return result(c.DaemonOpen(ctx, filepath.Join(f.root, "notes"))) })
+	daemons.same(t, "DaemonRoots", func(c client.Client) outcome { return result(c.DaemonRoots(ctx)) })
+	opened := daemons.same(t, "DaemonOpen within a root", func(c client.Client) outcome { return result(c.DaemonOpen(ctx, filepath.Join(f.root, "notes"))) })
 	if got, ok := opened.Value.(contract.DaemonOpenResult); !ok || got.Added || got.Root != f.root || got.Project != filepath.Join(f.root, "notes") {
 		t.Errorf("DaemonOpen = %+v", opened)
 	}
-	relative := daemons.same(t, "DaemonOpen relative", func(c Client) outcome { return result(c.DaemonOpen(ctx, "notes")) })
-	var invalidRoot *Error
+	relative := daemons.same(t, "DaemonOpen relative", func(c client.Client) outcome { return result(c.DaemonOpen(ctx, "notes")) })
+	var invalidRoot *client.Error
 	if !errors.As(relative.Err, &invalidRoot) || invalidRoot.Code != contract.CodeInvalidRoot {
 		t.Errorf("DaemonOpen relative error = %v, want %s", relative.Err, contract.CodeInvalidRoot)
 	}
-	daemons.same(t, "DaemonDirectories", func(c Client) outcome { return result(c.DaemonDirectories(ctx, f.root)) })
-	missing := daemons.same(t, "DaemonDirectories missing", func(c Client) outcome { return result(c.DaemonDirectories(ctx, filepath.Join(f.root, "gone"))) })
+	daemons.same(t, "DaemonDirectories", func(c client.Client) outcome { return result(c.DaemonDirectories(ctx, f.root)) })
+	missing := daemons.same(t, "DaemonDirectories missing", func(c client.Client) outcome { return result(c.DaemonDirectories(ctx, filepath.Join(f.root, "gone"))) })
 	if kindOf(missing.Err) != contract.KindNotFound {
 		t.Errorf("DaemonDirectories missing error = %v, want not found", missing.Err)
 	}
-	daemons.same(t, "DaemonEvents first", func(c Client) outcome {
+	daemons.same(t, "DaemonEvents first", func(c client.Client) outcome {
 		stream, err := c.DaemonEvents(ctx)
 		if err != nil {
 			return outcome{Err: err}
@@ -310,26 +309,4 @@ func TestDaemonCallsParityAcrossTransports(t *testing.T) {
 		defer stream.Close()
 		return result(stream.Next())
 	})
-}
-
-func TestServerSentEventsParse(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader(": servef\n\nevent: walkthrough\ndata: {\"project\":\"/p\",\"id\":\"tour\",\"title\":\"Tour\",\"created\":true}\n\n: heartbeat\n\nevent: other\ndata: {}\n\n"))
-	name, data, err := readEvent(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	event, ok, err := daemonEvent(name, data)
-	if err != nil || !ok || !reflect.DeepEqual(event.Walkthrough, &contract.WalkthroughEvent{Project: "/p", ID: "tour", Title: "Tour", Created: true}) {
-		t.Fatalf("event = %+v, %v, %v", event, ok, err)
-	}
-	name, data, err = readEvent(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok, err := daemonEvent(name, data); ok || err != nil {
-		t.Errorf("unknown event = %v, %v; want skipped", ok, err)
-	}
-	if _, _, err := readEvent(reader); !errors.Is(err, io.EOF) {
-		t.Errorf("end = %v, want io.EOF", err)
-	}
 }

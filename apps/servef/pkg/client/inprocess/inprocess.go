@@ -1,4 +1,8 @@
-package client
+// Package inprocess is the in-process transport for client.Client: it calls
+// the application layer and an optional daemon controller directly. It is a
+// separate package so HTTP-only users of pkg/client, such as the native app,
+// do not link the server and its embedded web app.
+package inprocess
 
 import (
 	"context"
@@ -7,35 +11,36 @@ import (
 
 	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/daemon"
+	"github.com/flexdinesh/servef/pkg/client"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
-// InProcess calls the application layer directly, with no encoding.
-type InProcess struct {
+// Client calls the application layer directly, with no encoding.
+type Client struct {
 	app     *app.App
 	control *daemon.Controller
 }
 
-var _ Client = (*InProcess)(nil)
+var _ client.Client = (*Client)(nil)
 
-// NewInProcess returns a client over application; control, when not nil,
-// answers the daemon calls, otherwise they return ErrNoDaemon.
-func NewInProcess(application *app.App, control *daemon.Controller) *InProcess {
-	return &InProcess{app: application, control: control}
+// New returns a client over application; control, when not nil,
+// answers the daemon calls, otherwise they return client.ErrNoDaemon.
+func New(application *app.App, control *daemon.Controller) *Client {
+	return &Client{app: application, control: control}
 }
 
-func (c *InProcess) Projects(ctx context.Context) (contract.ProjectsResponse, error) {
+func (c *Client) Projects(ctx context.Context) (contract.ProjectsResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return contract.ProjectsResponse{}, err
 	}
 	return c.app.Projects.List(), nil
 }
 
-func (c *InProcess) Directories(ctx context.Context, path string) (contract.DirectoriesResponse, error) {
+func (c *Client) Directories(ctx context.Context, path string) (contract.DirectoriesResponse, error) {
 	return call(ctx, func() (contract.DirectoriesResponse, error) { return c.app.Projects.Directories(path) })
 }
 
-func (c *InProcess) Page(ctx context.Context, request contract.PageRequest) (contract.PageData, error) {
+func (c *Client) Page(ctx context.Context, request contract.PageRequest) (contract.PageData, error) {
 	if err := ctx.Err(); err != nil {
 		return contract.PageData{}, err
 	}
@@ -43,15 +48,15 @@ func (c *InProcess) Page(ctx context.Context, request contract.PageRequest) (con
 	return page, clientError(err)
 }
 
-func (c *InProcess) Format(ctx context.Context, request contract.FormatRequest) (contract.FormatResult, error) {
+func (c *Client) Format(ctx context.Context, request contract.FormatRequest) (contract.FormatResult, error) {
 	return call(ctx, func() (contract.FormatResult, error) { return c.app.Documents.Format(request) })
 }
 
-func (c *InProcess) SearchDocuments(ctx context.Context, project string) (contract.SearchDocumentsResponse, error) {
+func (c *Client) SearchDocuments(ctx context.Context, project string) (contract.SearchDocumentsResponse, error) {
 	return call(ctx, func() (contract.SearchDocumentsResponse, error) { return c.app.Documents.SearchDocuments(project) })
 }
 
-func (c *InProcess) Events(ctx context.Context, request contract.EventsRequest) (*Stream[contract.Event], error) {
+func (c *Client) Events(ctx context.Context, request contract.EventsRequest) (*client.Stream[contract.Event], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -76,68 +81,68 @@ func (c *InProcess) Events(ctx context.Context, request contract.EventsRequest) 
 		pending = pending[1:]
 		return event, nil
 	}
-	return &Stream[contract.Event]{next: next, close: func() { cancel(); subscription.Close() }}, nil
+	return client.NewStream(next, func() { cancel(); subscription.Close() }), nil
 }
 
-func (c *InProcess) Changes(ctx context.Context, project string) (contract.ChangesResponse, error) {
+func (c *Client) Changes(ctx context.Context, project string) (contract.ChangesResponse, error) {
 	return call(ctx, func() (contract.ChangesResponse, error) { return c.app.SourceControl.Changes(ctx, project) })
 }
 
-func (c *InProcess) Diff(ctx context.Context, request contract.DiffRequest) (contract.DiffResponse, error) {
+func (c *Client) Diff(ctx context.Context, request contract.DiffRequest) (contract.DiffResponse, error) {
 	return call(ctx, func() (contract.DiffResponse, error) { return c.app.SourceControl.Diff(ctx, request) })
 }
 
-func (c *InProcess) Commits(ctx context.Context, request contract.CommitsRequest) (contract.CommitsResponse, error) {
+func (c *Client) Commits(ctx context.Context, request contract.CommitsRequest) (contract.CommitsResponse, error) {
 	return call(ctx, func() (contract.CommitsResponse, error) { return c.app.SourceControl.Commits(ctx, request) })
 }
 
-func (c *InProcess) CommitFiles(ctx context.Context, project, commit string) (contract.CommitFilesResponse, error) {
+func (c *Client) CommitFiles(ctx context.Context, project, commit string) (contract.CommitFilesResponse, error) {
 	return call(ctx, func() (contract.CommitFilesResponse, error) {
 		return c.app.SourceControl.CommitFiles(ctx, project, commit)
 	})
 }
 
-func (c *InProcess) BranchFiles(ctx context.Context, request contract.BranchFilesRequest) (contract.BranchFilesResponse, error) {
+func (c *Client) BranchFiles(ctx context.Context, request contract.BranchFilesRequest) (contract.BranchFilesResponse, error) {
 	return call(ctx, func() (contract.BranchFilesResponse, error) { return c.app.SourceControl.BranchFiles(ctx, request) })
 }
 
-func (c *InProcess) RangeFiles(ctx context.Context, project, from, to string) (contract.RangeFilesResponse, error) {
+func (c *Client) RangeFiles(ctx context.Context, project, from, to string) (contract.RangeFilesResponse, error) {
 	return call(ctx, func() (contract.RangeFilesResponse, error) {
 		return c.app.SourceControl.RangeFiles(ctx, project, from, to)
 	})
 }
 
-func (c *InProcess) Refs(ctx context.Context, project string) (contract.RefsResponse, error) {
+func (c *Client) Refs(ctx context.Context, project string) (contract.RefsResponse, error) {
 	return call(ctx, func() (contract.RefsResponse, error) { return c.app.SourceControl.Refs(project) })
 }
 
-func (c *InProcess) BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error) {
+func (c *Client) BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error) {
 	return call(ctx, func() (contract.StackResponse, error) { return c.app.SourceControl.BranchStack(ctx, project, base) })
 }
 
-func (c *InProcess) CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error) {
+func (c *Client) CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error) {
 	return call(ctx, func() (contract.CompareStatsResponse, error) { return c.app.SourceControl.CompareStats(ctx, request) })
 }
 
-func (c *InProcess) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {
+func (c *Client) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonStatus, error) { return c.control.Status(), nil })
 }
 
-func (c *InProcess) DaemonRoots(ctx context.Context) (contract.DaemonRoots, error) {
+func (c *Client) DaemonRoots(ctx context.Context) (contract.DaemonRoots, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonRoots, error) { return c.control.Roots(), nil })
 }
 
-func (c *InProcess) DaemonOpen(ctx context.Context, path string) (contract.DaemonOpenResult, error) {
+func (c *Client) DaemonOpen(ctx context.Context, path string) (contract.DaemonOpenResult, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonOpenResult, error) { return c.control.Open(path) })
 }
 
-func (c *InProcess) DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error) {
+func (c *Client) DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonDirectories, error) { return daemon.Directories(path) })
 }
 
-func (c *InProcess) DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEvent], error) {
+func (c *Client) DaemonEvents(ctx context.Context) (*client.Stream[contract.DaemonEvent], error) {
 	if c.control == nil {
-		return nil, ErrNoDaemon
+		return nil, client.ErrNoDaemon
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -163,7 +168,7 @@ func (c *InProcess) DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEv
 			return daemon.WalkthroughEvent(notice), nil
 		}
 	}
-	return &Stream[contract.DaemonEvent]{next: next, close: func() { cancel(); cancelNotices() }}, nil
+	return client.NewStream(next, func() { cancel(); cancelNotices() }), nil
 }
 
 // call runs an operation unless ctx has ended, translating its error.
@@ -180,19 +185,19 @@ func call[T any](ctx context.Context, operation func() (T, error)) (T, error) {
 func daemonCall[T any](ctx context.Context, control *daemon.Controller, operation func() (T, error)) (T, error) {
 	if control == nil {
 		var zero T
-		return zero, ErrNoDaemon
+		return zero, client.ErrNoDaemon
 	}
 	return call(ctx, operation)
 }
 
-// clientError turns an application *Error into the client's *Error.
+// clientError turns an application *Error into a *client.Error.
 func clientError(err error) error {
 	if err == nil {
 		return nil
 	}
 	var failure *app.Error
 	if errors.As(err, &failure) {
-		return &Error{Kind: failure.Kind, Code: failure.Code, Message: failure.Message}
+		return &client.Error{Kind: failure.Kind, Code: failure.Code, Message: failure.Message}
 	}
 	return err
 }

@@ -90,6 +90,12 @@ type Stream[T any] struct {
 	once  sync.Once
 }
 
+// NewStream returns a stream over next, for transports outside this package;
+// close runs once, on the first Close.
+func NewStream[T any](next func() (T, error), close func()) *Stream[T] {
+	return &Stream[T]{next: next, close: close}
+}
+
 // Next blocks until the next event.
 func (s *Stream[T]) Next() (T, error) { return s.next() }
 

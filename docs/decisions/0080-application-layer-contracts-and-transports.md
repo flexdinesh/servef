@@ -1,6 +1,6 @@
 # 0080: Application layer, generated contracts, and transports
 
-- Status: Accepted
+- Status: Accepted; revised by [0083](0083-server-structured-diffs.md) (source control stages), [0084](0084-in-process-client-package.md) (in-process transport package)
 - Date: 2026-11-03
 - Revises: [0078](0078-apps-and-packages-layout.md) (creates `packages/`)
 
