@@ -5,24 +5,25 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 
 ## System boundaries
 
-- `main.go` and `cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0076).
-- `internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
-- `internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
-- `internal/files/`: file discovery, always-skipped directories, and safe path resolution.
-- `internal/projects/`: root validation, repository/worktree discovery, project resolution.
-- `internal/git/`: go-git reads for Source Control; go-git types stay inside it.
-- `internal/document/`: file families, previews, formatting, media types, binary/size policy.
-- `internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
-- `internal/control/`: authenticated discovery and shutdown of local servef processes.
-- `internal/browser/`, `internal/version/`: browser launch and build version.
-- `internal/desktopapp/`: desktop app detection (`servef://` handler), opening URLs in it, install hints.
-- `internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
-- `web/`: React UI, Vite build, frontend tests and development tooling.
-- `desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
+- `apps/servef/main.go` and `apps/servef/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0076).
+- `apps/servef/internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
+- `apps/servef/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API, roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
+- `apps/servef/internal/files/`: file discovery, always-skipped directories, and safe path resolution.
+- `apps/servef/internal/projects/`: root validation, repository/worktree discovery, project resolution.
+- `apps/servef/internal/git/`: go-git reads for Source Control; go-git types stay inside it.
+- `apps/servef/internal/document/`: file families, previews, formatting, media types, binary/size policy.
+- `apps/servef/internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
+- `apps/servef/internal/control/`: authenticated discovery and shutdown of local servef processes.
+- `apps/servef/internal/browser/`, `apps/servef/internal/version/`: browser launch and build version.
+- `apps/servef/internal/desktopapp/`: desktop app detection (`servef://` handler), opening URLs in it, install hints.
+- `apps/servef/internal/web/`: HTTP routes (`routes.go`), indexed reads, shell/static delivery, embedded assets.
+- `apps/web/`: React UI, Vite build, frontend tests and development tooling.
+- `apps/desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
+- `tools/`: validation and release tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
 - `docs/decisions/`: decision records for scope, file types, views, and limits.
-- `site/`: static Vocs user docs; build-time only, not part of the binary.
+- `apps/site/`: static Vocs user docs; build-time only, not part of the binary.
 - `tests/browser/`: browser tests across the Go/React boundary.
 
 The filesystem root passed to the CLI is the primary runtime trust boundary.
@@ -62,12 +63,12 @@ desktop -> ssh -> remote daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
 React -> HTTP API -> HTTP application
-web source -> Vite -> internal/web/dist -> go:embed -> servef binary
+web source -> Vite -> apps/servef/internal/web/dist -> go:embed -> servef binary
 ```
 
 Go and pnpm retain their native dependency graphs. The repository-level
-`package.json` is a command facade; `web/package.json` owns browser dependencies;
-`desktop/package.json` owns the Electron app's build-time dependencies.
+`package.json` is a command facade; `apps/web/package.json` owns browser dependencies;
+`apps/desktop/package.json` owns the Electron app's build-time dependencies.
 Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests
@@ -95,11 +96,11 @@ engine. No local convention provides remote enforcement.
 
 ## Distribution
 
-Vite writes hashed assets to `internal/web/dist`, which `main` ignores. Release
-tags and the CI-published `edge` branch commit it on top of `main`, so
-`go install github.com/flexdinesh/servef@latest` (or `@edge`) needs no
-JavaScript toolchain. Installed releases contain no Node.js runtime or frontend
-sidecar.
+Vite writes hashed assets to `apps/servef/internal/web/dist`, which `main` ignores. Release
+tags and the CI-published `edge` branch commit it on top of `main`, so builds
+from them need no JavaScript toolchain. `go install` from the repository root
+works only for releases tagged before the `apps/` layout (decision 0078).
+Installed releases contain no Node.js runtime or frontend sidecar.
 
 Release tags also publish desktop packages (macOS dmg/zip, Linux
 AppImage/deb per arch): electron-builder bundles that release's Go binary as
@@ -111,7 +112,7 @@ serves in a browser.
 
 1. Organize Go around capabilities before adding abstraction layers.
 2. Keep HTTP DTOs at the transport boundary; move document/search behavior out
-   of `internal/web` as those capabilities grow.
+   of `apps/servef/internal/web` as those capabilities grow.
 3. Keep browser contracts runtime-validated. Introduce OpenAPI and generated
    client types when manual contract maintenance becomes material.
 4. Create shared frontend packages only after a second consumer exists.

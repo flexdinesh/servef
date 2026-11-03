@@ -83,11 +83,11 @@ WebKitGTK builds can lag it.
 
 ### Desktop
 
-`desktop-static` reads `desktop/` and the shared `web/src/api/` contracts.
-`desktop` also reads the server sources (`cmd/`, `internal/`, root Go files),
-`web/`, and `testdata/`: its smoke drives the real daemon. pnpm never downloads
+`desktop-static` reads `apps/desktop/` and the shared `apps/web/src/api/` contracts.
+`desktop` also reads the server sources (`apps/servef/`),
+`apps/web/`, and `testdata/`: its smoke drives the real daemon. pnpm never downloads
 Electron (`allowBuilds: electron: false`). Desktop preparation alone runs
-`desktop/node_modules/electron/install.js`, which verifies the archive against
+`apps/desktop/node_modules/electron/install.js`, which verifies the archive against
 the package's checksums, installs Xvfb and Electron's shared libraries from the
 pinned Debian snapshot, and fails if `ldd` reports a missing library. It builds
 the embedded UI and the servef binary as the browser group does.
@@ -99,7 +99,7 @@ file, user data, walkthrough cache, notification log, and git fixtures; nothing
 reaches the user's daemon. Traces, window screenshots, and daemon, app, and
 notification logs survive failures under the group's `playwright/` output.
 
-The ssh tests (`desktop/test/ssh/`, `pnpm --filter @servef/desktop test:ssh`)
+The ssh tests (`apps/desktop/test/ssh/`, `pnpm --filter @servef/desktop test:ssh`)
 and `remote.spec.ts` start a private `/usr/sbin/sshd` on 127.0.0.1 from
 OpenSSH in the same pinned snapshot. Each run owns a short temp dir with host
 and client keys, known hosts, and a client `ssh_config` (passed to the app as

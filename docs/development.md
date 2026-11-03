@@ -20,23 +20,11 @@ raise `jdx/mise-action` `version` in `.github/workflows/` with it.
 
 ## Install from edge
 
-Install the latest `main` with embedded frontend assets:
-
-```sh
-go install github.com/flexdinesh/servef@edge
-```
-
-The Go install includes the embedded frontend; Node.js and pnpm are not required.
-
-`main` does not track `internal/web/dist/`, so `go install ...@main` fails.
-After the frontend build on `main`, CI force-pushes `edge`: that `main` commit plus the
-built frontend. `@latest` selects the latest stable version tag. Go module
-proxies may briefly cache an older branch revision. To bypass the proxy for
-this module:
-
-```sh
-GONOPROXY=github.com/flexdinesh/servef go install github.com/flexdinesh/servef@edge
-```
+`main` does not track `apps/servef/internal/web/dist/`. After the frontend build
+on `main`, CI force-pushes `edge`: that `main` commit plus the built frontend.
+The Go module lives in `apps/servef/` (decision 0078), so
+`go install github.com/flexdinesh/servef@edge` no longer builds; use the edge
+scripts below.
 
 ### Edge on another machine
 
@@ -86,7 +74,7 @@ and `pnpm link:local` delegate to the mise tasks below.
 | Publish sample walkthroughs to the dev server | `mise run dev:walkthroughs` |
 | Run Vite with API fixtures | `mise run dev:mock` |
 | Build embedded frontend assets (skipped when unchanged) | `mise run build:web` |
-| Build a local binary | `mise run build:web && go build -o ./bin/servef .` |
+| Build a local binary | `mise run build:web && go build -o ./bin/servef ./apps/servef` |
 | Install the local CLI | `mise run install` |
 | Run Go tests | `mise run test:go` |
 | Run Go tests with the race detector | `mise run test:race` |
@@ -132,7 +120,7 @@ matching Chromium version. Native macOS tests remain explicit optional
 supplements for filesystem watching, process, and browser behavior; routine
 tests stay in Dagger.
 
-Go builds, tests, and vet need `internal/web/dist/`; the isolated graph supplies
+Go builds, tests, and vet need `apps/servef/internal/web/dist/`; the isolated graph supplies
 it. Before host development builds in a fresh worktree, run `mise run build:web`.
 Build outputs are ignored and never copied from the host into validation.
 
@@ -159,13 +147,13 @@ To use other ports, copy `.env.example` to `.env` (gitignored) and set
 `SERVEF_DEV_SERVER_PORT` (Go) and `SERVEF_DEV_WEB_PORT` (Vite). Vite proxies
 `/api` to the Go port. mise loads `.env` for tasks and activated shells.
 
-Frontend source and dependencies live in the `web` workspace. Production builds
-write to `internal/web/dist`, which is embedded in the Go binary and ignored by
+Frontend source and dependencies live in the `apps/web` workspace. Production builds
+write to `apps/servef/internal/web/dist`, which is embedded in the Go binary and ignored by
 Git.
 
 ## Desktop development
 
-`desktop/` is the Electron app (decision 0067). `mise run dev:desktop` builds
+`apps/desktop/` is the Electron app (decision 0067). `mise run dev:desktop` builds
 the web dist, a dev binary at `.dev/desktop/servef`, and the desktop bundle,
 fetches the Electron binary once, then runs the app against an isolated daemon:
 socket, roots file, app data, and walkthrough cache all live under the
@@ -173,7 +161,7 @@ gitignored `.dev/`. It never touches your daemon or roots (on macOS the
 walkthrough cache isolation is partial). Open Folder (Cmd/Ctrl-O) adds roots
 to the dev daemon.
 
-Pure modules under `desktop/src/main/` never import `electron`; only
+Pure modules under `apps/desktop/src/main/` never import `electron`; only
 `main.ts`, `electron-*.ts`, and `preload.ts` do (oxlint enforces it). Unit
 tests run under plain Node. `mise run test:desktop` runs them and the
 Playwright `_electron` smoke under Xvfb in Dagger (Linux only). To run the
@@ -190,16 +178,16 @@ host in File > Connect…. A `servef .` run on that host prints `web:` and
 `SERVEF_DESKTOP_SSH_CONFIG` (`-F` for the master and the alias list),
 `SERVEF_DESKTOP_RUNTIME_DIR`, and `SERVEF_DESKTOP_AUTO_CONFIRM=1` with
 `SERVEF_DESKTOP_DIALOG_LOG`. `mise run test:desktop` also runs
-`desktop/test/ssh/` against a throwaway sshd on 127.0.0.1.
+`apps/desktop/test/ssh/` against a throwaway sshd on 127.0.0.1.
 
 OS entry points (decision 0072): with the `dev:desktop` environment, run
-`desktop/node_modules/.bin/electron --no-sandbox desktop --open-path <dir>…`
+`apps/desktop/node_modules/.bin/electron --no-sandbox apps/desktop --open-path <dir>…`
 to cold-launch with folders, or again while the app runs to hand them over.
 Open at Login appears in dev only with `SERVEF_DESKTOP_AUTOSTART_DIR=<absolute dir>`
 (Linux), so dev never registers a dev Electron at login.
 
 To inspect the Linux packages, run `mise run package:desktop`, then list the
-deb (`dpkg-deb -c desktop/dist/servef-desktop_0.0.0-dev_linux_$(go env GOARCH).deb`,
+deb (`dpkg-deb -c apps/desktop/dist/servef-desktop_0.0.0-dev_linux_$(go env GOARCH).deb`,
 or `bsdtar -tf` on its `data.tar.xz`). It must contain
 `usr/share/kio/servicemenus/servef-desktop.desktop`,
 `usr/share/nemo/actions/servef-desktop.nemo_action`, and one entry under
@@ -210,16 +198,16 @@ needs `libcrypt.so.1` (Arch: `libxcrypt-compat`), `xz`, and `ar`.
 ## Adding a file type
 
 Every served file is browsable; registration only decides how it is shown.
-Families are composed in `internal/document.Builtins()`:
+Families are composed in `apps/servef/internal/document.Builtins()`:
 
-- `internal/files` owns directory traversal, the always-skipped `.git`,
+- `apps/servef/internal/files` owns directory traversal, the always-skipped `.git`,
   `node_modules`, and `vendor` directories, depth, base-name globs, and safe
   path resolution. It knows no file formats.
-- `internal/document` owns the registry, type metadata, escaped highlighting,
+- `apps/servef/internal/document` owns the registry, type metadata, escaped highlighting,
   previews, formatting, and binary/size policy. Handlers
   receive bytes and navigation context; they never read the filesystem.
   Markdown's parser and link/image rewriting live here, separate from HTTP.
-- `internal/web` reads indexed files and transports results. React uses the
+- `apps/servef/internal/web` reads indexed files and transports results. React uses the
   server's type IDs and view capabilities for labels, toggles, and default
   modes. No frontend extension list is needed.
 
@@ -268,13 +256,13 @@ exercise the same development and browser workflows.
 
 ## Docs site
 
-User docs are a static [Vocs](https://vocs.dev) site in the `site` workspace.
-The marketing landing is `/`: `site/src/pages/index.mdx` (`layout: blank`)
-renders `site/src/landing/Landing.tsx`. Its styles are scoped under `.landing`
-in `landing.css`; animated SVG scenes live in `site/src/landing/svg/` and show
+User docs are a static [Vocs](https://vocs.dev) site in the `apps/site` workspace.
+The marketing landing is `/`: `apps/site/src/pages/index.mdx` (`layout: blank`)
+renders `apps/site/src/landing/Landing.tsx`. Its styles are scoped under `.landing`
+in `landing.css`; animated SVG scenes live in `apps/site/src/landing/svg/` and show
 their final frame under reduced motion. Docs pages live in
-`site/src/pages/docs` (served at `/docs`); navigation lives in
-`site/vocs.config.ts`. The landing theme toggle shares Vocs' `vocs-theme`
+`apps/site/src/pages/docs` (served at `/docs`); navigation lives in
+`apps/site/vocs.config.ts`. The landing theme toggle shares Vocs' `vocs-theme`
 storage, so the landing and docs keep one theme.
 
 | Purpose | Command |
@@ -284,7 +272,7 @@ storage, so the landing and docs keep one theme.
 | Preview the built site | `pnpm --filter @servef/site preview` |
 
 `pnpm build:site` fails on dead internal links. Static HTML is written to
-`site/dist/public`, which Git ignores.
+`apps/site/dist/public`, which Git ignores.
 
 ### Cloudflare Pages
 
@@ -295,7 +283,7 @@ integration (decision 0074). Project settings:
 | --- | --- |
 | Root directory | repository root (CF reads `.node-version`, Node 26) |
 | Build command | `pnpm install --frozen-lockfile --filter @servef/site... && pnpm build:site` |
-| Build output directory | `site/dist/public` |
+| Build output directory | `apps/site/dist/public` |
 | Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
 
 The filtered install skips the web and desktop workspaces. Cloudflare serves

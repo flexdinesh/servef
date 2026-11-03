@@ -577,7 +577,7 @@
       "Don't center preview prose or substitute generic heading/body tokens for the preview scale.",
       "Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.",
       "Don't rely on color alone for selection, focus, errors, or status.",
-      "Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `internal/web/dist/` directly."
+      "Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/servef/internal/web/dist/` directly."
     ]
   }
 }
