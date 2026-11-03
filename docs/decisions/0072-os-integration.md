@@ -1,6 +1,6 @@
 # 0072: OS integration: open folders from the OS, open at login
 
-- Status: Accepted
+- Status: Accepted; revised by [0081](0081-desktop-bridge-v2-native-features.md) (Deferred: reveal, recent folders, Dock menu)
 - Date: 2026-11-02
 - Implements: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   deferred OS context menus and login item
@@ -87,7 +87,10 @@ only local users and processes can trigger (the trust of running
 - A shipped Finder Quick Action and Nautilus menu: they need native code or
   copying files into the user's home.
 - Reveal in file manager, open in editor, root removal (bridge and UI work).
+  Reveal shipped in 0081; open in editor was dropped.
 - Dock menu and recent folders, launcher actions, tray or background start.
+  The Dock menu and recent folders shipped in 0081; launcher actions stay
+  deferred.
 
 ## Consequences
 

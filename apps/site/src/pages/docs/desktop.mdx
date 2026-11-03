@@ -129,8 +129,9 @@ computer ([Remote hosts](/docs/remote)).
 
 `servef://local/?project=/abs/path` opens a project, and
 `servef://local/view?…` takes the same query as a browser URL (`path`,
-`wt`, `review`, …). Links never add directories; only `servef [path]` and
-**File › Open Folder…** do. `servef walkthrough publish` prints a
+`wt`, `review`, …). Links never add directories; only `servef [path]`,
+**File › Open Folder…**, **File › Open Recent**, and the folder entry points
+below do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
 
 `servef://<host>:<port>/…` opens the servef server at that address: a
@@ -144,6 +145,9 @@ Folders opened this way are added to the daemon, as `servef [path]` adds
 them. Each folder's project opens in its own window (a window already
 showing it comes forward), up to 8 folders at a time. A file, or a folder
 servef cannot open, shows why.
+
+You can also drop folders from your file manager onto any window that shows
+this computer's projects. Windows connected to other computers ignore drops.
 
 ### macOS
 
@@ -183,6 +187,24 @@ With the AppImage, use its path instead of `servef-desktop`.
 
 The deb does not make servef the default app for folders, so opening a
 folder elsewhere never adds it to the daemon.
+
+## Recent folders
+
+**File › Open Recent** lists the last 10 projects your windows showed on this
+computer, newest first; choosing one opens it as **Open Folder…** does.
+**Clear Recently Opened** empties the list. On macOS the same folders appear
+in the Dock menu, with **New Window**, and in the system's recent items.
+Linux launchers show no recent folders: that would mean writing files into
+your home directory.
+
+## File context menus
+
+Right-click a file or folder in the Explorer, or a tab, for the app's native
+menu. **Reveal in File Manager** shows the file in Finder or your Linux file
+manager; the Explorer menu also copies a file's full or relative path. servef
+reveals only files inside a project it serves, and never follows a link out
+of the project. Windows connected to other computers keep the page's own tab
+menu and have no Reveal.
 
 ## Open at Login
 

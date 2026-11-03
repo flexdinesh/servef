@@ -16,7 +16,7 @@ else.
 - Go to definition and find references through installed language servers
 - Walkthroughs: agents publish guided tours of files and diffs with narration inline in the code, with `servef walkthrough publish` and no server needed ([agent skill](skills/servef-walkthrough/SKILL.md): `npx skills add flexdinesh/servef --skill servef-walkthrough`)
 - 28 themes, including Omarchy's built-ins; Mermaid diagrams; line links
-- Desktop app (macOS, Linux; preview): `servef .` opens projects in their own windows, with notifications for branch switches, commits, settled edits, and walkthroughs; it also opens servers started in a terminal and pasted `http://localhost` links, folders from Finder or Linux file managers, and can start at login
+- Desktop app (macOS, Linux; preview): `servef .` opens projects in their own windows, with notifications for branch switches, commits, settled edits, and walkthroughs; it also opens servers started in a terminal and pasted `http://localhost` links, folders from Finder or Linux file managers (or dropped on a window), with recent folders, native file menus, and Reveal in File Manager, and can start at login
 
 ## Install
 
