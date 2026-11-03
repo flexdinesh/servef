@@ -88,7 +88,7 @@ Key files:
 - Compose families explicitly in `apps/servef/internal/document.Builtins()`. Registration decides presentation only; every in-scope file is browsable. Lookup: exact base name, then extension, then the plain-text fallback. The browser highlights the declared language with Highlights (decision 0029); never guess types.
 - Reuse `CodeHandler` for highlighted source and `FormattedCodeHandler` for formatted text. Implement a specialized handler only when behavior requires it. Source-only additions should need no discovery, HTTP, or frontend format branches.
 - Prefer cohesive packages, small semantic interfaces, and explicit dependencies. Avoid global registries, scattered file-type switches, and speculative plugin frameworks.
-- Follow the file-type extension guide in `docs/development.md`; preserve the single-binary distribution.
+- Follow "Adding Languages and File Types" below; preserve the single-binary distribution.
 
 ## Encapsulation
 
