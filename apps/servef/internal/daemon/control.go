@@ -14,10 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
 	"github.com/flexdinesh/servef/internal/web"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // controlPrefix marks the control API; its requests never reach the web app.
@@ -34,26 +36,11 @@ const maxControlRequest = 4 << 10
 const controlHeartbeat = 25 * time.Second
 
 // Status describes a running daemon. Its shape is frozen across protocols.
-type Status struct {
-	Protocol  int       `json:"protocol"`
-	Version   string    `json:"version"`
-	PID       int       `json:"pid"`
-	Socket    string    `json:"socket"`
-	Roots     []string  `json:"roots"`
-	Depth     int       `json:"depth"`
-	ScanDepth int       `json:"scanDepth"`
-	IdleExit  string    `json:"idleExit"` // time.Duration.String(); "0s" never exits
-	StartedAt time.Time `json:"startedAt"`
-}
+type Status = contract.DaemonStatus
 
-type rootsResponse struct {
-	Roots   []string `json:"roots"`
-	Skipped []string `json:"skipped"`
-}
+type rootsResponse = contract.DaemonRoots
 
-type addRootRequest struct {
-	Path string `json:"path"`
-}
+type addRootRequest = contract.DaemonPathRequest
 
 type addRootResponse struct {
 	Root  string `json:"root"`
@@ -63,20 +50,10 @@ type addRootResponse struct {
 // OpenResult is POST /_daemon/open's answer: the root serving the path,
 // whether it was added, the roots it replaced (inside it), and the project
 // that shows the path.
-type OpenResult struct {
-	Root     string   `json:"root"`
-	Added    bool     `json:"added"`
-	Replaced []string `json:"replaced"`
-	Project  string   `json:"project"`
-}
+type OpenResult = contract.DaemonOpenResult
 
 // directoriesResponse is GET /_daemon/directories' answer.
-type directoriesResponse struct {
-	Path      string                 `json:"path"`
-	Parent    string                 `json:"parent"`
-	Entries   []projects.BrowseEntry `json:"entries"`
-	Truncated bool                   `json:"truncated"`
-}
+type directoriesResponse = contract.DaemonDirectories
 
 type announceRequest struct {
 	Project string `json:"project"`
@@ -88,41 +65,26 @@ type announceResponse struct {
 	Announced bool `json:"announced"`
 }
 
-// controlStatusEvent is the control stream's first event.
-type controlStatusEvent struct {
-	Protocol int    `json:"protocol"`
-	Version  string `json:"version"`
-}
-
-// walkthroughEvent is the control stream's "walkthrough" event.
-type walkthroughEvent struct {
-	Project string `json:"project"`
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Created bool   `json:"created"`
-}
-
 type stopResponse struct {
 	Stopping bool `json:"stopping"`
 }
 
-// walkthroughNotices announces published walkthroughs; runtime.Runtime
+// WalkthroughNotices announces published walkthroughs; runtime.Runtime
 // implements it.
-type walkthroughNotices interface {
+type WalkthroughNotices interface {
 	AnnounceWalkthrough(project, id string, created bool) (web.WalkthroughNotice, error)
 	WalkthroughNotices() (<-chan web.WalkthroughNotice, func())
 }
 
 // errorResponse matches the web app's JSON errors: {error, code?}.
-type errorResponse struct {
-	Error string `json:"error"`
-	Code  string `json:"code,omitempty"`
-}
+type errorResponse = contract.ErrorResponse
 
-// control serves /_daemon/*. Adds and saves serialize under mu; a save
-// writes the served roots plus the roots skipped at load, so an unmounted
-// drive is not forgotten. Control streams end when done closes.
-type control struct {
+// Controller owns the daemon control operations and serves them as
+// /_daemon/* (Handler); in-process clients call its typed operations
+// directly (pkg/client). Adds and saves serialize under mu; a save writes the
+// served roots plus the roots skipped at load, so an unmounted drive is not
+// forgotten. Control streams end when done closes.
+type Controller struct {
 	mu        sync.Mutex
 	roots     *projects.RootSet
 	skipped   []string
@@ -130,15 +92,42 @@ type control struct {
 	status    Status
 	stop      func()
 	done      <-chan struct{}
-	notices   walkthroughNotices
+	notices   WalkthroughNotices
+}
+
+// ControllerConfig configures NewController.
+type ControllerConfig struct {
+	// Roots is the served root set, required.
+	Roots *projects.RootSet
+	// Skipped are saved roots skipped at start; saves keep them.
+	Skipped []string
+	// RootsFile receives the roots after each add.
+	RootsFile string
+	// Status is the daemon's status; Roots is filled from Roots per call.
+	Status Status
+	// Stop asks the daemon to stop; nil does nothing.
+	Stop func()
+	// Done closes when the daemon stops, ending control streams.
+	Done <-chan struct{}
+	// Notices announces walkthroughs, required.
+	Notices WalkthroughNotices
+}
+
+// NewController returns the control operations over config.
+func NewController(config ControllerConfig) *Controller {
+	stop := config.Stop
+	if stop == nil {
+		stop = func() {}
+	}
+	return &Controller{roots: config.Roots, skipped: config.Skipped, rootsFile: config.RootsFile, status: config.Status, stop: stop, done: config.Done, notices: config.Notices}
 }
 
 func pid() int { return os.Getpid() }
 
-// wrap serves the control API before next. Browser-originated requests are
-// refused: the socket is the trust boundary, and a future proxy must not
+// Handler serves the control API before next. Browser-originated requests
+// are refused: the socket is the trust boundary, and a future proxy must not
 // forward browser requests to it.
-func (c *control) wrap(next http.Handler) http.Handler {
+func (c *Controller) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, controlPrefix) {
 			next.ServeHTTP(w, r)
@@ -150,16 +139,13 @@ func (c *control) wrap(next http.Handler) http.Handler {
 		}
 		switch name := strings.TrimPrefix(r.URL.Path, controlPrefix); {
 		case name == "status" && r.Method == http.MethodGet:
-			writeJSON(w, http.StatusOK, c.currentStatus())
+			writeJSON(w, http.StatusOK, c.Status())
 		case name == "roots" && r.Method == http.MethodGet:
-			c.mu.Lock()
-			response := rootsResponse{Roots: nonNil(c.roots.List()), Skipped: nonNil(slices.Clone(c.skipped))}
-			c.mu.Unlock()
-			writeJSON(w, http.StatusOK, response)
+			writeJSON(w, http.StatusOK, c.Roots())
 		case name == "roots" && r.Method == http.MethodPost:
 			c.addRoot(w, r)
 		case name == "open" && r.Method == http.MethodPost:
-			c.open(w, r)
+			c.serveOpen(w, r)
 		case name == "directories" && r.Method == http.MethodGet:
 			serveDirectories(w, r.URL.Query().Get("path"))
 		case name == "events" && r.Method == http.MethodGet:
@@ -181,10 +167,18 @@ func (c *control) wrap(next http.Handler) http.Handler {
 	})
 }
 
-func (c *control) currentStatus() Status {
+// Status is the daemon's status with the current roots.
+func (c *Controller) Status() Status {
 	status := c.status
 	status.Roots = nonNil(c.roots.List())
 	return status
+}
+
+// Roots returns the served roots and the saved roots skipped at start.
+func (c *Controller) Roots() contract.DaemonRoots {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return rootsResponse{Roots: nonNil(c.roots.List()), Skipped: nonNil(slices.Clone(c.skipped))}
 }
 
 // decodeRequest reads a strict JSON body of at most maxControlRequest into
@@ -204,7 +198,7 @@ func decodeRequest(w http.ResponseWriter, r *http.Request, request any, usage st
 	return true
 }
 
-func (c *control) addRoot(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) addRoot(w http.ResponseWriter, r *http.Request) {
 	var request addRootRequest
 	if !decodeRequest(w, r, &request, `{"path": "/absolute/path"}`) {
 		return
@@ -232,86 +226,109 @@ func (c *control) addRoot(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, addRootResponse{Root: root, Added: true})
 }
 
-// open serves a path: within a served root nothing changes; otherwise the
-// path becomes a root, replacing the roots inside it, and is saved. It
-// answers the project that shows the path.
-func (c *control) open(w http.ResponseWriter, r *http.Request) {
+// serveOpen answers POST /_daemon/open (Open): 201 when the path became a
+// root, else 200.
+func (c *Controller) serveOpen(w http.ResponseWriter, r *http.Request) {
 	var request addRootRequest
 	if !decodeRequest(w, r, &request, `{"path": "/absolute/path"}`) {
 		return
 	}
-	if !filepath.IsAbs(request.Path) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Path must be absolute.", Code: "invalidRoot"})
+	result, err := c.Open(request.Path)
+	if err != nil {
+		writeError(w, err)
 		return
 	}
+	status := http.StatusOK
+	if result.Added {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, result)
+}
+
+// Open serves a path, an absolute directory: within a served root nothing
+// changes; otherwise the path becomes a root, replacing the roots inside it,
+// and is saved. It returns the project that shows the path.
+func (c *Controller) Open(path string) (OpenResult, error) {
+	if !filepath.IsAbs(path) {
+		return OpenResult{}, &app.Error{Kind: contract.KindInvalid, Code: contract.CodeInvalidRoot, Message: "Path must be absolute."}
+	}
 	c.mu.Lock()
-	root, added, replaced, err := c.roots.Cover(request.Path)
+	root, added, replaced, err := c.roots.Cover(path)
 	if err != nil {
 		c.mu.Unlock()
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error(), Code: "invalidRoot"})
-		return
+		return OpenResult{}, &app.Error{Kind: contract.KindInvalid, Code: contract.CodeInvalidRoot, Message: err.Error()}
 	}
 	if added {
 		c.skipped = slices.DeleteFunc(c.skipped, func(skipped string) bool { return files.Within(root, skipped) })
 		if err := SaveRoots(c.rootsFile, append(c.roots.List(), c.skipped...)); err != nil {
 			c.mu.Unlock()
-			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "The root is served until the daemon stops but was not saved: " + err.Error(), Code: "rootsNotSaved"})
-			return
+			return OpenResult{}, &app.Error{Kind: contract.KindInternal, Code: contract.CodeRootsNotSaved, Message: "The root is served until the daemon stops but was not saved: " + err.Error()}
 		}
 	}
 	roots := c.roots.List()
 	c.mu.Unlock()
-	project, err := projects.ProjectFor(roots, filepath.Clean(request.Path))
+	project, err := projects.ProjectFor(roots, filepath.Clean(path))
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "No project shows " + request.Path + ": " + err.Error(), Code: "projectUnavailable"})
-		return
+		return OpenResult{}, &app.Error{Kind: contract.KindNotFound, Code: contract.CodeProjectUnavailable, Message: "No project shows " + path + ": " + err.Error()}
 	}
-	status := http.StatusOK
-	if added {
-		status = http.StatusCreated
-	}
-	writeJSON(w, status, OpenResult{Root: root, Added: added, Replaced: nonNil(replaced), Project: project})
+	return OpenResult{Root: root, Added: added, Replaced: nonNil(replaced), Project: project}, nil
 }
 
-// serveDirectories lists a directory's child directories so a client can
-// choose a folder to open (decision 0076); an empty path lists the home
-// directory.
+// serveDirectories answers GET /_daemon/directories (Directories).
 func serveDirectories(w http.ResponseWriter, path string) {
+	listing, err := Directories(path)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, listing)
+}
+
+// Directories lists a directory's child directories so a client can choose
+// a folder to open (decision 0076); an empty path lists the home directory.
+func Directories(path string) (contract.DaemonDirectories, error) {
+	failure := func(kind contract.ErrorKind, code, message string) (contract.DaemonDirectories, error) {
+		return contract.DaemonDirectories{}, &app.Error{Kind: kind, Code: code, Message: message}
+	}
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			writeJSON(w, http.StatusNotFound, errorResponse{Error: "The home directory is unknown: " + err.Error(), Code: "pathUnavailable"})
-			return
+			return failure(contract.KindNotFound, contract.CodePathUnavailable, "The home directory is unknown: "+err.Error())
 		}
 		path = home
 	}
 	if !filepath.IsAbs(path) {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Path must be absolute.", Code: "invalidPath"})
-		return
+		return failure(contract.KindInvalid, contract.CodeInvalidPath, "Path must be absolute.")
 	}
 	path = filepath.Clean(path)
 	entries, truncated, err := projects.Browse(path, maxDirectoryEntries)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: path + " does not exist.", Code: "pathUnavailable"})
+		return failure(contract.KindNotFound, contract.CodePathUnavailable, path+" does not exist.")
 	case errors.Is(err, projects.ErrNotDirectory):
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: path + " is not a directory.", Code: "notDirectory"})
+		return failure(contract.KindInvalid, contract.CodeNotDirectory, path+" is not a directory.")
 	case errors.Is(err, fs.ErrPermission):
-		writeJSON(w, http.StatusForbidden, errorResponse{Error: path + " cannot be read.", Code: "pathUnreadable"})
+		return failure(contract.KindForbidden, contract.CodePathUnreadable, path+" cannot be read.")
 	case err != nil:
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Read " + path + ": " + err.Error(), Code: "pathUnreadable"})
-	default:
-		parent := filepath.Dir(path)
-		if parent == path {
-			parent = ""
-		}
-		writeJSON(w, http.StatusOK, directoriesResponse{Path: path, Parent: parent, Entries: entries, Truncated: truncated})
+		return failure(contract.KindInternal, contract.CodePathUnreadable, "Read "+path+": "+err.Error())
 	}
+	parent := filepath.Dir(path)
+	if parent == path {
+		parent = ""
+	}
+	listing := contract.DaemonDirectories{Path: path, Parent: parent, Truncated: truncated}
+	if entries != nil {
+		listing.Entries = make([]contract.BrowseEntry, len(entries))
+		for i, entry := range entries {
+			listing.Entries[i] = contract.BrowseEntry{Name: entry.Name, Path: entry.Path, Repository: entry.Repository, Hidden: entry.Hidden}
+		}
+	}
+	return listing, nil
 }
 
 // announce tells control streams that a walkthrough was published to the
 // daemon's store, as the CLI's publish does after writing it.
-func (c *control) announce(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) announce(w http.ResponseWriter, r *http.Request) {
 	var request announceRequest
 	if !decodeRequest(w, r, &request, `{"project": "/absolute/path", "id": "id", "created": true}`) {
 		return
@@ -333,11 +350,28 @@ func (c *control) announce(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Subscribe starts a control stream: its first event (status), then each
+// walkthrough announcement on notices until cancel, which the caller must
+// call. Done closes when the daemon stops.
+func (c *Controller) Subscribe() (first contract.DaemonEvent, notices <-chan web.WalkthroughNotice, cancel func()) {
+	notices, cancel = c.notices.WalkthroughNotices()
+	status := contract.DaemonStatusEvent{Protocol: c.status.Protocol, Version: c.status.Version}
+	return contract.DaemonEvent{Name: contract.DaemonEventStatus, Status: &status}, notices, cancel
+}
+
+// Done closes when the daemon stops.
+func (c *Controller) Done() <-chan struct{} { return c.done }
+
+// WalkthroughEvent is a notice as a control stream event.
+func WalkthroughEvent(notice web.WalkthroughNotice) contract.DaemonEvent {
+	return contract.DaemonEvent{Name: contract.DaemonEventWalkthrough, Walkthrough: &contract.WalkthroughEvent{Project: notice.Project, ID: notice.ID, Title: notice.Title, Created: notice.Created}}
+}
+
 // serveEvents streams daemon-level events: status first, then each
 // walkthrough announcement. It counts as in flight for idle exit while open,
 // and ends with the request, the daemon, or the notices.
-func (c *control) serveEvents(w http.ResponseWriter, r *http.Request) {
-	notices, cancel := c.notices.WalkthroughNotices()
+func (c *Controller) serveEvents(w http.ResponseWriter, r *http.Request) {
+	first, notices, cancel := c.Subscribe()
 	defer cancel()
 	// Streams outlive the server's write timeout; each write extends it.
 	controller := http.NewResponseController(w)
@@ -351,7 +385,7 @@ func (c *control) serveEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		return controller.Flush() == nil
 	}
-	if !write(": servef\n\n") || !write(controlEvent("status", controlStatusEvent{Protocol: c.status.Protocol, Version: c.status.Version})) {
+	if !write(": servef\n\n") || !write(controlEvent(first.Name, first.Payload())) {
 		return
 	}
 	heartbeat := time.NewTicker(controlHeartbeat)
@@ -370,7 +404,8 @@ func (c *control) serveEvents(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			if !write(controlEvent("walkthrough", walkthroughEvent{Project: notice.Project, ID: notice.ID, Title: notice.Title, Created: notice.Created})) {
+			event := WalkthroughEvent(notice)
+			if !write(controlEvent(event.Name, event.Payload())) {
 				return
 			}
 		}
@@ -388,6 +423,12 @@ func controlEvent(name string, value any) string {
 func methodNotAllowed(w http.ResponseWriter, allow string) {
 	w.Header().Set("Allow", allow)
 	writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "Method not allowed."})
+}
+
+// writeError writes err as an errorResponse with its kind's status.
+func writeError(w http.ResponseWriter, err error) {
+	failure := app.AsError(err)
+	writeJSON(w, contract.HTTPStatus(failure.Kind), failure.Response())
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
