@@ -29,7 +29,7 @@ rewriting history; update `Status` on the old record.
 | [0021](0021-built-frontend-on-release-tags-and-edge.md) | Built frontend on release tags and edge | Superseded by 0079 |
 | [0022](0022-excalidraw-only-mermaid.md) | Excalidraw-only Mermaid; no feature flags | Superseded by 0025 |
 | [0023](0023-git-ignore-sources.md) | Git ignore sources: global excludes and worktrees | `.git` file clause superseded by 0031 |
-| [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050 |
+| [0024](0024-source-control-view-and-working-tree-diffs.md) | Source Control view and working-tree diffs | Highlighting superseded by 0029; UI by 0035; no-polling refresh by 0050; browser diff parsing by 0083 |
 | [0025](0025-ondine-mermaid.md) | Ondine renders Mermaid as themed SVG | Accepted |
 | [0026](0026-vocs-user-docs-site.md) | Vocs user docs site | Partially superseded by 0074 |
 | [0027](0027-commit-history-in-source-control.md) | Commit history in Source Control | Extended by 0030; UI superseded by 0035; no-polling refresh by 0050 |
@@ -84,5 +84,6 @@ rewriting history; update `Status` on the old record.
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted |
-| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted |
+| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
+| [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
