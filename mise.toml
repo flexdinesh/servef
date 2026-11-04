@@ -201,8 +201,27 @@ description = "Run the browser tests on Playwright WebKit (opt-in, not in check:
 run = "go run ./tools/validate working --group browser --task _container:test:browser:webkit"
 
 [tasks."test:native"]
-description = "Run the native app's tests (opt-in, not in check:pr)"
+description = "Run the native app's and packages/mygo's tests (opt-in, not in check:pr)"
 run = "go run ./tools/validate working --group native --task _container:test:native"
+
+[tasks."test:native:e2e"]
+description = "Smoke the built native app under Xvfb through mygo-agent (opt-in, not in check:pr)"
+alias = "native:e2e"
+run = "go run ./tools/validate working --group native --task _container:test:native:e2e"
+
+# Headless agent tooling for the native app (decision 0086); outputs go to
+# the gitignored .dev/native-shots and .dev/native-agent.
+[tasks."native:agent"]
+description = "Serve the native app headless for mygo-agent on the API fixtures"
+run = "sh apps/native/scripts/agent.sh serve"
+
+[tasks."native:shots"]
+description = "Run native scenarios headless into .dev/native-shots (-- <scenario>)"
+run = "sh apps/native/scripts/agent.sh shots"
+
+[tasks."native:compare"]
+description = "Native shots beside web shots from pnpm dev:mock (-- <scenario>)"
+run = "sh apps/native/scripts/agent.sh compare"
 
 [tasks."lint"]
 description = "Lint web and desktop in private current-edit snapshots"
@@ -345,11 +364,16 @@ run = "pnpm exec node scripts/test-browser.ts --project=webkit"
 # mise's GOROOT points at the locked Go.
 [tasks."_container:native"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; go -C apps/native mod tidy -diff; go -C apps/native vet ./...; go -C apps/native test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
 
 [tasks."_container:test:native"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; go -C apps/native mod tidy -diff; go -C apps/native vet ./...; go -C apps/native test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
+
+# The built app on Xvfb, Mesa, and GTK; artifacts in /out/native-e2e.
+[tasks."_container:test:native:e2e"]
+hide = true
+run = "bash -ec 'export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH SERVEF_NATIVE_E2E_OUT=/out/native-e2e; xvfb-run -a --server-args=\"-screen 0 1280x800x24\" dbus-run-session -- sh apps/native/scripts/e2e.sh'"
 
 [tasks."_container:test:desktop"]
 hide = true

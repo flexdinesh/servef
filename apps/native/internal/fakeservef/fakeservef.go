@@ -1,7 +1,7 @@
 // Package fakeservef is a test double of a servef server speaking the HTTP
 // shapes of pkg/contract, so tests drive native through the real
 // pkg/client transports: TCP (a CLI server) and a Unix socket (the
-// daemon). Tests only.
+// daemon). Tests and the headless agent host (internal/agenthost) only.
 package fakeservef
 
 import (
@@ -68,24 +68,49 @@ func newServer() *Server {
 
 // NewDaemon starts a fake daemon on a Unix socket.
 func NewDaemon(t testing.TB) *Server {
-	s := newServer()
 	dir, err := os.MkdirTemp("", "fsd")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Socket = filepath.Join(dir, "d.sock")
-	listener, err := net.Listen("unix", s.Socket)
+	s, err := StartDaemon(filepath.Join(dir, "d.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.server = httptest.NewUnstartedServer(s.handler(true))
-	s.server.Listener = listener
-	s.server.Start()
 	t.Cleanup(func() {
 		s.Close()
 		_ = os.RemoveAll(dir)
 	})
 	return s
+}
+
+// StartServer starts a fake CLI server over TCP at addr (host:port);
+// Close stops it.
+func StartServer(addr string) (*Server, error) {
+	s := newServer()
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	s.server = httptest.NewUnstartedServer(s.handler(false))
+	s.server.Listener = listener
+	s.server.Start()
+	s.URL = s.server.URL
+	return s, nil
+}
+
+// StartDaemon starts a fake daemon on a Unix socket at socket; Close
+// stops it.
+func StartDaemon(socket string) (*Server, error) {
+	s := newServer()
+	s.Socket = socket
+	listener, err := net.Listen("unix", s.Socket)
+	if err != nil {
+		return nil, err
+	}
+	s.server = httptest.NewUnstartedServer(s.handler(true))
+	s.server.Listener = listener
+	s.server.Start()
+	return s, nil
 }
 
 // Close stops the server and ends event streams.

@@ -1,0 +1,10 @@
+# The connect page (decision 0082): the app opens this computer at launch;
+# Disconnect returns to the page. The web UI has no connect page.
+description: Connect page after disconnecting from this computer
+size: {width: 1100, height: 700}
+steps:
+  - wait: Projects
+  - click: Disconnect
+  - wait: Open this computer
+  - expect: [Open a server, Connect]
+  - shot: connect

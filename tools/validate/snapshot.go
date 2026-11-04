@@ -252,18 +252,18 @@ func selected(group, name string) bool {
 		return true
 	}
 	prefixes := map[string][]string{
-		"repo":           {"apps/servef/", "apps/native/", "tools/", "packages/contracts/"},
-		"web-static":     {"apps/web/", "packages/"},
+		"repo":           {"apps/servef/", "apps/native/", "packages/mygo/", "tools/", "packages/contracts/"},
+		"web-static":     {"apps/web/", "packages/contracts/"},
 		"tooling-static": {"scripts/", "tests/"},
 		"site-static":    {"apps/site/"},
 		"desktop-static": {"apps/desktop/", "apps/web/src/api/"},
-		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/", "packages/"},
-		"frontend":       {"apps/web/", "testdata/", "packages/"},
+		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/", "packages/contracts/"},
+		"frontend":       {"apps/web/", "testdata/", "packages/contracts/"},
 		"tooling":        {"scripts/", "tests/", "tools/validate/", "testdata/"},
 		"docs":           {"apps/site/"},
-		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/"},
-		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/"},
-		"native":         {"apps/native/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css"},
+		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/contracts/"},
+		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/contracts/"},
+		"native":         {"apps/native/", "packages/mygo/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {

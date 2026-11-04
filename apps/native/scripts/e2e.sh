@@ -1,0 +1,59 @@
+#!/bin/sh
+# Real-app smoke (decision 0086): the native app built with -tags e2e
+# (mygo's automation plugin) on a display, driven by mygo-agent over
+# MYGO_AUTOMATION, against the shared fixtures served over TCP. Run it under
+# a display and a session bus, as the Dagger native group does:
+#
+#   xvfb-run -a dbus-run-session -- sh apps/native/scripts/e2e.sh
+#
+# Writes windows.json, tree.txt, document.png, and preview.png to
+# $SERVEF_NATIVE_E2E_OUT (default .dev/native-e2e).
+set -eu
+
+root=$(pwd)
+out="${SERVEF_NATIVE_E2E_OUT:-$root/.dev/native-e2e}"
+bin="$root/.dev/native-agent/bin"
+port="${SERVEF_NATIVE_E2E_PORT:-7979}"
+export MYGO_AGENT_DIR="$root/.dev/native-agent/e2e-state"
+mkdir -p "$out" "$bin"
+
+sh apps/native/scripts/agent.sh build
+GOWORK=off go -C apps/native build -tags e2e -o "$bin/servef-native-e2e" .
+
+"$bin/native-agent" --fixtures-server "127.0.0.1:$port" >"$out/fixtures.log" 2>&1 &
+fixtures=$!
+trap 'kill "$fixtures" 2>/dev/null || true' EXIT INT TERM
+
+agent() { "$bin/mygo-agent" --session e2e "$@"; }
+link="servef-native://127.0.0.1:$port/?project=/home/user/markdown&path=guides/getting-started.md"
+# The app may start before the fixtures listen: it shows the error, and
+# the smoke fails on the missing document below.
+tries=0
+until curl -sf "http://127.0.0.1:$port/api/projects" >/dev/null 2>&1; do
+  tries=$((tries + 1))
+  [ "$tries" -gt 30 ] && { echo "fixtures server did not start" >&2; exit 1; }
+  sleep 1
+done
+
+# open sets MYGO_AUTOMATION to the session's socket for the app.
+agent open -- "$bin/servef-native-e2e" "$link"
+status=0
+{
+  agent windows >"$out/windows.json" &&
+    agent idle --timeout 20000 &&
+    agent snapshot >"$out/tree.txt" &&
+    agent screenshot "$out/document.png" &&
+    grep -q 'guides/getting-started.md' "$out/tree.txt" &&
+    agent click Preview &&
+    agent idle --timeout 20000 &&
+    agent snapshot >"$out/tree-preview.txt" &&
+    agent screenshot "$out/preview.png" &&
+    grep -q 'frontend-only fixture API' "$out/tree-preview.txt"
+} || status=1
+cp "$MYGO_AGENT_DIR"/e2e.sock.log "$out/app.log" 2>/dev/null || true
+agent close || true
+if [ "$status" -ne 0 ]; then
+  echo "native e2e smoke failed; see $out" >&2
+  cat "$out/app.log" >&2 2>/dev/null || true
+fi
+exit "$status"

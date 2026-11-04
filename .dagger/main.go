@@ -36,7 +36,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
 		"test:browser:webkit": "browser", "test:desktop": "desktop",
-		"test:native": "native",
+		"test:native": "native", "test:native:e2e": "native",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -102,8 +102,16 @@ func (m *ServefValidation) Run(ctx context.Context,
 		// outside go.work.
 		native := tools.WithExec([]string{"sh", "-ec", nativeGo}).
 			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_NATIVE_GOROOT", "/usr/local/go1.27")
-		modules := native.WithDirectory("/src", subset(source, []string{"apps/native/go.mod", "apps/native/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
-			WithEnvVariable("GOROOT", "/usr/local/go1.27").WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/native", "mod", "download"})
+		// packages/mygo (decision 0086) is apps/native's agent tooling, a
+		// module of its own that apps/native replaces.
+		modules := native.WithDirectory("/src", subset(source, []string{"apps/native/go.mod", "apps/native/go.sum", "apps/servef/go.mod", "apps/servef/go.sum", "packages/mygo/go.mod", "packages/mygo/go.sum"})).
+			WithEnvVariable("GOROOT", "/usr/local/go1.27").
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/native", "mod", "download"}).
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "packages/mygo", "mod", "download"})
+		if task == "test:native:e2e" {
+			// The built app needs a display, GTK 3, and Mesa's GL (llvmpipe).
+			native = native.WithExec([]string{"sh", "-ec", nativeE2EPackages})
+		}
 		runner = native.WithDirectory("/src", source).
 			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
@@ -211,6 +219,16 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   libcups2 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libdrm2 libxkbcommon0 libxcomposite1 \
   libxdamage1 libxrandr2 libxfixes3 libpango-1.0-0 libcairo2 libdbus-1-3 libexpat1 libx11-xcb1 \
   openssh-server openssh-client
+rm -rf /var/lib/apt/lists/*
+`
+
+// nativeE2EPackages are the native e2e smoke's display, session bus, GTK 3,
+// and Mesa (mygo draws native UI with OpenGL through EGL and libepoxy).
+const nativeE2EPackages = `
+apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+  xvfb xauth dbus dbus-x11 libgtk-3-0 libepoxy0 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0 \
+  fonts-dejavu-core
 rm -rf /var/lib/apt/lists/*
 `
 

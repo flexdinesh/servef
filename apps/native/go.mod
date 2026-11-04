@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/egoist/mygo v0.7.4
 	github.com/flexdinesh/servef v0.0.0
+	github.com/flexdinesh/servef/packages/mygo v0.0.0
 )
 
 require (
@@ -15,8 +16,11 @@ require (
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace github.com/flexdinesh/servef => ../servef
+
+replace github.com/flexdinesh/servef/packages/mygo => ../../packages/mygo
 
 tool github.com/egoist/mygo/cmd/mygo
