@@ -56,6 +56,14 @@ func codeTheme(t *ui.Theme, palette theme.Palette) *editor.Theme {
 	th.Added = ui.Hex(palette.Success)
 	th.Deleted = ui.Hex(palette.Destructive)
 	th.Modified = ui.Hex(palette.Warning)
+	for category, color := range syntaxColors(palette) {
+		th.Tokens[tokenKinds[category]] = editor.TokenStyle{Color: ui.Hex(color), Italic: category.Italic(), Bold: category.Bold()}
+	}
+	return th
+}
+
+// syntaxColors is each highlight category's color in palette.
+func syntaxColors(palette theme.Palette) map[highlight.Category]string {
 	colors := map[highlight.Category]string{
 		highlight.Inserted: palette.Success, highlight.Deleted: palette.Destructive, highlight.Link: palette.Accent,
 		highlight.Emphasis: palette.TextPrimary, highlight.Strong: palette.TextPrimary,
@@ -63,10 +71,7 @@ func codeTheme(t *ui.Theme, palette theme.Palette) *editor.Theme {
 	for _, category := range highlight.Categories {
 		colors[category] = palette.Syntax[category]
 	}
-	for category, color := range colors {
-		th.Tokens[tokenKinds[category]] = editor.TokenStyle{Color: ui.Hex(color), Italic: category.Italic(), Bold: category.Bold()}
-	}
-	return th
+	return colors
 }
 
 // markdownTheme shows Markdown on servef's document surface; code blocks

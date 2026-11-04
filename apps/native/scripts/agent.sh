@@ -17,6 +17,9 @@ bin="$dev/bin"
 out="${SERVEF_NATIVE_SHOTS:-$root/.dev/native-shots}"
 port="${SERVEF_NATIVE_COMPARE_PORT:-5390}"
 export MYGO_AGENT_DIR="$dev/state"
+# One browser session per checkout: worktrees comparing at once must not
+# drive each other's pages.
+session="servef-native-compare-$(printf '%s' "$root" | cksum | cut -d ' ' -f 1)"
 
 # Callers in && or || lists turn set -e off inside functions: every step
 # returns its own failure.
@@ -64,10 +67,28 @@ shots() {
   return "$status"
 }
 
+# listening reports whether anything accepts TCP connections on port, on
+# IPv4 or IPv6 loopback, whatever it answers.
+listening() {
+  node -e '
+    const net = require("node:net");
+    let left = 2;
+    for (const host of ["127.0.0.1", "::1"]) {
+      const s = net.connect(Number(process.argv[1]), host);
+      s.on("connect", () => process.exit(0));
+      s.on("error", () => { if (--left === 0) process.exit(1); });
+    }
+  ' "$1"
+}
+
 compare() {
   shots "$@" || return 1
   log="$dev/dev-mock.log"
   mkdir -p "$dev" || return 1
+  if listening "$port"; then
+    printf 'port %s is in use (another compare?); set SERVEF_NATIVE_COMPARE_PORT\n' "$port" >&2
+    return 1
+  fi
   SERVEF_DEV_WEB_PORT=$port pnpm dev:mock --port "$port" --strictPort >"$log" 2>&1 &
   mock=$!
   # pnpm runs vite as a child; stop both.
@@ -83,14 +104,14 @@ compare() {
   done
   for file in $(scenarios "$@"); do
     name=$(scenario_name "$file")
-    "$bin/mygo-compare" web -base "http://localhost:$port" -out "$out" -session servef-native-compare "$file" || return 1
+    "$bin/mygo-compare" web -base "http://localhost:$port" -out "$out" -session "$session" "$file" || return 1
     if [ -d "$out/$name/web" ]; then
       "$bin/mygo-compare" dir -diff "$out/$name" || return 1
     else
       printf '%s: no web shots (the scenario has no web section)\n' "$name"
     fi
   done
-  agent-browser --session servef-native-compare close >/dev/null 2>&1 || true
+  agent-browser --session "$session" close >/dev/null 2>&1 || true
 }
 
 command=${1:-}

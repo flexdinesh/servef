@@ -1,0 +1,28 @@
+# Servef Dark: notes/hunks.txt's diff, split and unified.
+description: Diff viewer in the dark appearance
+size: {width: 1400, height: 800}
+dark: true
+steps:
+  - click: markdown
+  - click: Changes
+  - wait: notes/hunks.txt
+  - click: notes/hunks.txt
+  - wait: 9 unmodified lines
+  - shot: split-dark
+  - click: Unified
+  - shot: unified-dark
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    split-dark:
+      path: /view?project=/home/user/markdown&review=working#f=notes/hunks.txt
+      steps:
+        - wait: notes/hunks.txt
+        - click: {label: Split, by: label}
+        - wait: {ms: 1500}
+    unified-dark:
+      path: /view?project=/home/user/markdown&review=working#f=notes/hunks.txt
+      steps:
+        - wait: notes/hunks.txt
+        - click: {label: Unified, by: label}
+        - wait: {ms: 1500}

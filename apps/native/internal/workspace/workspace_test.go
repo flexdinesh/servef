@@ -359,7 +359,7 @@ func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 	}
 	model.ShowPanel(SourceControl)
 	queue.Drain()
-	if !model.ChangesRead || len(model.Changes.Files) != 7 || model.Changes.Branch != "main" {
+	if !model.ChangesRead || len(model.Changes.Files) != 8 || model.Changes.Branch != "main" {
 		t.Fatalf("changes %+v", model.Changes)
 	}
 	model.ShowPanel(SourceControl)
@@ -378,7 +378,7 @@ func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 	model.OpenChange(main)
 	queue.Drain()
 	open := model.Review
-	if open == nil || open.Diff == nil || open.Error != "" || open.Layout.Kind != review.Text || len(open.Layout.Hunks) != 1 {
+	if open == nil || open.Diff == nil || open.Error != "" || open.Layout.Kind != review.Text || len(open.Layout.Diff.Hunks) != 1 {
 		t.Fatalf("review %+v", open)
 	}
 	if open.Old == nil || open.New == nil || open.LinesVersion != open.Version || len(open.New) != 9 {
@@ -417,17 +417,17 @@ func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 
 func TestReviewOptions(t *testing.T) {
 	model, queue, daemon := openWithChanges(t)
-	daemon.Set(func(s *fakeservef.Server) { s.Diffs["notes/hunks.txt"] = fakeservef.Diff(t, "diff-hunks.json") })
 	model.OpenChange(contract.ChangedFile{Path: "notes/hunks.txt", Status: contract.ChangeModified})
 	queue.Drain()
-	if got := len(model.Review.Layout.Hunks); got != 3 || model.Review.Layout.Hidden != 10 {
-		t.Fatalf("hunks %d, hidden %d", got, model.Review.Layout.Hidden)
+	if got := len(model.Review.Layout.Diff.Hunks); got != 3 || len(model.Review.Layout.Diff.Gaps) != 2 {
+		t.Fatalf("hunks %d, gaps %d", got, len(model.Review.Layout.Diff.Gaps))
 	}
+	// Full file is the viewer's: the layout and its highlighting stay.
 	version := model.Review.Version
 	model.SetFullFile(true)
 	queue.Drain()
-	if got := len(model.Review.Layout.Hunks); got != 1 || model.Review.Version == version || model.Review.New == nil {
-		t.Fatalf("full file: %d hunks, version %d", got, model.Review.Version)
+	if !model.FullFile || model.Review.Version != version || model.Review.New == nil {
+		t.Fatalf("full file: version %d -> %d", version, model.Review.Version)
 	}
 	model.SetIgnoreWhitespace(true)
 	queue.Drain()
@@ -494,7 +494,7 @@ func TestLiveUpdatesRereadChangesAndTheOpenDiff(t *testing.T) {
 	}
 
 	daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{main.Path}}})
-	if !queue.Until(func() bool { return len(model.Review.Layout.Hunks) == 3 }, 5*time.Second) {
+	if !queue.Until(func() bool { return model.Review.Layout.Diff != nil && len(model.Review.Layout.Diff.Hunks) == 3 }, 5*time.Second) {
 		t.Fatalf("diff not reread: %+v", model.Review.Layout)
 	}
 	if changes, diffs := reads(); changes != changesBefore+2 || diffs != diffsBefore+1 {

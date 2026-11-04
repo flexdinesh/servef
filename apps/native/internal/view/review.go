@@ -2,23 +2,30 @@ package view
 
 import (
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/editor"
 
+	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/review"
+	"github.com/flexdinesh/servef/apps/native/internal/theme"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
+	"github.com/flexdinesh/servef/packages/mygo/diffs"
+	"github.com/flexdinesh/servef/packages/mygo/diffs/diffview"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // reviewState is the diff viewer's state for the model's open review.
 type reviewState struct {
-	state   *editor.DiffState
+	viewer  diffview.State
 	of      *workspace.Review
 	version int
 	lines   int
-	layout  int // 0 split, 1 unified
-	built   int
-	full    bool
-	space   bool
+	// spans are the sides' highlighted lines as the viewer colors them,
+	// in the appearance spansDark; spansVersion counts their changes.
+	spans        [2][][]diffview.Span
+	spansDark    bool
+	spansVersion int
+	layout       int // 0 split, 1 unified
+	full         bool
+	space        bool
 }
 
 // changes lists the working tree's changes since HEAD; choosing one opens
@@ -95,8 +102,8 @@ func statusColor(t *ui.Theme, status contract.ChangeStatus) ui.Color {
 	return t.Warning
 }
 
-// diff shows the open review: the server's hunks in mygo's diff viewer.
-func (a *App) diff(c *ui.Context, code *editor.Theme) {
+// diff shows the open review: the server's hunks in the diffs viewer.
+func (a *App) diff(c *ui.Context, palette theme.Palette) {
 	m := a.Model
 	open := m.Review
 	t := c.Theme()
@@ -106,6 +113,8 @@ func (a *App) diff(c *ui.Context, code *editor.Theme) {
 		ui.Text(c, review.Label(open.File)).SingleLine().Grow(1)
 		if shown {
 			ui.Text(c, review.Counts(layout.Additions, layout.Deletions)).TextColor(t.TextMuted).SingleLine()
+			a.hunkStep(c, "Previous change", "Previous change (Shift+F7)", -1)
+			a.hunkStep(c, "Next change", "Next change (F7)", 1)
 			ui.Segmented(c, &a.review.layout, "Split", "Unified").Label("Diff layout")
 		}
 		a.review.full, a.review.space = m.FullFile, m.IgnoreWhitespace
@@ -134,49 +143,140 @@ func (a *App) diff(c *ui.Context, code *editor.Theme) {
 			ui.Text(c, layout.Message).TextColor(t.TextMuted).Wrap()
 		})
 	default:
-		if layout.Hidden > 0 && !m.FullFile {
-			ui.Text(c, review.Unmodified(layout.Hidden)+" hidden").TextColor(t.TextMuted).Padding(4, 12)
-		}
-		a.diffView(c, code, open)
+		a.diffView(c, palette, open)
 	}
 }
 
-// diffView keeps the viewer on the review's layout: the server's hunks as
-// mygo's patch hunks, so the viewer never compares the texts, highlighted
-// from the full files in the server's language.
-func (a *App) diffView(c *ui.Context, code *editor.Theme, open *workspace.Review) {
+// hunkStep is a toolbar button stepping to the next or previous change,
+// as F7 and Shift+F7 do in the viewer.
+func (a *App) hunkStep(c *ui.Context, label, tip string, direction int) {
+	t := c.Theme()
+	b := ui.ButtonBase(c).Key(label).Label(label).Tooltip(tip).Size(28, 28).Radius(6).Cursor(ui.CursorPointer)
+	if b.Hovered() {
+		b.Background(t.SurfaceHover)
+	}
+	b.Draw(func(p *ui.Painter, r ui.Rect) {
+		cx, cy, d := r.X+r.W/2, r.Y+r.H/2, float32(4)
+		var path ui.Path
+		if direction < 0 {
+			path.MoveTo(cx-d, cy+d/2).LineTo(cx, cy-d/2).LineTo(cx+d, cy+d/2)
+		} else {
+			path.MoveTo(cx-d, cy-d/2).LineTo(cx, cy+d/2).LineTo(cx+d, cy-d/2)
+		}
+		p.StrokePath(&path, 1.5, t.Text)
+	})
+	if b.Clicked() {
+		a.review.viewer.StepHunk(direction)
+	}
+}
+
+// diffView keeps the viewer on the review's layout: the server's hunks,
+// blocks, and gaps over both whole files, highlighted in the server's
+// language. A reread of the same file keeps what was expanded and
+// selected; selecting lines offers to copy their reference.
+func (a *App) diffView(c *ui.Context, palette theme.Palette, open *workspace.Review) {
 	r := &a.review
-	if r.state == nil || r.of != open || r.version != open.Version || r.built != r.layout {
-		state := &editor.DiffState{Layout: editor.DiffSplit}
-		if r.layout == 1 {
-			state.Layout = editor.DiffUnified
+	v := &r.viewer
+	switch {
+	case r.of != open:
+		v.SetDiff(open.Layout.Diff)
+		r.of, r.version, r.lines, r.spans = open, open.Version, -1, [2][][]diffview.Span{}
+		r.spansVersion++
+	case r.version != open.Version:
+		v.Update(open.Layout.Diff)
+		r.version, r.lines, r.spans = open.Version, -1, [2][][]diffview.Span{}
+		r.spansVersion++
+	}
+	dark := c.Theme().Dark
+	if open.Old != nil && open.LinesVersion == r.version && (r.lines != r.version || r.spansDark != dark) {
+		r.spans = [2][][]diffview.Span{syntaxSpans(open.Old, palette), syntaxSpans(open.New, palette)}
+		r.lines, r.spansDark = r.version, dark
+		r.spansVersion++
+	}
+	v.SpansVersion = r.spansVersion
+	v.Run = a.run.Go
+	v.Style = diffs.Split
+	if r.layout == 1 {
+		v.Style = diffs.Unified
+	}
+	v.ExpandUnchanged = a.Model.FullFile
+	v.Theme = diffTheme(c.Theme(), palette)
+	v.Spans = func(side diffs.Side, line int) []diffview.Span {
+		lines := r.spans[side]
+		if line < 1 || line > len(lines) {
+			return nil
 		}
-		state.SetPatch(filePatch(open.Layout))
-		state.Old.SetLanguage(syntaxLanguage(open.Layout.Language, nil))
-		state.New.SetLanguage(syntaxLanguage(open.Layout.Language, nil))
-		r.state, r.of, r.version, r.built, r.lines = state, open, open.Version, r.layout, -1
+		return lines[line-1]
 	}
-	if open.Old != nil && open.LinesVersion == r.version && r.lines != r.version {
-		oldRows, newRows := open.Layout.Sides()
-		r.state.Old.SetLanguage(syntaxLanguage(open.Layout.Language, review.Rows(open.Old, oldRows)))
-		r.state.New.SetLanguage(syntaxLanguage(open.Layout.Language, review.Rows(open.New, newRows)))
-		r.lines = r.version
+	file := open.File
+	v.Utility = func(c *ui.Context, s diffs.Selection) {
+		target, ok := v.Diff().Target(s, v.Style)
+		if !ok {
+			return
+		}
+		path := file.Path
+		if target.Side == diffs.Old && file.OldPath != "" {
+			path = file.OldPath
+		}
+		copyButton(c, target.Reference(path))
 	}
-	r.state.Theme = code
-	editor.DiffView(c.Key(r.version*2+r.built), r.state).Grow(1).FillWidth()
+	diffview.View(c.Key(open), v).Grow(1).FillWidth()
 }
 
-// filePatch hands the layout's rows to mygo's viewer, which takes hunks as
-// rows marked " ", "-", or "+". The file names stay empty so mygo detects
-// no language; the server's applies.
-func filePatch(layout review.Layout) editor.FilePatch {
-	patch := editor.FilePatch{Hunks: make([]editor.PatchHunk, len(layout.Hunks))}
-	for i, hunk := range layout.Hunks {
-		rows := make([]string, len(hunk.Lines))
-		for j, line := range hunk.Lines {
-			rows[j] = map[review.LineKind]string{review.Context: " ", review.Deleted: "-", review.Added: "+"}[line.Kind] + line.Text
-		}
-		patch.Hunks[i] = editor.PatchHunk{OldStart: hunk.OldStart, OldLines: hunk.OldCount, NewStart: hunk.NewStart, NewLines: hunk.NewCount, Section: hunk.Section(), Lines: rows}
+// copyButton copies a line reference, as the web UI's gutter copy button.
+func copyButton(c *ui.Context, reference string) {
+	t := c.Theme()
+	b := ui.ButtonBase(c).Key("copy").Label("Copy "+reference).Tooltip("Copy "+reference).Size(18, 18).Radius(4).Cursor(ui.CursorPointer)
+	if b.Hovered() {
+		b.Background(t.SurfaceHover)
 	}
-	return patch
+	b.Draw(func(p *ui.Painter, r ui.Rect) {
+		x, y := r.X+4, r.Y+3
+		var back, front ui.Path
+		back.MoveTo(x+3, y+3).LineTo(x+3, y).LineTo(x+10, y).LineTo(x+10, y+8).LineTo(x+7, y+8)
+		front.MoveTo(x, y+4).LineTo(x+7, y+4).LineTo(x+7, y+12).LineTo(x, y+12).Close()
+		p.StrokePath(&back, 1.2, t.TextMuted)
+		p.StrokePath(&front, 1.2, t.TextMuted)
+	})
+	if b.Clicked() {
+		c.WriteClipboard(reference)
+	}
+}
+
+// syntaxSpans colors highlighted lines from servef's syntax tokens.
+func syntaxSpans(lines [][]highlight.Span, palette theme.Palette) [][]diffview.Span {
+	colors := syntaxColors(palette)
+	out := make([][]diffview.Span, len(lines))
+	for i, line := range lines {
+		spans := make([]diffview.Span, len(line))
+		for j, span := range line {
+			spans[j] = diffview.Span{End: span.End, Italic: span.Category.Italic(), Bold: span.Category.Bold()}
+			if color, ok := colors[span.Category]; ok {
+				spans[j].Color = ui.Hex(color)
+			}
+		}
+		out[i] = spans
+	}
+	return out
+}
+
+// additionTint is Servef Light's --color-diff-addition-tint (themes.css).
+const additionTint = "#00c853"
+
+// diffTheme is the viewer's look on servef's document surface, tinted as
+// the web UI's diff.css tints Pierre.
+func diffTheme(t *ui.Theme, palette theme.Palette) *diffview.Theme {
+	surface := *t
+	surface.Background = ui.Hex(palette.Surface)
+	th := diffview.DefaultTheme(&surface)
+	th.LineNumber = ui.Hex(palette.TextMuted)
+	th.Selected = ui.Hex(palette.Accent)
+	th.Separator = ui.Hex(palette.SurfaceSecondary)
+	if !t.Dark {
+		// diff.css: Servef Light mixes --color-diff-addition-tint into
+		// added lines.
+		tint := ui.Hex(palette.Surface).Mix(ui.Hex(additionTint), 0.12)
+		th.AddedLine, th.AddedNumber = tint, tint
+	}
+	return th
 }

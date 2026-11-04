@@ -44,6 +44,13 @@
       "path": "notes.txt",
       "status": "tooLarge",
       "blob": ""
+    },
+    {
+      "path": "notes/hunks.txt",
+      "status": "counted",
+      "additions": 4,
+      "deletions": 4,
+      "blob": "ad199b871081c85cc4c4da576995a0b39aa82898"
     }
   ],
   "budgetExceeded": false

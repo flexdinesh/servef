@@ -34,6 +34,10 @@
     {
       "path": "notes.txt",
       "status": "modified"
+    },
+    {
+      "path": "notes/hunks.txt",
+      "status": "modified"
     }
   ],
   "truncated": false,

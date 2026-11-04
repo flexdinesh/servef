@@ -86,11 +86,12 @@ rewriting history; update `Status` on the old record.
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted |
 | [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085; walkthroughs by 0087 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
-| [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental); image reads by 0085; known gaps scheduled by 0086; Highlights and Ondine by 0088 |
+| [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental); image reads by 0085; known gaps scheduled by 0086; Highlights and Ondine by 0088; review rendering by 0089 |
 | [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
 | [0084](0084-in-process-client-package.md) | In-process client transport in its own package | Accepted |
 | [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) | Image reads, metrics, and code navigation in the application layer | Accepted; walkthroughs by 0087 |
 | [0086](0086-native-agent-tooling-and-ports.md) | Native agent tooling, parity loop, and ports | Accepted; M1a ports by 0088; trees by 0090 |
 | [0087](0087-walkthroughs-in-the-application-layer.md) | Walkthroughs in the application layer | Accepted |
 | [0088](0088-native-highlights-and-ondine-via-wazero.md) | Native Highlights and Ondine via wazero | Accepted (experimental) |
+| [0089](0089-native-diffs-viewer.md) | Native diffs viewer | Accepted |
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Accepted |

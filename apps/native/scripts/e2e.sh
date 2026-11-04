@@ -6,8 +6,9 @@
 #
 #   xvfb-run -a dbus-run-session -- sh apps/native/scripts/e2e.sh
 #
-# Writes windows.json, tree.txt, document.png, and preview.png to
-# $SERVEF_NATIVE_E2E_OUT (default .dev/native-e2e).
+# Writes windows.json, tree.txt, document.png, preview.png, diff.png, and
+# rss.txt (the app's RSS with the preview open, then with code/main.go's
+# diff open in the full-file view) to $SERVEF_NATIVE_E2E_OUT (default .dev/native-e2e).
 set -eu
 
 root=$(pwd)
@@ -36,7 +37,13 @@ until curl -sf "http://127.0.0.1:$port/api/projects" >/dev/null 2>&1; do
 done
 
 # open sets MYGO_AUTOMATION to the session's socket for the app.
+# No pipe: set -e sees open fail. The session's record holds the app's pid.
 agent open -- "$bin/servef-native-e2e" "$link"
+pid=$(sed -n 's/.*"pid":\([0-9][0-9]*\).*/\1/p' "$MYGO_AGENT_DIR/e2e.json")
+if [ -z "$pid" ]; then
+  echo "native e2e: no app pid in $MYGO_AGENT_DIR/e2e.json" >&2
+  exit 1
+fi
 status=0
 # A built app's idle waits for frames only, not for its fetches: wait for
 # the texts they bring before reading the tree or capturing.
@@ -54,7 +61,17 @@ status=0
     agent wait --text 'frontend-only fixture API' --timeout 20000 &&
     agent idle --timeout 20000 &&
     agent snapshot >"$out/tree-preview.txt" &&
-    agent screenshot "$out/preview.png"
+    agent screenshot "$out/preview.png" &&
+    sed -n 's/^VmRSS/preview VmRSS/p' "/proc/$pid/status" >"$out/rss.txt" &&
+    agent click Changes &&
+    agent wait --text 'code/main.go' --timeout 20000 &&
+    agent click code/main.go &&
+    agent wait --text 'R7' --timeout 20000 &&
+    agent click 'Full file' &&
+    agent idle --timeout 20000 &&
+    agent screenshot "$out/diff.png" &&
+    sed -n -e 's/^VmRSS/diff VmRSS/p' -e 's/^VmHWM/diff VmHWM/p' "/proc/$pid/status" >>"$out/rss.txt" &&
+    cat "$out/rss.txt"
 } || status=1
 cp "$MYGO_AGENT_DIR"/e2e.sock.log "$out/app.log" 2>/dev/null || true
 agent close || true

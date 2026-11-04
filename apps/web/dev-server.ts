@@ -59,6 +59,7 @@ const mockDiffs: ReadonlyMap<string, string> = new Map([
   ["guides/getting-started.md", "diff-renamed.json"],
   ["guides/new-guide.md", "diff-untracked.json"],
   ["notes.txt", "diff-too-large.json"],
+  ["notes/hunks.txt", "diff-hunks.json"],
 ])
 
 // One commit in commits.json lists files; each reuses a diff of its status.
