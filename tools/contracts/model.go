@@ -50,8 +50,9 @@ type typeDecl struct {
 }
 
 // field is a struct field. An optional field may be absent: an omitempty
-// string, absent when empty (rules compare it as ""), or an omitempty
-// pointer to a scalar, absent when nil (rules may not name it).
+// string, absent when empty (rules compare it as ""), an omitempty pointer
+// to a scalar, absent when nil, or an omitempty slice, absent when empty
+// (rules may name neither).
 type field struct {
 	json     string
 	optional bool
@@ -71,8 +72,8 @@ const (
 	namedRef
 )
 
-// typeRef is a field's type: a JSON scalar, an array, a nullable named type
-// (a Go pointer), or a named contract type.
+// typeRef is a field's type: a JSON scalar, an array, a nullable struct or
+// scalar (a Go pointer), or a named contract type.
 type typeRef struct {
 	kind refKind
 	elem *typeRef
@@ -200,7 +201,7 @@ func load(dir string, generated, goOnly []string) (*model, error) {
 				if !ok {
 					return nil, fmt.Errorf("%s: %s rule names unknown field %q", decl.file.name, decl.name, condition.field)
 				}
-				if named.pointer {
+				if named.pointer || named.optional && named.ref.kind == arrayRef {
 					return nil, fmt.Errorf("%s: %s rule names %q, which may be absent", decl.file.name, decl.name, condition.field)
 				}
 			}
@@ -229,9 +230,12 @@ func (m *model) checkRef(ref typeRef) error {
 	case arrayRef:
 		return m.checkRef(*ref.elem)
 	case nullableRef:
+		if ref.elem.isScalar() {
+			return nil
+		}
 		decl, ok := m.types[ref.elem.name]
 		if ref.elem.kind != namedRef || !ok || decl.kind != structDecl {
-			return fmt.Errorf("pointers must name a generated struct")
+			return fmt.Errorf("pointers must name a generated struct or a scalar")
 		}
 	case namedRef:
 		if _, ok := m.types[ref.name]; !ok {
@@ -306,8 +310,8 @@ func parseType(files *token.FileSet, source *sourceFile, spec *ast.TypeSpec, doc
 			if pointer {
 				ref = *ref.elem
 			}
-			if optional && ref.kind != stringRef && !pointer {
-				return nil, fmt.Errorf("%s: omitempty is supported on strings and pointers to scalars only", fieldAt)
+			if optional && ref.kind != stringRef && ref.kind != arrayRef && !pointer {
+				return nil, fmt.Errorf("%s: omitempty is supported on strings, slices, and pointers to scalars only", fieldAt)
 			}
 			doc := docLines(item.Doc)
 			// Docs name the field as TypeScript does.

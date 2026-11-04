@@ -110,3 +110,30 @@ type CompareStatsRequest struct {
 	From        string
 	To          string
 }
+
+// LanguageServersHeader carries NavigationRequest.LanguageServers over
+// HTTP: "on" authorizes starting a language server. Cross-origin browser
+// requests need a CORS preflight to send it, which servef never grants.
+const LanguageServersHeader = "X-Servef-Language-Servers"
+
+// NavigationRequest asks for a definition or references at a 1-based Line
+// and a 0-based UTF-16 Column (decision 0018). LanguageServers authorizes
+// starting the file's language server; without it the request fails with
+// CodeNavigationDisabled.
+type NavigationRequest struct {
+	Project         string
+	Path            string
+	Line            int
+	Column          int
+	LanguageServers bool
+}
+
+// NavigationStatusRequest asks whether a file can navigate. Refresh
+// rediscovers server binaries; LanguageServers reports the client's
+// setting. Status never starts a server.
+type NavigationStatusRequest struct {
+	Project         string
+	Path            string
+	Refresh         bool
+	LanguageServers bool
+}

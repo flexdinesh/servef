@@ -25,22 +25,26 @@ func repositoryModel(t *testing.T) *model {
 func TestAPIFixturesSatisfyGeneratedContracts(t *testing.T) {
 	m := repositoryModel(t)
 	shapes := map[string]string{
-		"projects.json":         "ProjectsResponse",
-		"directories.json":      "DirectoriesResponse",
-		"page-*.json":           "PageData",
-		"format-settings.json":  "FormatResult",
-		"format-error.json":     "ErrorResponse",
-		"error-*.json":          "ErrorResponse",
-		"search-documents.json": "SearchDocumentsResponse",
-		"changes*.json":         "ChangesResponse",
-		"diff-*.json":           "DiffResponse",
-		"commits*.json":         "CommitsResponse",
-		"commit-files.json":     "CommitFilesResponse",
-		"branch-files*.json":    "BranchFilesResponse",
-		"range-files.json":      "RangeFilesResponse",
-		"refs.json":             "RefsResponse",
-		"branch-stack.json":     "StackResponse",
-		"compare-stats*.json":   "CompareStatsResponse",
+		"projects.json":          "ProjectsResponse",
+		"directories.json":       "DirectoriesResponse",
+		"page-*.json":            "PageData",
+		"format-settings.json":   "FormatResult",
+		"format-error.json":      "ErrorResponse",
+		"error-*.json":           "ErrorResponse",
+		"search-documents.json":  "SearchDocumentsResponse",
+		"changes*.json":          "ChangesResponse",
+		"diff-*.json":            "DiffResponse",
+		"commits*.json":          "CommitsResponse",
+		"commit-files.json":      "CommitFilesResponse",
+		"branch-files*.json":     "BranchFilesResponse",
+		"range-files.json":       "RangeFilesResponse",
+		"refs.json":              "RefsResponse",
+		"branch-stack.json":      "StackResponse",
+		"compare-stats*.json":    "CompareStatsResponse",
+		"metrics*.json":          "ProcessMetrics",
+		"navigation-status.json": "NavigationStatus",
+		"definition.json":        "NavigationResult",
+		"references.json":        "NavigationResult",
 	}
 	checked := 0
 	for pattern, typeName := range shapes {
@@ -137,6 +141,8 @@ type Thing struct {
 	Next    *Thing   ` + "`json:\"next\"`" + `
 	Note    string   ` + "`json:\"note,omitempty\"`" + `
 	Count   *int     ` + "`json:\"count,omitempty\"`" + `
+	Labels  []string ` + "`json:\"labels,omitempty\"`" + `
+	Ratio   *float64 ` + "`json:\"ratio\"`" + `
 	Skip    string   ` + "`json:\"-\"`" + `
 }
 `,
@@ -154,6 +160,10 @@ type Thing struct {
 		"  next: Thing | null",
 		"  note?: string",
 		"  count?: number",
+		"  labels?: string[]",
+		"  ratio: number | null",
+		"&& (value.labels === undefined || isArrayOf(value.labels, isString))",
+		"&& (value.ratio === null || isNumber(value.ratio))",
 		"&& (value.count === undefined || isNumber(value.count))",
 		`&& (value.enabled !== true || (value.note ?? "") !== "")`,
 		"&& (value.next === null || isThing(value.next))",
@@ -177,16 +187,18 @@ type Thing struct {
 
 func TestGeneratorRejectsWhatGuardsCannotExpress(t *testing.T) {
 	cases := map[string]string{
-		"untagged field":  "type T struct {\n\tName string\n}\n",
-		"map field":       "type T struct {\n\tM map[string]string `json:\"m\"`\n}\n",
-		"unknown rule":    "//contract:rule missing == true => name != \"\"\ntype T struct {\n\tName string `json:\"name\"`\n}\n",
-		"malformed rule":  "//contract:rule name is set\ntype T struct {\n\tName string `json:\"name\"`\n}\n",
-		"function":        "func F() {}\n",
-		"untyped const":   "const C = \"c\"\n",
-		"unknown named":   "type T struct {\n\tU Unknown `json:\"u\"`\n}\n",
-		"optional number": "type T struct {\n\tN int `json:\"n,omitempty\"`\n}\n",
-		"optional struct": "type U struct{}\ntype T struct {\n\tU *U `json:\"u,omitempty\"`\n}\n",
-		"optional rule":   "//contract:rule n == true => s != \"\"\ntype T struct {\n\tN *bool `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
+		"untagged field":      "type T struct {\n\tName string\n}\n",
+		"map field":           "type T struct {\n\tM map[string]string `json:\"m\"`\n}\n",
+		"unknown rule":        "//contract:rule missing == true => name != \"\"\ntype T struct {\n\tName string `json:\"name\"`\n}\n",
+		"malformed rule":      "//contract:rule name is set\ntype T struct {\n\tName string `json:\"name\"`\n}\n",
+		"function":            "func F() {}\n",
+		"untyped const":       "const C = \"c\"\n",
+		"unknown named":       "type T struct {\n\tU Unknown `json:\"u\"`\n}\n",
+		"optional number":     "type T struct {\n\tN int `json:\"n,omitempty\"`\n}\n",
+		"optional struct":     "type U struct{}\ntype T struct {\n\tU *U `json:\"u,omitempty\"`\n}\n",
+		"optional rule":       "//contract:rule n == true => s != \"\"\ntype T struct {\n\tN *bool `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
+		"optional slice rule": "//contract:rule n == null => s != \"\"\ntype T struct {\n\tN []string `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
+		"pointer to slice":    "type T struct {\n\tN *[]string `json:\"n\"`\n}\n",
 	}
 	for name, body := range cases {
 		dir := writeContract(t, map[string]string{"a.go": "package contract\n\n" + body})

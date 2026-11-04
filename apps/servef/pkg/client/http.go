@@ -105,6 +105,34 @@ func (c *HTTP) SearchDocuments(ctx context.Context, project string) (contract.Se
 	return response, c.getJSON(ctx, "/api/search-documents", url.Values{"project": {project}}, &response)
 }
 
+func (c *HTTP) Image(ctx context.Context, project, path string) (contract.Image, error) {
+	response, err := c.do(ctx, http.MethodGet, "/api/image", url.Values{"project": {project}, "path": {path}}, nil)
+	if err != nil {
+		return contract.Image{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	// Image failures are plain text; every not-found image is unavailable.
+	switch {
+	case response.StatusCode == http.StatusNotFound:
+		return contract.Image{}, &Error{Kind: contract.KindNotFound, Message: contract.ImageUnavailableMessage}
+	case response.StatusCode != http.StatusOK:
+		text, _ := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+		return contract.Image{}, &Error{Kind: contract.KindForStatus(response.StatusCode), Message: strings.TrimSpace(string(text))}
+	}
+	tooLarge := &Error{Kind: contract.KindTooLarge, Message: contract.ImageTooLargeMessage}
+	if response.ContentLength > contract.MaxImageBytes {
+		return contract.Image{}, tooLarge
+	}
+	content, err := io.ReadAll(io.LimitReader(response.Body, contract.MaxImageBytes+1))
+	if err != nil {
+		return contract.Image{}, err
+	}
+	if len(content) > contract.MaxImageBytes {
+		return contract.Image{}, tooLarge
+	}
+	return contract.Image{MediaType: response.Header.Get("Content-Type"), Content: content}, nil
+}
+
 func (c *HTTP) Events(ctx context.Context, request contract.EventsRequest) (*Stream[contract.Event], error) {
 	query := url.Values{"project": {request.Project}}
 	if request.Lease != "" {
@@ -198,6 +226,45 @@ func (c *HTTP) CompareStats(ctx context.Context, request contract.CompareStatsRe
 	return response, c.getJSON(ctx, "/api/compare-stats", query, &response)
 }
 
+func (c *HTTP) NavigationStatus(ctx context.Context, request contract.NavigationStatusRequest) (contract.NavigationStatus, error) {
+	query := url.Values{"project": {request.Project}, "path": {request.Path}}
+	setFlag(query, "refresh", request.Refresh)
+	var response contract.NavigationStatus
+	return response, c.getJSONWith(ctx, "/api/navigation-status", query, languageServers(request.LanguageServers), &response)
+}
+
+func (c *HTTP) Definition(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error) {
+	return c.navigate(ctx, "/api/definition", request)
+}
+
+func (c *HTTP) References(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error) {
+	return c.navigate(ctx, "/api/references", request)
+}
+
+func (c *HTTP) navigate(ctx context.Context, path string, request contract.NavigationRequest) (contract.NavigationResult, error) {
+	query := url.Values{
+		"project": {request.Project},
+		"path":    {request.Path},
+		"line":    {strconv.Itoa(request.Line)},
+		"column":  {strconv.Itoa(request.Column)},
+	}
+	var response contract.NavigationResult
+	return response, c.getJSONWith(ctx, path, query, languageServers(request.LanguageServers), &response)
+}
+
+// languageServers is the header that authorizes language servers, or none.
+func languageServers(on bool) http.Header {
+	if !on {
+		return nil
+	}
+	return http.Header{contract.LanguageServersHeader: {"on"}}
+}
+
+func (c *HTTP) Metrics(ctx context.Context) (contract.ProcessMetrics, error) {
+	var response contract.ProcessMetrics
+	return response, c.getJSON(ctx, "/api/metrics", nil, &response)
+}
+
 // setNonEmpty sets a query parameter the server reads as absent when empty.
 func setNonEmpty(query url.Values, name, value string) {
 	if value != "" {
@@ -262,6 +329,11 @@ func (c *HTTP) DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEvent],
 
 // do sends a request; a JSON body is sent as application/json.
 func (c *HTTP) do(ctx context.Context, method, path string, query url.Values, body []byte) (*http.Response, error) {
+	return c.doWith(ctx, method, path, query, nil, body)
+}
+
+// doWith is do with extra request headers.
+func (c *HTTP) doWith(ctx context.Context, method, path string, query url.Values, header http.Header, body []byte) (*http.Response, error) {
 	target := c.base + path
 	if len(query) > 0 {
 		target += "?" + query.Encode()
@@ -274,6 +346,11 @@ func (c *HTTP) do(ctx context.Context, method, path string, query url.Values, bo
 	if err != nil {
 		return nil, err
 	}
+	for name, values := range header {
+		for _, value := range values {
+			request.Header.Add(name, value)
+		}
+	}
 	request.Header.Set("Accept", "application/json")
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
@@ -282,7 +359,11 @@ func (c *HTTP) do(ctx context.Context, method, path string, query url.Values, bo
 }
 
 func (c *HTTP) getJSON(ctx context.Context, path string, query url.Values, result any) error {
-	response, err := c.do(ctx, http.MethodGet, path, query, nil)
+	return c.getJSONWith(ctx, path, query, nil, result)
+}
+
+func (c *HTTP) getJSONWith(ctx context.Context, path string, query url.Values, header http.Header, result any) error {
+	response, err := c.doWith(ctx, http.MethodGet, path, query, header, nil)
 	if err != nil {
 		return err
 	}

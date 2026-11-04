@@ -12,6 +12,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/files"
+	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/watch"
 )
@@ -27,9 +28,9 @@ type Config struct {
 	// Types decides presentation and is required; every file within Depth is
 	// in scope.
 	Types *document.Registry
-	// Navigation reports whether a family has a language server (page-level
-	// navigationSupported); nil reports none.
-	Navigation func(family string) bool
+	// LanguageServers answers code navigation; nil serves none. Its owner
+	// closes it.
+	LanguageServers *lsp.Manager
 	// SessionKey names the session whose browser memory a page reads; empty
 	// uses the roots joined by newlines.
 	SessionKey string
@@ -48,6 +49,8 @@ type App struct {
 	Documents     *Documents
 	Events        *Events
 	SourceControl *SourceControl
+	Navigation    *Navigation
+	Metrics       *Metrics
 }
 
 // state is the configuration every service shares.
@@ -63,8 +66,8 @@ func New(config Config) (*App, error) {
 	if config.Types == nil {
 		return nil, errors.New("app: no document types")
 	}
-	if config.Navigation == nil {
-		config.Navigation = func(string) bool { return false }
+	if config.LanguageServers == nil {
+		config.LanguageServers = lsp.NewManager(nil, lsp.Options{})
 	}
 	if config.OpenFile == nil {
 		config.OpenFile = func(name string) (fs.File, error) { return os.Open(name) }
@@ -75,7 +78,16 @@ func New(config Config) (*App, error) {
 		Documents:     &Documents{state: shared},
 		Events:        &Events{state: shared},
 		SourceControl: &SourceControl{state: shared},
+		Navigation:    &Navigation{state: shared, servers: config.LanguageServers},
+		Metrics:       &Metrics{},
 	}, nil
+}
+
+// navigationSupported reports whether a family has a language server
+// (page-level navigationSupported).
+func (s *state) navigationSupported(family string) bool {
+	_, ok := s.config.LanguageServers.ServerFor(family)
+	return ok
 }
 
 // sessionKey names the session whose browser memory a page reads:

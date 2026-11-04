@@ -180,6 +180,7 @@ func (s *Server) handler(daemon bool) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Set("Content-Type", http.DetectContentType(data))
 		_, _ = w.Write(data)
 	})
 	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) {

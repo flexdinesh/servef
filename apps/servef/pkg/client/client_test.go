@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flexdinesh/servef/internal/daemon"
+	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/watch"
 	"github.com/flexdinesh/servef/internal/web"
@@ -44,6 +45,8 @@ func newFixture(t *testing.T) fixture {
 		"broken.json":    `{"b":`,
 		"notes/today.md": "today\n",
 		"code/main.go":   "package main\n",
+		"assets/dot.png": "\x89PNG\r\n\x1a\nfake",
+		"assets/dot.svg": `<svg xmlns="http://www.w3.org/2000/svg"/>`,
 	} {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -59,6 +62,13 @@ func newFixture(t *testing.T) fixture {
 // serveFixture serves root through every transport.
 func serveFixture(t *testing.T, root string) fixture {
 	t.Helper()
+	return serveFixtureWith(t, root, nil)
+}
+
+// serveFixtureWith serves root through every transport with servers as its
+// language servers; nil uses the built-in ones.
+func serveFixtureWith(t *testing.T, root string, servers *lsp.Manager) fixture {
+	t.Helper()
 	root, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +80,7 @@ func serveFixture(t *testing.T, root string) fixture {
 	options := watch.DefaultOptions()
 	options.Debounce = 30 * time.Millisecond
 	options.MaxWait = 200 * time.Millisecond
-	webApp, err := web.New(web.Config{Roots: roots, Depth: 5, LiveUpdates: watch.NewHub(options), WalkthroughDirectory: t.TempDir()})
+	webApp, err := web.New(web.Config{Roots: roots, Depth: 5, LanguageServers: servers, LiveUpdates: watch.NewHub(options), WalkthroughDirectory: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,10 +215,41 @@ func TestDataAPIParityAcrossTransports(t *testing.T) {
 	}
 
 	search := f.same(t, "SearchDocuments", func(c client.Client) outcome { return result(c.SearchDocuments(ctx, f.root)) })
-	if documents, ok := search.Value.(contract.SearchDocumentsResponse); !ok || len(documents.Documents) != 5 {
-		t.Errorf("SearchDocuments = %+v, want 5 documents", search)
+	if documents, ok := search.Value.(contract.SearchDocumentsResponse); !ok || len(documents.Documents) != 6 {
+		t.Errorf("SearchDocuments = %+v, want 6 documents", search)
 	}
 	f.same(t, "SearchDocuments without a project", func(c client.Client) outcome { return result(c.SearchDocuments(ctx, "")) })
+
+	images := []struct {
+		name, project, path, mediaType string
+		kind                           contract.ErrorKind
+	}{
+		{"png", f.root, "assets/dot.png", "image/png", ""},
+		{"svg", f.root, "assets/dot.svg", "image/svg+xml", ""},
+		{"text", f.root, "README.md", "", contract.KindNotFound},
+		{"missing", f.root, "assets/gone.png", "", contract.KindNotFound},
+		{"escape", f.root, "../dot.png", "", contract.KindNotFound},
+		{"no project", "", "assets/dot.png", "", contract.KindNotFound},
+	}
+	for _, image := range images {
+		got := f.same(t, "Image "+image.name, func(c client.Client) outcome { return result(c.Image(ctx, image.project, image.path)) })
+		read, ok := got.Value.(contract.Image)
+		if kindOf(got.Err) != image.kind || !ok || read.MediaType != image.mediaType || (image.kind == "") != (len(read.Content) > 0) {
+			t.Errorf("Image %s = %+v, want %q, kind %q", image.name, got, image.mediaType, image.kind)
+		}
+	}
+}
+
+// TestMetricsOnEveryTransport samples the process on each transport; the
+// values move between samples, so only their shape is compared.
+func TestMetricsOnEveryTransport(t *testing.T) {
+	f := newFixture(t)
+	for _, transport := range f.transports {
+		metrics, err := transport.client.Metrics(context.Background())
+		if err != nil || metrics.MemoryBytes == 0 || (metrics.MemorySource != contract.MemoryRSS && metrics.MemorySource != contract.MemoryGo) || metrics.Goroutines < 1 {
+			t.Errorf("Metrics over %s = %+v, %v", transport.name, metrics, err)
+		}
+	}
 }
 
 func TestEventsParityAcrossTransports(t *testing.T) {

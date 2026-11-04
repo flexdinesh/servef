@@ -93,14 +93,9 @@ func (a *App) newRoutes() *http.ServeMux {
 	})
 
 	// Code navigation.
-	api("/api/navigation-status", func(w http.ResponseWriter, r *http.Request, query url.Values) {
-		a.serveNavigationStatus(w, r, query.Get("project"), query.Get("path"), query.Get("refresh") == "1")
-	})
-	for path, references := range map[string]bool{"/api/definition": false, "/api/references": true} {
-		api(path, func(w http.ResponseWriter, r *http.Request, query url.Values) {
-			a.serveNavigation(w, r, references, query.Get("project"), query.Get("path"), query.Get("line"), query.Get("column"))
-		})
-	}
+	api("/api/navigation-status", a.serveNavigationStatus)
+	api("/api/definition", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveNavigation(w, r, query, false) })
+	api("/api/references", func(w http.ResponseWriter, r *http.Request, query url.Values) { a.serveNavigation(w, r, query, true) })
 
 	// Source Control.
 	api("/api/changes", func(w http.ResponseWriter, r *http.Request, query url.Values) {
@@ -142,7 +137,9 @@ func (a *App) newRoutes() *http.ServeMux {
 	// Live updates (decision 0050).
 	mux.HandleFunc("GET /api/events", a.serveEvents)
 
-	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) { a.serveMetrics(w) })
+	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) {
+		writeJSON(w, http.StatusOK, a.app.Metrics.Sample())
+	})
 	return mux
 }
 

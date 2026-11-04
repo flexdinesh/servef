@@ -56,6 +56,10 @@ func (c *Client) SearchDocuments(ctx context.Context, project string) (contract.
 	return call(ctx, func() (contract.SearchDocumentsResponse, error) { return c.app.Documents.SearchDocuments(project) })
 }
 
+func (c *Client) Image(ctx context.Context, project, path string) (contract.Image, error) {
+	return call(ctx, func() (contract.Image, error) { return c.app.Documents.ReadImage(project, path) })
+}
+
 func (c *Client) Events(ctx context.Context, request contract.EventsRequest) (*client.Stream[contract.Event], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -122,6 +126,22 @@ func (c *Client) BranchStack(ctx context.Context, project, base string) (contrac
 
 func (c *Client) CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error) {
 	return call(ctx, func() (contract.CompareStatsResponse, error) { return c.app.SourceControl.CompareStats(ctx, request) })
+}
+
+func (c *Client) NavigationStatus(ctx context.Context, request contract.NavigationStatusRequest) (contract.NavigationStatus, error) {
+	return call(ctx, func() (contract.NavigationStatus, error) { return c.app.Navigation.Status(request) })
+}
+
+func (c *Client) Definition(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error) {
+	return call(ctx, func() (contract.NavigationResult, error) { return c.app.Navigation.Definition(ctx, request) })
+}
+
+func (c *Client) References(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error) {
+	return call(ctx, func() (contract.NavigationResult, error) { return c.app.Navigation.References(ctx, request) })
+}
+
+func (c *Client) Metrics(ctx context.Context) (contract.ProcessMetrics, error) {
+	return call(ctx, func() (contract.ProcessMetrics, error) { return c.app.Metrics.Sample(), nil })
 }
 
 func (c *Client) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {

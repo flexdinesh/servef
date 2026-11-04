@@ -29,6 +29,9 @@ type Client interface {
 	Format(ctx context.Context, request contract.FormatRequest) (contract.FormatResult, error)
 	// SearchDocuments returns every searchable file's original text.
 	SearchDocuments(ctx context.Context, project string) (contract.SearchDocumentsResponse, error)
+	// Image reads a project image (a Markdown image dependency, root-confined,
+	// image types only) up to contract.MaxImageBytes.
+	Image(ctx context.Context, project, path string) (contract.Image, error)
 	// Events follows a project's live updates until ctx ends or the stream
 	// is closed.
 	Events(ctx context.Context, request contract.EventsRequest) (*Stream[contract.Event], error)
@@ -53,6 +56,17 @@ type Client interface {
 	BranchStack(ctx context.Context, project, base string) (contract.StackResponse, error)
 	// CompareStats counts the changed lines of a compare's files.
 	CompareStats(ctx context.Context, request contract.CompareStatsRequest) (contract.CompareStatsResponse, error)
+
+	// NavigationStatus reports whether a file can navigate and its language
+	// server's state; it never starts a server.
+	NavigationStatus(ctx context.Context, request contract.NavigationStatusRequest) (contract.NavigationStatus, error)
+	// Definition asks the file's language server for definitions.
+	Definition(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error)
+	// References asks the file's language server for references.
+	References(ctx context.Context, request contract.NavigationRequest) (contract.NavigationResult, error)
+
+	// Metrics samples the server process.
+	Metrics(ctx context.Context) (contract.ProcessMetrics, error)
 
 	// DaemonStatus returns the daemon's status.
 	DaemonStatus(ctx context.Context) (contract.DaemonStatus, error)

@@ -3,7 +3,7 @@ import { CheckIcon, CopyIcon } from "lucide-react"
 import { Button } from "../../components/ui/button.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { useClipboardCopy } from "../../lib/clipboard.ts"
-import type { LanguageServerInstall, NavigationStatus } from "../../api/navigation-contract.ts"
+import type { LanguageServerInstall, NavigationStatus } from "@servef/contracts"
 import { providerLabel, serverSummary } from "./navigation-status.ts"
 
 function InstallCommand({ install }: { install: LanguageServerInstall }) {
