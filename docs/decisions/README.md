@@ -90,6 +90,7 @@ rewriting history; update `Status` on the old record.
 | [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
 | [0084](0084-in-process-client-package.md) | In-process client transport in its own package | Accepted |
 | [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) | Image reads, metrics, and code navigation in the application layer | Accepted; walkthroughs by 0087 |
-| [0086](0086-native-agent-tooling-and-ports.md) | Native agent tooling, parity loop, and ports | Accepted; M1a ports by 0088 |
+| [0086](0086-native-agent-tooling-and-ports.md) | Native agent tooling, parity loop, and ports | Accepted; M1a ports by 0088; trees by 0090 |
 | [0087](0087-walkthroughs-in-the-application-layer.md) | Walkthroughs in the application layer | Accepted |
 | [0088](0088-native-highlights-and-ondine-via-wazero.md) | Native Highlights and Ondine via wazero | Accepted (experimental) |
+| [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Accepted |

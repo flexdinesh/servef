@@ -29,7 +29,8 @@ restore() {
 trap restore EXIT
 config="$(jq --arg version "$version" '.version = $version' mygo.json)"
 printf '%s\n' "$config" >mygo.json
-# Licenses of the embedded wasm modules and wazero, in every package.
+# Licenses of the embedded wasm modules, wazero, and Pierre's tree icons,
+# in every package.
 sh scripts/notices.sh resources/THIRD_PARTY_NOTICES.txt
 
 for arch in amd64 arm64; do

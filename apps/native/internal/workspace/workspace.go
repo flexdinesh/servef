@@ -98,13 +98,15 @@ type Model struct {
 	Project string
 	Page    contract.PageData
 	Tree    tree.Index
+	// TreeRead changes each time a page brings the tree, so the view
+	// rebuilds its rows from it.
+	TreeRead int
 	// TreeVersion changes when a project's first page arrives, so the view
 	// resets which directories are open to TreeOpen, those the server
-	// marked open. RevealVersion changes when Reveal, directories to open
-	// so an opened document shows, changes.
+	// marked open. RevealVersion changes when an opened document's row
+	// should show: the view opens the directories holding it.
 	TreeVersion   int
 	TreeOpen      []string
-	Reveal        []string
 	RevealVersion int
 	// Mode is the user's last choice of document view.
 	Mode docview.Mode
@@ -125,6 +127,8 @@ type Model struct {
 	Changes      contract.ChangesResponse
 	ChangesRead  bool
 	ChangesError string
+	// ChangesVersion changes with each read of Changes.
+	ChangesVersion int
 	// Review is the open diff, nil for none. FullFile shows whole files
 	// rather than hunks; IgnoreWhitespace compares lines without leading
 	// and trailing whitespace.
@@ -139,6 +143,11 @@ type Model struct {
 	reconnect      time.Duration
 	pageRequest    int
 	changesRequest int
+	// changesLoading is a changes read in flight; changesAt when the last
+	// one started, for refreshes on return.
+	changesLoading bool
+	changesAt      time.Time
+	now            func() time.Time
 	stream         context.CancelFunc
 	streamID       int
 	closed         bool
@@ -146,7 +155,7 @@ type Model struct {
 
 // New returns an empty workspace.
 func New(run Runner, connector Connector) *Model {
-	return &Model{run: run, connector: connector, trusted: map[string]bool{}, reconnect: reconnectDelay}
+	return &Model{run: run, connector: connector, trusted: map[string]bool{}, reconnect: reconnectDelay, now: time.Now}
 }
 
 // Close ends background streams.
@@ -352,6 +361,9 @@ func (m *Model) openProject(id, path string) {
 	m.closeProject()
 	m.Project = id
 	m.loadPage(path, path != "", true, path != "")
+	// The web reads changes on project load: the Explorer shows their
+	// statuses (decision 0024).
+	m.LoadChanges()
 	m.startStream()
 }
 
@@ -365,8 +377,8 @@ func (m *Model) closeProject() {
 	m.Project = ""
 	m.Page = contract.PageData{}
 	m.Tree = tree.Index{}
+	m.TreeRead++
 	m.TreeOpen = nil
-	m.Reveal = nil
 	m.View = docview.View{}
 	m.Lines = nil
 	m.Head = nil
@@ -374,8 +386,10 @@ func (m *Model) closeProject() {
 	m.pageRequest++
 	m.Panel = Explorer
 	m.Changes, m.ChangesRead, m.ChangesError = contract.ChangesResponse{}, false, ""
+	m.ChangesVersion++
 	m.Review = nil
 	m.changesRequest++
+	m.changesLoading = false
 }
 
 // OpenDocument opens a project-relative path in the open project, in
@@ -388,13 +402,28 @@ func (m *Model) OpenDocument(path string) {
 	m.loadPage(path, true, false, true)
 }
 
-// ShowPanel switches the sidebar; Source Control reads the changes the
-// first time.
+// ShowPanel switches the sidebar; opening Source Control rereads the
+// changes, as the web's view does, unless a read is in flight.
 func (m *Model) ShowPanel(panel Panel) {
+	opened := panel == SourceControl && m.Panel != SourceControl
 	m.Panel = panel
-	if panel == SourceControl && !m.ChangesRead {
+	if opened && !m.changesLoading {
 		m.LoadChanges()
 	}
+}
+
+// returnThrottle is how soon after a read a return rereads nothing, as
+// the web's focusThrottle.
+const returnThrottle = 2 * time.Second
+
+// Returned rereads the changes when the window regains the focus, as the
+// web's useRefreshOnReturn does: at most once per returnThrottle since
+// the last read started, never while one is in flight.
+func (m *Model) Returned() {
+	if m.changesLoading || m.now().Sub(m.changesAt) < returnThrottle {
+		return
+	}
+	m.LoadChanges()
 }
 
 // LoadChanges rereads the working tree's changes.
@@ -405,6 +434,7 @@ func (m *Model) LoadChanges() {
 	}
 	m.changesRequest++
 	request := m.changesRequest
+	m.changesLoading, m.changesAt = true, m.now()
 	m.run.Go(func() func() {
 		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 		defer cancel()
@@ -413,11 +443,13 @@ func (m *Model) LoadChanges() {
 			if request != m.changesRequest || m.Connection != connection || m.Project != project {
 				return
 			}
+			m.changesLoading = false
 			if err != nil {
 				m.ChangesError = "Could not read changes: " + message(err)
 				return
 			}
 			m.Changes, m.ChangesRead, m.ChangesError = changes, true, ""
+			m.ChangesVersion++
 		}
 	})
 }
@@ -602,12 +634,12 @@ func (m *Model) setPage(page contract.PageData, newTree, reveal bool) {
 	documentChanged := page.Selected != m.Page.Selected || page.Source != m.Page.Source || page.HasFile != m.Page.HasFile
 	m.Page = page
 	m.Tree = tree.New(page.Tree)
+	m.TreeRead++
 	if newTree {
 		m.TreeOpen = tree.Open(page.Tree)
 		m.TreeVersion++
 	}
 	if reveal && page.Selected != "" {
-		m.Reveal = m.Tree.Ancestors(page.Selected)
 		m.RevealVersion++
 	}
 	if documentChanged {
@@ -721,7 +753,9 @@ func (m *Model) apply(event contract.Event) {
 		if targets.Page {
 			m.loadPage(m.Page.Selected, m.Page.Selected != "", false, false)
 		}
-		if targets.Changes && (m.ChangesRead || m.Panel == SourceControl) {
+		if targets.Changes {
+			// Changes are read on project load, so a change rereads them,
+			// after a failed first read too.
 			m.LoadChanges()
 		}
 		if open := m.Review; open != nil && live.Diff(*event.Change, open.File.Path, open.File.OldPath) {

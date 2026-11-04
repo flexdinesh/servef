@@ -90,6 +90,7 @@ func TestOpenProjectAndDocuments(t *testing.T) {
 		t.Fatalf("view %+v", model.View)
 	}
 
+	revealed := model.RevealVersion
 	model.OpenDocument("src/main.go")
 	queue.Drain()
 	if model.View.Kind != docview.Code || model.View.Language != "go" {
@@ -101,8 +102,8 @@ func TestOpenProjectAndDocuments(t *testing.T) {
 	if model.Lines[0][0].Category != highlight.Keyword {
 		t.Fatalf("package is a keyword: %v", model.Lines[0])
 	}
-	if !slices.Equal(model.Reveal, []string{"src"}) {
-		t.Fatalf("reveal %v", model.Reveal)
+	if model.RevealVersion == revealed {
+		t.Fatal("an opened document is revealed")
 	}
 	if model.Title() != "src/main.go - demo - servef" {
 		t.Fatalf("title %q", model.Title())
@@ -194,7 +195,7 @@ func TestLinksToLocalAndServers(t *testing.T) {
 	model, queue, _ := setup(t)
 	model.Handle(link.Request{Link: &link.Target{Kind: link.Local, Project: project, Path: "docs/guide.md"}})
 	queue.Drain()
-	if model.Page.Selected != "docs/guide.md" || !slices.Equal(model.Reveal, []string{"docs"}) {
+	if model.Page.Selected != "docs/guide.md" || model.RevealVersion == 0 {
 		t.Fatalf("local link opened %q", model.Page.Selected)
 	}
 
@@ -351,20 +352,23 @@ func openWithChanges(t *testing.T) (*Model, *fakeservef.Queue, *fakeservef.Serve
 
 func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 	model, queue, daemon := openWithChanges(t)
-	if model.ChangesRead {
-		t.Fatal("changes read before Source Control opened")
+	// The project's load reads its changes, as the web does, so the
+	// Explorer can show their statuses.
+	if !model.ChangesRead {
+		t.Fatal("changes not read on project load")
 	}
 	model.ShowPanel(SourceControl)
 	queue.Drain()
 	if !model.ChangesRead || len(model.Changes.Files) != 7 || model.Changes.Branch != "main" {
 		t.Fatalf("changes %+v", model.Changes)
 	}
+	model.ShowPanel(SourceControl)
 	model.ShowPanel(Explorer)
 	model.ShowPanel(SourceControl)
 	queue.Drain()
 	daemon.Get(func(s *fakeservef.Server) {
-		if s.ChangesReads != 1 {
-			t.Fatalf("changes read %d times; reopening the panel keeps them", s.ChangesReads)
+		if s.ChangesReads != 3 {
+			t.Fatalf("changes read %d times; the load and each opening of the panel read them", s.ChangesReads)
 		}
 	})
 
@@ -495,5 +499,62 @@ func TestLiveUpdatesRereadChangesAndTheOpenDiff(t *testing.T) {
 	}
 	if changes, diffs := reads(); changes != changesBefore+2 || diffs != diffsBefore+1 {
 		t.Fatalf("reads: changes %d -> %d, diffs %d -> %d", changesBefore, changes, diffsBefore, diffs)
+	}
+}
+
+// Opening Source Control while the load's read is in flight reads once.
+func TestSourceControlJoinsTheLoadsRead(t *testing.T) {
+	model, queue, daemon := setup(t)
+	daemon.LoadChanges(t, project)
+	model.Handle(link.Request{})
+	queue.Drain()
+	model.OpenProject(project)
+	model.ShowPanel(SourceControl)
+	queue.Drain()
+	daemon.Get(func(s *fakeservef.Server) {
+		if s.ChangesReads != 1 {
+			t.Fatalf("changes read %d times", s.ChangesReads)
+		}
+	})
+	if !model.ChangesRead {
+		t.Fatal("changes not read")
+	}
+}
+
+// A failed first read is retried by a live change and by a return to the
+// window, at most once per throttle, as the web's useRefreshOnReturn.
+func TestChangesRetryOnLiveUpdatesAndReturns(t *testing.T) {
+	model, queue, daemon := setup(t)
+	clock := time.Unix(1000, 0)
+	model.now = func() time.Time { return clock }
+	model.Handle(link.Request{})
+	queue.Drain()
+	model.OpenProject(project)
+	queue.Drain()
+	if model.ChangesRead || model.ChangesError == "" {
+		t.Fatalf("first read should fail: read %v, error %q", model.ChangesRead, model.ChangesError)
+	}
+	daemon.LoadChanges(t, project)
+	daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{"README.md"}}})
+	if !queue.Until(func() bool { return model.ChangesRead }, 5*time.Second) {
+		t.Fatalf("a live change rereads after a failure: %q", model.ChangesError)
+	}
+	reads := func() (n int) {
+		daemon.Get(func(s *fakeservef.Server) { n = s.ChangesReads })
+		return n
+	}
+	before := reads()
+	clock = clock.Add(time.Second)
+	model.Returned()
+	queue.Drain()
+	if reads() != before {
+		t.Fatal("a return within the throttle reads nothing")
+	}
+	clock = clock.Add(2 * time.Second)
+	model.Returned()
+	model.Returned()
+	queue.Drain()
+	if reads() != before+1 {
+		t.Fatalf("a return after the throttle reads once; %d -> %d", before, reads())
 	}
 }

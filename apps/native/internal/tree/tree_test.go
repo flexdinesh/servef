@@ -40,16 +40,23 @@ func TestIndex(t *testing.T) {
 	if x.Len() != 5 {
 		t.Fatalf("len %d", x.Len())
 	}
-	if got := x.Ancestors("docs/guide/a.md"); !slices.Equal(got, []string{"docs", "docs/guide"}) {
-		t.Fatalf("ancestors %v", got)
-	}
-	if got := x.Ancestors("main.go"); got != nil {
-		t.Fatalf("top-level ancestors %v", got)
-	}
 }
 
 func TestOpen(t *testing.T) {
 	if got := Open(sample()); !slices.Equal(got, []string{"docs"}) {
 		t.Fatalf("open %v", got)
+	}
+}
+
+func TestStatusesKeepShownFiles(t *testing.T) {
+	x := New(sample())
+	got := x.Statuses([]contract.ChangedFile{
+		{Path: "main.go", Status: contract.ChangeModified},
+		{Path: "docs/guide/a.md", Status: contract.ChangeRenamed},
+		{Path: "gone.go", Status: contract.ChangeDeleted},
+		{Path: "docs", Status: contract.ChangeAdded},
+	})
+	if len(got) != 2 || got["main.go"] != contract.ChangeModified || got["docs/guide/a.md"] != contract.ChangeRenamed {
+		t.Fatalf("statuses %v", got)
 	}
 }

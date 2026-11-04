@@ -107,6 +107,9 @@ func main() {
 		})
 		runner.window.Store(window)
 		app.OnTitle(window.SetTitle)
+		// A return to the window rereads the changes, as the web's
+		// useRefreshOnReturn does.
+		window.OnFocus(func() { runner.Post(model.Returned) })
 		if requestErr != nil {
 			model.Error = "Not a servef-native link."
 		}

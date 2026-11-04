@@ -1,0 +1,68 @@
+# Explorer on Pierre-like trees (packages/mygo/trees): folders closed as
+# the server marks them, then open with Pierre's icons and the
+# uncommitted statuses of shown files (changes.json: assets/sample.bin M,
+# guides/getting-started.md R; their folders' dots), the open document
+# selected, and the keyboard cursor moved with the arrows.
+description: Explorer tree, icons, statuses, selection, keyboard
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - wait: assets
+  - shot: collapsed
+  - click: assets
+  - click: config
+  - click: guides
+  - click: logs
+  - wait: huge.log
+  - shot: expanded
+  - click: getting-started.md
+  - wait: View
+  - shot: selected
+  - click: config
+  - key: Down
+  - key: Right
+  - key: Down
+  - shot: keyboard
+web:
+  # Pierre's rows live in a shadow root agent-browser does not pierce:
+  # rows are clicked by position (22px rows from y=94), bottom up so the
+  # rows above stay put.
+  storage: {servef-theme: "${theme}"}
+  shots:
+    collapsed:
+      path: /view?project=/home/user/markdown
+      steps:
+        - wait: {ms: 800}
+    expanded:
+      path: /view?project=/home/user/markdown
+      steps:
+        - wait: {ms: 800}
+        - click: {x: 100, y: 160}
+        - click: {x: 100, y: 138}
+        - click: {x: 100, y: 116}
+        - click: {x: 100, y: 94}
+        - wait: {ms: 500}
+    selected:
+      path: /view?project=/home/user/markdown&path=guides/getting-started.md
+      steps:
+        - wait: {ms: 800}
+        - click: {x: 100, y: 182}
+        - click: {x: 100, y: 116}
+        - click: {x: 100, y: 94}
+        # A folder click selects it, as Pierre's: select the document
+        # again, as native does.
+        - click: {x: 100, y: 248}
+        - wait: {ms: 500}
+    keyboard:
+      path: /view?project=/home/user/markdown&path=guides/getting-started.md
+      steps:
+        - wait: {ms: 800}
+        - click: {x: 100, y: 182}
+        - click: {x: 100, y: 116}
+        - click: {x: 100, y: 94}
+        - click: {x: 100, y: 248}
+        - click: {x: 100, y: 160}
+        - key: Down
+        - key: Right
+        - key: Down
+        - wait: {ms: 300}

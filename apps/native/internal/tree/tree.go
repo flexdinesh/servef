@@ -4,8 +4,6 @@
 package tree
 
 import (
-	"strings"
-
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -68,24 +66,6 @@ func (x Index) Entry(path string) (Entry, bool) {
 // Len counts every entry.
 func (x Index) Len() int { return len(x.entries) }
 
-// Ancestors returns the directories containing path, outermost first, that
-// the tree knows: the items to open so path shows.
-func (x Index) Ancestors(path string) []string {
-	var dirs []string
-	for i := strings.Index(path, "/"); i >= 0; {
-		dir := path[:i]
-		if entry, ok := x.entries[dir]; ok && entry.IsDir {
-			dirs = append(dirs, dir)
-		}
-		next := strings.Index(path[i+1:], "/")
-		if next < 0 {
-			break
-		}
-		i += next + 1
-	}
-	return dirs
-}
-
 // Open returns the directories the server marked open, so the outline
 // starts as the web tree does.
 func Open(nodes []contract.TreeNode) []string {
@@ -101,4 +81,16 @@ func Open(nodes []contract.TreeNode) []string {
 	}
 	walk(nodes)
 	return open
+}
+
+// Statuses are the change statuses of the files the tree shows, by path,
+// as the web Explorer decorates them; Source Control lists the rest.
+func (x Index) Statuses(files []contract.ChangedFile) map[string]contract.ChangeStatus {
+	statuses := map[string]contract.ChangeStatus{}
+	for _, file := range files {
+		if entry, ok := x.entries[file.Path]; ok && !entry.IsDir {
+			statuses[file.Path] = file.Status
+		}
+	}
+	return statuses
 }
