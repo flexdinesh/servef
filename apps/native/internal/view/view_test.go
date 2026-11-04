@@ -110,7 +110,7 @@ func TestBrowseProjectTreeAndDocuments(t *testing.T) {
 
 	// A relative link opens the linked document; its directory opens.
 	h.click("guide")
-	h.wantText("Guide", "Install", "Mermaid diagram (shown as code in the native app)")
+	h.wantText("Guide", "Install")
 	if h.app.Model.Page.Selected != "docs/guide.md" {
 		t.Fatalf("selected %q", h.app.Model.Page.Selected)
 	}
@@ -140,10 +140,10 @@ func TestSourceViewIsHighlightedReadOnly(t *testing.T) {
 	}
 	language := state.Buffer.Language()
 	if language == nil || language.Highlighter == nil {
-		t.Fatal("source has the Chroma highlighter")
+		t.Fatal("source has no highlighter")
 	}
 	tokens, final := language.Highlighter(state.Buffer.Snapshot(), func() {}).Tokens(3, "func main() {", nil)
-	if !final || len(tokens) == 0 || tokens[0].Kind != editor.TokenKeyword || tokens[0].End != 4 {
+	if !final || len(tokens) == 0 || tokens[0].Kind != editor.TokenKeyword || strings.TrimSpace("func main() {"[:tokens[0].End]) != "func" {
 		t.Fatalf("tokens of line 3: %v %v", tokens, final)
 	}
 	// Typing changes nothing.
@@ -249,7 +249,7 @@ func TestThemesFollowTheAppearance(t *testing.T) {
 		code := codeTheme(window, palette)
 		for _, category := range highlight.Categories {
 			style := code.Tokens[tokenKinds[category]]
-			if style.Color != ui.Hex(palette.Syntax[category]) || style.Italic != (category == highlight.Comment) {
+			if style.Color != ui.Hex(palette.Syntax[category]) || style.Italic != (category == highlight.Comment) || style.Bold {
 				t.Errorf("dark %v %s: %+v", dark, category.Name(), style)
 			}
 		}
@@ -261,7 +261,7 @@ func TestThemesFollowTheAppearance(t *testing.T) {
 }
 
 func TestHighlighterClampsSpans(t *testing.T) {
-	h := &chromaHighlighter{lines: [][]highlight.Span{{{End: 4, Category: highlight.Keyword}, {End: 99, Category: highlight.Plain}}}}
+	h := &lineHighlighter{lines: [][]highlight.Span{{{End: 4, Category: highlight.Keyword}, {End: 99, Category: highlight.Plain}}}}
 	tokens, _ := h.Tokens(0, "func x", nil)
 	if len(tokens) != 2 || tokens[1].End != 6 {
 		t.Fatalf("tokens %v", tokens)

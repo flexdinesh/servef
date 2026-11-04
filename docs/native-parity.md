@@ -10,10 +10,10 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Milestone | Scope | Rows | Done / partial / missing |
 | --- | --- | --- | --- |
 | M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 24 / 0 / 0 |
-| M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 0 / 2 / 4 |
+| M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 2 / 1 / 3 |
 | M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker | 13 | 0 / 4 / 9 |
 | M3 | Settings dialog, font size, themes (Omarchy), color theme picker, command palette, quick pick, commands | 8 | 0 / 1 / 7 |
-| M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 0 / 3 / 5 |
+| M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 2 / 1 / 5 |
 | M5 | Explorer: filename filter, gitignore marks, icons, context menus | 5 | 0 / 1 / 4 |
 | M6 | Search: filename and content, include/exclude globs | 7 | 0 / 0 / 7 |
 | M7 | Code navigation and language-server status | 4 | 0 / 0 / 4 |
@@ -21,7 +21,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | M9 | Walkthroughs: list, tab, narration, step bar, announcements | 8 | 0 / 0 / 8 |
 | M10 | Bridge v2: reveal, context menus, recent folders, folder drop, notifications | 6 | 0 / 0 / 6 |
 | M11 | ssh: Connect page hosts, ControlMaster, socket forwards, remote folder picker | 6 | 0 / 0 / 6 |
-| Total | | 115 | 24 / 13 / 78 |
+| Total | | 115 | 28 / 10 / 77 |
 
 ## Shell and workspace
 
@@ -71,14 +71,14 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | --- | --- | --- | --- | --- | --- | --- |
 | Read-only Source with line numbers and find | `features/documents/SourceDocument.tsx` | 0003, 0082 | done | M0/0082 | source-view | #145 |
 | Highlighting in the declared language, off the UI thread | `highlighting/source-highlighter.ts`, `highlighting/highlight-thread.ts` | 0029 | done | M0/0082 | source-view | #145 |
-| Highlights token parity (wazero port) | `highlighting/highlights-loader.ts`, `highlighting/syntax-highlight.ts` | 0029, 0082 | partial (Chroma boundaries differ) | M1 | source-view | |
+| Highlights token parity (wazero port) | `highlighting/highlights-loader.ts`, `highlighting/syntax-highlight.ts` | 0029, 0082, 0088 | done | M1 | source-languages | |
 | Source/Preview toggle; Markdown opens in Source | `features/documents/document-view.ts`, `features/documents/DocumentModeToggle.tsx` | 0003, 0010 | done | M0/0082 | document-preview | #145 |
 | Markdown preview: document, heading, and external links; root-confined images | `features/documents/DocumentPreview.tsx` | 0002, 0005, 0010 | done | M0/0082 | document-preview | #145 |
-| Highlighted fences with language chip and copy | `features/documents/DocumentPreview.tsx`, `features/documents/CodeBlockControls.tsx` | 0029 | partial (mygo lexers, not Highlights) | M4 | _fences_ | |
+| Highlighted fences with language chip and copy | `features/documents/DocumentPreview.tsx`, `features/documents/CodeBlockControls.tsx` | 0029, 0088 | done (language label in mygo's head row, not the copy chip) | M4 | markdown-fences | |
 | Format (on demand, read-only) | `features/documents/FormattedDocument.tsx`, `features/documents/use-document-format.ts` | 0003, 0011 | missing | M4 | _format_ | |
-| Ondine diagram renderer (port) | `features/documents/ondine-renderer.ts`, `features/documents/diagram.ts` | 0025 | missing | M1 | _mermaid_ | |
-| Mermaid rendered in preview, source on error | `features/documents/MermaidBlock.tsx`, `features/documents/MermaidSource.tsx` | 0022, 0025 | partial (shown as code) | M4 | _mermaid_ | |
-| Mermaid expand, zoom, reset | `features/documents/OndineMermaidDiagram.tsx` | 0025 | missing | M4 | _mermaid_ | |
+| Ondine diagram renderer (port) | `features/documents/ondine-renderer.ts`, `features/documents/diagram.ts` | 0025, 0088 | done | M1 | mermaid | |
+| Mermaid rendered in preview, source on error | `features/documents/MermaidBlock.tsx`, `features/documents/MermaidSource.tsx` | 0022, 0025, 0088 | done | M4 | mermaid | |
+| Mermaid expand, zoom, reset | `features/documents/OndineMermaidDiagram.tsx` | 0025 | missing | M4 | mermaid | |
 | Image documents | `features/documents/ImageDocument.tsx` | 0005 | done | M0/0082 | _image-document_ | #145 |
 | Image zoom controls | `features/documents/ImageZoomControls.tsx`, `features/documents/image-zoom.ts` | 0005 | missing | M4 | _image-document_ | |
 | Binary, tooLarge, and preview-disabled notes | `features/documents/BinaryDocument.tsx`, `features/documents/DocumentNotice.tsx` | 0004 | done | M0/0082 | _binary-notes_ | #145 |

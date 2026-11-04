@@ -15,10 +15,12 @@ import (
 
 	"github.com/flexdinesh/servef/apps/native/internal/connect"
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
 	"github.com/flexdinesh/servef/apps/native/internal/view"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
 	"github.com/flexdinesh/servef/packages/mygo/agent/session"
+	"github.com/flexdinesh/servef/packages/mygo/ondine"
 )
 
 // Options choose what the app connects to.
@@ -38,6 +40,9 @@ type Options struct {
 	Width       int
 	Height      int
 	Dark        bool
+	// Warm compiles Highlights and Ondine before the session starts, so
+	// steps time the UI, not a first compile (seconds under -race).
+	Warm bool
 }
 
 // Host is a running headless app.
@@ -65,6 +70,14 @@ func (connector) Servers(context.Context) ([]connect.ListedServer, error) {
 
 // Start starts the app in a session.
 func Start(opts Options) (*Host, error) {
+	if opts.Warm {
+		if err := highlight.Warm(); err != nil {
+			return nil, err
+		}
+		if err := ondine.Warm(); err != nil {
+			return nil, err
+		}
+	}
 	h := &Host{}
 	socket := opts.Daemon
 	if opts.Daemon == "" && opts.Server == "" {

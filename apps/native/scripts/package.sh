@@ -6,7 +6,8 @@
 #
 # ARCHIVES holds servef_<VERSION>_<os>_<arch>.tar.gz (build.yml's cli job).
 # Writes servef-native_<VERSION>_linux_<arch>.tar.gz (mygo's archive) or
-# servef-native_<VERSION>_darwin_<arch>.zip (the ad-hoc signed app) to OUT.
+# servef-native_<VERSION>_darwin_<arch>.zip (the ad-hoc signed app) to OUT,
+# each with THIRD_PARTY_NOTICES.txt (scripts/notices.sh) in its resources.
 # Runs from the repository root with Go 1.27 (apps/native/go.mod) and jq.
 set -eu
 
@@ -23,11 +24,13 @@ cd apps/native
 original="$(cat mygo.json)"
 restore() {
   printf '%s\n' "$original" >mygo.json
-  rm -rf build resources/bin
+  rm -rf build resources/bin resources/THIRD_PARTY_NOTICES.txt
 }
 trap restore EXIT
 config="$(jq --arg version "$version" '.version = $version' mygo.json)"
 printf '%s\n' "$config" >mygo.json
+# Licenses of the embedded wasm modules and wazero, in every package.
+sh scripts/notices.sh resources/THIRD_PARTY_NOTICES.txt
 
 for arch in amd64 arm64; do
   name="servef_${version}_${os}_${arch}"

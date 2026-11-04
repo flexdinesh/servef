@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comment -->
+<root xmlns:x="urn:x" id="r1">
+  <x:item key="a">Text &amp; more</x:item>
+  <empty/>
+  <![CDATA[ raw <data> ]]>
+</root>

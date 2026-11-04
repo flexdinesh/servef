@@ -382,6 +382,9 @@ jobs:
           "$dir/bin/servef" --version | grep -F "servef ${VERSION} "
           grep -E '^MimeType=(.*;)?x-scheme-handler/servef-native(;|$)' "$dir/servef-native.desktop"
           test -f "$dir/servef-native.png"
+          for license in "@pierre/highlights" "ondine" "github.com/tetratelabs/wazero"; do
+            grep -F "$license" "$dir/THIRD_PARTY_NOTICES.txt" >/dev/null
+          done
 
       - name: Upload native packages
         uses: actions/upload-artifact@v7
@@ -432,6 +435,9 @@ jobs:
           app="$dir/servef-native.app/Contents"
           "$app/MacOS/servef-native" --version | grep -Fx "servef-native ${VERSION} $(git rev-parse --short=12 HEAD)"
           "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
+          for license in "@pierre/highlights" "ondine" "github.com/tetratelabs/wazero"; do
+            grep -F "$license" "$app/Resources/THIRD_PARTY_NOTICES.txt" >/dev/null
+          done
           codesign --verify "$dir/servef-native.app"
           scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
           if [[ "$scheme" != "servef-native" ]]; then

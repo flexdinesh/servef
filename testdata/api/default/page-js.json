@@ -1,0 +1,196 @@
+{
+  "roots": [
+    "/home/user/markdown"
+  ],
+  "sessionKey": "/home/user/markdown",
+  "project": "/home/user/markdown",
+  "projectUnavailable": false,
+  "rootName": "markdown",
+  "repository": "",
+  "projectKind": "folder",
+  "branch": "",
+  "worktrees": 0,
+  "tree": [
+    {
+      "name": "assets",
+      "path": "assets",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "preview.png",
+          "path": "assets/preview.png",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "image"
+        },
+        {
+          "name": "sample.bin",
+          "path": "assets/sample.bin",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "code",
+      "path": "code",
+      "isDir": true,
+      "open": true,
+      "selected": false,
+      "children": [
+        {
+          "name": "app.js",
+          "path": "code/app.js",
+          "isDir": false,
+          "open": false,
+          "selected": true,
+          "children": [],
+          "fileType": "javascript"
+        },
+        {
+          "name": "styles.css",
+          "path": "code/styles.css",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "css"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "config",
+      "path": "config",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "broken.json",
+          "path": "config/broken.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        },
+        {
+          "name": "settings.json",
+          "path": "config/settings.json",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "json"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "guides",
+      "path": "guides",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "code-blocks.md",
+          "path": "guides/code-blocks.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        },
+        {
+          "name": "diagrams.md",
+          "path": "guides/diagrams.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        },
+        {
+          "name": "getting-started.md",
+          "path": "guides/getting-started.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        },
+        {
+          "name": "request-flow.mmd",
+          "path": "guides/request-flow.mmd",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "mermaid"
+        }
+      ],
+      "fileType": ""
+    },
+    {
+      "name": "logs",
+      "path": "logs",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "huge.log",
+          "path": "logs/huge.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        }
+      ],
+      "fileType": ""
+    }
+  ],
+  "selected": "code/app.js",
+  "at": "",
+  "content": "",
+  "source": "// js-search-token\nconst items=document.querySelectorAll(\".card li\");for(const item of items){item.addEventListener(\"click\",()=>{item.classList.toggle(`active-${item.dataset.id ?? 0}`)})}if(items.length===0){console.warn(\"no items\")}else{console.log(/li$/i.test(items[0].tagName))}\n",
+  "fileSize": 282,
+  "fileCount": 6,
+  "hasFile": true,
+  "empty": false,
+  "error": "",
+  "warnings": [],
+  "documentType": {
+    "id": "javascript",
+    "label": "JavaScript",
+    "extensions": [
+      ".js",
+      ".mjs",
+      ".cjs"
+    ],
+    "filenames": [],
+    "language": "js",
+    "previewKind": "",
+    "previewLabel": "",
+    "defaultMode": "source",
+    "formattable": true
+  },
+  "navigationSupported": true,
+  "binary": false,
+  "tooLarge": false,
+  "previewDisabled": false,
+  "highlightDisabled": false,
+  "searchExcluded": false,
+  "previewError": ""
+}

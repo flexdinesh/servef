@@ -1,0 +1,14 @@
+//! Crate docs
+use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct Cache<'a, T: Clone> { map: HashMap<&'a str, T> }
+
+impl<'a, T: Clone> Cache<'a, T> {
+    /// Gets a value.
+    pub fn get(&self, key: &str) -> Option<T> {
+        let v = self.map.get(key).cloned();
+        match v { Some(x) => Some(x), None => None }
+    }
+}
+fn main() { println!("{} {}", 1u8 + 2, r#"raw"#); let _c = 'c'; }

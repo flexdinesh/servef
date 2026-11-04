@@ -1,6 +1,12 @@
 package mdlink
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/pkg/contract"
+)
 
 func TestResolve(t *testing.T) {
 	for _, tc := range []struct {
@@ -59,5 +65,38 @@ func TestPreviewSource(t *testing.T) {
 		if got := PreviewSource(source); got != want {
 			t.Errorf("PreviewSource(%q) = %q, want %q", source, got, want)
 		}
+	}
+}
+
+func TestPreview(t *testing.T) {
+	// The server declares Mermaid files as their own family, previewed as
+	// one fence (page-mermaid.json matches the server's registry).
+	var page contract.PageData
+	fakeservef.Fixture(t, "page-mermaid.json", &page)
+	if page.DocumentType == nil || page.DocumentType.ID != MermaidFamily || page.DocumentType.PreviewKind != contract.PreviewMarkdown {
+		t.Fatalf("page-mermaid.json declares %+v", page.DocumentType)
+	}
+	if want := "<pre><code class=\"language-mermaid\">"; !strings.HasPrefix(page.Content, want) {
+		t.Fatalf("the server's Mermaid preview is no longer one mermaid fence: %q", page.Content)
+	}
+	got := Preview(page.Source, page.DocumentType)
+	if want := "```mermaid\n" + page.Source + "```\n"; got != want {
+		t.Fatalf("mermaid page preview:\n%q\nwant\n%q", got, want)
+	}
+	mermaid := &contract.FileType{ID: MermaidFamily}
+	if got := Preview("a ``` b", mermaid); got != "````mermaid\na ``` b\n````\n" {
+		t.Fatalf("fence around backticks: %q", got)
+	}
+	// Every other family shows its Markdown source, whatever its preview
+	// looks like.
+	markdown := &contract.FileType{ID: "markdown"}
+	if got := Preview("---\nx: 1\n---\n# Hi\n", markdown); got != "# Hi\n" {
+		t.Fatalf("markdown preview %q", got)
+	}
+	if got := Preview("```mermaid\nA-->B\n```\n", markdown); got != "```mermaid\nA-->B\n```\n" {
+		t.Fatalf("a Markdown file of one mermaid fence %q", got)
+	}
+	if got := Preview("x", nil); got != "x" {
+		t.Fatalf("no type %q", got)
 	}
 }

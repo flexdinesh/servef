@@ -1,0 +1,14 @@
+# Config
+name: servef
+version: 1.2
+enabled: yes
+anchors: &base
+  a: 1
+merge:
+  <<: *base
+  list: [one, "two", 'three']
+multi: |
+  line one
+  line two
+---
+second: ~

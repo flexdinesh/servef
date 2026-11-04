@@ -1,0 +1,8 @@
+{
+  "name": "servef",
+  "version": 1.5,
+  "enabled": true,
+  "nothing": null,
+  "tags": ["a", "b\né"],
+  "nested": { "count": -3e10 }
+}

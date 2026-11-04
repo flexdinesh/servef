@@ -1,0 +1,21 @@
+// Package main greets.
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Greeter struct {
+	Name  string `json:"name"`
+	Count int
+}
+
+// Greet says hi, 世界 🌍.
+func (g *Greeter) Greet(n int) (string, error) {
+	if n < 0 || g == nil {
+		return "", fmt.Errorf("bad count: %d", n)
+	}
+	s := strings.Repeat("hi\t", n) + 'x' + 0x1F + 3.14e-2
+	return s, nil // done
+}

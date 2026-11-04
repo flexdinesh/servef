@@ -1,0 +1,7 @@
+classDiagram
+    class Renderer {
+        +render(source) SVG
+        -cache Map
+    }
+    Renderer <|-- Ondine
+    Renderer o-- Theme

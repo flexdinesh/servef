@@ -5,6 +5,7 @@ package view
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -40,6 +41,7 @@ type App struct {
 	codeVersion   int
 	codeLines     int
 	markdown      markdown.Options
+	blocks        markdownBlocks
 	confirmOpen   bool
 	imageVersion  int
 	image         ui.ImageSource
@@ -384,12 +386,12 @@ func (a *App) source(c *ui.Context, code *editor.Theme) {
 	m := a.Model
 	if a.code == nil || a.codeVersion != m.DocumentVersion {
 		buffer := editor.NewBuffer(m.Page.Source)
-		buffer.SetLanguage(chromaLanguage(m.View.Language, nil))
+		buffer.SetLanguage(syntaxLanguage(m.View.Language, nil))
 		a.code = &editor.State{Buffer: buffer, ReadOnly: true, LineNumbers: editor.LineNumbersOn, Label: m.Page.Selected}
 		a.codeVersion, a.codeLines = m.DocumentVersion, -1
 	}
 	if m.Lines != nil && m.LinesVersion == a.codeVersion && a.codeLines != a.codeVersion {
-		a.code.Buffer.SetLanguage(chromaLanguage(m.View.Language, m.Lines))
+		a.code.Buffer.SetLanguage(syntaxLanguage(m.View.Language, m.Lines))
 		a.codeLines = a.codeVersion
 	}
 	a.code.Theme = code
@@ -397,11 +399,14 @@ func (a *App) source(c *ui.Context, code *editor.Theme) {
 }
 
 // preview shows a Markdown preview: links open through the model, images
-// load from the server's image endpoint, and Mermaid shows as code.
+// load from the server's image endpoint, fences highlight with
+// Highlights, and Mermaid draws as diagrams.
 func (a *App) preview(c *ui.Context, code *editor.Theme) {
 	m := a.Model
-	_, palette := windowTheme(c.Theme())
-	a.markdown.Theme = markdownTheme(palette, code)
+	t := c.Theme()
+	_, palette := windowTheme(t)
+	th := markdownTheme(t, palette, code)
+	a.markdown.Theme = th
 	a.markdown.Anchor, a.markdown.AnchorVersion = m.Anchor, m.AnchorVersion
 	a.markdown.OnLink = func(url string) {
 		if external := m.FollowLink(url); external != "" && ui.SafeToOpen(external) {
@@ -418,15 +423,12 @@ func (a *App) preview(c *ui.Context, code *editor.Theme) {
 		}
 		return ui.DecodeImage(data)
 	}
+	a.blocks.use(fmt.Sprint(m.Page.Project, "\x00", m.Page.Selected, "\x00", m.DocumentVersion))
+	a.markdown.CodeBlock = func(c *ui.Context, b *markdown.CodeBlockView) { a.codeBlock(c, b, th) }
 	a.markdown.Code = map[string]func(*ui.Context, *markdown.CodeBlockView){
-		"mermaid": func(c *ui.Context, b *markdown.CodeBlockView) {
-			ui.Column(c).Gap(4).Children(func() {
-				ui.Text(c, "Mermaid diagram (shown as code in the native app)").TextColor(c.Theme().TextMuted)
-				markdown.DefaultCodeBlock(c, b)
-			})
-		},
+		"mermaid": func(c *ui.Context, b *markdown.CodeBlockView) { a.mermaidBlock(c, b, th, palette) },
 	}
-	source := mdlink.PreviewSource(m.Page.Source)
+	source := mdlink.Preview(m.Page.Source, m.Page.DocumentType)
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).Padding(16, 24).FillWidth().Children(func() {
 			markdown.View(c.Key(m.Page.Selected), source, &a.markdown)

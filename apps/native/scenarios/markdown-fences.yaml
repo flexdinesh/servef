@@ -1,0 +1,19 @@
+# Fenced code in a Markdown preview (page-code-blocks.json): Highlights
+# colors known languages and labels them; others stay plain.
+description: Markdown preview of guides/code-blocks.md
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - click: guides
+  - click: code-blocks.md
+  - click: Preview
+  - wait: guides/code-blocks.md
+  - shot: fences
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    fences:
+      path: /view?project=/home/user/markdown&path=guides/code-blocks.md
+      steps:
+        - click: Preview
+        - wait: code-blocks.md

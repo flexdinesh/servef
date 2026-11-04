@@ -1,6 +1,6 @@
 # 0086: Native agent tooling, parity loop, and ports
 
-- Status: Accepted
+- Status: Accepted; M1a (Highlights, Ondine) shipped as [0088](0088-native-highlights-and-ondine-via-wazero.md), which also corrects the headless session's text: "no display" does not mean self-contained, since `ui.Tester` draws text through the system's Pango, cairo, and fontconfig (dlopen; mygo bundles no fonts), and hosts without them draw none
 - Date: 2026-11-04
 - Relates to: [0082](0082-native-mygo-experiment.md) (the native app; stays
   in force), [0078](0078-apps-and-packages-layout.md) (`packages/`),
@@ -99,11 +99,12 @@ web UI it mirrors, and later sessions need the queue and the method.
 
 ### 0082 known gaps this series closes
 
-- Mermaid shown as code (Ondine, M1 and M4).
+- Mermaid shown as code (Ondine, M1 and M4). Diagrams: M1a, 0088; expand
+  and zoom stay M4.
 - Review limited to uncommitted changes and one file; no in-place gap
   expansion, no-newline marker, line selection, links, or hunk steps (M1
   diffs, M8).
-- Chroma's tokens differ from Highlights' (M1).
+- Chroma's tokens differ from Highlights' (M1). Closed by M1a, 0088.
 - No Format, search, code navigation, walkthroughs, or tabs (M2 to M9).
 
 0082's graduation criteria (macOS by hand, accessibility and IME, memory

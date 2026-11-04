@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant User
+    participant App
+    participant Server
+    User->>App: Open nested document
+    App->>Server: GET /api/page
+    Server-->>App: Rendered Markdown
+    Note over App,Server: cached

@@ -30,7 +30,7 @@ test("frontend API fixtures satisfy runtime contracts", async () => {
   for (const name of [
     "page-index.json", "page-document.json", "page-missing.json", "page-json.json",
     "page-json-broken.json", "page-image.json", "page-binary.json", "page-large.json", "page-too-large.json", "page-go.json",
-    "page-commit.json",
+    "page-commit.json", "page-diagrams.json", "page-mermaid.json", "page-code-blocks.json", "page-js.json", "page-css.json",
   ]) {
     assert.equal(isPageData(await fixture(name)), true, name)
   }

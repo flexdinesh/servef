@@ -73,7 +73,7 @@ GOWORK=off SERVEF_NATIVE_BINARY=$PWD/.dev/native/servef SERVEF_NATIVE_SOCKET=$PW
 mise run test:native          # opt-in tests (not in check:pr)
 ```
 
-Headless agent tooling (decision 0086; `packages/mygo`, loop in `skills/mygo-parity/SKILL.md`, queue in [native-parity.md](native-parity.md)). Outputs go to `.dev/native-shots/<scenario>/`.
+Headless agent tooling (decision 0086; `packages/mygo`, loop in `skills/mygo-parity/SKILL.md`, queue in [native-parity.md](native-parity.md)). Outputs go to `.dev/native-shots/<scenario>/`. Headless needs no display but does need the system's Pango, cairo, and fontconfig with a font (Debian: `libpango-1.0-0 libpangocairo-1.0-0 fontconfig fonts-dejavu-core`): mygo draws text through them and bundles no fonts (decision 0088).
 
 ```sh
 mise run native:shots -- document-preview     # scenario shots (apps/native/scenarios), no display
