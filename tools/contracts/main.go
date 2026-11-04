@@ -22,12 +22,12 @@ const (
 )
 
 // generated lists the contract files emitted as TypeScript, in index order.
-var generated = []string{"errors.go", "projects.go", "documents.go", "sourcecontrol.go"}
+var generated = []string{"errors.go", "projects.go", "documents.go", "sourcecontrol.go", "navigation.go", "metrics.go"}
 
 // goOnly lists contract files with no generated TypeScript: package docs,
-// transport mappings and request parameters, and shapes whose TypeScript
-// guards are still hand-written until they migrate.
-var goOnly = []string{"doc.go", "kinds.go", "requests.go", "codes.go", "events.go", "daemon.go"}
+// transport mappings, request parameters, non-JSON bodies, and shapes whose
+// TypeScript guards are still hand-written until they migrate.
+var goOnly = []string{"doc.go", "kinds.go", "requests.go", "codes.go", "events.go", "daemon.go", "media.go"}
 
 func main() {
 	check := flag.Bool("check", false, "fail when "+outputDir+" differs from the generated output")

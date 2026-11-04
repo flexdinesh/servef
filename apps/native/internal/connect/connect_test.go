@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/flexdinesh/servef/apps/native/internal/link"
+	"github.com/flexdinesh/servef/pkg/client"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 func env(values map[string]string) func(string) string {
@@ -103,8 +105,9 @@ func TestServerImages(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		w.Header().Set("Content-Type", "image/png")
 		if r.URL.Query().Get("path") == "big.png" {
-			_, _ = w.Write(make([]byte, maxImage+1))
+			_, _ = w.Write(make([]byte, contract.MaxImageBytes+1))
 			return
 		}
 		_, _ = w.Write([]byte("PNG"))
@@ -118,14 +121,15 @@ func TestServerImages(t *testing.T) {
 	if connection.Daemon || !strings.HasPrefix(connection.ID, "http-127.0.0.1-") {
 		t.Fatalf("connection %+v", connection)
 	}
-	data, err := connection.Images(context.Background(), "/p", "img/a.png")
-	if err != nil || string(data) != "PNG" {
-		t.Fatalf("image %q, %v", data, err)
+	image, err := connection.Client.Image(context.Background(), "/p", "img/a.png")
+	if err != nil || string(image.Content) != "PNG" || image.MediaType != "image/png" {
+		t.Fatalf("image %+v, %v", image, err)
 	}
-	if _, err := connection.Images(context.Background(), "/other", "a.png"); err == nil {
-		t.Fatal("not found accepted")
+	var failure *client.Error
+	if _, err := connection.Client.Image(context.Background(), "/other", "a.png"); !errors.As(err, &failure) || failure.Kind != contract.KindNotFound {
+		t.Fatalf("not found error = %v", err)
 	}
-	if _, err := connection.Images(context.Background(), "/p", "big.png"); err == nil {
-		t.Fatal("oversized image accepted")
+	if _, err := connection.Client.Image(context.Background(), "/p", "big.png"); !errors.As(err, &failure) || failure.Kind != contract.KindTooLarge {
+		t.Fatalf("oversized image error = %v", err)
 	}
 }

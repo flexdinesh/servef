@@ -56,7 +56,6 @@ type App struct {
 	// roots are the canonical served roots; the browser keys stored state by
 	// them. Each request takes one List snapshot.
 	roots        *projects.RootSet
-	metrics      metricsCollector
 	openFile     func(string) (fs.File, error)
 	shell        string
 	servers      *lsp.Manager
@@ -112,14 +111,13 @@ func New(config Config) (*App, error) {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
 	a := &App{config: config, roots: config.Roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
-	servers := config.LanguageServers
 	a.app, err = app.New(app.Config{
-		Roots:      config.Roots,
-		ScanDepth:  config.ScanDepth,
-		Depth:      config.Depth,
-		Types:      config.Types,
-		Navigation: func(family string) bool { _, ok := servers.ServerFor(family); return ok },
-		SessionKey: config.SessionKey,
+		Roots:           config.Roots,
+		ScanDepth:       config.ScanDepth,
+		Depth:           config.Depth,
+		Types:           config.Types,
+		LanguageServers: config.LanguageServers,
+		SessionKey:      config.SessionKey,
 		// Reads go through the App's openFile, which tests replace.
 		OpenFile: func(name string) (fs.File, error) { return a.openFile(name) },
 		Watches:  config.LiveUpdates,
@@ -231,16 +229,4 @@ func statusOf(err error) int {
 		return http.StatusOK
 	}
 	return contract.HTTPStatus(app.AsError(err).Kind)
-}
-
-func (a *App) scan(root string) (*files.Index, error) {
-	return files.Scan(root, a.config.Depth, func(string) bool { return true })
-}
-
-func warningStrings(warnings []files.Warning) []string {
-	result := make([]string, len(warnings))
-	for i, warning := range warnings {
-		result[i] = warning.Error()
-	}
-	return result
 }

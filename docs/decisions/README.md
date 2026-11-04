@@ -84,8 +84,9 @@ rewriting history; update `Status` on the old record.
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted |
-| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084 |
+| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
-| [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental) |
+| [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental); image reads by 0085 |
 | [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
 | [0084](0084-in-process-client-package.md) | In-process client transport in its own package | Accepted |
+| [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) | Image reads, metrics, and code navigation in the application layer | Accepted |

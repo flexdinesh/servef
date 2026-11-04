@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"path"
 	"path/filepath"
@@ -128,7 +129,7 @@ func readCommitDocument(root, at, name string, fileType document.Type, limit int
 // type within the project, indexed or not (root-confined). Every failure is
 // not found.
 func (d *Documents) OpenImage(projectID, name string) (RawFile, error) {
-	notFound := fail(contract.KindNotFound, "That image is unavailable.")
+	notFound := fail(contract.KindNotFound, contract.ImageUnavailableMessage)
 	mediaType, ok := d.config.Types.MediaType(name)
 	if !ok {
 		return RawFile{}, notFound
@@ -146,6 +147,29 @@ func (d *Documents) OpenImage(projectID, name string) (RawFile, error) {
 		return RawFile{}, notFound
 	}
 	return RawFile{File: file, MediaType: mediaType}, nil
+}
+
+// ReadImage reads an image OpenImage opens, up to contract.MaxImageBytes.
+func (d *Documents) ReadImage(projectID, name string) (contract.Image, error) {
+	image, err := d.OpenImage(projectID, name)
+	if err != nil {
+		return contract.Image{}, err
+	}
+	defer func() { _ = image.File.Close() }()
+	tooLarge := fail(contract.KindTooLarge, contract.ImageTooLargeMessage)
+	if info, err := image.File.Stat(); err != nil {
+		return contract.Image{}, fail(contract.KindNotFound, contract.ImageUnavailableMessage)
+	} else if info.Size() > contract.MaxImageBytes {
+		return contract.Image{}, tooLarge
+	}
+	content, err := io.ReadAll(io.LimitReader(image.File, contract.MaxImageBytes+1))
+	if err != nil {
+		return contract.Image{}, fail(contract.KindInternal, fmt.Sprintf("Could not read %s: %v", name, err))
+	}
+	if len(content) > contract.MaxImageBytes {
+		return contract.Image{}, tooLarge
+	}
+	return contract.Image{MediaType: image.MediaType, Content: content}, nil
 }
 
 // OpenRaw opens an indexed image-preview file. A missing project or file is
@@ -362,7 +386,7 @@ func (d *Documents) Page(request contract.PageRequest) (contract.PageData, error
 			data.Error = fmt.Sprintf("Could not read %s: %v", selected, err)
 			return data, fail(contract.KindInternal, data.Error)
 		}
-		data.NavigationSupported = d.config.Navigation(fileType.ID)
+		data.NavigationSupported = d.navigationSupported(fileType.ID)
 	}
 	documentType := fileTypeContract(fileType)
 	data.DocumentType = &documentType

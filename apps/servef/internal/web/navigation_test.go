@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/lsp"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 func TestNavigationRejectsBadRequests(t *testing.T) {
@@ -28,39 +28,6 @@ func TestNavigationRejectsBadRequests(t *testing.T) {
 		"/api/definition?project=missing&path=a.go&line=1&column=0",
 	} {
 		navigationErrorCode(t, app, target, true, http.StatusNotFound, "unavailable")
-	}
-}
-
-func TestNavigationAdapterPreservesRangesOrderAndScope(t *testing.T) {
-	app := serverApp(t, true)
-	root := app.roots.List()[0]
-	outside := filepath.Join(t.TempDir(), "outside.go")
-	if err := os.WriteFile(outside, []byte("package outside"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, filepath.Join(root, "escape.go")); err != nil {
-		t.Fatal(err)
-	}
-	for name, content := range map[string]string{"binary.go": "a\x00b", "large.go": strings.Repeat("x", (4<<20)+1)} {
-		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	location := func(name string, line, column int) lsp.Location {
-		return lsp.Location{Path: filepath.Join(root, name), Position: lsp.Position{Line: line, Column: column}, End: lsp.Position{Line: line, Column: column + 4}}
-	}
-	found := []lsp.Location{location("target.go", 5, 2), location("main.go", 3, 14), location("target.go", 5, 2), location("generated/gen.go", 1, 0), location("escape.go", 1, 0), location("binary.go", 1, 0), location("large.go", 1, 0), location("../secret.go", 1, 0)}
-	response := app.navigationSource(root).locations(found, "definition", 50)
-	if len(response.Locations) != 2 || response.Filtered != 5 || response.Truncated || response.Locations[0].Path != "target.go" || response.Locations[0].EndColumn != 6 || response.Locations[0].EndLine != 5 {
-		t.Fatalf("definition = %+v", response)
-	}
-	response = app.navigationSource(root).locations(found, "reference", 1000)
-	if len(response.Locations) != 2 || response.Locations[0].Path != "main.go" {
-		t.Fatalf("references = %+v", response)
-	}
-	response = app.navigationSource(root).locations(found, "definition", 1)
-	if len(response.Locations) != 1 || !response.Truncated {
-		t.Fatalf("limited = %+v", response)
 	}
 }
 
@@ -110,7 +77,7 @@ func TestNavigationStatusFixtureMatchesServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(app.Close)
-	var fixture navigationStatus
+	var fixture contract.NavigationStatus
 	readFixture(t, "navigation-status.json", &fixture)
 	served := requestStatus(t, app, "/api/navigation-status?project=.&path=navigation%2Fgreet.go", true)
 	// The checked-in browser fixture is portable; compare its transport shape

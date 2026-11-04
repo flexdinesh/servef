@@ -4,12 +4,11 @@ import test from "node:test"
 
 import {
   isBranchFilesResponse, isChangesResponse, isCommitFilesResponse, isCommitsResponse, isCompareStatsResponse, isDiffResponse,
-  isDirectoriesResponse, isErrorResponse, isFormatResult, isPageData, isProjectsResponse, isRangeFilesResponse, isRefsResponse,
-  isSearchDocumentsResponse, isStackResponse, type DiffResponse, type PageData,
+  isDirectoriesResponse, isErrorResponse, isFormatResult, isNavigationResult, isNavigationStatus, isPageData, isProcessMetrics,
+  isProjectsResponse, isRangeFilesResponse, isRefsResponse, isSearchDocumentsResponse, isStackResponse, type DiffResponse,
+  type PageData,
 } from "@servef/contracts"
 import { unknownBaseCode, unknownHeadCode } from "./source-control-messages.ts"
-import { isNavigationResult, isNavigationStatus } from "./navigation-contract.ts"
-import { isProcessMetrics } from "../workspace/process-metrics.ts"
 import { isRecord } from "./http.ts"
 import { isWalkthrough, isWalkthroughSummaries } from "./walkthrough-contract.ts"
 import { isLiveChange, isLiveStatus } from "./events-contract.ts"
@@ -105,18 +104,19 @@ test("contract validators reject removed and malformed fields", async () => {
   assert.equal(isFormatResult({ formattedLines: ["ok"] }), false)
 })
 
-test("navigation contract validators reject malformed ranges and states", async () => {
+test("navigation contract validators reject malformed shapes and states", async () => {
   const definition = await fixture("definition.json")
   assert.ok(isNavigationResult(definition))
-  assert.equal(isNavigationResult({ ...definition, filtered: -1 }), false)
+  assert.equal(isNavigationResult({ ...definition, filtered: "1" }), false)
   assert.equal(isNavigationResult({ ...definition, server: 1 }), false)
-  assert.equal(isNavigationResult({ ...definition, locations: [{ path: "a.go", line: 0, column: 0, endLine: 1, endColumn: 1, kind: "", snippet: "" }] }), false)
+  assert.equal(isNavigationResult({ ...definition, locations: [{ path: "a.go", line: 1, column: 0, endLine: 1, endColumn: 1, kind: "" }] }), false)
   const status = await fixture("navigation-status.json")
   assert.ok(isNavigationStatus(status))
   assert.ok(status.server)
   assert.equal(isNavigationStatus({ ...status, server: { ...status.server, state: "running" } }), false)
   assert.equal(isNavigationStatus({ ...status, server: { ...status.server, install: [{ label: "Go" }] } }), false)
   assert.equal(isNavigationStatus({ ...status, supported: false, eligible: false, server: null }), true)
+  assert.equal(isProcessMetrics({ memoryBytes: 1, memorySource: "heap", cpuUsage: null, goroutines: 1 }), false)
 })
 
 test("project contract validators reject inconsistent availability", async () => {

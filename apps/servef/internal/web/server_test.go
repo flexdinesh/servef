@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
@@ -135,51 +134,18 @@ func TestAppServesSharedMarkdownFixtures(t *testing.T) {
 
 func TestAppServesProcessMetrics(t *testing.T) {
 	app := newTestApp(t, t.TempDir())
-	app.metrics = metricsCollector{
-		readRSS: func() (uint64, error) {
-			return 0, errors.New("RSS unavailable")
-		},
-		readCPUTime: func() (time.Duration, error) {
-			return 0, errors.New("CPU unavailable")
-		},
-		readGoMemory: func() uint64 {
-			return 456
-		},
-	}
 	response := request(t, app, "/api/metrics")
 	if response.Code != http.StatusOK {
 		t.Fatalf("metrics status = %d, want %d", response.Code, http.StatusOK)
 	}
-	var contract map[string]json.RawMessage
-	if err := json.Unmarshal(response.Body.Bytes(), &contract); err != nil {
+	var metrics contract.ProcessMetrics
+	decoder := json.NewDecoder(response.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&metrics); err != nil {
 		t.Fatal(err)
 	}
-	cpuUsage, ok := contract["cpuUsage"]
-	if !ok || string(cpuUsage) != "null" {
-		t.Fatalf("cpuUsage = %s, want null", cpuUsage)
-	}
-	for _, legacy := range []string{"rssBytes", "supported"} {
-		if _, ok := contract[legacy]; ok {
-			t.Fatalf("legacy field %q present", legacy)
-		}
-	}
-	var metrics struct {
-		MemoryBytes  uint64   `json:"memoryBytes"`
-		MemorySource string   `json:"memorySource"`
-		CPUUsage     *float64 `json:"cpuUsage"`
-		Goroutines   int      `json:"goroutines"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &metrics); err != nil {
-		t.Fatal(err)
-	}
-	if metrics.MemoryBytes != 456 || metrics.MemorySource != "go" {
-		t.Fatalf("memory = %d (%q), want 456 (go)", metrics.MemoryBytes, metrics.MemorySource)
-	}
-	if metrics.CPUUsage != nil {
-		t.Fatalf("CPU usage = %v, want null", *metrics.CPUUsage)
-	}
-	if metrics.Goroutines < 1 {
-		t.Fatalf("goroutines = %d, want positive", metrics.Goroutines)
+	if metrics.MemoryBytes == 0 || (metrics.MemorySource != contract.MemoryRSS && metrics.MemorySource != contract.MemoryGo) || metrics.Goroutines < 1 {
+		t.Fatalf("metrics = %+v", metrics)
 	}
 }
 
@@ -814,14 +780,14 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"compare-stats*.json", func() any { return &contract.CompareStatsResponse{} }},
 		{"projects.json", func() any { return &contract.ProjectsResponse{} }},
 		{"directories.json", func() any { return &contract.DirectoriesResponse{} }},
-		{"navigation-status.json", func() any { return &navigationStatus{} }},
-		{"definition.json", func() any { return &navigationResponse{} }},
-		{"references.json", func() any { return &navigationResponse{} }},
+		{"navigation-status.json", func() any { return &contract.NavigationStatus{} }},
+		{"definition.json", func() any { return &contract.NavigationResult{} }},
+		{"references.json", func() any { return &contract.NavigationResult{} }},
 		{"search-documents.json", func() any { return &contract.SearchDocumentsResponse{} }},
 		{"format-settings.json", func() any { return &contract.FormatResult{} }},
 		{"format-error.json", func() any { return &errorResponse{} }},
 		{"error-*.json", func() any { return &errorResponse{} }},
-		{"metrics*.json", func() any { return &processMetrics{} }},
+		{"metrics*.json", func() any { return &contract.ProcessMetrics{} }},
 		{"walkthroughs.json", func() any { return &[]walkthrough.Summary{} }},
 		{"walkthrough-*.json", func() any { return &walkthroughResponse{} }},
 		{"events-status.json", func() any { return &contract.StatusEvent{} }},

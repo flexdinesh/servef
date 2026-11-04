@@ -1,26 +1,24 @@
-package web
+package app
 
-// Process sampling adapted from px0, licensed under MIT. See vendor/PX0-LICENSE.txt.
+// Process sampling adapted from px0, licensed under MIT. See
+// internal/web/vendor/PX0-LICENSE.txt.
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
-type processMetrics struct {
-	MemoryBytes  uint64   `json:"memoryBytes"`
-	MemorySource string   `json:"memorySource"`
-	CPUUsage     *float64 `json:"cpuUsage"`
-	Goroutines   int      `json:"goroutines"`
-}
-
-type metricsCollector struct {
+// Metrics samples the servef process: resident memory (else the Go
+// runtime's), CPU usage since the previous sample, and goroutines. It is
+// safe for concurrent use.
+type Metrics struct {
 	mu           sync.Mutex
 	lastSample   time.Time
 	lastCPUTime  time.Duration
@@ -30,19 +28,20 @@ type metricsCollector struct {
 	readGoMemory func() uint64
 }
 
-func (c *metricsCollector) sample() processMetrics {
+// Sample reads the process's metrics now.
+func (c *Metrics) Sample() contract.ProcessMetrics {
 	memory, memoryErr := c.processRSS()
-	memorySource := "rss"
+	memorySource := contract.MemoryRSS
 	if memoryErr != nil {
 		memory = c.goMemory()
-		memorySource = "go"
+		memorySource = contract.MemoryGo
 	}
 	cpu, cpuErr := c.sampleCPU()
 	var cpuUsage *float64
 	if cpuErr == nil {
 		cpuUsage = &cpu
 	}
-	return processMetrics{
+	return contract.ProcessMetrics{
 		MemoryBytes:  memory,
 		MemorySource: memorySource,
 		CPUUsage:     cpuUsage,
@@ -50,14 +49,14 @@ func (c *metricsCollector) sample() processMetrics {
 	}
 }
 
-func (c *metricsCollector) processRSS() (uint64, error) {
+func (c *Metrics) processRSS() (uint64, error) {
 	if c.readRSS != nil {
 		return c.readRSS()
 	}
 	return readProcessRSS()
 }
 
-func (c *metricsCollector) goMemory() uint64 {
+func (c *Metrics) goMemory() uint64 {
 	if c.readGoMemory != nil {
 		return c.readGoMemory()
 	}
@@ -82,7 +81,7 @@ func readProcessRSS() (uint64, error) {
 	return pages * uint64(os.Getpagesize()), nil
 }
 
-func (c *metricsCollector) sampleCPU() (float64, error) {
+func (c *Metrics) sampleCPU() (float64, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -112,7 +111,7 @@ func (c *metricsCollector) sampleCPU() (float64, error) {
 	return usage, nil
 }
 
-func (c *metricsCollector) processCPUTime() (time.Duration, error) {
+func (c *Metrics) processCPUTime() (time.Duration, error) {
 	if c.readCPUTime != nil {
 		return c.readCPUTime()
 	}
@@ -142,8 +141,4 @@ func readProcessCPUTime() (time.Duration, error) {
 	}
 	const clockTicksPerSecond = 100
 	return time.Duration(userTicks+systemTicks) * time.Second / clockTicksPerSecond, nil
-}
-
-func (a *App) serveMetrics(w http.ResponseWriter) {
-	writeJSON(w, http.StatusOK, a.metrics.sample())
 }

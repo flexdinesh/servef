@@ -1,6 +1,6 @@
 // Package workspace is native's view model: the connection, its projects,
 // the open project's tree and document, and live updates. It calls servef
-// only through pkg/client (and connect.Images) and knows no UI toolkit, so
+// only through pkg/client and knows no UI toolkit, so
 // it runs headless in tests. All state changes happen on the UI thread:
 // the view calls methods there, and background work hands its result back
 // through a Runner.
@@ -548,9 +548,9 @@ func (m *Model) FollowLink(destination string) string {
 // resolved as the server resolves it, or "" for the open image file
 // itself. Only project images load, through the root-confined endpoint.
 func (m *Model) ImageReader() func(ctx context.Context, destination string) ([]byte, error) {
-	var images connect.Images
+	var images client.Client
 	if m.Connection != nil {
-		images = m.Connection.Images
+		images = m.Connection.Client
 	}
 	project, document := m.Project, m.Page.Selected
 	return func(ctx context.Context, destination string) ([]byte, error) {
@@ -565,7 +565,8 @@ func (m *Model) ImageReader() func(ctx context.Context, destination string) ([]b
 			}
 			path = resolved
 		}
-		return images(ctx, project, path)
+		image, err := images.Image(ctx, project, path)
+		return image.Content, err
 	}
 }
 

@@ -1,21 +1,7 @@
+import { isProcessMetrics, type ProcessMetrics } from "@servef/contracts"
 import { useEffect, useState } from "react"
 
-import { fetchJSON, isRecord } from "../api/http.ts"
-
-export interface ProcessMetrics {
-  cpuUsage: number | null
-  goroutines: number
-  memoryBytes: number
-  memorySource: "go" | "rss"
-}
-
-export function isProcessMetrics(value: unknown): value is ProcessMetrics {
-  return isRecord(value)
-    && (value.cpuUsage === null || typeof value.cpuUsage === "number")
-    && typeof value.goroutines === "number"
-    && typeof value.memoryBytes === "number"
-    && (value.memorySource === "go" || value.memorySource === "rss")
-}
+import { fetchJSON } from "../api/http.ts"
 
 export function useProcessMetrics(): ProcessMetrics | null {
   const [metrics, setMetrics] = useState<ProcessMetrics | null>(null)

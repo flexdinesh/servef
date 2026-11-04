@@ -14,6 +14,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/lsp/lsptest"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // The test binary doubles as a fake language server.
@@ -37,6 +38,12 @@ var fakeServer = lsp.Server{
 // decides whether the server is found.
 func serverApp(t *testing.T, installed bool) *App {
 	t.Helper()
+	return serverAppWith(t, fakeServer, installed)
+}
+
+// serverAppWith serves a Go project through server.
+func serverAppWith(t *testing.T, server lsp.Server, installed bool) *App {
+	t.Helper()
 	t.Setenv(lsptest.Env, "1")
 	root := t.TempDir()
 	for name, content := range map[string]string{
@@ -52,7 +59,7 @@ func serverApp(t *testing.T, installed bool) *App {
 			t.Fatal(err)
 		}
 	}
-	servers := lsp.NewManager([]lsp.Server{fakeServer}, lsp.Options{
+	servers := lsp.NewManager([]lsp.Server{server}, lsp.Options{
 		LookPath: func(string) (string, bool) { return os.Args[0], installed },
 	})
 	app, err := New(Config{Roots: testRoots(t, root), Depth: 5, LanguageServers: servers})
@@ -68,7 +75,7 @@ func serverRequest(t *testing.T, app *App, target string, enabled bool) *httptes
 	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
 	if enabled {
-		req.Header.Set(languageServerHeader, "on")
+		req.Header.Set(contract.LanguageServersHeader, "on")
 	}
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, req)
@@ -78,18 +85,18 @@ func serverRequest(t *testing.T, app *App, target string, enabled bool) *httptes
 	return response
 }
 
-func serverNavigate(t *testing.T, app *App, target string, enabled bool) navigationResponse {
+func serverNavigate(t *testing.T, app *App, target string, enabled bool) contract.NavigationResult {
 	t.Helper()
-	var result navigationResponse
+	var result contract.NavigationResult
 	if err := json.Unmarshal(serverRequest(t, app, target, enabled).Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
-func requestStatus(t *testing.T, app *App, target string, enabled bool) navigationStatus {
+func requestStatus(t *testing.T, app *App, target string, enabled bool) contract.NavigationStatus {
 	t.Helper()
-	var status navigationStatus
+	var status contract.NavigationStatus
 	if err := json.Unmarshal(serverRequest(t, app, target, enabled).Body.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +114,7 @@ func navigationErrorCode(t *testing.T, app *App, target string, enabled bool, wa
 	target = rootProject.ReplaceAllString(target, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
 	if enabled {
-		req.Header.Set(languageServerHeader, "on")
+		req.Header.Set(contract.LanguageServersHeader, "on")
 	}
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, req)
@@ -123,7 +130,7 @@ func navigationErrorCode(t *testing.T, app *App, target string, enabled bool, wa
 func TestLanguageServersAnswerOnlyWhenEnabled(t *testing.T) {
 	app := serverApp(t, true)
 	navigationErrorCode(t, app, definitionTarget, false, http.StatusBadRequest, "disabled")
-	if status := requestStatus(t, app, statusTarget, false); !status.Supported || status.Enabled || !status.Eligible || status.Server == nil || status.Server.State != lsp.StateStopped || status.Server.Capabilities != nil {
+	if status := requestStatus(t, app, statusTarget, false); !status.Supported || status.Enabled || !status.Eligible || status.Server == nil || status.Server.State != contract.LanguageServerStopped || status.Server.Capabilities != nil {
 		t.Fatalf("disabled request started a server: %+v %+v", status, status.Server)
 	}
 	on := serverNavigate(t, app, definitionTarget, true)
@@ -135,7 +142,7 @@ func TestLanguageServersAnswerOnlyWhenEnabled(t *testing.T) {
 		t.Fatalf("references = %+v", references)
 	}
 	status := requestStatus(t, app, statusTarget, true)
-	if !status.Supported || !status.Enabled || !status.Eligible || status.Server == nil || status.Server.State != lsp.StateReady || status.Server.IdleMinutes != 10 || status.Server.Capabilities == nil || !status.Server.Capabilities.Definition || !status.Server.Capabilities.References {
+	if !status.Supported || !status.Enabled || !status.Eligible || status.Server == nil || status.Server.State != contract.LanguageServerReady || status.Server.IdleMinutes != 10 || status.Server.Capabilities == nil || !status.Server.Capabilities.Definition || !status.Server.Capabilities.References {
 		t.Fatalf("status = %+v %+v", status, status.Server)
 	}
 }
@@ -156,7 +163,7 @@ func TestLanguageServerDefinitionsOutsideScopeRemainFiltered(t *testing.T) {
 func TestMissingLanguageServersExplainHowToInstall(t *testing.T) {
 	app := serverApp(t, false)
 	status := requestStatus(t, app, statusTarget, true)
-	if !status.Supported || !status.Eligible || status.Server == nil || status.Server.State != lsp.StateMissing || len(status.Server.Install) != 1 || status.Server.Docs == "" {
+	if !status.Supported || !status.Eligible || status.Server == nil || status.Server.State != contract.LanguageServerMissing || len(status.Server.Install) != 1 || status.Server.Docs == "" {
 		t.Fatalf("status = %+v %+v", status, status.Server)
 	}
 	navigationErrorCode(t, app, definitionTarget, true, http.StatusServiceUnavailable, "missing")
@@ -167,10 +174,10 @@ func TestCrashedLanguageServersReportFailureWithoutFallback(t *testing.T) {
 	app := serverApp(t, true)
 	navigationErrorCode(t, app, definitionTarget, true, http.StatusServiceUnavailable, "failed")
 	status := requestStatus(t, app, statusTarget, true)
-	if status.Server == nil || status.Server.State != lsp.StateFailed || !strings.Contains(status.Server.Message, "fake server crashed") {
+	if status.Server == nil || status.Server.State != contract.LanguageServerFailed || !strings.Contains(status.Server.Message, "fake server crashed") {
 		t.Fatalf("status = %+v %+v", status, status.Server)
 	}
-	if status := requestStatus(t, app, statusTarget+"&refresh=1", true); status.Server == nil || status.Server.State != lsp.StateStopped {
+	if status := requestStatus(t, app, statusTarget+"&refresh=1", true); status.Server == nil || status.Server.State != contract.LanguageServerStopped {
 		t.Fatalf("after refresh = %+v", status.Server)
 	}
 }
@@ -188,7 +195,7 @@ func TestNavigationStatusForUnsupportedAndIneligibleFiles(t *testing.T) {
 	}
 	for _, name := range []string{"binary.go", "large.go", "generated/gen.go", "missing.go"} {
 		status := requestStatus(t, app, "/api/navigation-status?project=.&path="+url.QueryEscape(name), true)
-		if !status.Supported || status.Eligible || status.Reason == "" || status.Server == nil || status.Server.State != lsp.StateStopped {
+		if !status.Supported || status.Eligible || status.Reason == "" || status.Server == nil || status.Server.State != contract.LanguageServerStopped {
 			t.Fatalf("%s status = %+v %+v", name, status, status.Server)
 		}
 		navigationErrorCode(t, app, "/api/definition?project=.&path="+url.QueryEscape(name)+"&line=1&column=0", true, http.StatusNotFound, "unavailable")
@@ -216,7 +223,7 @@ func TestNavigationCancellationExplainsStartingAndQueryTimeout(t *testing.T) {
 			app := serverApp(t, true)
 			target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 			req := localRequest(http.MethodGet, target)
-			req.Header.Set(languageServerHeader, "on")
+			req.Header.Set(contract.LanguageServersHeader, "on")
 			ctx, cancel := context.WithTimeout(req.Context(), 100*time.Millisecond)
 			defer cancel()
 			response := httptest.NewRecorder()
@@ -236,18 +243,16 @@ func TestNavigationRefreshNeverStartsServer(t *testing.T) {
 	app := serverApp(t, true)
 	for _, enabled := range []bool{false, true} {
 		status := requestStatus(t, app, statusTarget+"&refresh=1", enabled)
-		if status.Server == nil || status.Server.State != lsp.StateStopped || status.Server.Capabilities != nil {
+		if status.Server == nil || status.Server.State != contract.LanguageServerStopped || status.Server.Capabilities != nil {
 			t.Fatalf("refresh started server: %+v", status.Server)
 		}
 	}
 }
 
 func TestWorkspaceConfigurationChangesNotifyServer(t *testing.T) {
-	app := serverApp(t, true)
 	server := fakeServer
 	server.WorkspaceFiles = []string{"go.mod"}
-	app.servers.Close()
-	app.servers = lsp.NewManager([]lsp.Server{server}, lsp.Options{LookPath: func(string) (string, bool) { return os.Args[0], true }})
+	app := serverAppWith(t, server, true)
 	logPath := filepath.Join(t.TempDir(), "notifications.log")
 	t.Setenv("SERVEF_FAKE_LSP_LOG", logPath)
 	configPath := filepath.Join(app.roots.List()[0], "go.mod")
@@ -275,7 +280,7 @@ func TestNavigationSyncsFreshDocumentAfterSlowStartup(t *testing.T) {
 	t.Setenv("SERVEF_FAKE_LSP_LOG", logPath)
 	target := rootProject.ReplaceAllString(definitionTarget, "project="+url.QueryEscape(app.roots.List()[0])+"$1")
 	req := localRequest(http.MethodGet, target)
-	req.Header.Set(languageServerHeader, "on")
+	req.Header.Set(contract.LanguageServersHeader, "on")
 	response := httptest.NewRecorder()
 	done := make(chan struct{})
 	go func() { app.ServeHTTP(response, req); close(done) }()

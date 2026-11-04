@@ -23,7 +23,7 @@ import { documentView, resolveDocumentMode } from "./features/documents/document
 import { FileTree } from "./features/explorer/FileTree.tsx"
 import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
 import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./lib/line-selection.ts"
-import type { PageData } from "@servef/contracts"
+import type { NavigationLocation, PageData } from "@servef/contracts"
 import {
   emptyPage,
   isPageLoadResult,
@@ -71,7 +71,6 @@ import { ColorThemePicker } from "./workspace/ColorThemePicker.tsx"
 import { CommandPalette } from "./workspace/CommandPalette.tsx"
 import { navigationEligibility, type NavigationKind } from "./features/navigation/code-navigation.ts"
 import type { CommandAction } from "./workspace/commands.ts"
-import type { NavigationLocation } from "./api/navigation-contract.ts"
 import { NavigationDialog } from "./features/navigation/NavigationDialog.tsx"
 import type { SourceNavigation } from "./features/documents/SourceDocument.tsx"
 import type { SourceTarget } from "./features/navigation/source-position.ts"

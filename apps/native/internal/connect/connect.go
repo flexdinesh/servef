@@ -10,10 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,13 +27,6 @@ const Protocol = 1
 // EnsureTimeout bounds `servef daemon ensure`.
 const EnsureTimeout = 15 * time.Second
 
-// maxImage bounds an image read for a Markdown preview.
-const maxImage = 32 << 20
-
-// Images reads a project image from the server's root-confined image
-// endpoint (/api/image), for Markdown previews and image files.
-type Images func(ctx context.Context, project, path string) ([]byte, error)
-
 // Connection is one place native browses.
 type Connection struct {
 	// ID is "local" or "http-<host>-<port>"; Label names it in the UI.
@@ -45,7 +34,6 @@ type Connection struct {
 	Label  string
 	Daemon bool
 	Client client.Client
-	Images Images
 }
 
 // Run runs a program and returns its standard output and error.
@@ -143,14 +131,7 @@ func lastStatus(stdout []byte) (contract.DaemonStatus, bool) {
 
 // Local connects to the daemon at socket.
 func Local(socket string) Connection {
-	transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "unix", socket)
-	}}
-	return Connection{
-		ID: "local", Label: "This computer", Daemon: true,
-		Client: client.NewUnix(socket),
-		Images: httpImages("http://localhost", &http.Client{Transport: transport, Timeout: 30 * time.Second}),
-	}
+	return Connection{ID: "local", Label: "This computer", Daemon: true, Client: client.NewUnix(socket)}
 }
 
 // Server connects to the servef http server a Server target names.
@@ -160,35 +141,6 @@ func Server(target link.Target) Connection {
 		ID:     fmt.Sprintf("http-%s-%d", strings.NewReplacer(":", "-", "[", "", "]", "").Replace(target.Host), target.Port),
 		Label:  strings.TrimPrefix(origin, "http://"),
 		Client: client.NewTCP(origin),
-		Images: httpImages(origin, &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 30 * time.Second}),
-	}
-}
-
-// httpImages reads /api/image. pkg/client has no image read yet; this is
-// the one request native sends outside it (decision 0082).
-func httpImages(base string, httpClient *http.Client) Images {
-	return func(ctx context.Context, project, path string) ([]byte, error) {
-		target := base + "/api/image?" + url.Values{"project": {project}, "path": {path}}.Encode()
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-		if err != nil {
-			return nil, err
-		}
-		response, err := httpClient.Do(request)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = response.Body.Close() }()
-		if response.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("image %s: %s", path, response.Status)
-		}
-		data, err := io.ReadAll(io.LimitReader(response.Body, maxImage+1))
-		if err != nil {
-			return nil, err
-		}
-		if len(data) > maxImage {
-			return nil, fmt.Errorf("image %s is over %d MiB", path, maxImage>>20)
-		}
-		return data, nil
 	}
 }
 
