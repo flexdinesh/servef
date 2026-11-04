@@ -30,12 +30,8 @@ type App struct {
 	address     string
 	projectRow  int
 	projectList ui.ListState
-	outline     ui.OutlineState[string]
-	row         int
+	explorer    explorer
 	sidebar     float32
-	treeVersion int
-	reveal      int
-	synced      string
 
 	code          *editor.State
 	codeVersion   int
@@ -58,9 +54,8 @@ type App struct {
 
 // New returns the view of model; run runs background work.
 func New(model *workspace.Model, run workspace.Runner) *App {
-	app := &App{Model: model, run: run, sidebar: 280, row: -1, projectRow: -1, codeVersion: -1, imageVersion: -1, modeDocument: -1, changeRow: -1}
+	app := &App{Model: model, run: run, sidebar: 280, projectRow: -1, codeVersion: -1, imageVersion: -1, modeDocument: -1, changeRow: -1}
 	app.projectList.Selected = &app.projectRow
-	app.outline.List.Selected = &app.row
 	app.changeList.Selected = &app.changeRow
 	return app
 }
@@ -229,13 +224,7 @@ func (a *App) workspace(c *ui.Context, code *editor.Theme, surface string) {
 				a.changes(c)
 				return
 			}
-			outline := ui.Outline(c, &a.outline, m.Tree.Roots(), m.Tree.Children, func(item string) {
-				entry, _ := m.Tree.Entry(item)
-				ui.Text(c, entry.Name).SingleLine()
-			}).Grow(1).Label("Files")
-			if outline.Changed() || outline.Submitted() {
-				a.choose()
-			}
+			a.files(c)
 		})
 	}, func() {
 		ui.Column(c).Fill().Background(ui.Hex(surface)).Children(func() {
@@ -247,59 +236,6 @@ func (a *App) workspace(c *ui.Context, code *editor.Theme, surface string) {
 		})
 	}).Grow(1)
 	a.statusBar(c)
-}
-
-// syncTree opens the directories the model asks for and selects the open
-// document's row.
-func (a *App) syncTree() {
-	m := a.Model
-	if a.treeVersion != m.TreeVersion {
-		a.treeVersion = m.TreeVersion
-		a.outline.Open.Clear()
-		for _, dir := range m.TreeOpen {
-			a.outline.Open.Add(dir)
-		}
-		a.synced = ""
-	}
-	if a.reveal != m.RevealVersion {
-		a.reveal = m.RevealVersion
-		for _, dir := range m.Reveal {
-			a.outline.Open.Add(dir)
-		}
-		a.synced = ""
-	}
-	if selected := m.Page.Selected; selected != a.synced {
-		for row := range a.outline.Rows() {
-			if a.outline.Item(row) == selected {
-				a.row = row
-				a.synced = selected
-				break
-			}
-		}
-	}
-}
-
-// choose opens the chosen row: a file, or toggles a directory.
-func (a *App) choose() {
-	m := a.Model
-	if a.row < 0 || a.row >= a.outline.Rows() {
-		return
-	}
-	item := a.outline.Item(a.row)
-	entry, ok := m.Tree.Entry(item)
-	if !ok {
-		return
-	}
-	if entry.IsDir {
-		if a.outline.Open.Has(item) {
-			a.outline.Open.Remove(item)
-		} else {
-			a.outline.Open.Add(item)
-		}
-		return
-	}
-	a.synced = item
-	m.OpenDocument(item)
 }
 
 func (a *App) statusBar(c *ui.Context) {

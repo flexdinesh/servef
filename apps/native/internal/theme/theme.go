@@ -20,6 +20,7 @@ type Palette struct {
 	BorderStrong     string // --color-border-strong
 	Accent           string // --color-accent
 	AccentSubtle     string // --color-accent-subtle
+	AccentHover      string // --color-accent-hover (--color-selected-text)
 	Success          string // --color-success
 	Warning          string // --color-warning
 	Destructive      string // --color-destructive
@@ -31,7 +32,7 @@ type Palette struct {
 var Light = Palette{
 	Bg: "#ffffff", Canvas: "#ffffff", Surface: "#ffffff", SurfaceSecondary: "#f1f2f4", SurfaceRaised: "#ffffff",
 	TextPrimary: "#333333", TextSecondary: "#515866", TextMuted: "#5d6676",
-	Border: "#d8dbe0", BorderStrong: "#c4c9d1", Accent: "#2563eb", AccentSubtle: "#e0e9fd",
+	Border: "#d8dbe0", BorderStrong: "#c4c9d1", Accent: "#2563eb", AccentSubtle: "#e0e9fd", AccentHover: "#1d4ed8",
 	Success: "#13703f", Warning: "#9a5800", Destructive: "#bd3029",
 	Syntax: map[highlight.Category]string{
 		highlight.Comment: "#57606a", highlight.Keyword: "#cf222e", highlight.Type: "#0550ae", highlight.Function: "#6639ba",
@@ -43,7 +44,7 @@ var Light = Palette{
 var Dark = Palette{
 	Bg: "#181818", Canvas: "#0b0b0b", Surface: "#1f1f1f", SurfaceSecondary: "#181818", SurfaceRaised: "#252526",
 	TextPrimary: "#e8eaf0", TextSecondary: "#b2b8c4", TextMuted: "#8992a1",
-	Border: "#2b2b2b", BorderStrong: "#414855", Accent: "#78a8ff", AccentSubtle: "#1d3155",
+	Border: "#2b2b2b", BorderStrong: "#414855", Accent: "#78a8ff", AccentSubtle: "#1d3155", AccentHover: "#9bbfff",
 	Success: "#62d09b", Warning: "#efb15a", Destructive: "#ff827a",
 	Syntax: map[highlight.Category]string{
 		highlight.Comment: "#8b949e", highlight.Keyword: "#ff7b72", highlight.Type: "#f0883e", highlight.Function: "#d2a8ff",
@@ -66,7 +67,7 @@ func (p Palette) Tokens() map[string]string {
 		"bg": p.Bg, "canvas": p.Canvas, "surface": p.Surface, "surface-secondary": p.SurfaceSecondary,
 		"surface-raised": p.SurfaceRaised, "text-primary": p.TextPrimary, "text-secondary": p.TextSecondary,
 		"text-muted": p.TextMuted, "border": p.Border, "border-strong": p.BorderStrong, "accent": p.Accent,
-		"accent-subtle": p.AccentSubtle, "success": p.Success, "warning": p.Warning, "destructive": p.Destructive,
+		"accent-subtle": p.AccentSubtle, "accent-hover": p.AccentHover, "success": p.Success, "warning": p.Warning, "destructive": p.Destructive,
 	}
 	for _, category := range highlight.Categories {
 		tokens["syntax-"+category.Name()] = p.Syntax[category]

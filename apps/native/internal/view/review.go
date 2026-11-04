@@ -51,6 +51,7 @@ func (a *App) changes(c *ui.Context) {
 		file := files[i]
 		ui.Row(c).Padding(4, 8).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, review.Letter(file.Status)).Bold().TextColor(statusColor(t, file.Status)).Tooltip(review.StatusName(file.Status)).Width(14)
+			fileIcon(c, file.Path)
 			ui.Text(c, review.Label(file)).SingleLine().Grow(1)
 		})
 	}).Grow(1).Label("Changes").Children(func() {

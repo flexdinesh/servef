@@ -45,6 +45,10 @@ status=0
     agent wait --text 'guides/getting-started.md' --timeout 20000 &&
     agent wait --text 'Preview' --timeout 20000 &&
     agent snapshot >"$out/tree.txt" &&
+    # The Explorer is a tree: items open and the open document's selected.
+    grep -q '^@e[0-9]* tree "Files"' "$out/tree.txt" &&
+    grep -q '^@e[0-9]* treeItem "guides" .* expanded' "$out/tree.txt" &&
+    grep -q '^@e[0-9]* treeItem "getting-started.md" .* checked' "$out/tree.txt" &&
     agent screenshot "$out/document.png" &&
     agent click Preview &&
     agent wait --text 'frontend-only fixture API' --timeout 20000 &&
