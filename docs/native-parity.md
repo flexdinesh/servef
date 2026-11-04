@@ -9,7 +9,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 
 | Milestone | Scope | Rows | Done / partial / missing |
 | --- | --- | --- | --- |
-| M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 24 / 0 / 0 |
+| M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 23 / 1 / 0 |
 | M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 5 / 1 / 0 |
 | M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker | 13 | 0 / 4 / 9 |
 | M3 | Settings dialog, font size, themes (Omarchy), color theme picker, command palette, quick pick, commands | 8 | 0 / 1 / 7 |
@@ -21,7 +21,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | M9 | Walkthroughs: list, tab, narration, step bar, announcements | 8 | 0 / 0 / 8 |
 | M10 | Bridge v2: reveal, context menus, recent folders, folder drop, notifications | 6 | 0 / 0 / 6 |
 | M11 | ssh: Connect page hosts, ControlMaster, socket forwards, remote folder picker | 6 | 0 / 0 / 6 |
-| Total | | 115 | 35 / 10 / 70 |
+| Total | | 115 | 34 / 11 / 70 |
 
 ## Shell and workspace
 
@@ -79,7 +79,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Ondine diagram renderer (port) | `features/documents/ondine-renderer.ts`, `features/documents/diagram.ts` | 0025, 0088 | done | M1 | mermaid | |
 | Mermaid rendered in preview, source on error | `features/documents/MermaidBlock.tsx`, `features/documents/MermaidSource.tsx` | 0022, 0025, 0088 | done | M4 | mermaid | |
 | Mermaid expand, zoom, reset | `features/documents/OndineMermaidDiagram.tsx` | 0025 | done | M4 | mermaid-expanded | |
-| Image documents | `features/documents/ImageDocument.tsx` | 0005 | done | M0/0082 | image-document | #145 |
+| Image documents | `features/documents/ImageDocument.tsx` | 0005 | partial (`.ico` and `.avif` say "Can't display this image.": mygo has no decoder for them) | M0/0082 | image-document | #145 |
 | Image zoom controls | `features/documents/ImageZoomControls.tsx`, `features/documents/image-zoom.ts` | 0005 | done | M4 | image-document | |
 | Binary, tooLarge, and preview-disabled notes | `features/documents/BinaryDocument.tsx`, `features/documents/DocumentNotice.tsx` | 0004 | done | M0/0082 | file-notes | #145 |
 | Line selection, line links (`#L`), copy path and line reference | `features/documents/SourceDocument.tsx`, `lib/line-selection.ts` | 0008 | done (copy path in the document toolbar until the M2 status bar; Copy Link in the context menu, no address bar) | M4 | line-links | |

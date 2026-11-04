@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // LineRange is an inclusive, 1-based range of source lines, as
@@ -88,4 +89,20 @@ func LineRangeLabel(r LineRange) string {
 		return fmt.Sprintf("Ln %d", r.Start)
 	}
 	return fmt.Sprintf("Ln %d–%d", r.Start, r.End)
+}
+
+// DisplayText gives a text the lines splitSourceLines finds: a lone carriage
+// return ends a line. Only what shows and highlights goes through it; CRLF
+// stays, and the original text keeps its bytes.
+func DisplayText(text string) string {
+	if !strings.Contains(text, "\r") {
+		return text
+	}
+	bytes := []byte(text)
+	for i, b := range bytes {
+		if b == '\r' && (i+1 == len(bytes) || bytes[i+1] != '\n') {
+			bytes[i] = '\n'
+		}
+	}
+	return string(bytes)
 }

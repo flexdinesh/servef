@@ -92,3 +92,18 @@ func TestReferencesAndLabels(t *testing.T) {
 		t.Error(got)
 	}
 }
+
+func TestDisplayTextSplitsLinesAsTheWeb(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"", ""},
+		{"a\nb\n", "a\nb\n"},
+		{"a\r\nb\r\n", "a\r\nb\r\n"},
+		{"a\rb\rc", "a\nb\nc"},
+		{"a\r\nb\rc\r", "a\r\nb\nc\n"},
+		{"\r\r\n", "\n\r\n"},
+	} {
+		if got := DisplayText(tc.in); got != tc.want {
+			t.Errorf("DisplayText(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

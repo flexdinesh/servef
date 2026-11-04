@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/flexdinesh/servef/apps/native/internal/docview"
 	"github.com/flexdinesh/servef/apps/native/internal/highlight"
@@ -38,9 +39,10 @@ func (d *documents) close() {
 	d.history.Reset()
 }
 
-// seed records the first document a project shows.
+// seed records the first document a project shows, when nothing opened it
+// through the history; every later page leaves the history alone.
 func (d *documents) seed(page contract.PageData) {
-	if page.HasFile && page.Selected != "" && !d.history.CanGoBack() && !d.history.CanGoForward() {
+	if page.HasFile && page.Selected != "" && d.history.Empty() {
 		d.history.Push(docview.Location{Path: page.Selected})
 	}
 }
@@ -162,6 +164,9 @@ func (m *Model) SelectLines(lines *docview.LineRange) {
 	}
 	m.setPlaceLines(m.OpenPlaceKey(), lines)
 	m.documents.history.Replace(docview.Location{Path: m.Page.Selected, Lines: lines})
+	// Lines ask for Source, so clearing them can change the view (App.tsx
+	// derives the mode each render).
+	m.decide()
 }
 
 // DocumentLink is a link opening the open document, at its selected lines.
@@ -224,12 +229,14 @@ func (m *Model) decide() {
 	m.highlightCode()
 }
 
-// CodeText is the code the view shows: the formatted text or the source.
+// CodeText is the code the view shows and highlights: the formatted text or
+// the source, with its lines as the web splits them. Page.Source stays the
+// original text.
 func (m *Model) CodeText() string {
 	if m.View.Kind == docview.Formatted {
-		return m.View.Text
+		return docview.DisplayText(m.View.Text)
 	}
-	return m.Page.Source
+	return docview.DisplayText(m.Page.Source)
 }
 
 // highlightCode gives the shown code its CodeVersion and highlights it off
@@ -306,6 +313,13 @@ func formatReason(err error) string {
 	var clientErr *client.Error
 	if errors.As(err, &clientErr) && clientErr.Message != "" {
 		return clientErr.Message
+	}
+	var response *client.ResponseError
+	if errors.As(err, &response) {
+		if response.Status >= 200 && response.Status < 300 {
+			return "the server returned an invalid response"
+		}
+		return fmt.Sprintf("the server responded with %d", response.Status)
 	}
 	return "the server could not be reached"
 }

@@ -64,6 +64,13 @@ type Location struct {
 	Lines *LineRange
 }
 
+func (l Location) same(other Location) bool {
+	if l.Path != other.Path || (l.Lines == nil) != (other.Lines == nil) {
+		return false
+	}
+	return l.Lines == nil || *l.Lines == *other.Lines
+}
+
 // historyLimit bounds History's entries.
 const historyLimit = 128
 
@@ -75,14 +82,15 @@ type History struct {
 }
 
 // Push records a newly opened location after the current one, dropping
-// what was forward of it. The same document again replaces its entry.
+// what was forward of it, as router-core's commitLocation: the location
+// already current commits nothing and keeps Forward; any other pushes, also
+// other lines of the same document.
 func (h *History) Push(location Location) {
 	if len(h.entries) > 0 {
-		h.entries = h.entries[:h.at+1]
-		if h.entries[h.at].Path == location.Path {
-			h.entries[h.at] = location
+		if h.entries[h.at].same(location) {
 			return
 		}
+		h.entries = h.entries[:h.at+1]
 	}
 	h.entries = append(h.entries, location)
 	if len(h.entries) > historyLimit {
@@ -98,6 +106,9 @@ func (h *History) Replace(location Location) {
 		h.entries[h.at] = location
 	}
 }
+
+// Empty reports that nothing was pushed.
+func (h *History) Empty() bool { return len(h.entries) == 0 }
 
 // CanGoBack reports an earlier location.
 func (h *History) CanGoBack() bool { return h.at > 0 }

@@ -422,7 +422,10 @@ func (c *HTTP) getJSONWith(ctx context.Context, path string, query url.Values, h
 // answer decodes a 2xx body into result, or the error body into an *Error.
 func answer(response *http.Response, result any) error {
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		return decode(response.Body, result)
+		if err := decode(response.Body, result); err != nil {
+			return &ResponseError{Status: response.StatusCode, Message: fmt.Sprintf("servef: %s answered %s with an invalid body: %v", response.Request.URL.Path, response.Status, err)}
+		}
+		return nil
 	}
 	return failure(response)
 }
@@ -430,7 +433,7 @@ func answer(response *http.Response, result any) error {
 func failure(response *http.Response) error {
 	var body contract.ErrorResponse
 	if err := decode(response.Body, &body); err != nil || body.Error == "" {
-		return fmt.Errorf("servef: %s answered %s without an error body", response.Request.URL.Path, response.Status)
+		return &ResponseError{Status: response.StatusCode, Message: fmt.Sprintf("servef: %s answered %s without an error body", response.Request.URL.Path, response.Status)}
 	}
 	return &Error{Kind: contract.KindForStatus(response.StatusCode), Code: body.Code, Message: body.Error}
 }

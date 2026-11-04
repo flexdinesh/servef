@@ -175,7 +175,7 @@
   "content": "<pre><code class=\"language-mermaid\">flowchart TD\n    Open[Open request-flow.mmd] --&gt; Preview{Preview?}\n    Preview --&gt;|default| Diagram[Themed SVG]\n    Preview --&gt;|Source| Text[Original text]\n</code></pre>\n",
   "source": "flowchart TD\n    Open[Open request-flow.mmd] --> Preview{Preview?}\n    Preview -->|default| Diagram[Themed SVG]\n    Preview -->|Source| Text[Original text]\n",
   "fileSize": 156,
-  "fileCount": 6,
+  "fileCount": 12,
   "hasFile": true,
   "empty": false,
   "error": "",

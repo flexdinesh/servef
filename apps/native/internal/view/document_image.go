@@ -14,6 +14,10 @@ import (
 // checkerSize is --checker-size: one square of the image frame's tiles.
 const checkerSize = 16
 
+// imageFrameBorder is the frame's outline, which fit leaves room for so a
+// fitted image does not scroll.
+const imageFrameBorder = 1
+
 // imageView shows an image file, read from the server's image endpoint,
 // as ImageDocument: fit, or the zoom chosen, on a checkerboard.
 func (a *App) imageView(c *ui.Context, palette theme.Palette) {
@@ -38,7 +42,7 @@ func (a *App) imageView(c *ui.Context, palette theme.Palette) {
 				source, err = ui.DecodeImage(data)
 			}
 			return func() {
-				if d.imageVersion != version {
+				if d.imageKey != key || d.imageVersion != version {
 					return
 				}
 				d.image = source
@@ -63,7 +67,8 @@ func (a *App) imageView(c *ui.Context, palette theme.Palette) {
 	}
 	a.imageKeys(scroll)
 	bounds := scroll.LayoutBounds()
-	viewport := docview.Size{Width: max(0, float64(bounds.W)-2*padding), Height: max(0, float64(bounds.H)-2*padding)}
+	inset := float64(2*padding + 2*imageFrameBorder)
+	viewport := docview.Size{Width: max(0, float64(bounds.W)-inset), Height: max(0, float64(bounds.H)-inset)}
 	if d.viewer.Viewport != viewport {
 		d.viewer.Viewport = viewport
 		c.Invalidate()
@@ -79,7 +84,7 @@ func (a *App) imageView(c *ui.Context, palette theme.Palette) {
 				size := d.viewer.Size()
 				w, h := float32(size.Width), float32(size.Height)
 				// The frame's outline stays outside the image's size.
-				ui.Box(c).Size(w+2, h+2).Shrink(0).Border(1, ui.Hex(palette.Border)).Children(func() {
+				ui.Box(c).Size(w+2*imageFrameBorder, h+2*imageFrameBorder).Shrink(0).Border(imageFrameBorder, ui.Hex(palette.Border)).Children(func() {
 					ui.Box(c).Size(w, h).Draw(checkerboard(palette, bounds)).Children(func() {
 						ui.Image(c, d.image).Size(w, h).Label(path.Base(m.Page.Selected))
 					})

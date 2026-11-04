@@ -63,16 +63,12 @@ func TestHistory(t *testing.T) {
 	if got, _ := h.Back(); got.Path != "b" {
 		t.Fatalf("back: %+v", got)
 	}
-	// Selecting lines replaces the entry; the same document too.
+	// Selecting lines replaces the entry.
 	lines := &LineRange{1, 2}
 	h.Replace(Location{Path: "b", Lines: lines})
 	h.Forward()
 	if got, _ := h.Back(); got.Lines != lines {
 		t.Fatalf("replaced: %+v", got)
-	}
-	h.Push(Location{Path: "b"})
-	if got, _ := h.Back(); got.Path != "a" {
-		t.Fatalf("same document keeps one entry: %+v", got)
 	}
 	h.Reset()
 	if h.CanGoBack() || h.CanGoForward() {
@@ -92,5 +88,37 @@ func TestHistoryIsBounded(t *testing.T) {
 	}
 	if steps != historyLimit-1 {
 		t.Fatalf("steps %d", steps)
+	}
+}
+
+// As router-core's commitLocation: the same href commits nothing, so Forward
+// stays; any other href pushes, even in the same document.
+func TestHistorySameLocationKeepsForward(t *testing.T) {
+	var h History
+	h.Push(Location{Path: "a"})
+	h.Push(Location{Path: "b"})
+	h.Back()
+	h.Push(Location{Path: "a"})
+	if !h.CanGoForward() || h.CanGoBack() {
+		t.Fatalf("back %v, forward %v", h.CanGoBack(), h.CanGoForward())
+	}
+	if got, ok := h.Forward(); !ok || got.Path != "b" {
+		t.Fatalf("forward %+v", got)
+	}
+}
+
+func TestHistoryLineLinkInTheSameDocumentPushes(t *testing.T) {
+	var h History
+	lines := LineRange{Start: 5, End: 5}
+	h.Push(Location{Path: "a"})
+	h.Push(Location{Path: "a", Lines: &lines})
+	if !h.CanGoBack() {
+		t.Fatal("a line link is a new entry")
+	}
+	same := lines
+	h.Push(Location{Path: "a", Lines: &same})
+	got, ok := h.Back()
+	if !ok || got.Lines != nil || h.CanGoBack() {
+		t.Fatalf("the same lines commit nothing: %+v, back %v", got, h.CanGoBack())
 	}
 }

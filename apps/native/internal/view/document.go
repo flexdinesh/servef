@@ -114,6 +114,8 @@ func (a *App) place() {
 		d.restore, d.restoring = m.Place(key).Scroll, true
 		d.scrolled = docview.None
 		d.diagram = nil
+		// A Bitmap keeps its encoded bytes: only the image on screen holds them.
+		d.image, d.imageKey = nil, ""
 	case d.resetVersion != m.ScrollResetVersion:
 		d.resetVersion = m.ScrollResetVersion
 		d.restore, d.restoring = 0, true
@@ -122,6 +124,10 @@ func (a *App) place() {
 
 // scrollY is the shown view's scroll; ok is false when none has any.
 func (a *App) scrollY() (float64, bool) {
+	// A scroll still waiting to apply is where the document stands.
+	if a.doc.scrolled != docview.None && a.doc.restoring {
+		return a.doc.restore, true
+	}
 	switch a.doc.scrolled {
 	case docview.Code, docview.Formatted:
 		if a.code != nil {

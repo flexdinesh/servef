@@ -34,6 +34,11 @@ func (a *App) source(c *ui.Context, code *editor.Theme, palette theme.Palette) {
 	key, kind := m.OpenPlaceKey(), m.View.Kind
 	switch {
 	case a.code == nil || d.codeKey != key || d.codeKind != kind:
+		// A reread in Format flips the kind while its text is on the way: the
+		// new editor starts where the last stood, unless a reset asked otherwise.
+		if a.code != nil && d.codeKey == key && !d.restoring {
+			d.restore, d.restoring = a.code.ScrollY(), true
+		}
 		label := "File"
 		if m.Page.DocumentType != nil && m.Page.DocumentType.Label != "" {
 			label = m.Page.DocumentType.Label
@@ -122,6 +127,11 @@ func (a *App) placeCode(c *ui.Context, height float32) {
 	d := &a.doc
 	waiting := d.restoring || (m.RevealKey == d.codeKey && m.LineRevealVersion != d.revealVersion)
 	if !waiting {
+		return
+	}
+	// The source shown until Format's text arrives may be too short to hold
+	// a scroll meant for that text, and would clamp it away.
+	if d.restoring && d.restore > 0 && m.View.FormatPending {
 		return
 	}
 	if height <= 0 || a.code.LineTop(a.code.Buffer.LineCount()) <= 0 {

@@ -109,6 +109,15 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Message }
 
+// ResponseError is a server's answer outside the contract: a body that does
+// not decode, or a failure without an error body, as a proxy's error page.
+type ResponseError struct {
+	Status  int
+	Message string
+}
+
+func (e *ResponseError) Error() string { return e.Message }
+
 // Stream yields a stream's events in order. Next returns io.EOF once the
 // server ends the stream and the context's error once it ends.
 type Stream[T any] struct {

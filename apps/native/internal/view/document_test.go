@@ -613,3 +613,244 @@ func TestLineLinkRevealsItsLine(t *testing.T) {
 	wantLines(t, h, &docview.LineRange{Start: 300, End: 300})
 	h.wantText("300", "Copy logs/long.log:300")
 }
+
+// oneLineFormat is a document whose source is one line and whose Format is
+// lines long, so a scroll only fits the formatted text.
+func oneLineFormat(h *harness, path string, lines int) contract.PageData {
+	var pretty strings.Builder
+	for i := range lines {
+		fmt.Fprintf(&pretty, "line %d\n", i+1)
+	}
+	source := "{}"
+	page := contract.PageData{
+		Project: fixtureProject, Selected: path, HasFile: true, FileSize: int64(len(source)), Source: source,
+		DocumentType: &contract.FileType{ID: "json", Label: "JSON", Language: "json", DefaultMode: contract.ModeSource, Formattable: true},
+	}
+	h.daemon.Page(page)
+	h.daemon.Set(func(s *fakeservef.Server) { s.Formats[path] = pretty.String() })
+	return page
+}
+
+func TestFormatRereadKeepsScroll(t *testing.T) {
+	h := newFixtureHarness(t)
+	page := oneLineFormat(h, "data/a.json", 500)
+	h.open("data/a.json")
+	h.click("Format")
+	if h.app.Model.View.Kind != docview.Formatted {
+		t.Fatalf("view %+v", h.app.Model.View)
+	}
+	h.app.code.SetScrollY(1200)
+	h.settle()
+	scroll := h.app.code.ScrollY()
+	if scroll != 1200 {
+		t.Fatalf("scrolled to %v", scroll)
+	}
+
+	page.Source = "{ }"
+	h.daemon.Page(page)
+	h.daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{"data/a.json"}}})
+	// Stop once the page is reread: its Format stays in flight.
+	if !h.queue.StepUntil(func() bool { return h.app.Model.Page.Source == page.Source }, 5*time.Second) {
+		t.Fatal("not reread")
+	}
+	for range 3 {
+		h.tt.Frame()
+	}
+	if view := h.app.Model.View; view.Kind != docview.Code || !view.FormatPending {
+		t.Fatalf("pending view %+v", view)
+	}
+	h.settle()
+	if h.app.Model.View.Kind != docview.Formatted {
+		t.Fatalf("view %+v", h.app.Model.View)
+	}
+	if got := h.app.code.ScrollY(); got != scroll {
+		t.Fatalf("scroll %v, want %v", got, scroll)
+	}
+}
+
+// evictFormat scrolls a.json's Format to 1200, then pushes it out of the
+// cache (8 entries) with other documents' Formats.
+func evictFormat(t *testing.T, h *harness) {
+	t.Helper()
+	oneLineFormat(h, "data/a.json", 500)
+	h.open("data/a.json")
+	h.click("Format")
+	h.app.code.SetScrollY(1200)
+	h.settle()
+	for i := range 8 {
+		path := fmt.Sprintf("data/%d.json", i)
+		oneLineFormat(h, path, 3)
+		h.open(path)
+		h.click("Format")
+	}
+}
+
+func (h *harness) openPendingFormat(path string) {
+	h.t.Helper()
+	h.app.Model.OpenDocument(path)
+	if !h.queue.StepUntil(func() bool { return h.app.Model.View.FormatPending && h.app.Model.Page.Selected == path }, 5*time.Second) {
+		h.t.Fatalf("view %+v", h.app.Model.View)
+	}
+	for range 3 {
+		h.tt.Frame()
+	}
+}
+
+func TestReturningToAnEvictedFormatRestoresScroll(t *testing.T) {
+	h := newFixtureHarness(t)
+	evictFormat(t, h)
+	before := h.formatQueries()
+	h.openPendingFormat("data/a.json")
+	h.settle()
+	if h.app.Model.View.Kind != docview.Formatted || h.formatQueries() != before+1 {
+		t.Fatalf("view %+v, reads %d -> %d", h.app.Model.View, before, h.formatQueries())
+	}
+	if got := h.app.code.ScrollY(); got != 1200 {
+		t.Fatalf("scroll %v, want 1200", got)
+	}
+}
+
+func TestLeavingWhileFormatIsPendingKeepsTheScroll(t *testing.T) {
+	h := newFixtureHarness(t)
+	evictFormat(t, h)
+	h.openPendingFormat("data/a.json")
+	h.open("config/settings.json")
+	h.open("data/a.json")
+	h.settle()
+	if h.app.Model.View.Kind != docview.Formatted {
+		t.Fatalf("view %+v", h.app.Model.View)
+	}
+	if got := h.app.code.ScrollY(); got != 1200 {
+		t.Fatalf("scroll %v, want 1200", got)
+	}
+}
+
+// A view switch starts at the top; only a reread keeps the scroll.
+func TestSwitchingViewsStillStartsAtTheTop(t *testing.T) {
+	h := newFixtureHarness(t)
+	oneLineFormat(h, "data/a.json", 500)
+	h.open("data/a.json")
+	h.click("Format")
+	h.app.code.SetScrollY(1200)
+	h.settle()
+	h.click("Source")
+	h.click("Format")
+	if got := h.app.code.ScrollY(); got != 0 {
+		t.Fatalf("scroll %v, want 0", got)
+	}
+}
+
+func TestPreviewRereadKeepsScroll(t *testing.T) {
+	h := newFixtureHarness(t)
+	var text strings.Builder
+	for i := range 300 {
+		fmt.Fprintf(&text, "Paragraph %d\n\n", i)
+	}
+	page := contract.PageData{
+		Project: fixtureProject, Selected: "docs/long.md", HasFile: true, FileSize: int64(text.Len()), Source: text.String(),
+		DocumentType: &contract.FileType{ID: "markdown", Label: "Markdown", Language: "markdown", PreviewKind: contract.PreviewMarkdown, PreviewLabel: "Preview", DefaultMode: contract.ModePreview},
+	}
+	h.daemon.Page(page)
+	h.open("docs/long.md")
+	h.settle()
+	h.app.doc.preview.Y = 900
+	h.settle()
+	if h.app.doc.preview.Y != 900 {
+		t.Fatalf("scrolled to %v", h.app.doc.preview.Y)
+	}
+	page.Source += "One more paragraph\n"
+	h.daemon.Page(page)
+	h.daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{"docs/long.md"}}})
+	if !h.queue.Until(func() bool { return h.app.Model.Page.Source == page.Source }, 5*time.Second) {
+		t.Fatal("not reread")
+	}
+	h.settle()
+	if got := h.app.doc.preview.Y; got != 900 {
+		t.Fatalf("scroll %v, want 900", got)
+	}
+}
+
+func TestLeavingAnImageDropsItsBytes(t *testing.T) {
+	h := newFixtureHarness(t)
+	h.open("assets/preview.png")
+	h.settle()
+	if h.app.doc.image == nil {
+		t.Fatal("image not loaded")
+	}
+	h.open("config/settings.json")
+	h.settle()
+	if h.app.doc.image != nil || h.app.doc.imageKey != "" {
+		t.Fatalf("kept image %v, key %q", h.app.doc.image != nil, h.app.doc.imageKey)
+	}
+	h.open("assets/preview.png")
+	h.settle()
+	if h.app.doc.image == nil || h.app.doc.viewer.Status != docview.ImageReady {
+		t.Fatal("returning loads the image again")
+	}
+}
+
+func TestImageThatArrivesAfterLeavingIsDropped(t *testing.T) {
+	h := newFixtureHarness(t)
+	h.app.Model.OpenLink(link.Target{Kind: link.Local, Project: fixtureProject, Path: "assets/preview.png"})
+	h.queue.Drain()
+	h.tt.Frame()
+	inFlight := h.queue.Hold()
+	h.open("config/settings.json")
+	inFlight()
+	h.settle()
+	if h.app.doc.image != nil {
+		t.Fatal("a late image is kept")
+	}
+}
+
+func TestFittedImageDoesNotScroll(t *testing.T) {
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewNRGBA(image.Rect(0, 0, 1500, 1500))); err != nil {
+		t.Fatal(err)
+	}
+	h := newFixtureHarness(t)
+	h.daemon.Set(func(s *fakeservef.Server) { s.Images["assets/preview.png"] = data.Bytes() })
+	h.open("assets/preview.png")
+	h.settle()
+	if !h.app.doc.viewer.Fit() {
+		t.Fatal("opens fitted")
+	}
+	h.app.doc.imageScroll.X, h.app.doc.imageScroll.Y = 50, 50
+	h.settle()
+	if got := h.app.doc.imageScroll; got.X != 0 || got.Y != 0 {
+		t.Fatalf("a fitted image scrolls to %v, %v", got.X, got.Y)
+	}
+}
+
+// As splitSourceLines: a lone carriage return ends a line, so line links
+// agree with the web's.
+func TestLoneCarriageReturnsAreLines(t *testing.T) {
+	h := newFixtureHarness(t)
+	for _, tc := range []struct {
+		source string
+		lines  []string
+	}{
+		{"one\rtwo\rthree\r", []string{"one", "two", "three"}},
+		{"one\r\ntwo\rthree", []string{"one", "two", "three"}},
+	} {
+		page := contract.PageData{
+			Project: fixtureProject, Selected: "logs/cr.log", HasFile: true, FileSize: int64(len(tc.source)), Source: tc.source,
+			DocumentType: &contract.FileType{ID: "text", Label: "Plain text", Language: "text", DefaultMode: contract.ModeSource},
+		}
+		h.daemon.Page(page)
+		h.open("logs/cr.log")
+		h.settle()
+		h.wantText("3")
+		h.wantNoText("4")
+		for i, want := range tc.lines {
+			if got := strings.TrimSuffix(h.app.code.Buffer.Line(i), "\r"); got != want {
+				t.Fatalf("%q line %d: %q", tc.source, i, got)
+			}
+		}
+		if h.app.Model.Page.Source != tc.source {
+			t.Fatalf("the page's source changed: %q", h.app.Model.Page.Source)
+		}
+		h.open("config/settings.json")
+		h.settle()
+	}
+}

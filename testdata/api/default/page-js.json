@@ -175,7 +175,7 @@
   "content": "",
   "source": "// js-search-token\nconst items=document.querySelectorAll(\".card li\");for(const item of items){item.addEventListener(\"click\",()=>{item.classList.toggle(`active-${item.dataset.id ?? 0}`)})}if(items.length===0){console.warn(\"no items\")}else{console.log(/li$/i.test(items[0].tagName))}\n",
   "fileSize": 282,
-  "fileCount": 6,
+  "fileCount": 12,
   "hasFile": true,
   "empty": false,
   "error": "",
