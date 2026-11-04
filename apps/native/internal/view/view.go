@@ -9,7 +9,7 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 
 	"github.com/flexdinesh/servef/apps/native/internal/docview"
-	"github.com/flexdinesh/servef/apps/native/internal/theme"
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
@@ -35,7 +35,10 @@ type App struct {
 	blocks        markdownBlocks
 	confirmOpen   bool
 	doc           documentState
-	panel         int
+	tabChoice     int
+	tabShown      string
+	tabStrip      float32
+	tabStripShown float32
 	changeList    ui.ListState
 	changeRow     int
 	review        reviewState
@@ -45,7 +48,7 @@ type App struct {
 
 // New returns the view of model; run runs background work.
 func New(model *workspace.Model, run workspace.Runner) *App {
-	app := &App{Model: model, run: run, sidebar: 280, projectRow: -1, codeVersion: -1, changeRow: -1}
+	app := &App{Model: model, run: run, projectRow: -1, codeVersion: -1, changeRow: -1}
 	app.projectList.Selected = &app.projectRow
 	app.changeList.Selected = &app.changeRow
 	return app
@@ -66,6 +69,7 @@ func (a *App) View(c *ui.Context) {
 			a.onTitleChange(title)
 		}
 	}
+	a.release()
 	a.confirm(c)
 	a.navigationKeys(c)
 	ui.Column(c).Fill().Children(func() {
@@ -189,47 +193,6 @@ func (a *App) projectsPage(c *ui.Context) {
 	})
 }
 
-// workspace is the tree beside the document, over a status bar.
-func (a *App) workspace(c *ui.Context, code *editor.Theme, palette theme.Palette) {
-	m := a.Model
-	a.syncTree()
-	ui.Split(c, &a.sidebar, func() {
-		ui.Column(c).Fill().Background(c.Theme().Surface).Children(func() {
-			ui.Row(c).Padding(6, 8).Gap(6).AlignItems(ui.Center).Children(func() {
-				if ui.Button(c, "Projects").Clicked() {
-					m.CloseProject()
-				}
-				name := m.Page.RootName
-				if m.Page.Branch != "" {
-					name += " · " + m.Page.Branch
-				}
-				ui.Text(c, name).Bold().SingleLine().Grow(1)
-			})
-			a.panel = int(m.Panel)
-			ui.Row(c).Padding(0, 8, 6, 8).Children(func() {
-				if ui.Segmented(c, &a.panel, "Files", "Changes").Label("Sidebar").Changed() {
-					m.ShowPanel(workspace.Panel(a.panel))
-				}
-			})
-			ui.Divider(c)
-			if m.Panel == workspace.SourceControl {
-				a.changes(c)
-				return
-			}
-			a.files(c)
-		})
-	}, func() {
-		ui.Column(c).Fill().Background(ui.Hex(palette.Surface)).Children(func() {
-			if m.Review != nil {
-				a.diff(c, palette)
-				return
-			}
-			a.document(c, code, palette)
-		})
-	}).Grow(1)
-	a.statusBar(c)
-}
-
 func (a *App) statusBar(c *ui.Context) {
 	m := a.Model
 	t := c.Theme()
@@ -238,17 +201,35 @@ func (a *App) statusBar(c *ui.Context) {
 		if m.Head != nil {
 			ui.Text(c, headLabel(*m.Head)).TextColor(t.TextMuted).SingleLine()
 		}
+		// The document's path, as the web's status bar shows it.
+		if path := a.statusPath(); path != "" {
+			ui.Text(c, path).TextColor(t.TextMuted).SingleLine().Shrink(1).Tooltip(path)
+		}
 		ui.Spacer(c)
-		if m.Review == nil && a.doc.shownLines != nil {
+		if m.Active.Kind == tabs.Document && a.doc.shownLines != nil {
 			ui.Text(c, docview.LineRangeLabel(*a.doc.shownLines)).TextColor(t.TextMuted).SingleLine()
 		}
-		if m.View.Language != "" && (m.View.Kind == docview.Code || m.View.Kind == docview.Formatted) {
+		if m.View.Language != "" && (m.View.Kind == docview.Code || m.View.Kind == docview.Formatted) && m.Active.Kind == tabs.Document {
 			ui.Text(c, m.View.Language).TextColor(t.TextMuted)
 		}
 		if m.Live.Label != "" {
 			ui.Text(c, m.Live.Label).TextColor(t.TextMuted).Tooltip(m.Live.Description)
 		}
 	})
+}
+
+// statusPath is the shown file's path: the review's file or the document.
+func (a *App) statusPath() string {
+	m := a.Model
+	switch m.Active.Kind {
+	case tabs.Review:
+		if m.Review != nil {
+			return m.Review.File.Path
+		}
+	case tabs.Document:
+		return m.Page.Selected
+	}
+	return ""
 }
 
 func headLabel(head contract.HeadEvent) string {

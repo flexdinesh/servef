@@ -6,8 +6,8 @@
 #
 #   xvfb-run -a dbus-run-session -- sh apps/native/scripts/e2e.sh
 #
-# Writes windows.json, tree.txt, document.png, preview.png, diff.png, and
-# rss.txt (the app's RSS with the preview open, then with code/main.go's
+# Writes windows.json, tree.txt, document.png, preview.png, diff.png, restored.png,
+# and rss.txt (the app's RSS with the preview open, then with code/main.go's
 # diff open in the full-file view) to $SERVEF_NATIVE_E2E_OUT (default .dev/native-e2e).
 set -eu
 
@@ -63,7 +63,7 @@ status=0
     agent snapshot >"$out/tree-preview.txt" &&
     agent screenshot "$out/preview.png" &&
     sed -n 's/^VmRSS/preview VmRSS/p' "/proc/$pid/status" >"$out/rss.txt" &&
-    agent click Changes &&
+    agent click "Source Control" &&
     agent wait --text 'code/main.go' --timeout 20000 &&
     agent click code/main.go &&
     agent wait --text 'R7' --timeout 20000 &&
@@ -71,10 +71,34 @@ status=0
     agent idle --timeout 20000 &&
     agent screenshot "$out/diff.png" &&
     sed -n -e 's/^VmRSS/diff VmRSS/p' -e 's/^VmHWM/diff VmHWM/p' "/proc/$pid/status" >>"$out/rss.txt" &&
-    cat "$out/rss.txt"
+    cat "$out/rss.txt" &&
+    agent click Explorer &&
+    agent click config &&
+    agent click settings.json &&
+    agent wait --text 'config/settings.json' --timeout 20000
 } || status=1
 cp "$MYGO_AGENT_DIR"/e2e.sock.log "$out/app.log" 2>/dev/null || true
 agent close || true
+
+# Workspace memory (decision 0091): a new run of the app, linked to the
+# project alone, restores its tabs, active tab, and open folders from the
+# user data dir.
+if [ "$status" -eq 0 ]; then
+  agent open -- "$bin/servef-native-e2e" "servef-native://127.0.0.1:$port/?project=/home/user/markdown"
+  {
+    agent wait --text 'config/settings.json' --timeout 20000 &&
+      agent snapshot >"$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* tab "guides/getting-started.md"' "$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* tab "Uncommitted changes"' "$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* tab "config/settings.json" .*checked' "$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* button "Close config/settings.json"' "$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* treeItem "guides" .* expanded' "$out/tree-restored.txt" &&
+      grep -q '^@e[0-9]* treeItem "settings.json" .* checked' "$out/tree-restored.txt" &&
+      agent screenshot "$out/restored.png"
+  } || status=1
+  cp "$MYGO_AGENT_DIR"/e2e.sock.log "$out/app-restored.log" 2>/dev/null || true
+  agent close || true
+fi
 if [ "$status" -ne 0 ]; then
   echo "native e2e smoke failed; see $out" >&2
   cat "$out/app.log" >&2 2>/dev/null || true

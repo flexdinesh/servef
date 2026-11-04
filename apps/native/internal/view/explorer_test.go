@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -144,6 +145,8 @@ func TestExplorerResetsForAnotherProject(t *testing.T) {
 	if first, _ := s.Visible(); first == 0 {
 		t.Fatal("the tree did not scroll")
 	}
+	// Closed tabs leave nothing for the project's memory to restore.
+	h.app.Model.TabAction(tabs.CloseAll, 0)
 	h.app.Model.OpenProject(project)
 	h.settle()
 	h.wantText("docs")

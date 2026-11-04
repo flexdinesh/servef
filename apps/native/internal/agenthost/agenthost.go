@@ -17,6 +17,7 @@ import (
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
 	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
+	"github.com/flexdinesh/servef/apps/native/internal/memory"
 	"github.com/flexdinesh/servef/apps/native/internal/view"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
 	"github.com/flexdinesh/servef/packages/mygo/agent/session"
@@ -40,6 +41,9 @@ type Options struct {
 	Width       int
 	Height      int
 	Dark        bool
+	// Memory is a workspace memory file, as the app's in its user data
+	// directory; empty for none.
+	Memory string
 	// Warm compiles Highlights and Ondine before the session starts, so
 	// steps time the UI, not a first compile (seconds under -race).
 	Warm bool
@@ -50,6 +54,7 @@ type Host struct {
 	Session *session.Session
 	App     *view.App
 	fake    *fakeservef.Server
+	store   *memory.Store
 	dir     string
 }
 
@@ -117,6 +122,10 @@ func Start(opts Options) (*Host, error) {
 		Title: func() string { return model.Title() },
 		View: func(s *session.Session) func(*ui.Context) {
 			model = workspace.New(s, connector{socket: socket})
+			if opts.Memory != "" {
+				h.store = &memory.Store{Path: opts.Memory}
+				model.UseMemory(h.store)
+			}
 			h.App = view.New(model, s)
 			switch {
 			case opts.Server != "":
@@ -148,6 +157,9 @@ func (h *Host) Close() {
 			<-h.Session.Exited()
 			h.App.Model.Close()
 		}
+	}
+	if h.store != nil {
+		h.store.Flush()
 	}
 	if h.fake != nil {
 		h.fake.Close()

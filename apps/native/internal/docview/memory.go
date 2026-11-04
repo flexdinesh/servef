@@ -107,6 +107,14 @@ func (h *History) Replace(location Location) {
 	}
 }
 
+// Current is the location the history stands at; ok is false when empty.
+func (h *History) Current() (Location, bool) {
+	if len(h.entries) == 0 {
+		return Location{}, false
+	}
+	return h.entries[h.at], true
+}
+
 // Empty reports that nothing was pushed.
 func (h *History) Empty() bool { return len(h.entries) == 0 }
 

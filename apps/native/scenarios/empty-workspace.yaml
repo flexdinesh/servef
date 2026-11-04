@@ -1,0 +1,41 @@
+# The empty pane follows the sidebar's view (decision 0052): the
+# Explorer asks for a file, Source Control offers the uncommitted review,
+# and a hidden sidebar offers to show it.
+description: Empty pane per sidebar view
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - wait: Choose a file
+  - shot: explorer
+  - click: Source Control
+  - wait: Review your changes
+  - shot: source-control
+  - click: Source Control
+  - wait: Nothing open
+  - shot: hidden
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    explorer:
+      path: /view?project=/home/user/markdown&welcome=1
+      steps:
+        # Welcome (M2b) closed shows the empty pane.
+        - wait: Welcome
+        - click: {label: Close Welcome, by: label}
+        - wait: Choose a file
+    source-control:
+      path: /view?project=/home/user/markdown&welcome=1
+      steps:
+        # Welcome (M2b) closed shows the empty pane.
+        - wait: Welcome
+        - click: {label: Close Welcome, by: label}
+        - click: {label: Source Control, by: label}
+        - wait: Review your changes
+    hidden:
+      path: /view?project=/home/user/markdown&welcome=1
+      steps:
+        # Welcome (M2b) closed shows the empty pane.
+        - wait: Welcome
+        - click: {label: Close Welcome, by: label}
+        - click: {label: Explorer, by: label}
+        - wait: Nothing open

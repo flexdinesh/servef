@@ -5,7 +5,7 @@ description: Diff gaps collapsed, then one expanded in place
 size: {width: 1400, height: 800}
 steps:
   - click: markdown
-  - click: Changes
+  - click: Source Control
   - wait: notes/hunks.txt
   - click: notes/hunks.txt
   - wait: 9 unmodified lines

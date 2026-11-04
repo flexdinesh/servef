@@ -11,7 +11,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | --- | --- | --- | --- |
 | M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 23 / 1 / 0 |
 | M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 5 / 1 / 0 |
-| M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker | 13 | 0 / 4 / 9 |
+| M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker (split: M2a tabs, memory, activity bar, sidebar, empty pane; M2b title band, status bar, Welcome, project picker) | 13 | 2 / 5 / 6 |
 | M3 | Settings dialog, font size, themes (Omarchy), color theme picker, command palette, quick pick, commands | 8 | 0 / 1 / 7 |
 | M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 8 / 0 / 0 |
 | M5 | Explorer: filename filter, gitignore marks, icons, context menus | 5 | 1 / 1 / 3 |
@@ -21,23 +21,23 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | M9 | Walkthroughs: list, tab, narration, step bar, announcements | 8 | 0 / 0 / 8 |
 | M10 | Bridge v2: reveal, context menus, recent folders, folder drop, notifications | 6 | 0 / 0 / 6 |
 | M11 | ssh: Connect page hosts, ControlMaster, socket forwards, remote folder picker | 6 | 0 / 0 / 6 |
-| Total | | 115 | 34 / 11 / 70 |
+| Total | | 115 | 39 / 13 / 63 |
 
 ## Shell and workspace
 
 | Feature | Web files | Decision | Native status | Milestone | Scenario | PR |
 | --- | --- | --- | --- | --- | --- | --- |
-| Activity bar (Explorer, Search, Source Control, Walkthroughs) | `workspace/Sidebar.tsx`, `workspace/use-sidebar.ts` | 0020 | partial (Files/Changes switch only) | M2 | _activity-bar_ | |
-| Resizable sidebar; hide and show | `workspace/SidebarResizer.tsx`, `workspace/use-sidebar-resize.ts`, `workspace/use-sidebar.ts` | 0020 | partial (split only; no hide, width not remembered) | M2 | _sidebar-resize_ | |
-| Tabs: open, switch, close (document, review, walkthrough, Welcome) | `workspace/TabBar.tsx`, `workspace/workspace-tabs.ts` | 0035, 0056 | missing | M2 | _tabs_ | |
-| Tab menu (Close, Close Others, Close to the Right, Close All) | `workspace/tab-menu.ts`, `workspace/TabBar.tsx` | 0081 | missing | M2 | _tab-menu_ | |
+| Activity bar (Explorer, Search, Source Control, Walkthroughs) | `workspace/Sidebar.tsx`, `workspace/use-sidebar.ts` | 0020 | partial (Search and Walkthroughs are placeholders until M6, M9; no walkthrough badge) | M2 | empty-workspace, shell-dark | |
+| Resizable sidebar; hide and show | `workspace/SidebarResizer.tsx`, `workspace/use-sidebar-resize.ts`, `workspace/use-sidebar.ts` | 0020 | partial (keyboard step is mygo's 10 DIPs, not 16; no double-click reset) | M2 | sidebar-resize | |
+| Tabs: open, switch, close (document, review, walkthrough, Welcome) | `workspace/TabBar.tsx`, `workspace/workspace-tabs.ts` | 0035, 0056 | partial (documents and one Uncommitted review tab; Welcome in M2b, snapshots and other reviews in M8, walkthroughs in M9) | M2 | tabs | |
+| Tab menu (Close, Close Others, Close to the Right, Close All) | `workspace/tab-menu.ts`, `workspace/TabBar.tsx` | 0081 | done (Reveal in M10) | M2 | tab-menu | |
 | Window title (document, project, connection) | `workspace/TitleBar.tsx`, `apps/desktop/src/main/titles.ts` | 0075 | done | M0/0082 | projects | #145 |
 | Title band with app menu button | `workspace/TitleBar.tsx`, `apps/desktop/src/main/titlebar.ts` | 0075 | missing | M2 | _title-bar_ | |
 | Status bar: connection, branch, language, live state | `workspace/StatusBar.tsx` | 0050 | done | M0/0082 | source-view | #145 |
 | Status bar: path, copy path, Find in files, Settings, process info | `workspace/StatusBar.tsx`, `workspace/process-metrics.ts` | 0008, 0013, 0080 | missing | M2 | _status-bar_ | |
 | Welcome tab (start entries, guides, projects) | `features/welcome/WelcomeTab.tsx`, `features/welcome/welcome-model.ts` | 0052 | missing | M2 | _welcome_ | |
-| Contextual empty pane per sidebar view | `workspace/EmptyWorkspace.tsx`, `workspace/empty-workspace.ts` | 0052 | partial (file count line only) | M2 | _empty-workspace_ | |
-| Workspace memory per sessionKey (last project, tabs, active tab, expansion) | `workspace/workspace-memory.ts`, `workspace/use-project-memory.ts` | 0019, 0061 | missing | M2 | _workspace-memory_ | |
+| Contextual empty pane per sidebar view | `workspace/EmptyWorkspace.tsx`, `workspace/empty-workspace.ts` | 0052 | partial (no Find a file button until M3; no Show Welcome until M2b) | M2 | empty-workspace | |
+| Workspace memory per sessionKey (last project, tabs, active tab, expansion) | `workspace/workspace-memory.ts`, `workspace/use-project-memory.ts` | 0019, 0061 | done (per connection in `workspaces.json`, decision 0091) | M2 | `scripts/e2e.sh` restart; `internal/memory`, `internal/workspace/restore_test.go`, `tabs_test.go` | |
 
 ## Settings and commands
 
@@ -72,7 +72,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Read-only Source with line numbers and find | `features/documents/SourceDocument.tsx` | 0003, 0082 | done | M0/0082 | source-view | #145 |
 | Highlighting in the declared language, off the UI thread | `highlighting/source-highlighter.ts`, `highlighting/highlight-thread.ts` | 0029 | done | M0/0082 | source-view | #145 |
 | Highlights token parity (wazero port) | `highlighting/highlights-loader.ts`, `highlighting/syntax-highlight.ts` | 0029, 0082, 0088 | done | M1 | source-languages | |
-| Source/Preview toggle; Markdown opens in Source | `features/documents/document-view.ts`, `features/documents/DocumentModeToggle.tsx` | 0003, 0010 | done | M0/0082 | document-preview | #145 |
+| Source/Preview toggle; Markdown opens in Source | `features/documents/document-view.ts`, `features/documents/DocumentModeToggle.tsx` | 0003, 0010 | done (the Preview preference is per project for the app's run, as the web's per tab session, but connections with one project path share it) | M0/0082 | document-preview | #145 |
 | Markdown preview: document, heading, and external links; root-confined images | `features/documents/DocumentPreview.tsx` | 0002, 0005, 0010 | done | M0/0082 | document-preview | #145 |
 | Highlighted fences with language chip and copy | `features/documents/DocumentPreview.tsx`, `features/documents/CodeBlockControls.tsx` | 0029, 0088 | done (language label in mygo's head row, not the copy chip) | M4 | markdown-fences | |
 | Format (on demand, read-only) | `features/documents/FormattedDocument.tsx`, `features/documents/use-document-format.ts` | 0003, 0011 | done | M4 | format, format-dark | |

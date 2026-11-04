@@ -36,6 +36,7 @@ func main() {
 	flag.IntVar(&opts.Width, "width", 1100, "window width in DIPs")
 	flag.IntVar(&opts.Height, "height", 700, "window height in DIPs")
 	flag.BoolVar(&opts.Dark, "dark", false, "dark appearance")
+	flag.StringVar(&opts.Memory, "memory", "", "workspace memory file (default none)")
 	fixturesServer := flag.String("fixtures-server", "", "serve only the fixtures over TCP at host:port")
 	flag.Parse()
 	if *fixturesServer != "" {

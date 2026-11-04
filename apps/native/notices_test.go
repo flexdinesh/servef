@@ -9,7 +9,7 @@ import (
 )
 
 // Release packages carry the licenses of the embedded wasm modules, of
-// wazero, and of Pierre's tree icons (scripts/notices.sh, run by
+// wazero, of Pierre's tree icons, and of Lucide's icons (scripts/notices.sh, run by
 // scripts/package.sh).
 func TestThirdPartyNotices(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "THIRD_PARTY_NOTICES.txt")
@@ -27,6 +27,7 @@ func TestThirdPartyNotices(t *testing.T) {
 		"@pierre/highlights 0.2.0 (highlights.wasm): LICENSE.md", "@pierre/highlights 0.2.0: NOTICE.md",
 		"ondine 0.0.3 (all.generated.wasm): LICENSE", "github.com/tetratelabs/wazero v1.12.0: LICENSE",
 		"@pierre/trees 1.0.0-beta.6 (file icons): LICENSE.md", "@pierre/trees 1.0.0-beta.6: NOTICE.md",
+		"lucide-react 1.43.0 (icons): LICENSE", "ISC License",
 		"Apache License", "MIT License",
 	} {
 		if !strings.Contains(text, want) {

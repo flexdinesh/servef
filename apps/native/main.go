@@ -19,6 +19,7 @@ import (
 	"github.com/flexdinesh/servef/apps/native/internal/connect"
 	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
+	"github.com/flexdinesh/servef/apps/native/internal/memory"
 	"github.com/flexdinesh/servef/apps/native/internal/view"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
 	"github.com/flexdinesh/servef/packages/mygo/wasmcache"
@@ -60,6 +61,13 @@ func main() {
 
 	runner := &windowRunner{}
 	model := workspace.New(runner, system)
+	// Workspace memory (tabs, folders, last projects, sidebar) lives in
+	// the app's user data, as the web keeps it in localStorage.
+	store := &memory.Store{}
+	if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
+		store.Path = filepath.Join(dir, "workspaces.json")
+		model.UseMemory(store)
+	}
 	app := view.New(model, runner)
 	app.OpenFolder = func(done func(path string)) {
 		go func() {
@@ -116,7 +124,10 @@ func main() {
 		model.Handle(request)
 		model.RefreshServers()
 	})
-	mygo.App.OnQuit(model.Close)
+	mygo.App.OnQuit(func() {
+		model.Close()
+		store.Flush()
+	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

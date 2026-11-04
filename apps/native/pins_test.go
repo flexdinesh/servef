@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/flexdinesh/servef/apps/native/internal/view"
 	"github.com/flexdinesh/servef/packages/mygo/highlights"
 	"github.com/flexdinesh/servef/packages/mygo/ondine"
 )
@@ -36,5 +37,18 @@ func TestWasmPinsMatchTheLockfile(t *testing.T) {
 		if got := string(matches[0][2]); got != pin.integrity {
 			t.Errorf("%s: lockfile integrity %s, pin.go %s (run mise run native:wasm-sync)", pin.name, got, pin.integrity)
 		}
+	}
+}
+
+// The shell's Lucide icons are the release the web app locks; a bump
+// needs scripts/sync-lucide-icons.mjs.
+func TestLucideIconsMatchTheLockfile(t *testing.T) {
+	lock, err := os.ReadFile(filepath.Join("..", "..", "pnpm-lock.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches := regexp.MustCompile(`(?m)^  lucide-react@([^:(]+):\n    resolution:`).FindAllSubmatch(lock, -1)
+	if len(matches) != 1 || string(matches[0][1]) != view.LucideVersion {
+		t.Fatalf("pnpm-lock.yaml lucide-react %q, icons %s (run node apps/native/scripts/sync-lucide-icons.mjs apps/web)", matches, view.LucideVersion)
 	}
 }

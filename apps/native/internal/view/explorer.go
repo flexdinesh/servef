@@ -1,8 +1,11 @@
 package view
 
 import (
+	"slices"
+
 	"github.com/egoist/mygo/ui"
 
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/apps/native/internal/theme"
 	"github.com/flexdinesh/servef/apps/native/internal/tree"
 	"github.com/flexdinesh/servef/packages/mygo/trees"
@@ -41,14 +44,18 @@ func (a *App) syncTree() {
 		x.state.SetOpen(m.TreeOpen)
 	}
 	selected := m.Page.Selected
-	if m.Page.At != "" {
-		// A snapshot selects no working-tree file.
+	if m.Page.At != "" || m.Active.Kind != tabs.Document {
+		// A snapshot, a review, or no tab selects no working-tree file.
 		selected = ""
 	}
 	if x.reveal != m.RevealVersion {
 		x.reveal = m.RevealVersion
 		if selected != "" {
+			before := openPaths(&x.state)
 			x.state.Reveal(x.tree, selected)
+			if after := openPaths(&x.state); !slices.Equal(before, after) {
+				m.RememberExpanded(after)
+			}
 		}
 	}
 	// The open document's row is selected when it changes; a folder a
@@ -57,6 +64,13 @@ func (a *App) syncTree() {
 		x.synced = selected
 		x.state.Selected = selected
 	}
+}
+
+// openPaths lists the open folders in a stable order, to remember them.
+func openPaths(s *trees.State) []string {
+	paths := s.OpenPaths()
+	slices.Sort(paths)
+	return paths
 }
 
 // treeOf is the server's tree in the web tree's order, with single-child
@@ -84,8 +98,12 @@ func (a *App) files(c *ui.Context) {
 	var result trees.Result
 	// The tree host's inset (explorer.css .file-tree-host).
 	ui.Column(c).Grow(1).FillWidth().Padding(4).Children(func() { result = a.filesTree(c) })
-	if result.Activated != "" && (result.Activated != m.Page.Selected || m.Page.At != "") {
+	shown := m.Active == tabs.DocumentTab(m.Page.Selected) && m.Page.At == ""
+	if result.Activated != "" && (result.Activated != m.Page.Selected || !shown) {
 		m.OpenDocument(result.Activated)
+	}
+	if result.Toggled != "" {
+		m.RememberExpanded(openPaths(&a.explorer.state))
 	}
 }
 

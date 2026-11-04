@@ -9,7 +9,7 @@ steps:
   - click: Preview
   - wait: Getting started
   - shot: preview-dark
-  - click: Changes
+  - click: Source Control
   - click: code/main.go
   - wait: Diff layout
   - shot: diff-dark

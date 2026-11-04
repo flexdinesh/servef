@@ -97,7 +97,7 @@ func TestBrowseProjectTreeAndDocuments(t *testing.T) {
 	h.wantText("This computer", "demo  ·  main", project)
 
 	h.click("demo  ·  main")
-	h.wantText("demo · main", "docs", "guide.md", "src", "README.md", "3 files. Choose one in the tree.")
+	h.wantText("demo · main", "docs", "guide.md", "src", "README.md", "Choose a file", "Select a file from the folder tree.")
 	if h.tt.HasText("main.go") {
 		t.Fatal("src starts closed, as the server marked it")
 	}
