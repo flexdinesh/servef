@@ -40,6 +40,34 @@
       "fileType": ""
     },
     {
+      "name": "code",
+      "path": "code",
+      "isDir": true,
+      "open": false,
+      "selected": false,
+      "children": [
+        {
+          "name": "app.js",
+          "path": "code/app.js",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "javascript"
+        },
+        {
+          "name": "styles.css",
+          "path": "code/styles.css",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "css"
+        }
+      ],
+      "fileType": ""
+    },
+    {
       "name": "config",
       "path": "config",
       "isDir": true,
@@ -75,6 +103,24 @@
       "selected": false,
       "children": [
         {
+          "name": "code-blocks.md",
+          "path": "guides/code-blocks.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        },
+        {
+          "name": "diagrams.md",
+          "path": "guides/diagrams.md",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "markdown"
+        },
+        {
           "name": "getting-started.md",
           "path": "guides/getting-started.md",
           "isDir": false,
@@ -82,6 +128,15 @@
           "selected": false,
           "children": [],
           "fileType": "markdown"
+        },
+        {
+          "name": "request-flow.mmd",
+          "path": "guides/request-flow.mmd",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "mermaid"
         }
       ],
       "fileType": ""

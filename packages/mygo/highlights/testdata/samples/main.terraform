@@ -1,0 +1,11 @@
+# Terraform
+variable "region" {
+  type    = string
+  default = "us-east-1"
+}
+
+resource "aws_s3_bucket" "logs" {
+  bucket = "${var.region}-logs"
+  count  = var.enabled ? 1 : 0
+  tags   = { Name = "logs", Env = upper("prod") }
+}

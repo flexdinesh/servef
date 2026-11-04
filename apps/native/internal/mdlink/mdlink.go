@@ -7,6 +7,7 @@
 package mdlink
 
 import (
+	"html"
 	"net/url"
 	"path"
 	"strings"
@@ -111,4 +112,33 @@ func PreviewSource(source string) string {
 		rest = next
 	}
 	return source
+}
+
+// mermaidPreview is the preview the server sends for a Mermaid file: one
+// escaped mermaid fence (apps/servef/internal/document/mermaid.go).
+const (
+	mermaidOpen  = `<pre><code class="language-mermaid">`
+	mermaidClose = "</code></pre>\n"
+)
+
+// Preview is the Markdown a page's preview shows: when the server's
+// preview (content) is one mermaid fence, that fence, so the diagram
+// renders as in a Markdown document; else PreviewSource(source).
+func Preview(source, content string) string {
+	inner, ok := strings.CutPrefix(content, mermaidOpen)
+	if ok {
+		inner, ok = strings.CutSuffix(inner, mermaidClose)
+	}
+	if !ok || strings.Contains(inner, "<") {
+		return PreviewSource(source)
+	}
+	diagram := html.UnescapeString(inner)
+	fence := "```"
+	for strings.Contains(diagram, fence) {
+		fence += "`"
+	}
+	if !strings.HasSuffix(diagram, "\n") {
+		diagram += "\n"
+	}
+	return fence + "mermaid\n" + diagram + fence + "\n"
 }

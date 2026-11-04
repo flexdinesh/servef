@@ -1,6 +1,11 @@
 package mdlink
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/pkg/contract"
+)
 
 func TestResolve(t *testing.T) {
 	for _, tc := range []struct {
@@ -59,5 +64,24 @@ func TestPreviewSource(t *testing.T) {
 		if got := PreviewSource(source); got != want {
 			t.Errorf("PreviewSource(%q) = %q, want %q", source, got, want)
 		}
+	}
+}
+
+func TestPreview(t *testing.T) {
+	var page contract.PageData
+	fakeservef.Fixture(t, "page-mermaid.json", &page)
+	got := Preview(page.Source, page.Content)
+	if want := "```mermaid\n" + page.Source + "```\n"; got != want {
+		t.Fatalf("mermaid page preview:\n%q\nwant\n%q", got, want)
+	}
+	if got := Preview("a ``` b", "<pre><code class=\"language-mermaid\">a ``` b</code></pre>\n"); got != "````mermaid\na ``` b\n````\n" {
+		t.Fatalf("fence around backticks: %q", got)
+	}
+	// Any other preview shows the Markdown source.
+	if got := Preview("---\nx: 1\n---\n# Hi\n", "<h1>Hi</h1>"); got != "# Hi\n" {
+		t.Fatalf("markdown preview %q", got)
+	}
+	if got := Preview("x", "<pre><code class=\"language-mermaid\">a</code></pre>\n<p>b</p>"); got != "x" {
+		t.Fatalf("more than one fence %q", got)
 	}
 }

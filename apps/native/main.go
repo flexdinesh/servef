@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sync/atomic"
 
@@ -16,9 +17,11 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/flexdinesh/servef/apps/native/internal/connect"
+	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
 	"github.com/flexdinesh/servef/apps/native/internal/view"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
+	"github.com/flexdinesh/servef/packages/mygo/wasmcache"
 )
 
 // Stamped by release builds with -ldflags -X.
@@ -35,6 +38,19 @@ func main() {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return // the first instance handles our arguments
 	}
+	// Highlights and Ondine compile once per wazero release into the
+	// user cache; later launches load the compiled code. Highlights
+	// compiles now, off the UI thread; Ondine on its first diagram.
+	if dir, err := os.UserCacheDir(); err == nil {
+		if err := wasmcache.SetDir(filepath.Join(dir, "servef-native", "wasm")); err != nil {
+			log.Printf("wasm cache: %v", err)
+		}
+	}
+	go func() {
+		if err := highlight.Warm(); err != nil {
+			log.Printf("highlights: %v", err)
+		}
+	}()
 	workingDir, _ := os.Getwd()
 	request, requestErr := link.FromArgs(os.Args[1:], workingDir)
 

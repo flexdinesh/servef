@@ -11,8 +11,10 @@ What it does today:
 - Opens projects on this computer (through the servef daemon) or on a servef
   server started with `servef browser`, on this machine or another.
 - Browses the file tree, shows highlighted source with line numbers, find,
-  and copy, and previews Markdown with its links and images. Mermaid diagrams
-  show as code.
+  and copy, and previews Markdown with its links, images, highlighted code
+  blocks, and Mermaid diagrams (also `.mmd` files). Highlighting and diagrams
+  come from the same engines the browser uses; a diagram with a syntax error
+  shows its source and the error. Diagrams do not expand or zoom yet.
 - Reviews uncommitted changes: **Changes** in the sidebar lists the working
   tree's changes since the last commit; choosing one shows its diff side by
   side or unified, as hunks or the full file, optionally ignoring leading and

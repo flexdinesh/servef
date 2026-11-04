@@ -246,7 +246,7 @@ func TestNativeGroupIsOptIn(t *testing.T) {
 			t.Fatalf("%s belongs to the native group alone", task)
 		}
 	}
-	for _, name := range []string{"apps/native/main.go", "packages/mygo/agent/session/session.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css"} {
+	for _, name := range []string{"apps/native/main.go", "packages/mygo/agent/session/session.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css", "apps/web/src/features/documents/mermaid.css", "apps/web/src/highlighting/syntax-theme.ts", "apps/web/src/highlighting/syntax-highlight.ts", "apps/web/src/lib/line-selection.ts"} {
 		if !selected("native", name) {
 			t.Fatalf("native does not select %s", name)
 		}

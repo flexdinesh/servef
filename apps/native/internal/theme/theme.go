@@ -74,5 +74,17 @@ func (p Palette) Tokens() map[string]string {
 	return tokens
 }
 
-// Italic reports the categories servef shows in italics (comments).
-func Italic(c highlight.Category) bool { return c == highlight.Comment }
+// RadiusSmall is --radius-sm.
+const RadiusSmall = "0.125rem"
+
+// Ondine is the --ondine-* custom properties a diagram takes, as
+// apps/web/src/features/documents/mermaid.css maps them to servef's
+// tokens; the font is the app's monospace font.
+func (p Palette) Ondine() map[string]string {
+	return map[string]string{
+		"--ondine-bg": p.Surface, "--ondine-fg": p.TextPrimary, "--ondine-line": p.TextSecondary,
+		"--ondine-border": p.TextSecondary, "--ondine-muted": p.TextMuted, "--ondine-surface": p.Surface,
+		"--ondine-surface-alt": p.SurfaceSecondary, "--ondine-accent": p.Accent, "--ondine-critical": p.Destructive,
+		"--ondine-font": "monospace", "--ondine-radius": RadiusSmall,
+	}
+}

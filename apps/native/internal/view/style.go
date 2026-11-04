@@ -22,6 +22,11 @@ var tokenKinds = map[highlight.Category]editor.TokenKind{
 	highlight.String:   editor.TokenString,
 	highlight.Number:   editor.TokenNumber,
 	highlight.Operator: editor.TokenOperator,
+	highlight.Inserted: editor.TokenInserted,
+	highlight.Deleted:  editor.TokenDeleted,
+	highlight.Link:     editor.TokenLink,
+	highlight.Emphasis: editor.TokenEmphasis,
+	highlight.Strong:   editor.TokenStrong,
 }
 
 // windowTheme is the system's light or dark theme with servef's colors.
@@ -51,36 +56,43 @@ func codeTheme(t *ui.Theme, palette theme.Palette) *editor.Theme {
 	th.Added = ui.Hex(palette.Success)
 	th.Deleted = ui.Hex(palette.Destructive)
 	th.Modified = ui.Hex(palette.Warning)
+	colors := map[highlight.Category]string{
+		highlight.Inserted: palette.Success, highlight.Deleted: palette.Destructive, highlight.Link: palette.Accent,
+		highlight.Emphasis: palette.TextPrimary, highlight.Strong: palette.TextPrimary,
+	}
 	for _, category := range highlight.Categories {
-		th.Tokens[tokenKinds[category]] = editor.TokenStyle{Color: ui.Hex(palette.Syntax[category]), Italic: theme.Italic(category)}
+		colors[category] = palette.Syntax[category]
+	}
+	for category, color := range colors {
+		th.Tokens[tokenKinds[category]] = editor.TokenStyle{Color: ui.Hex(color), Italic: category.Italic(), Bold: category.Bold()}
 	}
 	return th
 }
 
 // markdownTheme shows Markdown on servef's document surface; code blocks
 // take the code theme.
-func markdownTheme(palette theme.Palette, code *editor.Theme) *markdown.Theme {
-	return &markdown.Theme{
-		Text:                ui.Hex(palette.TextPrimary),
-		Link:                ui.Hex(palette.Accent),
-		CodeBlockBackground: ui.Hex(palette.SurfaceSecondary),
-		CodeBlockBorder:     ui.Hex(palette.Border),
-		CodeColors:          code,
-	}
+func markdownTheme(t *ui.Theme, palette theme.Palette, code *editor.Theme) *markdown.Theme {
+	th := markdown.DefaultTheme(t)
+	th.Text = ui.Hex(palette.TextPrimary)
+	th.Link = ui.Hex(palette.Accent)
+	th.CodeBlockBackground = ui.Hex(palette.SurfaceSecondary)
+	th.CodeBlockBorder = ui.Hex(palette.Border)
+	th.CodeColors = code
+	return th
 }
 
-// chromaHighlighter gives the editor tokens computed off the UI thread by
-// package highlight (Chroma). The text is read-only; lines is nil until
+// lineHighlighter gives the editor tokens computed off the UI thread by
+// package highlight (Highlights). The text is read-only; lines is nil until
 // they are ready, and the lines then show plain.
-type chromaHighlighter struct {
+type lineHighlighter struct {
 	lines [][]highlight.Span
 }
 
-func (h *chromaHighlighter) Edit(editor.Snapshot, editor.Snapshot, []editor.Change) {}
+func (h *lineHighlighter) Edit(editor.Snapshot, editor.Snapshot, []editor.Change) {}
 
-func (h *chromaHighlighter) Highlight(int, time.Duration) bool { return true }
+func (h *lineHighlighter) Highlight(int, time.Duration) bool { return true }
 
-func (h *chromaHighlighter) Tokens(i int, text string, dst []editor.Token) ([]editor.Token, bool) {
+func (h *lineHighlighter) Tokens(i int, text string, dst []editor.Token) ([]editor.Token, bool) {
 	if i < 0 || i >= len(h.lines) || len(h.lines[i]) == 0 {
 		return append(dst, editor.Token{End: len(text), Kind: editor.TokenText}), true
 	}
@@ -94,12 +106,12 @@ func (h *chromaHighlighter) Tokens(i int, text string, dst []editor.Token) ([]ed
 	return append(dst, editor.Token{End: len(text), Kind: editor.TokenText}), true
 }
 
-// chromaLanguage is a language whose highlighter shows lines.
-func chromaLanguage(name string, lines [][]highlight.Span) *editor.Language {
+// syntaxLanguage is a language whose highlighter shows lines.
+func syntaxLanguage(name string, lines [][]highlight.Span) *editor.Language {
 	return &editor.Language{
 		Name: name,
 		Highlighter: func(editor.Snapshot, func()) editor.Highlighter {
-			return &chromaHighlighter{lines: lines}
+			return &lineHighlighter{lines: lines}
 		},
 	}
 }

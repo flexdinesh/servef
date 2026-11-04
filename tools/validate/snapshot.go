@@ -263,7 +263,7 @@ func selected(group, name string) bool {
 		"docs":           {"apps/site/"},
 		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/contracts/"},
 		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/contracts/"},
-		"native":         {"apps/native/", "packages/mygo/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css"},
+		"native":         {"apps/native/", "packages/mygo/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css", "apps/web/src/features/documents/mermaid.css", "apps/web/src/highlighting/syntax-theme.ts", "apps/web/src/highlighting/syntax-highlight.ts", "apps/web/src/lib/line-selection.ts"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {

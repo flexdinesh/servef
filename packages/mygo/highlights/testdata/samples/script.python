@@ -1,0 +1,14 @@
+# A comment
+import os
+from typing import Optional
+
+@dataclass
+class Point:
+    """Docstring."""
+    x: int = 0
+
+    def norm(self, scale: float = 1.0) -> Optional[float]:
+        if self.x is None and not True:
+            return None
+        return (self.x ** 2) * scale + 0b1010 - 1_000
+print(f"value {os.getcwd()!r}", 'single', r"raw\n")

@@ -1,6 +1,6 @@
 # 0082: Experimental native app on mygo
 
-- Status: Accepted (experimental); revised by [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (image reads through `pkg/client`); known gaps scheduled by [0086](0086-native-agent-tooling-and-ports.md)
+- Status: Accepted (experimental); revised by [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (image reads through `pkg/client`); known gaps scheduled by [0086](0086-native-agent-tooling-and-ports.md); Chroma and Mermaid-as-code replaced by [0088](0088-native-highlights-and-ondine-via-wazero.md)
 - Date: 2026-11-03
 - Relates to: [0077](0077-desktop-shell-stays-on-electron.md) (Electron stays
   the desktop shell), [0078](0078-apps-and-packages-layout.md) (outside
@@ -136,13 +136,14 @@ as an experiment beside the Electron app and does not replace it.
 
 ## Known gaps
 
-- Mermaid shows as code.
+- Mermaid shows as code. Closed by 0088: Ondine draws diagrams natively.
 - Review covers uncommitted changes only, one file at a time. Collapsed
   gaps do not expand in place (the full-file toggle shows them), there is no
   "no newline at end of file" marker, and line selection, links, and hunk
   steps are not wired.
 - Chroma's tokens differ from Highlights' (0029): categories match, token
-  boundaries and some classifications do not.
+  boundaries and some classifications do not. Closed by 0088: native runs
+  Highlights under wazero.
 - Accessibility and IME on Linux are unverified; under Xvfb AT-SPI was not
   running.
 - macOS is built and smoke-checked in CI only.

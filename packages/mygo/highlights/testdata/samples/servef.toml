@@ -1,0 +1,10 @@
+# TOML
+title = "servef"
+[server]
+port = 8080
+ratio = 0.75
+enabled = true
+started = 2024-01-02T03:04:05Z
+hosts = ["a", 'b']
+[[plugins]]
+name = "x"

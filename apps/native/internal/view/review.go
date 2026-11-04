@@ -151,14 +151,14 @@ func (a *App) diffView(c *ui.Context, code *editor.Theme, open *workspace.Review
 			state.Layout = editor.DiffUnified
 		}
 		state.SetPatch(filePatch(open.Layout))
-		state.Old.SetLanguage(chromaLanguage(open.Layout.Language, nil))
-		state.New.SetLanguage(chromaLanguage(open.Layout.Language, nil))
+		state.Old.SetLanguage(syntaxLanguage(open.Layout.Language, nil))
+		state.New.SetLanguage(syntaxLanguage(open.Layout.Language, nil))
 		r.state, r.of, r.version, r.built, r.lines = state, open, open.Version, r.layout, -1
 	}
 	if open.Old != nil && open.LinesVersion == r.version && r.lines != r.version {
 		oldRows, newRows := open.Layout.Sides()
-		r.state.Old.SetLanguage(chromaLanguage(open.Layout.Language, review.Rows(open.Old, oldRows)))
-		r.state.New.SetLanguage(chromaLanguage(open.Layout.Language, review.Rows(open.New, newRows)))
+		r.state.Old.SetLanguage(syntaxLanguage(open.Layout.Language, review.Rows(open.Old, oldRows)))
+		r.state.New.SetLanguage(syntaxLanguage(open.Layout.Language, review.Rows(open.New, newRows)))
 		r.lines = r.version
 	}
 	r.state.Theme = code

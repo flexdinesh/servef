@@ -1,0 +1,9 @@
+// SCSS sample
+@use "sass:math";
+$base: 16px;
+@mixin pad($n: 1) { padding: math.div($base, 2) * $n; }
+.card {
+  @include pad(2);
+  &:hover { color: darken(#333, 10%); }
+  .title { font: #{$base}/1.4 sans-serif; }
+}

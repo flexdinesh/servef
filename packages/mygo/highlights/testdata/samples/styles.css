@@ -1,0 +1,10 @@
+/* Theme */
+@import url("base.css");
+:root { --accent: #2563eb; }
+.button:hover > span::after,
+#main [data-state="open"] {
+  color: var(--accent, red);
+  margin: 0 auto 1.5rem calc(100% - 2px);
+  transition: opacity 120ms ease-in-out !important;
+}
+@media (max-width: 600px) { .button { display: none } }

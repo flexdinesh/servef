@@ -223,6 +223,12 @@ run = "sh apps/native/scripts/agent.sh shots"
 description = "Native shots beside web shots from pnpm dev:mock (-- <scenario>)"
 run = "sh apps/native/scripts/agent.sh compare"
 
+# After a @pierre/highlights or ondine bump, or a change to the web files the
+# native highlight package mirrors (decision 0088).
+[tasks."native:wasm-sync"]
+description = "Copy Highlights and Ondine wasm into packages/mygo, pin them, and regenerate goldens"
+run = "sh packages/mygo/scripts/sync-wasm.sh apps/web pnpm-lock.yaml && node apps/native/scripts/web-highlights.ts"
+
 [tasks."lint"]
 description = "Lint web and desktop in private current-edit snapshots"
 run = [

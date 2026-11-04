@@ -47,7 +47,7 @@ func TestScenariosRunAgainstFixtures(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Run(sc.Name, func(t *testing.T) {
-			c := serve(t, agenthost.Options{})
+			c := serve(t, agenthost.Options{Warm: true})
 			out := t.TempDir()
 			result, err := scenario.Run(c, sc, scenario.Options{Out: out})
 			if err != nil {
