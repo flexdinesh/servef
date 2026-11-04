@@ -121,12 +121,20 @@ func Start(opts Options) (*Host, error) {
 // Close stops the session, the app, and the fake daemon.
 func (h *Host) Close() {
 	if h.Session != nil {
+		// The model is the session goroutine's; once the session stopped,
+		// nothing else touches it.
+		closed := false
 		_ = h.Session.Do(func(*ui.Tester) {
 			if h.App != nil {
 				h.App.Model.Close()
 			}
+			closed = true
 		})
 		h.Session.Close()
+		if !closed && h.App != nil {
+			<-h.Session.Exited()
+			h.App.Model.Close()
+		}
 	}
 	if h.fake != nil {
 		h.fake.Close()

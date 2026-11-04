@@ -18,10 +18,12 @@ out="${SERVEF_NATIVE_SHOTS:-$root/.dev/native-shots}"
 port="${SERVEF_NATIVE_COMPARE_PORT:-5390}"
 export MYGO_AGENT_DIR="$dev/state"
 
+# Callers in && or || lists turn set -e off inside functions: every step
+# returns its own failure.
 build() {
-  mkdir -p "$bin"
-  GOWORK=off go -C packages/mygo build -o "$bin/" ./cmd/mygo-agent ./cmd/mygo-compare
-  GOWORK=off go -C apps/native build -tags agent -o "$bin/native-agent" ./cmd/native-agent
+  mkdir -p "$bin" || return 1
+  GOWORK=off go -C packages/mygo build -o "$bin/" ./cmd/mygo-agent ./cmd/mygo-compare || return 1
+  GOWORK=off go -C apps/native build -tags agent -o "$bin/native-agent" ./cmd/native-agent || return 1
 }
 
 # scenario_file resolves a name (document-preview) or a path.
@@ -53,7 +55,7 @@ shots() {
   status=0
   for file in $(scenarios "$@"); do
     name=$(scenario_name "$file")
-    "$bin/mygo-agent" --session "$name" open -- "$bin/native-agent"
+    "$bin/mygo-agent" --session "$name" open --replace -- "$bin/native-agent" || return 1
     if ! "$bin/mygo-agent" --session "$name" run "$file" --out "$out"; then
       status=1
     fi
@@ -63,9 +65,9 @@ shots() {
 }
 
 compare() {
-  shots "$@"
+  shots "$@" || return 1
   log="$dev/dev-mock.log"
-  mkdir -p "$dev"
+  mkdir -p "$dev" || return 1
   SERVEF_DEV_WEB_PORT=$port pnpm dev:mock --port "$port" --strictPort >"$log" 2>&1 &
   mock=$!
   # pnpm runs vite as a child; stop both.
@@ -81,9 +83,9 @@ compare() {
   done
   for file in $(scenarios "$@"); do
     name=$(scenario_name "$file")
-    "$bin/mygo-compare" web -base "http://localhost:$port" -out "$out" -session servef-native-compare "$file"
+    "$bin/mygo-compare" web -base "http://localhost:$port" -out "$out" -session servef-native-compare "$file" || return 1
     if [ -d "$out/$name/web" ]; then
-      "$bin/mygo-compare" dir -diff "$out/$name"
+      "$bin/mygo-compare" dir -diff "$out/$name" || return 1
     else
       printf '%s: no web shots (the scenario has no web section)\n' "$name"
     fi
@@ -96,13 +98,19 @@ command=${1:-}
 case "$command" in
   build) build ;;
   serve)
-    build
+    build || exit 1
     socket="${MYGO_AGENT_SOCKET:-$dev/agent.sock}"
     printf 'drive it with: MYGO_AGENT_SOCKET=%s %s snapshot\n' "$socket" "$bin/mygo-agent"
     exec "$bin/native-agent" --socket "$socket" "$@"
     ;;
-  shots) build && shots "$@" ;;
-  compare) build && compare "$@" ;;
+  shots)
+    build || exit 1
+    shots "$@" || exit 1
+    ;;
+  compare)
+    build || exit 1
+    compare "$@" || exit 1
+    ;;
   *)
     printf 'usage: agent.sh build | serve [flags] | shots [scenario...] | compare [scenario...]\n' >&2
     exit 2

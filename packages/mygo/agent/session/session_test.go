@@ -88,30 +88,40 @@ func TestWindowsTreeAndSocketMode(t *testing.T) {
 	}
 }
 
-func TestActPressByIDLabelAndKey(t *testing.T) {
+func TestActPressByIDOnly(t *testing.T) {
 	counter, s, c, _ := start(t)
 	add := node(t, c, "Add")
 	if err := c.Act(protocol.ActParams{ID: add.ID, Action: "press"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Act(protocol.ActParams{Label: "Add", Action: "press"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Act(protocol.ActParams{Key: json.RawMessage(`"Add"`), Action: "press"}); err != nil {
+	if err := c.Act(protocol.ActParams{ID: add.ID, Action: "press"}); err != nil {
 		t.Fatal(err)
 	}
 	var n int
 	_ = s.Do(func(*ui.Tester) { n = counter.N })
-	if n != 3 {
+	if n != 2 {
 		t.Fatalf("count %d", n)
 	}
-	node(t, c, "Count: 3")
+	node(t, c, "Count: 2")
+	// As plugins/automation: unknown ids, unknown actions, and an id with a
+	// key fail; headless nodes have no keys, and the params take no label.
 	var e *protocol.Error
-	if err := c.Act(protocol.ActParams{Label: "Nope", Action: "press"}); !errors.As(err, &e) || e.Code != protocol.CodeNoElement {
-		t.Fatalf("missing label: %v", err)
+	for _, tc := range []struct {
+		params any
+		code   string
+	}{
+		{protocol.ActParams{ID: 12345, Action: "press"}, protocol.CodeNoElement},
+		{protocol.ActParams{ID: add.ID, Action: "fly"}, protocol.CodeInvalid},
+		{protocol.ActParams{ID: add.ID, Key: json.RawMessage(`"Add"`), Action: "press"}, protocol.CodeInvalid},
+		{protocol.ActParams{Key: json.RawMessage(`"Add"`), Action: "press"}, protocol.CodeUnsupported},
+		{map[string]string{"label": "Add", "action": "press"}, protocol.CodeInvalid},
+	} {
+		if err := c.Call(protocol.MethodAct, tc.params, nil); !errors.As(err, &e) || e.Code != tc.code {
+			t.Fatalf("%+v: %v, want %s", tc.params, err, tc.code)
+		}
 	}
-	if err := c.Act(protocol.ActParams{Label: "Add", Action: "fly"}); !errors.As(err, &e) || e.Code != protocol.CodeInvalid {
-		t.Fatalf("bad action: %v", err)
+	if tree, _ := c.Tree(0); len(tree.Nodes) > 0 && len(tree.Nodes[0].Key) > 0 {
+		t.Fatalf("headless node has a key: %s", tree.Nodes[0].Key)
 	}
 }
 
@@ -123,7 +133,7 @@ func TestInputClickTypeKeyAndSetValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	node(t, c, "Count: 1")
-	if err := c.Act(protocol.ActParams{Label: "Name", Action: "setValue", Text: "Ada"}); err != nil {
+	if err := c.Act(protocol.ActParams{ID: node(t, c, "Name").ID, Action: "setValue", Text: "Ada"}); err != nil {
 		t.Fatal(err)
 	}
 	node(t, c, "Hello, Ada")

@@ -25,16 +25,30 @@ web UI it mirrors, and later sessions need the queue and the method.
   requires it through `replace => ../../packages/mygo` and may import it.
 - `agent/session` hosts any `ui.View` in a `ui.Tester` (CPU rasterizer, no
   display) and speaks mygo's automation protocol (`plugins/automation`:
-  NDJSON over a 0600 Unix socket; `windows`, `tree`, `act`, `input`,
-  `menu`, `capture`, `idle`, same params, results, and error codes). Its
-  tree comes from `Tester.Texts` and `Tester.Find` (no public access tree):
-  role `text`, stable IDs per text and occurrence, repeated texts listed
-  but not pressable, open context-menu items as `menuItem`. It adds
-  `resize`, `setDark`, `advance`, and `shutdown`, which built apps answer
-  with `unknown_method`. It is the host's runner (`Go`, `Post`) and takes
-  pump hooks; `idle` waits for work in flight, posts, pumps, and frames.
+  NDJSON over a Unix socket made under umask 0177, then 0600; `windows`,
+  `tree`, `act`, `input`, `menu`, `capture`, `idle`, same params, results,
+  and error codes). Where a Tester cannot match a built app:
+  - Its tree comes from `Tester.Texts` and `Tester.Find` (no public access
+    tree): role `text`, stable IDs per text and occurrence, repeated texts
+    listed but not pressable, open context-menu items as `menuItem`. Nodes
+    carry no `key`; `act` by key answers `unsupported`, so clients act by
+    id.
+  - `menu` chooses from the open context menu (a Tester has no menu bar);
+    `eval` is `unsupported`.
+  - `idle` also waits for work in flight the host started with `Go`, its
+    posted applies, and pumps, not only for frames: the fetch a click
+    started has landed when it answers. A built app's `idle` waits for
+    frames only, so clients wait for a text there (`mygo-agent wait
+    --text`, scenario `wait:` steps).
+  - It adds `resize`, `setDark`, `advance`, and `shutdown`, which built
+    apps answer with `unknown_method`; scenarios skip those steps there and
+    log it.
+  It is the host's runner (`Go`, `Post`) and takes pump hooks.
 - `agent/client` (Go client), `cmd/mygo-agent` (agent-browser-like CLI;
-  refs from the last snapshot kept beside the socket), `agent/scenario`
+  refs from the last snapshot kept beside the socket; state in a 0700
+  directory the user owns, files written without following symlinks;
+  `open` refuses a socket that already answers unless `--replace`, and
+  records a host only while it runs and serves), `agent/scenario`
   (YAML steps and named shots, with an optional web side), `agent/webshot`
   (the web side through agent-browser), and `cmd/mygo-compare` (labeled
   web | native composites at one scale, optional heat map).

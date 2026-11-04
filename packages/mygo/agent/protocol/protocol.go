@@ -172,13 +172,12 @@ type TreeResult struct {
 	Announcements []string `json:"announcements,omitempty"`
 }
 
-// ActParams are act's. ID or Key names the element; the headless session
-// also takes Label, the element's text.
+// ActParams are act's. ID or Key names the element (headless sessions
+// have no keys).
 type ActParams struct {
 	Window int             `json:"window,omitempty"`
 	ID     NodeID          `json:"id,omitempty"`
 	Key    json.RawMessage `json:"key,omitempty"`
-	Label  string          `json:"label,omitempty"`
 	Action string          `json:"action"`
 	Text   string          `json:"text,omitempty"`
 	From   int             `json:"from,omitempty"`

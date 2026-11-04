@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +41,11 @@ const (
 	settleTimeout = 10 * time.Second
 )
 
-// Run drives c through sc and writes its shots to <Out>/<sc.Name>/:
+// Run drives c through sc and writes its shots to <Out>/<sc.Name>/. It
+// runs against built apps too: their idle waits for frames only, so steps
+// that follow fetches should wait for a text; size, dark, resize, and dark
+// steps are skipped where the app lacks them (logged).
+// Shots go to <Out>/<sc.Name>/:
 // <shot>.png per shot, tree.json (each shot's elements), and scenario.json
 // (sc, for the web capture).
 func Run(c *client.Client, sc Scenario, opts Options) (Result, error) {
@@ -59,12 +64,12 @@ func Run(c *client.Client, sc Scenario, opts Options) (Result, error) {
 		}
 	}
 	if sc.Size != nil {
-		if err := c.Resize(w, sc.Size.Width, sc.Size.Height); err != nil {
+		if err := headless(c.Resize(w, sc.Size.Width, sc.Size.Height), logf, sc.Name, "size"); err != nil {
 			return result, fmt.Errorf("scenario %s: size: %w", sc.Name, err)
 		}
 	}
 	if sc.Dark {
-		if err := c.SetDark(w, true); err != nil {
+		if err := headless(c.SetDark(w, true), logf, sc.Name, "dark"); err != nil {
 			return result, fmt.Errorf("scenario %s: dark: %w", sc.Name, err)
 		}
 	}
@@ -73,7 +78,7 @@ func Run(c *client.Client, sc Scenario, opts Options) (Result, error) {
 	}
 	for i, step := range sc.Steps {
 		logf("%s %d %s", sc.Name, i+1, step.Kind())
-		shot, err := do(c, w, step)
+		shot, err := do(c, w, step, logf)
 		if err != nil {
 			return result, fmt.Errorf("scenario %s: step %d (%s): %w", sc.Name, i+1, step.Kind(), err)
 		}
@@ -93,6 +98,18 @@ func Run(c *client.Client, sc Scenario, opts Options) (Result, error) {
 	return result, writeJSON(filepath.Join(dir, "scenario.json"), sc)
 }
 
+// headless passes err through, but skips a headless-only method a built
+// app answers with unknown_method (resize, setDark): such scenarios still
+// run there, at the window's own size and appearance, and say so.
+func headless(err error, logf func(string, ...any), scenario, what string) error {
+	var e *protocol.Error
+	if errors.As(err, &e) && e.Code == protocol.CodeUnknownMethod {
+		logf("%s %s skipped: the app has no %s (a built app; headless sessions do)", scenario, what, what)
+		return nil
+	}
+	return err
+}
+
 func writeJSON(path string, v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -107,7 +124,7 @@ type captured struct {
 }
 
 // do performs one step; a shot step returns its capture.
-func do(c *client.Client, w int, step Step) (*captured, error) {
+func do(c *client.Client, w int, step Step, logf func(string, ...any)) (*captured, error) {
 	settle := func() error { return c.Idle(w, settleTimeout) }
 	switch {
 	case step.Click != nil:
@@ -169,12 +186,12 @@ func do(c *client.Client, w int, step Step) (*captured, error) {
 		}
 		return nil, settle()
 	case step.Resize != nil:
-		if err := c.Resize(w, step.Resize.Width, step.Resize.Height); err != nil {
+		if err := headless(c.Resize(w, step.Resize.Width, step.Resize.Height), logf, "", "resize"); err != nil {
 			return nil, err
 		}
 		return nil, settle()
 	case step.Dark != nil:
-		if err := c.SetDark(w, *step.Dark); err != nil {
+		if err := headless(c.SetDark(w, *step.Dark), logf, "", "dark"); err != nil {
 			return nil, err
 		}
 		return nil, settle()

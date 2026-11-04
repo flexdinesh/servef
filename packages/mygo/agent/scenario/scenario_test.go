@@ -1,15 +1,20 @@
 package scenario_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"image/png"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/flexdinesh/servef/packages/mygo/agent/client"
 	"github.com/flexdinesh/servef/packages/mygo/agent/internal/agenttest"
+	"github.com/flexdinesh/servef/packages/mygo/agent/protocol"
 	"github.com/flexdinesh/servef/packages/mygo/agent/scenario"
 )
 
@@ -123,5 +128,102 @@ func TestLoadNamesFromFile(t *testing.T) {
 	sc, err := scenario.Load(path)
 	if err != nil || sc.Name != "my-flow" || strings.Join(sc.Shots(), ",") != "a,b" {
 		t.Fatalf("%+v %v", sc, err)
+	}
+}
+
+// builtApp serves the protocol as plugins/automation does in a built app:
+// it forwards every request to the session at socket but answers the
+// headless-only methods with unknown_method.
+func builtApp(t *testing.T, socket string) *client.Client {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "mygo-built")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	path := filepath.Join(dir, "app.sock")
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer conn.Close()
+				upstream, err := net.Dial("unix", socket)
+				if err != nil {
+					return
+				}
+				defer upstream.Close()
+				in, up := bufio.NewReader(conn), bufio.NewReader(upstream)
+				for {
+					line, err := in.ReadBytes('\n')
+					if err != nil {
+						return
+					}
+					var req protocol.Request
+					_ = json.Unmarshal(line, &req)
+					if req.Method == protocol.MethodResize || req.Method == protocol.MethodSetDark {
+						b, _ := json.Marshal(protocol.Response{ID: req.ID, Error: protocol.Errorf(protocol.CodeUnknownMethod, "no method %q", req.Method)})
+						_, _ = conn.Write(append(b, '\n'))
+						continue
+					}
+					if _, err := upstream.Write(line); err != nil {
+						return
+					}
+					answer, err := up.ReadBytes('\n')
+					if err != nil {
+						return
+					}
+					_, _ = conn.Write(answer)
+				}
+			}()
+		}
+	}()
+	c, err := client.DialWait(path, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	return c
+}
+
+func TestRunSkipsHeadlessOnlyMethodsOnBuiltApps(t *testing.T) {
+	sc, err := scenario.Parse([]byte(`
+size: {width: 640, height: 480}
+dark: true
+steps:
+  - click: Add
+  - resize: {width: 500, height: 400}
+  - dark: false
+  - expect: "Count: 1"
+  - shot: built
+`), "built")
+	if err != nil {
+		t.Fatal(err)
+	}
+	socket, _ := agenttest.Start(t, 300, 200)
+	app := builtApp(t, socket)
+	var log strings.Builder
+	result, err := scenario.Run(app, sc, scenario.Options{Out: t.TempDir(), Log: &log})
+	if err != nil {
+		t.Fatalf("%v\n%s", err, log.String())
+	}
+	if strings.Count(log.String(), "skipped") != 4 {
+		t.Fatalf("want 4 skips (size, dark, resize, dark):\n%s", log.String())
+	}
+	b, _ := os.ReadFile(result.Shots[0].Path)
+	if img, err := png.Decode(bytes.NewReader(b)); err != nil || img.Bounds().Dx() != 300 {
+		t.Fatalf("the built app keeps its own size: %v %v", img.Bounds(), err)
+	}
+	// Other failures still fail.
+	bad, _ := scenario.Parse([]byte("steps:\n  - resize: {width: 1, height: 1}\n  - click: Nope\n  - shot: x\n"), "bad")
+	if _, err := scenario.Run(app, bad, scenario.Options{Out: t.TempDir()}); err == nil {
+		t.Fatal("a missing element passed")
 	}
 }

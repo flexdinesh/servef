@@ -8,7 +8,13 @@
 // tree from Tester.Texts and Tester.Find: one node per text the frame shows,
 // role "text", with the box of the first element showing it. Texts that
 // repeat are listed, but only the first can be acted on by ID; the open
-// context menu's items follow as role "menuItem".
+// context menu's items follow as role "menuItem". Nodes carry no key (the
+// Tester exposes none), so act takes an id; a key answers "unsupported".
+//
+// Unlike plugins/automation's idle, which waits for frames only, the
+// session's idle also waits for work the host started with Go, applies it
+// posted, and its pumps: the fetch a click started has landed when idle
+// answers. Against a built app, wait for a text instead.
 //
 // Every Tester call runs on the session's own goroutine. Hosts hand work to
 // it with Go and Post (Session is a runner: Go runs work on a goroutine and
@@ -25,6 +31,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -64,6 +71,7 @@ type Session struct {
 
 	wall     time.Time
 	done     chan struct{}
+	exited   chan struct{}
 	stopOnce sync.Once
 }
 
@@ -78,7 +86,7 @@ func New(opts Options) *Session {
 	if opts.Height <= 0 {
 		opts.Height = 700
 	}
-	s := &Session{opts: opts, w: opts.Width, h: opts.Height, calls: make(chan func()), wake: make(chan struct{}, 1), done: make(chan struct{}), pumps: opts.Pumps}
+	s := &Session{opts: opts, w: opts.Width, h: opts.Height, calls: make(chan func()), wake: make(chan struct{}, 1), done: make(chan struct{}), exited: make(chan struct{}), pumps: opts.Pumps}
 	ready := make(chan struct{})
 	go s.loop(ready)
 	<-ready
@@ -86,6 +94,7 @@ func New(opts Options) *Session {
 }
 
 func (s *Session) loop(ready chan struct{}) {
+	defer close(s.exited)
 	view := s.opts.View(s)
 	s.tt = ui.NewTester(view, s.w, s.h)
 	if s.opts.Dark {
@@ -162,6 +171,10 @@ func (s *Session) Close() { s.stopOnce.Do(func() { close(s.done) }) }
 
 // Done is closed when the session stops.
 func (s *Session) Done() <-chan struct{} { return s.done }
+
+// Exited is closed once the session's goroutine returned: from then on,
+// what only it touched (the view's state) is the caller's.
+func (s *Session) Exited() <-chan struct{} { return s.exited }
 
 // pump runs posted applies and pumps until none does work; it reports
 // whether any did.
@@ -347,7 +360,12 @@ func Listen(path string) (net.Listener, error) {
 			return nil, err
 		}
 	}
+	// The user's alone from the start, as plugins/automation makes its
+	// socket: the umask is the process's, so this briefly narrows it for
+	// files other goroutines create.
+	old := syscall.Umask(0o177)
 	l, err := net.Listen("unix", path)
+	syscall.Umask(old)
 	if err != nil {
 		return nil, err
 	}
@@ -358,19 +376,19 @@ func Listen(path string) (net.Listener, error) {
 	return l, nil
 }
 
-// ListenAndServe listens at path and serves until the session closes, then
-// removes the socket.
+// ListenAndServe listens at path and serves until the session closes.
+// Closing the listener unlinks the socket it made, and only that one.
 func (s *Session) ListenAndServe(path string) error {
 	l, err := Listen(path)
 	if err != nil {
 		return err
 	}
+	defer l.Close()
 	go func() {
 		<-s.done
 		_ = l.Close()
 	}()
 	err = s.Serve(l)
-	_ = os.Remove(path)
 	select {
 	case <-s.done:
 		return nil

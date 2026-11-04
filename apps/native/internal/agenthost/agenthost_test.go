@@ -94,3 +94,21 @@ func TestLinkOpensDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Close stops the model's event stream even when the session already
+// stopped (as a shutdown request does).
+func TestCloseAfterSessionStopped(t *testing.T) {
+	host, err := agenthost.Start(agenthost.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	host.Session.Close()
+	<-host.Session.Done()
+	done := make(chan struct{})
+	go func() { host.Close(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close hung")
+	}
+}

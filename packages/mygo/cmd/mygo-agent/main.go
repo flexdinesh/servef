@@ -2,7 +2,7 @@
 // page: a headless session (agent/session) or a built app's
 // MYGO_AUTOMATION socket, over mygo's automation protocol.
 //
-//	mygo-agent open -- <host> [args]   start a host that serves a session at $MYGO_AGENT_SOCKET
+//	mygo-agent open [--replace] -- <host> [args]   start a host that serves a session at $MYGO_AGENT_SOCKET
 //	mygo-agent open --attach <socket>  use a running session or app socket
 //	mygo-agent snapshot [-i] [--json]  elements with @eN refs, role, label, bounds
 //	mygo-agent click @e3|"text"|x,y [--right] [--double]
@@ -14,6 +14,7 @@
 //	mygo-agent dark on|off
 //	mygo-agent screenshot <out.png>
 //	mygo-agent idle [--timeout ms]
+//	mygo-agent wait --text <text> [--timeout ms]
 //	mygo-agent windows | menu <item>... | run <scenario.yaml> [--out dir]
 //	mygo-agent close
 //
@@ -92,6 +93,9 @@ func (c *cli) run(args []string) error {
 			return fmt.Errorf("unknown flag %s\n%s", args[0], usage)
 		}
 		args = args[1:]
+	}
+	if !sessionName.MatchString(c.sessionName) || strings.Contains(c.sessionName, "..") {
+		return fmt.Errorf("--session %q: use letters, digits, '.', '_' and '-' (no path)", c.sessionName)
 	}
 	if len(args) == 0 {
 		return errors.New(usage)
@@ -187,6 +191,8 @@ func (c *cli) run(args []string) error {
 			return errors.New("usage: idle [--timeout ms]")
 		}
 		return conn.Idle(0, timeout)
+	case "wait":
+		return c.wait(conn, rest)
 	case "windows":
 		windows, err := conn.Windows()
 		if err != nil {
@@ -210,7 +216,7 @@ func (c *cli) run(args []string) error {
 }
 
 const usage = `usage: mygo-agent [--session name] [--socket path] <command>
-  open -- <host> [args] | open --attach <socket>
+  open [--replace] -- <host> [args] | open --attach <socket>
   snapshot [-i] [--json]
   click @e3|"text"|x,y [--right] [--double]
   fill @e3|"label" <value>
@@ -221,12 +227,14 @@ const usage = `usage: mygo-agent [--session name] [--socket path] <command>
   dark on|off
   screenshot <out.png>
   idle [--timeout ms]
+  wait --text <text> [--timeout ms]
   windows
   menu <item>...
   run <scenario.yaml> [--out dir]
   close`
 
-// stateDir is the private directory sessions are recorded in.
+// stateDir is the private directory sessions are recorded in: a real
+// directory owned by the user, mode 0700 (prepareDir).
 func (c *cli) stateDir() (string, error) {
 	dir := c.getenv("MYGO_AGENT_DIR")
 	if dir == "" {
@@ -236,7 +244,7 @@ func (c *cli) stateDir() (string, error) {
 			dir = filepath.Join(os.TempDir(), "mygo-agent-"+strconv.Itoa(os.Getuid()))
 		}
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := prepareDir(dir, os.Getuid()); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -255,7 +263,7 @@ func (c *cli) readState() (state, bool) {
 	if err != nil {
 		return state{}, false
 	}
-	b, err := os.ReadFile(path)
+	b, err := readPrivate(path)
 	if err != nil {
 		return state{}, false
 	}
@@ -275,7 +283,7 @@ func (c *cli) writeState(s state) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o600)
+	return writePrivate(path, b)
 }
 
 // socketPath is --socket, $MYGO_AGENT_SOCKET, the session's record, or
@@ -301,6 +309,17 @@ func (c *cli) defaultSocket() (string, error) {
 	return filepath.Join(dir, c.sessionName+".sock"), nil
 }
 
+// serving reports whether something answers the protocol at socket.
+func serving(socket string) bool {
+	conn, err := client.Dial(socket)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+	_, err = conn.Windows()
+	return err == nil
+}
+
 func (c *cli) open(args []string) error {
 	timeout := 30 * time.Second
 	if len(args) == 2 && args[0] == "--attach" {
@@ -316,8 +335,12 @@ func (c *cli) open(args []string) error {
 		_, _ = fmt.Fprintf(c.stdout, "attached %s (%d windows)\n", args[1], len(windows))
 		return c.writeState(state{Socket: args[1]})
 	}
+	replace := len(args) > 0 && args[0] == "--replace"
+	if replace {
+		args = args[1:]
+	}
 	if len(args) < 2 || args[0] != "--" {
-		return errors.New("usage: open -- <host> [args] | open --attach <socket>")
+		return errors.New("usage: open [--replace] -- <host> [args] | open --attach <socket>")
 	}
 	// --socket, then $MYGO_AGENT_SOCKET, then the session's default: a
 	// record of an earlier session is not reused.
@@ -331,8 +354,30 @@ func (c *cli) open(args []string) error {
 			return err
 		}
 	}
+	// A live session at the socket would answer for the new host.
+	if serving(socket) {
+		if !replace {
+			return fmt.Errorf("a session already serves %s: close it (mygo-agent --session %s close) or pass open --replace", socket, c.sessionName)
+		}
+		conn, err := client.Dial(socket)
+		if err != nil {
+			return err
+		}
+		err = c.close(conn, socket)
+		_ = conn.Close()
+		if err != nil {
+			return fmt.Errorf("replace %s: %w", socket, err)
+		}
+		deadline := time.Now().Add(5 * time.Second)
+		for serving(socket) {
+			if time.Now().After(deadline) {
+				return fmt.Errorf("the session at %s did not stop", socket)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
 	logPath := socket + ".log"
-	log, err := os.Create(logPath)
+	log, err := createPrivate(logPath)
 	if err != nil {
 		return err
 	}
@@ -348,21 +393,29 @@ func (c *cli) open(args []string) error {
 	go func() { exited <- cmd.Wait() }()
 	deadline := time.Now().Add(timeout)
 	for {
-		if conn, err := client.Dial(socket); err == nil {
-			_, werr := conn.Windows()
-			_ = conn.Close()
-			if werr == nil {
-				break
+		// The child must be alive when the socket answers: an answer after
+		// it exited came from someone else.
+		select {
+		case err := <-exited:
+			return fmt.Errorf("%s exited (%v) before serving %s; see %s", args[1], err, socket, logPath)
+		default:
+		}
+		if serving(socket) {
+			select {
+			case err := <-exited:
+				return fmt.Errorf("%s exited (%v) before serving %s; see %s", args[1], err, socket, logPath)
+			default:
 			}
+			break
+		}
+		if time.Now().After(deadline) {
+			_ = cmd.Process.Kill()
+			return fmt.Errorf("%s did not serve %s in %v; see %s", args[1], socket, timeout, logPath)
 		}
 		select {
 		case err := <-exited:
 			return fmt.Errorf("%s exited (%v) before serving %s; see %s", args[1], err, socket, logPath)
 		case <-time.After(50 * time.Millisecond):
-		}
-		if time.Now().After(deadline) {
-			_ = cmd.Process.Kill()
-			return fmt.Errorf("%s did not serve %s in %v; see %s", args[1], socket, timeout, logPath)
 		}
 	}
 	_ = os.Remove(socket + ".refs.json")
@@ -400,6 +453,33 @@ func (c *cli) close(conn *client.Client, socket string) error {
 		}
 	}
 	return err
+}
+
+var sessionName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// wait waits until an element shows a text, as fetches finish.
+func (c *cli) wait(conn *client.Client, args []string) error {
+	text, timeout := "", 10*time.Second
+	for i := 0; i < len(args); i++ {
+		switch {
+		case args[i] == "--text" && i+1 < len(args):
+			text = args[i+1]
+			i++
+		case args[i] == "--timeout" && i+1 < len(args):
+			ms, err := strconv.Atoi(args[i+1])
+			if err != nil || ms <= 0 {
+				return errors.New("usage: wait --text <text> [--timeout ms]")
+			}
+			timeout = time.Duration(ms) * time.Millisecond
+			i++
+		default:
+			return errors.New("usage: wait --text <text> [--timeout ms]")
+		}
+	}
+	if text == "" {
+		return errors.New("usage: wait --text <text> [--timeout ms]")
+	}
+	return conn.WaitText(0, text, timeout)
 }
 
 var interactiveRoles = map[string]bool{
@@ -449,7 +529,7 @@ func (c *cli) snapshot(conn *client.Client, socket string, args []string) error 
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(socket+".refs.json", b, 0o600); err != nil {
+	if err := writePrivate(socket+".refs.json", b); err != nil {
 		return err
 	}
 	if asJSON {
@@ -496,7 +576,7 @@ func (c *cli) resolve(conn *client.Client, socket, s string) (target, error) {
 
 func (c *cli) resolveNode(conn *client.Client, socket, s string) (protocol.Node, error) {
 	if name, ok := strings.CutPrefix(s, "@"); ok {
-		b, err := os.ReadFile(socket + ".refs.json")
+		b, err := readPrivate(socket + ".refs.json")
 		if err != nil {
 			return protocol.Node{}, fmt.Errorf("no snapshot refs for %s: run snapshot first", socket)
 		}

@@ -241,34 +241,27 @@ func params(req protocol.Request, p any) error {
 	return nil
 }
 
-// act performs an action on the element of the ID, the key, or the label.
-// Keys of the headless tree are its labels.
+// act performs an action on the element of the ID. Headless nodes have no
+// keys (the Tester exposes none), so a key is unsupported.
 func (s *Session) act(p protocol.ActParams) error {
-	key := ""
-	if len(bytes.TrimSpace(p.Key)) > 0 {
-		if err := json.Unmarshal(p.Key, &key); err != nil {
-			return protocol.Errorf(protocol.CodeInvalid, "key: a headless key is a string, the element's text")
-		}
+	hasKey := len(bytes.TrimSpace(p.Key)) > 0
+	switch {
+	case hasKey && p.ID != 0:
+		return protocol.Errorf(protocol.CodeInvalid, "act takes an id or a key, not both")
+	case hasKey:
+		return protocol.Errorf(protocol.CodeUnsupported, "headless elements have no keys; act on an id from tree")
+	case p.ID == 0:
+		return protocol.Errorf(protocol.CodeInvalid, "act needs the id or the key of an element")
 	}
-	named := 0
-	for _, set := range []bool{p.ID != 0, key != "", p.Label != ""} {
-		if set {
-			named++
-		}
-	}
-	if named != 1 {
-		return protocol.Errorf(protocol.CodeInvalid, "act takes one of id, key or label")
-	}
-	label := p.Label + key
 	var target *element
 	for _, e := range s.elements() {
-		if (p.ID != 0 && e.node.ID == p.ID) || (label != "" && e.node.Label == label && e.occurrence == 0) {
+		if e.node.ID == p.ID {
 			target = &e
 			break
 		}
 	}
 	if target == nil {
-		return protocol.Errorf(protocol.CodeNoElement, "no element of the last frame has that id or label")
+		return protocol.Errorf(protocol.CodeNoElement, "no element of the last frame has the id %s", p.ID)
 	}
 	if target.menu {
 		if p.Action != "press" {

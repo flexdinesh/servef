@@ -19,18 +19,22 @@ NDJSON over a Unix socket; `windows`, `tree`, `act`, `input`, `menu`,
   `ui.Tester` (CPU rasterizer, no display). Its tree is built from
   `Tester.Texts` and `Tester.Find`: one `text` node per text, the box of the
   first element showing it; repeated texts are listed but only the first is
-  pressable; open context-menu items show as `menuItem`. Extra methods:
-  `resize`, `setDark`, `advance`, `shutdown`. Hosts give it a view factory
-  and use the session as their runner (`Go`, `Post`) or add pumps; `idle`
-  waits for both and for pending frames.
+  pressable; open context-menu items show as `menuItem`. Nodes have no
+  `key` (act by id). Extra methods: `resize`, `setDark`, `advance`,
+  `shutdown` (built apps answer `unknown_method`; scenarios skip them
+  there). Hosts give it a view factory and use the session as their
+  runner (`Go`, `Post`) or add pumps; its `idle` waits for that work and
+  for pending frames. A built app's `idle` waits for frames only: wait for
+  a text after anything that fetches.
 - **mygo-agent** (agent-browser for mygo):
 
   ```sh
-  mygo-agent open -- <host binary> [args]   # host serves at $MYGO_AGENT_SOCKET (also sets MYGO_AUTOMATION)
+  mygo-agent open [--replace] -- <host binary> [args]   # host serves at $MYGO_AGENT_SOCKET (also sets MYGO_AUTOMATION)
   mygo-agent open --attach <socket>         # a running session or built app
   mygo-agent snapshot -i                    # @eN refs, role, label, bounds
   mygo-agent click @e3 | click "README.md" | click 120,48 [--right|--double]
   mygo-agent fill @e5 "text"; type "abc"; key CmdOrCtrl+F; scroll 300 --at @e7
+  mygo-agent wait --text "Loaded" --timeout 5000
   mygo-agent resize 1280 800; dark on; idle; screenshot out.png; close
   mygo-agent run scenario.yaml --out <dir>
   ```

@@ -38,17 +38,19 @@ done
 # open sets MYGO_AUTOMATION to the session's socket for the app.
 agent open -- "$bin/servef-native-e2e" "$link"
 status=0
+# A built app's idle waits for frames only, not for its fetches: wait for
+# the texts they bring before reading the tree or capturing.
 {
   agent windows >"$out/windows.json" &&
-    agent idle --timeout 20000 &&
+    agent wait --text 'guides/getting-started.md' --timeout 20000 &&
+    agent wait --text 'Preview' --timeout 20000 &&
     agent snapshot >"$out/tree.txt" &&
     agent screenshot "$out/document.png" &&
-    grep -q 'guides/getting-started.md' "$out/tree.txt" &&
     agent click Preview &&
+    agent wait --text 'frontend-only fixture API' --timeout 20000 &&
     agent idle --timeout 20000 &&
     agent snapshot >"$out/tree-preview.txt" &&
-    agent screenshot "$out/preview.png" &&
-    grep -q 'frontend-only fixture API' "$out/tree-preview.txt"
+    agent screenshot "$out/preview.png"
 } || status=1
 cp "$MYGO_AGENT_DIR"/e2e.sock.log "$out/app.log" 2>/dev/null || true
 agent close || true
