@@ -73,6 +73,18 @@ GOWORK=off SERVEF_NATIVE_BINARY=$PWD/.dev/native/servef SERVEF_NATIVE_SOCKET=$PW
 mise run test:native          # opt-in tests (not in check:pr)
 ```
 
+Headless agent tooling (decision 0086; `packages/mygo`, loop in `skills/mygo-parity/SKILL.md`, queue in [native-parity.md](native-parity.md)). Outputs go to `.dev/native-shots/<scenario>/`.
+
+```sh
+mise run native:shots -- document-preview     # scenario shots (apps/native/scenarios), no display
+mise run native:compare -- document-preview   # plus web shots from pnpm dev:mock and web|native composites
+mise run native:agent                         # serve the app headless on the API fixtures, then:
+.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock snapshot -i
+.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock click "markdown"
+.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock screenshot .dev/native-shots/now.png
+mise run test:native:e2e                      # built app (-tags e2e) under Xvfb in Dagger
+```
+
 Needs Go 1.27 (`GOTOOLCHAIN=auto` downloads it). Omit the `SERVEF_NATIVE_*` socket and roots vars to use your real daemon.
 
 ## Remote and ssh

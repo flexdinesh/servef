@@ -241,10 +241,12 @@ func TestNativeGroupIsOptIn(t *testing.T) {
 	if len(groups) != 11 {
 		t.Fatalf("check:pr covers %d groups, want 11", len(groups))
 	}
-	if !taskBelongsToGroup("_container:test:native", "native") || taskBelongsToGroup("_container:test:native", "go") {
-		t.Fatal("test:native belongs to the native group alone")
+	for _, task := range []string{"_container:test:native", "_container:test:native:e2e"} {
+		if !taskBelongsToGroup(task, "native") || taskBelongsToGroup(task, "go") {
+			t.Fatalf("%s belongs to the native group alone", task)
+		}
 	}
-	for _, name := range []string{"apps/native/main.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css"} {
+	for _, name := range []string{"apps/native/main.go", "packages/mygo/agent/session/session.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css"} {
 		if !selected("native", name) {
 			t.Fatalf("native does not select %s", name)
 		}
@@ -254,12 +256,19 @@ func TestNativeGroupIsOptIn(t *testing.T) {
 			t.Fatalf("native selects %s", name)
 		}
 	}
-	if !selected("repo", "apps/native/main.go") {
-		t.Fatal("fmt:check must see native Go files")
+	for _, name := range []string{"apps/native/main.go", "packages/mygo/go.mod"} {
+		if !selected("repo", name) {
+			t.Fatalf("fmt:check must see %s", name)
+		}
+		for _, group := range []string{"go", "frontend", "browser", "desktop", "web-static"} {
+			if selected(group, name) {
+				t.Fatalf("native sources (%s) invalidate %s", name, group)
+			}
+		}
 	}
-	for _, group := range []string{"go", "frontend", "browser", "desktop"} {
-		if selected(group, "apps/native/main.go") {
-			t.Fatalf("native sources invalidate %s", group)
+	for _, group := range []string{"go", "frontend", "browser", "desktop", "web-static"} {
+		if !selected(group, "packages/contracts/src/index.ts") {
+			t.Fatalf("%s must select the generated contracts", group)
 		}
 	}
 }

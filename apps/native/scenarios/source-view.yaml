@@ -1,0 +1,16 @@
+# Highlighted read-only source of a JSON file (page-json.json).
+description: Source view of config/settings.json
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - click: config
+  - click: settings.json
+  - wait: config/settings.json
+  - shot: source
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    source:
+      path: /view?project=/home/user/markdown&path=config/settings.json
+      steps:
+        - wait: settings.json

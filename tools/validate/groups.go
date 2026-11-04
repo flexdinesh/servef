@@ -27,7 +27,7 @@ func taskBelongsToGroup(task, group string) bool {
 		"typecheck:web": "web-static", "lint": "web-static", "typecheck:root": "tooling-static", "typecheck:site": "site-static",
 		"typecheck:desktop": "desktop-static", "lint:desktop": "desktop-static",
 		"vet": "go", "test:go": "go", "test:race": "go", "test:web": "frontend", "test:release": "tooling", "build:site": "docs", "test:browser": "browser",
-		"test:browser:webkit": "browser", "test:desktop": "desktop", "test:native": "native",
+		"test:browser:webkit": "browser", "test:desktop": "desktop", "test:native": "native", "test:native:e2e": "native",
 	}
 	prefix := "_container:"
 	if isHostGroup(group) {

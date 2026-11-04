@@ -1,6 +1,6 @@
 # 0082: Experimental native app on mygo
 
-- Status: Accepted (experimental); revised by [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (image reads through `pkg/client`)
+- Status: Accepted (experimental); revised by [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (image reads through `pkg/client`); known gaps scheduled by [0086](0086-native-agent-tooling-and-ports.md)
 - Date: 2026-11-03
 - Relates to: [0077](0077-desktop-shell-stays-on-electron.md) (Electron stays
   the desktop shell), [0078](0078-apps-and-packages-layout.md) (outside
