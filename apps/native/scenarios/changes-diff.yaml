@@ -1,7 +1,7 @@
 # Uncommitted changes (changes.json) and a modified file's diff
 # (diff-modified.json), split then unified.
 description: Changes list and code/main.go diff, split and unified
-size: {width: 1100, height: 700}
+size: {width: 1400, height: 800}
 steps:
   - click: markdown
   - click: Changes

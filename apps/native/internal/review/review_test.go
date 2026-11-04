@@ -1,19 +1,34 @@
 package review
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/packages/mygo/diffs"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
-// rows renders a layout's rows as "-old +new kind text" for comparison.
-func rows(hunk Hunk) []string {
-	out := make([]string, len(hunk.Lines))
-	for i, line := range hunk.Lines {
-		prefix := map[LineKind]string{Context: " ", Deleted: "-", Added: "+"}[line.Kind]
-		out[i] = prefix + line.Text
+// rows renders a layout's unified rows as "-old", "+new", " both", "~n"
+// collapsed lines, or a backslash for no newline, from its sides' text.
+func rows(layout Layout, full bool) []string {
+	var out []string
+	d := layout.Diff
+	for _, row := range d.Layout(diffs.Unified, nil, full) {
+		switch {
+		case row.Kind == diffs.SeparatorRow:
+			out = append(out, fmt.Sprintf("~%d", row.Hidden))
+		case row.Kind == diffs.NoNewlineRow:
+			out = append(out, `\`)
+		case row.Old.Kind == diffs.Unchanged:
+			out = append(out, " "+d.Text(diffs.New, row.New.Line))
+		case row.Old.Kind == diffs.Deleted:
+			out = append(out, "-"+d.Text(diffs.Old, row.Old.Line))
+		default:
+			out = append(out, "+"+d.Text(diffs.New, row.New.Line))
+		}
 	}
 	return out
 }
@@ -21,83 +36,44 @@ func rows(hunk Hunk) []string {
 // The hunks, rows, and gaps are the server's line diff for the fixture's
 // sides (testdata/api/default/diff-hunks.json, checked against the server).
 func TestLayHunksFromTheServerLineDiff(t *testing.T) {
-	layout := Lay(fakeservef.Diff(t, "diff-hunks.json"), false)
+	layout := Lay(fakeservef.Diff(t, "diff-hunks.json"))
 	if layout.Kind != Text || layout.Additions != 4 || layout.Deletions != 4 || layout.Language != "text" {
 		t.Fatalf("layout: %+v", layout)
 	}
-	if len(layout.Hunks) != 3 || layout.Hidden != 10 {
-		t.Fatalf("hunks %d, hidden %d", len(layout.Hunks), layout.Hidden)
+	d := layout.Diff
+	if len(d.Hunks) != 3 || len(d.Gaps) != 2 || len(d.Old) != 40 || len(d.New) != 40 {
+		t.Fatalf("hunks %d, gaps %d, sides %d %d", len(d.Hunks), len(d.Gaps), len(d.Old), len(d.New))
 	}
-	first := layout.Hunks[0]
-	if want := []string{" line 1", "-line 2", "+line 2 changed", " line 3", " line 4", " line 5", " line 6"}; !slices.Equal(rows(first), want) {
-		t.Fatalf("first hunk %q, want %q", rows(first), want)
+	got := rows(layout, false)
+	if want := []string{" line 1", "-line 2", "+line 2 changed", " line 3", " line 4", " line 5", " line 6", "~9"}; !slices.Equal(got[:8], want) {
+		t.Fatalf("first hunk %q, want %q", got[:8], want)
 	}
-	if first.Section() != "" || layout.Hunks[1].Section() != "9 unmodified lines" || layout.Hunks[2].Section() != "1 unmodified line" {
-		t.Fatalf("sections %q %q %q", first.Section(), layout.Hunks[1].Section(), layout.Hunks[2].Section())
+	// The second hunk's deletion, then lines numbered one less on the new
+	// side; the one-line gap before the last hunk always shows.
+	second := d.Hunks[1]
+	if second.Blocks[1] != (diffs.Block{Kind: diffs.Change, OldStart: 20, OldCount: 1, NewStart: 20, NewCount: 0}) {
+		t.Fatalf("second hunk blocks %+v", second.Blocks)
 	}
-	second := layout.Hunks[1]
-	if second.Lines[4] != (Line{Kind: Deleted, Old: 20, Text: "line 20"}) || second.Lines[5] != (Line{Kind: Context, Old: 21, New: 20, Text: "line 21"}) {
-		t.Fatalf("second hunk rows %+v", second.Lines[3:6])
+	if slices.Contains(got, "~1") || !slices.Contains(got, " line 25") {
+		t.Fatalf("one-line gap %q", got)
 	}
 	// The last line lost its final newline; whitespace-only changes show.
-	last := rows(layout.Hunks[2])
-	if want := []string{"-line 30", "+  line 30"}; !slices.Equal(last[4:6], want) {
-		t.Fatalf("last hunk %q", last)
+	if want := []string{"-line 30", "+  line 30"}; !slices.Contains(got, want[0]) || !slices.Contains(got, want[1]) {
+		t.Fatalf("rows %q", got)
 	}
-	if want := []string{"+inserted", " line 39", "-line 40", "+line 40"}; !slices.Equal(last[len(last)-4:], want) {
-		t.Fatalf("last hunk end %q", last)
+	if want := []string{"+inserted", " line 39", "-line 40", "+line 40", `\`}; !slices.Equal(got[len(got)-5:], want) {
+		t.Fatalf("last hunk end %q", got[len(got)-5:])
 	}
-	for _, hunk := range layout.Hunks {
-		old, new := 0, 0
-		for _, line := range hunk.Lines {
-			if line.Kind != Added {
-				old++
-			}
-			if line.Kind != Deleted {
-				new++
-			}
-		}
-		if old != hunk.OldCount || new != hunk.NewCount {
-			t.Fatalf("hunk %+v has %d old and %d new rows", hunk, old, new)
-		}
+	// Full file: every line, no separator.
+	full := rows(layout, true)
+	if slices.ContainsFunc(full, func(r string) bool { return strings.HasPrefix(r, "~") }) || !slices.Contains(full, " line 12") {
+		t.Fatalf("full %q", full)
 	}
 }
 
-// A full file joins the gaps into one hunk covering both sides.
-func TestLayFullFile(t *testing.T) {
-	diff := fakeservef.Diff(t, "diff-hunks.json")
-	layout := Lay(diff, true)
-	if len(layout.Hunks) != 1 || layout.Hidden != 0 {
-		t.Fatalf("full: %d hunks, %d hidden", len(layout.Hunks), layout.Hidden)
-	}
-	hunk := layout.Hunks[0]
-	if hunk.OldStart != 1 || hunk.NewStart != 1 || hunk.OldCount != 40 || hunk.NewCount != 40 {
-		t.Fatalf("full hunk %+v", hunk)
-	}
-	old, new := layout.Sides()
-	for i := range old {
-		if old[i] != i+1 {
-			t.Fatalf("old side line %d is file line %d", i, old[i])
-		}
-	}
-	for i := range new {
-		if new[i] != i+1 {
-			t.Fatalf("new side line %d is file line %d", i, new[i])
-		}
-	}
-	if hunk.Lines[7] != (Line{Kind: Context, Old: 7, New: 7, Text: "line 7"}) {
-		t.Fatalf("gap row %+v", hunk.Lines[7])
-	}
-}
-
-func TestSidesFollowRows(t *testing.T) {
-	layout := Lay(fakeservef.Diff(t, "diff-modified.json"), false)
-	old, new := layout.Sides()
-	if want := []int{3, 4, 5, 6, 7, 8}; !slices.Equal(old, want) || !slices.Equal(new, want) {
-		t.Fatalf("sides %v %v", old, new)
-	}
-	if layout.Language != "go" {
-		t.Fatalf("language %q", layout.Language)
+func TestLayKeepsTheLanguage(t *testing.T) {
+	if layout := Lay(fakeservef.Diff(t, "diff-modified.json")); layout.Language != "go" || layout.Diff.Hunks[0].OldStart != 3 {
+		t.Fatalf("layout %+v", layout)
 	}
 }
 
@@ -114,29 +90,29 @@ func TestLayKinds(t *testing.T) {
 		{"diff-deleted.json", Text, ""},
 		{"diff-untracked.json", Text, ""},
 	} {
-		layout := Lay(fakeservef.Diff(t, tc.fixture), false)
+		layout := Lay(fakeservef.Diff(t, tc.fixture))
 		if layout.Kind != tc.kind || layout.Message != tc.message {
 			t.Errorf("%s: kind %d %q, want %d %q", tc.fixture, layout.Kind, layout.Message, tc.kind, tc.message)
 		}
 	}
-	added := Lay(fakeservef.Diff(t, "diff-added.json"), false)
-	if old, new := added.Sides(); len(old) != 0 || len(new) != 2 || added.Hunks[0].Lines[0].Kind != Added {
-		t.Fatalf("added: %v %v %+v", old, new, added.Hunks)
+	added := Lay(fakeservef.Diff(t, "diff-added.json")).Diff
+	if len(added.Old) != 0 || len(added.New) != 2 || added.Hunks[0].Blocks[0].Kind != diffs.Change {
+		t.Fatalf("added: %+v", added)
 	}
-	deleted := Lay(fakeservef.Diff(t, "diff-deleted.json"), false)
-	if old, new := deleted.Sides(); len(old) != 8 || len(new) != 0 {
-		t.Fatalf("deleted: %v %v", old, new)
+	deleted := Lay(fakeservef.Diff(t, "diff-deleted.json")).Diff
+	if len(deleted.Old) != 8 || len(deleted.New) != 0 {
+		t.Fatalf("deleted: %+v", deleted)
 	}
 }
 
 func TestLayWithoutLineDiffOrHunks(t *testing.T) {
 	diff := fakeservef.Diff(t, "diff-modified.json")
 	diff.LineDiff = nil
-	if layout := Lay(diff, false); layout.Kind != Unavailable || layout.Message != "Couldn't compute this diff." {
+	if layout := Lay(diff); layout.Kind != Unavailable || layout.Message != "Couldn't compute this diff." {
 		t.Fatalf("no line diff: %+v", layout)
 	}
 	diff.LineDiff = &contract.LineDiff{IgnoreWhitespace: true}
-	if layout := Lay(diff, false); layout.Kind != Unchanged || layout.Message != "No changes apart from whitespace." {
+	if layout := Lay(diff); layout.Kind != Unchanged || layout.Message != "No changes apart from whitespace." {
 		t.Fatalf("whitespace only: %+v", layout)
 	}
 	added := contract.DiffSide{Size: 4, Binary: true}
@@ -156,13 +132,7 @@ func TestLayToleratesShortSides(t *testing.T) {
 		Original: &contract.DiffSide{Content: &text}, Modified: &contract.DiffSide{Content: &text},
 		LineDiff: &contract.LineDiff{Hunks: []contract.DiffHunk{{OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 3, Blocks: []contract.DiffBlock{{Kind: contract.DiffBlockContext, OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 3}}}}},
 	}
-	if got := rows(Lay(diff, false).Hunks[0]); !slices.Equal(got, []string{" a", " b", " "}) {
-		t.Fatalf("rows %q", got)
-	}
-}
-
-func TestRows(t *testing.T) {
-	if got := Rows([]string{"a", "b", "c"}, []int{2, 3, 4, 0}); !slices.Equal(got, []string{"b", "c", "", ""}) {
+	if got := rows(Lay(diff), false); !slices.Equal(got, []string{" a", " b", " "}) {
 		t.Fatalf("rows %q", got)
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/flexdinesh/servef/apps/native/internal/docview"
 	"github.com/flexdinesh/servef/apps/native/internal/mdlink"
+	"github.com/flexdinesh/servef/apps/native/internal/theme"
 	"github.com/flexdinesh/servef/apps/native/internal/workspace"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
@@ -83,7 +84,7 @@ func (a *App) View(c *ui.Context) {
 		case m.Project == "":
 			a.projectsPage(c)
 		default:
-			a.workspace(c, code, palette.Surface)
+			a.workspace(c, code, palette)
 		}
 	})
 }
@@ -198,7 +199,7 @@ func (a *App) projectsPage(c *ui.Context) {
 }
 
 // workspace is the tree beside the document, over a status bar.
-func (a *App) workspace(c *ui.Context, code *editor.Theme, surface string) {
+func (a *App) workspace(c *ui.Context, code *editor.Theme, palette theme.Palette) {
 	m := a.Model
 	a.syncTree()
 	ui.Split(c, &a.sidebar, func() {
@@ -227,9 +228,9 @@ func (a *App) workspace(c *ui.Context, code *editor.Theme, surface string) {
 			a.files(c)
 		})
 	}, func() {
-		ui.Column(c).Fill().Background(ui.Hex(surface)).Children(func() {
+		ui.Column(c).Fill().Background(ui.Hex(palette.Surface)).Children(func() {
 			if m.Review != nil {
-				a.diff(c, code)
+				a.diff(c, palette)
 				return
 			}
 			a.document(c, code)

@@ -47,6 +47,8 @@ NDJSON over a Unix socket; `windows`, `tree`, `act`, `input`, `menu`,
   `key`, `scroll`, `resize`, `dark`, `wait`, `settle`, `expect`, `shot`)
   plus an optional `web:` section (localStorage with `${theme}`, and a path
   and steps per shot; web clicks may find `by: label|role|testid|css`).
+  Selectors and text waits do not reach into shadow DOM (Pierre's diffs):
+  click those by position (`click: {x, y}`).
   Runs write `<out>/<scenario>/<shot>.png`, `tree.json`, `scenario.json`.
   Run them from `go test` (`scenario.Run` with a `client.Client`) or the CLI.
 - **mygo-compare**: `web` captures the web shots with agent-browser at the

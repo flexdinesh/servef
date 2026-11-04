@@ -10,14 +10,14 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Milestone | Scope | Rows | Done / partial / missing |
 | --- | --- | --- | --- |
 | M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 24 / 0 / 0 |
-| M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 2 / 2 / 2 |
+| M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 5 / 1 / 0 |
 | M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker | 13 | 0 / 4 / 9 |
 | M3 | Settings dialog, font size, themes (Omarchy), color theme picker, command palette, quick pick, commands | 8 | 0 / 1 / 7 |
 | M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 2 / 1 / 5 |
 | M5 | Explorer: filename filter, gitignore marks, icons, context menus | 5 | 1 / 1 / 3 |
 | M6 | Search: filename and content, include/exclude globs | 7 | 0 / 0 / 7 |
 | M7 | Code navigation and language-server status | 4 | 0 / 0 / 4 |
-| M8 | Source Control: panes, commits, branches, compares, review tab, files rail, viewed, hunks, line links, stacks, stats | 20 | 0 / 2 / 18 |
+| M8 | Source Control: panes, commits, branches, compares, review tab, files rail, viewed, hunks, line links, stacks, stats | 20 | 0 / 4 / 16 |
 | M9 | Walkthroughs: list, tab, narration, step bar, announcements | 8 | 0 / 0 / 8 |
 | M10 | Bridge v2: reveal, context menus, recent folders, folder drop, notifications | 6 | 0 / 0 / 6 |
 | M11 | ssh: Connect page hosts, ControlMaster, socket forwards, remote folder picker | 6 | 0 / 0 / 6 |
@@ -129,9 +129,9 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Line counts; binary and too-large diff notes | `features/source-control/diff-stats.ts`, `features/source-control/DiffStatsText.tsx` | 0004, 0024 | done | M0/0082 | changes-diff | #145 |
 | Wrap lines | `features/source-control/DiffToolbar.tsx`, `features/source-control/use-diff-options.ts` | 0024 | missing | M8 | _diff-options_ | |
 | Inline changes menu (word, character, none) | `features/source-control/DiffToolbar.tsx` | 0083 | missing | M8 | _diff-options_ | |
-| Word emphasis in changed lines (diffs viewer) | `features/source-control/diff-metadata.ts` | 0082, 0083 | partial (mygo word-alt) | M1 | changes-diff | |
-| In-place gap expansion | `features/source-control/diff-hunks.ts`, `features/source-control/diff-metadata.ts` | 0034, 0083 | missing | M1 | _diff-gaps_ | |
-| No newline at end of file marker | `features/source-control/diff-metadata.ts` | 0083 | missing | M1 | _diff-gaps_ | |
+| Word emphasis in changed lines (diffs viewer) | `features/source-control/diff-metadata.ts` | 0082, 0083, 0089 | done | M1 | changes-diff | |
+| In-place gap expansion | `features/source-control/diff-hunks.ts`, `features/source-control/diff-metadata.ts` | 0034, 0083, 0089 | done | M1 | diff-gaps | |
+| No newline at end of file marker | `features/source-control/diff-metadata.ts` | 0083, 0089 | done | M1 | diff-gaps | |
 | Panes in fixed order, collapsible, sash | `features/source-control/SourceControlView.tsx`, `features/source-control/Pane.tsx`, `features/source-control/source-control-layout.ts` | 0040 | missing | M8 | _source-control-panes_ | |
 | Commit history with paging | `features/source-control/CommitsPane.tsx`, `features/source-control/commit-pages.ts`, `features/source-control/use-commits.ts` | 0027 | missing | M8 | _commits_ | |
 | Expandable commit rows, copy hash | `features/source-control/CommitsPane.tsx` | 0042 | missing | M8 | _commits_ | |
@@ -146,8 +146,8 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Kept review tab | `features/source-control/ReviewDocument.tsx` | 0048 | missing | M8 | _review-tab_ | |
 | Files rail (tree, line stats, uncommitted dot) | `features/source-control/ReviewFilesRail.tsx`, `features/source-control/FilesTree.tsx`, `features/source-control/files-tree-decoration.ts` | 0040, 0051 | missing | M8 | _files-rail_ | |
 | Viewed marks | `features/source-control/review-viewed.ts`, `features/source-control/use-review-viewed.ts` | 0053 | missing | M8 | _files-rail_ | |
-| Hunk navigation (F7, Shift+F7) | `features/source-control/diff-hunks.ts`, `features/source-control/DiffToolbar.tsx` | 0034 | missing | M8 | _hunk-nav_ | |
-| Diff line selection, links, copy, anchor reveal | `features/source-control/diff-line-selection.ts`, `features/source-control/compare.ts` | 0028, 0034 | missing | M8 | _diff-line-links_ | |
+| Hunk navigation (F7, Shift+F7) | `features/source-control/diff-hunks.ts`, `features/source-control/DiffToolbar.tsx` | 0034, 0089 | partial (within the open file; no step to the next file) | M8 | diff-hunk-step | |
+| Diff line selection, links, copy, anchor reveal | `features/source-control/diff-line-selection.ts`, `features/source-control/compare.ts` | 0028, 0034, 0089 | partial (select and copy reference; no links or anchor reveal from a link) | M8 | diff-line-selection | |
 | Open file from review; commit snapshots (`at=`) | `features/source-control/ReviewDocument.tsx`, `workspace/workspace-tabs.ts` | 0027, 0035 | missing | M8 | _review-tab_ | |
 | Refresh on return to the window | `features/source-control/use-refresh-on-return.ts` | 0050 | partial (Refresh button only) | M8 | changes-diff | |
 

@@ -466,13 +466,9 @@ func (m *Model) OpenChange(file contract.ChangedFile) {
 // CloseReview closes the open diff, showing the document again.
 func (m *Model) CloseReview() { m.Review = nil }
 
-// SetFullFile shows whole files, or only hunks, in the open diff.
-func (m *Model) SetFullFile(full bool) {
-	m.FullFile = full
-	if m.Review != nil && m.Review.Diff != nil {
-		m.layReview()
-	}
-}
+// SetFullFile shows whole files, or only hunks, in the open diff: the
+// viewer expands every gap.
+func (m *Model) SetFullFile(full bool) { m.FullFile = full }
 
 // SetIgnoreWhitespace rereads the open diff comparing lines with or
 // without their leading and trailing whitespace.
@@ -515,7 +511,7 @@ func (m *Model) loadDiff() {
 // in the server's language.
 func (m *Model) layReview() {
 	open := m.Review
-	open.Layout = review.Lay(*open.Diff, m.FullFile)
+	open.Layout = review.Lay(*open.Diff)
 	open.Version++
 	open.Old, open.New = nil, nil
 	if open.Layout.Kind != review.Text {

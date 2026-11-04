@@ -1,26 +1,21 @@
 package view
 
 import (
-	"slices"
-	"strings"
 	"testing"
 
-	"github.com/egoist/mygo/ui/editor"
+	"github.com/egoist/mygo/ui"
 
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
+	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
+	"github.com/flexdinesh/servef/apps/native/internal/theme"
+	"github.com/flexdinesh/servef/packages/mygo/diffs"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 func (h *harness) openChanges() {
 	h.t.Helper()
 	h.daemon.LoadChanges(h.t, project)
-	h.daemon.Set(func(s *fakeservef.Server) {
-		s.Diffs["notes/hunks.txt"] = fakeservef.Diff(h.t, "diff-hunks.json")
-		changes := s.Changes[project]
-		changes.Files = append(changes.Files, contract.ChangedFile{Path: "notes/hunks.txt", Status: contract.ChangeModified})
-		s.Changes[project] = changes
-	})
 	h.click("Open this computer")
 	h.app.Model.OpenLink(link.Target{Kind: link.Local, Project: project, Path: "src/main.go"})
 	h.settle()
@@ -37,30 +32,30 @@ func TestChangesListAndDiffViewer(t *testing.T) {
 	if title := h.app.Model.Title(); title != "code/main.go (changes) - demo - servef" {
 		t.Fatalf("title %q", title)
 	}
-	state := h.app.review.state
-	if state == nil || state.Layout != editor.DiffSplit {
-		t.Fatalf("diff state %+v", state)
+	v := &h.app.review.viewer
+	if v.Style != diffs.Split {
+		t.Fatalf("style %d", v.Style)
 	}
-	// The viewer's hunks are the server's change run, not its own diff.
-	if got := state.Hunks(); !slices.Equal(got, []editor.DiffHunk{{OldStart: 4, OldEnd: 5, NewStart: 4, NewEnd: 5}}) {
-		t.Fatalf("hunks %v", got)
-	}
-	if got := state.New.Line(4); got != "\tfmt.Println(\"hello from servef\") // go-search-token" {
-		t.Fatalf("new line 4 %q", got)
+	// The viewer shows the server's hunk over the whole files: the gap
+	// before it collapses, the pair's changed words are emphasized.
+	h.wantText("2 unmodified lines", "L7", "R7", "R3")
+	d := v.Diff()
+	if len(d.Hunks) != 1 || d.Hunks[0].OldStart != 3 || len(d.New) != 8 || d.Text(diffs.New, 7) != "\tfmt.Println(\"hello from servef\") // go-search-token" {
+		t.Fatalf("diff %+v", d)
 	}
 	// Highlighted from the full file in the server's language.
-	language := state.New.Language()
-	if language == nil || language.Name != "go" {
-		t.Fatalf("language %+v", language)
-	}
-	tokens, _ := language.Highlighter(state.New.Snapshot(), func() {}).Tokens(3, "func main() {", nil)
-	if len(tokens) == 0 || tokens[0].Kind != editor.TokenKeyword {
-		t.Fatalf("tokens %v", tokens)
+	h.settle()
+	if spans := v.Spans(diffs.New, 6); len(spans) == 0 || spans[0].Color != ui.Hex(theme.Light.Syntax[highlight.Keyword]) {
+		t.Fatalf("spans of func main() { %+v", spans)
 	}
 
 	h.click("Unified")
-	if h.app.review.state == state || h.app.review.state.Layout != editor.DiffUnified {
+	if v.Style != diffs.Unified {
 		t.Fatal("unified layout")
+	}
+	h.wantText("L7", "R7")
+	if h.tt.HasText("L3") {
+		t.Fatal("unified unchanged rows number the new side")
 	}
 
 	h.click("Close")
@@ -70,27 +65,23 @@ func TestChangesListAndDiffViewer(t *testing.T) {
 	}
 }
 
-func TestDiffViewerHunksAndFullFile(t *testing.T) {
+func TestDiffViewerGapsAndFullFile(t *testing.T) {
 	h := newHarness(t)
 	h.openChanges()
 	h.click("notes/hunks.txt")
-	h.wantText("+4 −4", "10 unmodified lines hidden")
-	state := h.app.review.state
-	if got := len(state.Hunks()); got != 5 {
-		t.Fatalf("%d change runs", got)
+	h.wantText("+4 −4", "9 unmodified lines")
+	if h.tt.HasText("line 10") {
+		t.Fatal("the gap shows")
 	}
-	if !strings.HasPrefix(state.Old.String(), "line 1\nline 2\nline 3") || strings.Contains(state.Old.String(), "line 10\n") {
-		t.Fatalf("collapsed old text %q", state.Old.String())
+	// A gap expands in place.
+	h.click("9 unmodified lines")
+	h.wantText("line 10", "line 12")
+	if h.tt.HasText("9 unmodified lines") {
+		t.Fatal("the gap still collapses")
 	}
 	h.click("Full file")
-	if h.app.review.state == state || !h.app.Model.FullFile {
-		t.Fatal("full file rebuilt the viewer")
-	}
-	if got := h.app.review.state.Old.LineCount(); got != 40 {
-		t.Fatalf("full old side %d lines", got)
-	}
-	if h.tt.HasText("10 unmodified lines hidden") {
-		t.Fatal("full file hides nothing")
+	if !h.app.Model.FullFile || !h.app.review.viewer.ExpandUnchanged {
+		t.Fatal("full file")
 	}
 	h.click("Ignore whitespace")
 	h.daemon.Get(func(s *fakeservef.Server) {
@@ -98,6 +89,50 @@ func TestDiffViewerHunksAndFullFile(t *testing.T) {
 			t.Fatalf("ignoreWhitespace=%q", got)
 		}
 	})
+}
+
+func TestDiffLineSelectionCopiesAReference(t *testing.T) {
+	h := newHarness(t)
+	h.openChanges()
+	h.click("notes/hunks.txt")
+	h.click("R3")
+	if err := h.tt.ClickWith(ui.Shift, "R5"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle()
+	s, ok := h.app.review.viewer.Selection()
+	if !ok || s.Anchor() != "R3-R5" {
+		t.Fatalf("selection %v %v", s, ok)
+	}
+	h.click("Copy notes/hunks.txt:3-5")
+	if got := h.tt.Clipboard(); got != "notes/hunks.txt:3-5" {
+		t.Fatalf("clipboard %q", got)
+	}
+	// The old side's lines are the old path's, here the same file.
+	h.click("L2")
+	h.click("Copy notes/hunks.txt:2")
+}
+
+func TestDiffHunkSteps(t *testing.T) {
+	h := newHarness(t)
+	h.openChanges()
+	h.click("notes/hunks.txt")
+	h.click("Next change")
+	if s, _ := h.app.review.viewer.Selection(); s.Anchor() != "R1-R6" {
+		t.Fatalf("first step %q", s.Anchor())
+	}
+	// F7 steps while the viewer has the focus, as a click on a line gives.
+	h.click("R3")
+	h.tt.Key(0, ui.KeyF7)
+	h.settle()
+	if s, _ := h.app.review.viewer.Selection(); s.Anchor() != "R16-R23" {
+		t.Fatalf("F7 %q", s.Anchor())
+	}
+	h.click("Previous change")
+	if s, _ := h.app.review.viewer.Selection(); s.Anchor() != "R1-R6" {
+		t.Fatalf("previous %q", s.Anchor())
+	}
+	h.wantText("Copy notes/hunks.txt:1-6")
 }
 
 func TestDiffMessages(t *testing.T) {
