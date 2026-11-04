@@ -11,6 +11,7 @@ import (
 
 	"github.com/flexdinesh/servef/apps/native/internal/docview"
 	"github.com/flexdinesh/servef/apps/native/internal/mdlink"
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/apps/native/internal/theme"
 )
 
@@ -19,10 +20,11 @@ const toolbarHeight = 44
 // documentState is the document pane's view state: where each view stands
 // for the document it last showed. The model keeps what outlives a view.
 type documentState struct {
-	// shown is the place key of the document on screen, resetVersion the
-	// model's last scroll reset. restore, when restoring, is the scroll the
+	// shown is the place key of the document on screen, shownPath its path,
+	// resetVersion the model's last scroll reset. restore, when restoring, is the scroll the
 	// next view drawn starts at.
 	shown        string
+	shownPath    string
 	resetVersion uint64
 	restore      float64
 	restoring    bool
@@ -42,6 +44,8 @@ type documentState struct {
 	shownLines *docview.LineRange
 
 	preview ui.ScrollState
+	// blocksPath is the document a.blocks computed for.
+	blocksPath string
 
 	// The open image document.
 	imageKey     string
@@ -63,10 +67,12 @@ func (a *App) document(c *ui.Context, code *editor.Theme, palette theme.Palette)
 	m := a.Model
 	view := m.View
 	t := c.Theme()
-	a.place()
 	a.doc.shownLines = nil
 	if m.Page.Selected != "" {
 		a.documentToolbar(c, view)
+		// The toolbar's mode switch can change the view: the frame draws the new
+		// one, or source would build an editor for a view without code.
+		view = m.View
 		for _, notice := range view.Notices {
 			noticeBar(c, palette, notice)
 		}
@@ -105,12 +111,13 @@ func (a *App) place() {
 	key := m.OpenPlaceKey()
 	switch {
 	case d.shown != key:
-		if d.shown != "" {
+		// A closed tab's document was forgotten with it.
+		if d.shown != "" && tabs.Includes(m.Tabs, tabs.DocumentTab(d.shownPath)) {
 			if y, ok := a.scrollY(); ok {
 				m.RememberScroll(d.shown, y)
 			}
 		}
-		d.shown, d.resetVersion = key, m.ScrollResetVersion
+		d.shown, d.shownPath, d.resetVersion = key, m.Page.Selected, m.ScrollResetVersion
 		d.restore, d.restoring = m.Place(key).Scroll, true
 		d.scrolled = docview.None
 		d.diagram = nil
@@ -280,7 +287,8 @@ func (a *App) preview(c *ui.Context, code *editor.Theme) {
 		}
 		return ui.DecodeImage(data)
 	}
-	a.blocks.use(fmt.Sprint(m.Page.Project, "\x00", m.Page.Selected), m.DocumentVersion)
+	a.blocks.use(a.blocksKey(), m.DocumentVersion)
+	d.blocksPath = m.Page.Selected
 	a.markdown.CodeBlock = func(c *ui.Context, b *markdown.CodeBlockView) { a.codeBlock(c, b, th) }
 	a.markdown.Code = map[string]func(*ui.Context, *markdown.CodeBlockView){
 		"mermaid": func(c *ui.Context, b *markdown.CodeBlockView) { a.mermaidBlock(c, b, th, palette) },
@@ -295,6 +303,11 @@ func (a *App) preview(c *ui.Context, code *editor.Theme) {
 			markdown.View(c.Key(m.Page.Selected), source, &a.markdown)
 		})
 	})
+}
+
+// blocksKey names the document the preview's blocks were computed from.
+func (a *App) blocksKey() string {
+	return fmt.Sprint(a.Model.Page.Project, "\x00", a.Model.Page.Selected)
 }
 
 // copyButton copies text, showing a check for a moment as CopyButton does.

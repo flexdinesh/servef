@@ -19,7 +19,7 @@ func (h *harness) openChanges() {
 	h.click("Open this computer")
 	h.app.Model.OpenLink(link.Target{Kind: link.Local, Project: project, Path: "src/main.go"})
 	h.settle()
-	h.click("Changes")
+	h.click("Source Control")
 }
 
 func TestChangesListAndDiffViewer(t *testing.T) {
@@ -155,8 +155,8 @@ func TestChangesOutsideARepository(t *testing.T) {
 	h.click("Open this computer")
 	h.app.Model.OpenProject(project)
 	h.settle()
-	h.click("Changes")
+	h.click("Source Control")
 	h.wantText("Source Control needs a git repository.")
-	h.click("Files")
+	h.click("Explorer")
 	h.wantText("README.md")
 }

@@ -94,6 +94,29 @@ func (q *Queue) StepUntil(done func() bool, timeout time.Duration) bool {
 	return true
 }
 
+// Step runs the first queued work and its apply, or one post; it reports
+// whether anything ran. Tests use it to act between a load and its answer.
+func (q *Queue) Step() bool {
+	q.mu.Lock()
+	if len(q.work) > 0 {
+		work := q.work[0]
+		q.work = q.work[1:]
+		q.mu.Unlock()
+		if apply := work(); apply != nil {
+			apply()
+		}
+		return true
+	}
+	q.mu.Unlock()
+	select {
+	case apply := <-q.posts:
+		apply()
+		return true
+	default:
+		return false
+	}
+}
+
 // Until drains until done reports true or timeout passes; it reports done.
 func (q *Queue) Until(done func() bool, timeout time.Duration) bool {
 	deadline := time.After(timeout)

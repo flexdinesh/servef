@@ -80,3 +80,25 @@ func TestOndineMatchesMermaidCSS(t *testing.T) {
 		}
 	}
 }
+
+// The chrome is themes.css's Servef value: light's own grey, dark's mix.
+func TestChromeMatchesThemes(t *testing.T) {
+	css, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "styles", "themes.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(css), "--color-workspace-chrome: light-dark("+ChromeLight+", color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));") {
+		t.Fatal("themes.css's Servef chrome changed")
+	}
+	if !strings.Contains(string(css), "--color-chrome-hover: light-dark(color-mix(in srgb, var(--color-surface), var(--color-workspace-chrome)), var(--color-hover));") {
+		t.Fatal("themes.css's Servef chrome hover changed")
+	}
+	for palette, want := range map[*Palette][2]string{&Light: {"#e5e7eb", "#f2f3f5"}, &Dark: {"#151515", "#262627"}} {
+		if got := [2]string{palette.Chrome(), palette.ChromeHover()}; got != want {
+			t.Errorf("%s: %v, want %v", palette.Bg, got, want)
+		}
+	}
+	if Mix("#000000", "#ffffff", 0.5) != "#808080" {
+		t.Error(Mix("#000000", "#ffffff", 0.5))
+	}
+}

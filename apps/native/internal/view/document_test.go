@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -43,6 +44,15 @@ func (h *harness) open(path string) {
 	h.t.Helper()
 	h.app.Model.OpenLink(link.Target{Kind: link.Local, Project: fixtureProject, Path: path})
 	h.settle()
+}
+
+// wantNoLabel fails when an element shows exactly text; the activity bar's
+// Source Control does not count as Source.
+func (h *harness) wantNoLabel(text string) {
+	h.t.Helper()
+	if slices.Contains(h.tt.Texts(), text) {
+		h.t.Fatalf("unexpected %q; texts %q", text, h.tt.Texts())
+	}
 }
 
 func (h *harness) wantNoText(text string) {
@@ -109,11 +119,11 @@ func TestFileNotesFollowTheServer(t *testing.T) {
 	h := newFixtureHarness(t)
 	h.open("assets/sample.bin")
 	h.wantText("Binary file", "servef shows text and images only.")
-	h.wantNoText("Source")
+	h.wantNoLabel("Source")
 
 	h.open("logs/enormous.log")
 	h.wantText("Too large to display", "servef shows text files up to 32 MB.")
-	h.wantNoText("Source")
+	h.wantNoLabel("Source")
 
 	h.open("logs/huge.log")
 	var notice string

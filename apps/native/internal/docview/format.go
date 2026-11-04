@@ -104,5 +104,10 @@ func (c *FormatCache) Set(key, source string, state FormatState) {
 	}
 }
 
+// Forget drops key's entry.
+func (c *FormatCache) Forget(key string) {
+	c.entries = slices.DeleteFunc(c.entries, func(entry formatEntry) bool { return entry.key == key })
+}
+
 // Clear drops every entry.
 func (c *FormatCache) Clear() { c.entries = nil }

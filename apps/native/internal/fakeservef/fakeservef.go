@@ -178,7 +178,11 @@ func (s *Server) handler(daemon bool) http.Handler {
 		query := r.URL.Query()
 		pages, ok := s.Pages[query.Get("project")]
 		if !ok {
-			writeJSON(w, http.StatusNotFound, contract.PageData{ProjectUnavailable: true, Error: "Project unavailable"})
+			// As Documents.Page: the failed project, selection, and an empty tree.
+			writeJSON(w, http.StatusNotFound, contract.PageData{
+				Project: query.Get("project"), ProjectUnavailable: true, ProjectKind: contract.ProjectFolder,
+				Selected: query.Get("path"), Tree: []contract.TreeNode{}, Error: "Project unavailable", Warnings: []string{},
+			})
 			return
 		}
 		page, ok := pages[query.Get("path")]

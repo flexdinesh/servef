@@ -4,7 +4,7 @@ description: Diff line selection and its copy button
 size: {width: 1400, height: 800}
 steps:
   - click: markdown
-  - click: Changes
+  - click: Source Control
   - wait: code/main.go
   - click: code/main.go
   - wait: R7

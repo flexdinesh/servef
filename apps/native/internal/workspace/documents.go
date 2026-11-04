@@ -7,6 +7,7 @@ import (
 
 	"github.com/flexdinesh/servef/apps/native/internal/docview"
 	"github.com/flexdinesh/servef/apps/native/internal/highlight"
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/pkg/client"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
@@ -96,24 +97,24 @@ func (m *Model) setPlaceLines(key string, lines *docview.LineRange) {
 	m.documents.memory.SetPlace(key, place)
 }
 
-// openLocation opens a project document, in place of an open diff, with
-// lines to select (nil keeps what it remembers). A line link to the open
+// openLocation opens a project document in its tab, with lines to select (nil keeps what it remembers). A line link to the open
 // document only moves the selection: the server is not asked again.
 func (m *Model) openLocation(path string, lines *docview.LineRange) {
 	if m.Project == "" {
 		return
 	}
-	m.Review = nil
+	m.showTab(tabs.DocumentTab(path))
 	m.visit(path, lines)
 	m.show(path, lines != nil)
 }
 
 func (m *Model) show(path string, keepPage bool) {
-	if keepPage && path == m.Page.Selected && m.Page.HasFile && m.Page.At == "" {
+	// A load in flight would replace the page kept.
+	if keepPage && m.pageLoading == nil && path == m.Page.Selected && m.Page.HasFile && m.Page.At == "" {
 		m.decide()
 		return
 	}
-	m.loadPage(path, true, false, true)
+	m.loadPage(pageLoad{path: path, required: true, reveal: true})
 }
 
 // CanGoBack reports an earlier document in the history.
@@ -123,10 +124,12 @@ func (m *Model) CanGoBack() bool { return m.documents.history.CanGoBack() }
 func (m *Model) CanGoForward() bool { return m.documents.history.CanGoForward() }
 
 // GoBack returns to the previous document, with the lines it had selected;
-// an open diff closes first.
+// from a review or the empty pane, to the document last shown.
 func (m *Model) GoBack() {
-	if m.Review != nil {
-		m.Review = nil
+	if m.Active.Kind != tabs.Document {
+		if location, ok := m.documents.history.Current(); ok {
+			m.restore(location)
+		}
 		return
 	}
 	if location, ok := m.documents.history.Back(); ok {
@@ -137,13 +140,13 @@ func (m *Model) GoBack() {
 // GoForward undoes GoBack.
 func (m *Model) GoForward() {
 	if location, ok := m.documents.history.Forward(); ok {
-		m.Review = nil
 		m.restore(location)
 	}
 }
 
 func (m *Model) restore(location docview.Location) {
 	m.setPlaceLines(m.PlaceKey(location.Path, ""), location.Lines)
+	m.showTab(tabs.DocumentTab(location.Path))
 	m.show(location.Path, true)
 }
 

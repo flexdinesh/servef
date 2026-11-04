@@ -14,6 +14,8 @@ import (
 	"github.com/flexdinesh/servef/apps/native/internal/highlight"
 	"github.com/flexdinesh/servef/apps/native/internal/link"
 	"github.com/flexdinesh/servef/apps/native/internal/review"
+	"github.com/flexdinesh/servef/apps/native/internal/shell"
+	"github.com/flexdinesh/servef/apps/native/internal/tabs"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -357,14 +359,14 @@ func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 	if !model.ChangesRead {
 		t.Fatal("changes not read on project load")
 	}
-	model.ShowPanel(SourceControl)
+	model.RevealView(shell.SourceControl)
 	queue.Drain()
 	if !model.ChangesRead || len(model.Changes.Files) != 8 || model.Changes.Branch != "main" {
 		t.Fatalf("changes %+v", model.Changes)
 	}
-	model.ShowPanel(SourceControl)
-	model.ShowPanel(Explorer)
-	model.ShowPanel(SourceControl)
+	model.RevealView(shell.SourceControl)
+	model.RevealView(shell.Explorer)
+	model.RevealView(shell.SourceControl)
 	queue.Drain()
 	daemon.Get(func(s *fakeservef.Server) {
 		if s.ChangesReads != 3 {
@@ -410,8 +412,8 @@ func TestSourceControlListsChangesAndOpensDiffs(t *testing.T) {
 	model.OpenChange(main)
 	model.OpenDocument("README.md")
 	queue.Drain()
-	if model.Review != nil {
-		t.Fatal("opening a document closes the review")
+	if model.Review == nil || model.Active != tabs.DocumentTab("README.md") || model.Title() != "README.md - demo - servef" {
+		t.Fatalf("a document opens beside the review tab: %+v %v", model.Review, model.Active)
 	}
 }
 
@@ -460,7 +462,7 @@ func TestReviewFailures(t *testing.T) {
 
 func TestLiveUpdatesRereadChangesAndTheOpenDiff(t *testing.T) {
 	model, queue, daemon := openWithChanges(t)
-	model.ShowPanel(SourceControl)
+	model.RevealView(shell.SourceControl)
 	queue.Drain()
 	main := model.Changes.Files[2]
 	model.OpenChange(main)
@@ -509,7 +511,7 @@ func TestSourceControlJoinsTheLoadsRead(t *testing.T) {
 	model.Handle(link.Request{})
 	queue.Drain()
 	model.OpenProject(project)
-	model.ShowPanel(SourceControl)
+	model.RevealView(shell.SourceControl)
 	queue.Drain()
 	daemon.Get(func(s *fakeservef.Server) {
 		if s.ChangesReads != 1 {

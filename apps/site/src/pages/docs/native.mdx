@@ -21,15 +21,23 @@ What it does today:
 - Selects lines from the gutter (click, Shift-click, drag) and copies the
   file path, a line reference like `src/main.go:5-9`, or a link to the lines.
   Back and forward return to each document where you left it.
-- Reviews uncommitted changes: **Changes** in the sidebar lists the working
-  tree's changes since the last commit; choosing one shows its diff side by
+- Opens files in tabs: switch with a click or the arrow keys, close with the
+  close button, Delete, or the tab's menu (Close, Close Others, Close to the
+  Right, Close All). The activity bar switches between Explorer and Source
+  Control (Ctrl+Shift+E, Ctrl+Shift+G; ⇧⌘E, ⇧⌘G on macOS); clicking the shown
+  view or Ctrl+B (⌘B) hides the sidebar, and its edge drags to resize it.
+- Remembers each project's tabs, active tab, and open folders, the last
+  project, and the sidebar, and restores them on the next start.
+- Reviews uncommitted changes: **Source Control** in the sidebar lists the
+  working tree's changes since the last commit; choosing one shows its diff side by
   side or unified, as hunks or the full file, optionally ignoring leading and
-  trailing whitespace. Binary and large files say so instead.
+  trailing whitespace, in one **Uncommitted** tab. Binary and large files say
+  so instead.
 - Follows live updates: the open file, the change list, and the open diff
   reread when the project changes on disk.
 
 Not yet: commit history, branch and range compares, search, code navigation,
-walkthroughs, and tabs. Use the desktop app or the browser for
+walkthroughs, and the Welcome tab. Use the desktop app or the browser for
 those.
 
 ## Install

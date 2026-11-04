@@ -4,7 +4,12 @@
 // pure.
 package theme
 
-import "github.com/flexdinesh/servef/apps/native/internal/highlight"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/flexdinesh/servef/apps/native/internal/highlight"
+)
 
 // Palette is one appearance's colors, as "#rrggbb", by servef token name.
 type Palette struct {
@@ -92,4 +97,47 @@ func (p Palette) Ondine() map[string]string {
 		"--ondine-surface-alt": p.SurfaceSecondary, "--ondine-accent": p.Accent, "--ondine-critical": p.Destructive,
 		"--ondine-font": "monospace", "--ondine-radius": RadiusSmall,
 	}
+}
+
+// Chrome is --color-workspace-chrome, which themes.css sets for Servef
+// Light and Dark: its own light grey, and in dark the surface mixed
+// halfway toward the canvas. The tab strip and activity bar sit on it.
+func (p Palette) Chrome() string {
+	if p.Bg == Light.Bg && p.Canvas == Light.Canvas && p.Surface == Light.Surface {
+		return ChromeLight
+	}
+	return Mix(p.Surface, p.Canvas, 0.5)
+}
+
+// ChromeLight is Servef Light's --color-workspace-chrome.
+const ChromeLight = "#e5e7eb"
+
+// ChromeHover is --color-chrome-hover: in light the surface mixed halfway
+// toward the chrome; in dark --color-hover (8% of the text) over it.
+func (p Palette) ChromeHover() string {
+	if p.Chrome() == ChromeLight {
+		return Mix(p.Surface, ChromeLight, 0.5)
+	}
+	return Mix(p.Chrome(), p.TextPrimary, 0.08)
+}
+
+// Mix is CSS color-mix in srgb of two "#rrggbb" colors: share of b.
+func Mix(a, b string, share float64) string {
+	ca, cb := rgb(a), rgb(b)
+	var out [3]uint8
+	for i := range out {
+		out[i] = uint8(float64(ca[i])*(1-share) + float64(cb[i])*share + 0.5)
+	}
+	return fmt.Sprintf("#%02x%02x%02x", out[0], out[1], out[2])
+}
+
+func rgb(hex string) [3]uint8 {
+	var c [3]uint8
+	if len(hex) == 7 {
+		for i := range c {
+			v, _ := strconv.ParseUint(hex[1+2*i:3+2*i], 16, 8)
+			c[i] = uint8(v)
+		}
+	}
+	return c
 }

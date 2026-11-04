@@ -4,7 +4,7 @@ description: Changes list and code/main.go diff, split and unified
 size: {width: 1400, height: 800}
 steps:
   - click: markdown
-  - click: Changes
+  - click: Source Control
   - wait: code/main.go
   - click: code/main.go
   - wait: Diff layout

@@ -95,3 +95,4 @@ rewriting history; update `Status` on the old record.
 | [0088](0088-native-highlights-and-ondine-via-wazero.md) | Native Highlights and Ondine via wazero | Accepted (experimental) |
 | [0089](0089-native-diffs-viewer.md) | Native diffs viewer | Accepted |
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Accepted |
+| [0091](0091-native-workspace-shell-and-memory.md) | Native workspace shell and memory | Accepted (experimental) |
