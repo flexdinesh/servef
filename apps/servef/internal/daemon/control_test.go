@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
-	"github.com/flexdinesh/servef/internal/web"
 )
 
 // fakeNotices records announcements and hands each stream subscription a
@@ -32,26 +32,26 @@ type fakeNotices struct {
 	mu         sync.Mutex
 	announced  []announceRequest
 	err        error
-	stream     chan web.WalkthroughNotice
+	stream     chan contract.WalkthroughEvent
 	subscribed chan struct{}
 	cancelled  chan struct{}
 }
 
 func newFakeNotices() *fakeNotices {
-	return &fakeNotices{stream: make(chan web.WalkthroughNotice, 4), subscribed: make(chan struct{}, 4), cancelled: make(chan struct{}, 4)}
+	return &fakeNotices{stream: make(chan contract.WalkthroughEvent, 4), subscribed: make(chan struct{}, 4), cancelled: make(chan struct{}, 4)}
 }
 
-func (f *fakeNotices) AnnounceWalkthrough(project, id string, created bool) (web.WalkthroughNotice, error) {
+func (f *fakeNotices) Announce(project, id string, created bool) (contract.WalkthroughEvent, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {
-		return web.WalkthroughNotice{}, f.err
+		return contract.WalkthroughEvent{}, f.err
 	}
 	f.announced = append(f.announced, announceRequest{Project: project, ID: id, Created: created})
-	return web.WalkthroughNotice{Project: project, ID: id, Title: "Title", Created: created}, nil
+	return contract.WalkthroughEvent{Project: project, ID: id, Title: "Title", Created: created}, nil
 }
 
-func (f *fakeNotices) WalkthroughNotices() (<-chan web.WalkthroughNotice, func()) {
+func (f *fakeNotices) Notices() (<-chan contract.WalkthroughEvent, func()) {
 	f.subscribed <- struct{}{}
 	return f.stream, func() { f.cancelled <- struct{}{} }
 }
@@ -213,7 +213,7 @@ func TestControlEventsSendStatusThenWalkthroughs(t *testing.T) {
 	stream.expect(t, ": servef\n")
 	stream.expect(t, "event: status\ndata: {\"protocol\":1,\"version\":\"1.2.3\"}\n")
 	receive(t, notices.subscribed, "subscription")
-	notices.stream <- web.WalkthroughNotice{Project: "/work/repo", ID: "tour", Title: "Tour", Created: true}
+	notices.stream <- contract.WalkthroughEvent{Project: "/work/repo", ID: "tour", Title: "Tour", Created: true}
 	stream.expect(t, "event: walkthrough\ndata: {\"project\":\"/work/repo\",\"id\":\"tour\",\"title\":\"Tour\",\"created\":true}\n")
 
 	// Closed notices (live updates stopped) end the stream.
@@ -325,8 +325,8 @@ func TestControlAnnouncesWalkthroughs(t *testing.T) {
 	}
 
 	for code, err := range map[string]error{
-		"walkthroughUnavailable": fmt.Errorf("read: %w", walkthrough.ErrNotFound),
-		"projectUnavailable":     fmt.Errorf("resolve: %w", web.ErrProjectUnavailable),
+		"walkthroughUnavailable": &app.Error{Kind: contract.KindNotFound, Code: contract.CodeWalkthroughUnavailable, Message: "read"},
+		"projectUnavailable":     &app.Error{Kind: contract.KindNotFound, Code: contract.CodeProjectUnavailable, Message: "resolve"},
 	} {
 		notices.setErr(err)
 		err := client.AnnounceWalkthrough(context.Background(), "/work/repo", "tour", false)

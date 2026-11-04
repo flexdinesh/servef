@@ -90,7 +90,7 @@ func serveFixtureWith(t *testing.T, root string, servers *lsp.Manager) fixture {
 		RootsFile: filepath.Join(t.TempDir(), "roots.json"),
 		Status:    daemon.Status{Protocol: daemon.ProtocolVersion, Version: "test", PID: 1, Socket: "test.sock", Depth: 5, IdleExit: "0s", StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)},
 		Done:      done,
-		Notices:   webApp,
+		Notices:   webApp.Application().Walkthroughs,
 	})
 
 	tcp := httptest.NewServer(webApp)

@@ -5,12 +5,11 @@ import test from "node:test"
 import {
   isBranchFilesResponse, isChangesResponse, isCommitFilesResponse, isCommitsResponse, isCompareStatsResponse, isDiffResponse,
   isDirectoriesResponse, isErrorResponse, isFormatResult, isNavigationResult, isNavigationStatus, isPageData, isProcessMetrics,
-  isProjectsResponse, isRangeFilesResponse, isRefsResponse, isSearchDocumentsResponse, isStackResponse, type DiffResponse,
-  type PageData,
+  isProjectsResponse, isRangeFilesResponse, isRefsResponse, isSearchDocumentsResponse, isStackResponse, isWalkthrough,
+  isWalkthroughSummary, type DiffResponse, type PageData,
 } from "@servef/contracts"
 import { unknownBaseCode, unknownHeadCode } from "./source-control-messages.ts"
 import { isRecord } from "./http.ts"
-import { isWalkthrough, isWalkthroughSummaries } from "./walkthrough-contract.ts"
 import { isLiveChange, isLiveStatus } from "./events-contract.ts"
 
 async function fixture(name: string): Promise<unknown> {
@@ -309,9 +308,8 @@ test("compare contract validators reject malformed refs and stats", async () => 
 
 test("walkthrough fixtures satisfy runtime contracts", async () => {
   const list = await fixture("walkthroughs.json")
-  assert.ok(isWalkthroughSummaries(list))
-  assert.equal(isWalkthroughSummaries([{ id: "a", title: "A", stepCount: -1, updatedAt: "2026-10-26T09:30:00Z" }]), false)
-  assert.equal(isWalkthroughSummaries([{ id: "a", title: "A", updatedAt: "2026-10-26T09:30:00Z" }]), false)
+  assert.ok(Array.isArray(list) && list.every(isWalkthroughSummary))
+  assert.equal(isWalkthroughSummary({ id: "a", title: "A", updatedAt: "2026-10-26T09:30:00Z" }), false)
 
   const tour = await fixture("walkthrough-tour.json")
   assert.ok(isWalkthrough(tour))
@@ -321,9 +319,9 @@ test("walkthrough fixtures satisfy runtime contracts", async () => {
   const [note, file, , , diff] = steps
   assert.ok(isRecord(note) && isRecord(file) && isRecord(diff))
   assert.equal(withStep({ ...note, bodyHTML: undefined }), false)
-  assert.equal(withStep({ ...file, diff }), false, "a step targets a file or a diff, not both")
-  assert.equal(withStep({ ...file, file: { path: "a.go", lines: [3] } }), false)
+  assert.equal(withStep({ ...file, file: { path: "a.go", lines: ["3"] } }), false)
   assert.equal(withStep({ ...diff, diff: { compare: { kind: "stash" } } }), false)
+  assert.equal(withStep({ ...diff, diff: { compare: { kind: "working" }, side: "both" } }), false)
 })
 
 test("live update fixtures satisfy runtime contracts", async () => {

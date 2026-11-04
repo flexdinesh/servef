@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import type { Walkthrough } from "../../api/walkthrough-contract.ts"
+import type { Walkthrough } from "@servef/contracts"
 import {
   readWalkthroughMemory, rememberSeen, rememberStep, unseenCount, writeWalkthroughMemory, type WalkthroughMemory,
 } from "./walkthrough-memory.ts"

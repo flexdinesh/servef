@@ -1,6 +1,6 @@
 import type { SelectedLineRange, SelectionSide } from "@pierre/diffs"
 
-import type { WalkthroughStep } from "../../api/walkthrough-contract.ts"
+import type { WalkthroughStep } from "@servef/contracts"
 import { isCommitHash, shortHash } from "../../lib/commit-hash.ts"
 import { lineAnchor, type LineRange } from "../../lib/line-selection.ts"
 import { branchCompare, compareName, compareSearch, reviewFragment, workingCompare, type Compare, type CompareContext, type CompareSearch } from "../source-control/compare.ts"
@@ -15,8 +15,10 @@ export type StepTarget =
   | { kind: "file"; path: string; at: string; lines: LineRange | null; expect: string }
   | { kind: "diff"; compare: Compare; path: string; side: SelectionSide; lines: LineRange | null; expect: string }
 
-function lineRange(lines: readonly [number, number] | undefined): LineRange | null {
-  return lines ? { start: lines[0], end: lines[1] } : null
+// lineRange reads an inclusive, 1-based [start, end]; anything else selects
+// no lines.
+function lineRange(lines: readonly number[] | undefined): LineRange | null {
+  return lines?.length === 2 ? { start: lines[0], end: lines[1] } : null
 }
 
 // walkthroughCompare maps a published compare to Source Control's. Commit

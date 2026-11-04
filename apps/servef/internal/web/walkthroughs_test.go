@@ -9,13 +9,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/walkthrough"
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // walkthroughApp serves root with a private walkthrough store and records
@@ -93,7 +94,7 @@ func TestPublishChecksTargetsAndServesRenderedWalkthrough(t *testing.T) {
 	if response.Code != http.StatusCreated {
 		t.Fatalf("status = %d\n%s", response.Code, response.Body.String())
 	}
-	var published publishResponse
+	var published contract.WalkthroughPublished
 	if err := json.Unmarshal(response.Body.Bytes(), &published); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +111,7 @@ func TestPublishChecksTargetsAndServesRenderedWalkthrough(t *testing.T) {
 		t.Error("open: true did not open the browser")
 	}
 
-	var got walkthroughResponse
+	var got contract.Walkthrough
 	if status := requestJSON(t, app, "/api/walkthrough?project=.&id=tour", &got); status != http.StatusOK {
 		t.Fatalf("get status = %d", status)
 	}
@@ -326,7 +327,7 @@ func TestWalkthroughShellPageAndSchema(t *testing.T) {
 
 func TestWalkthroughTargetsWithoutApp(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	targets := NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins())
+	targets := app.NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins())
 	lines := func(start, end int) *walkthrough.Lines { return &walkthrough.Lines{start, end} }
 	project, steps, err := targets.Check(context.Background(), root, []walkthrough.Step{
 		{Title: "Working file", File: &walkthrough.FileTarget{Path: "doc.md", Lines: lines(1, 1)}},
@@ -368,7 +369,7 @@ func TestWalkthroughTargetsWithoutApp(t *testing.T) {
 
 func TestWalkthroughTargetsAgreeWithPost(t *testing.T) {
 	root, initial, change := historyRepo(t)
-	app, _ := walkthroughApp(t, root)
+	server, _ := walkthroughApp(t, root)
 	lines := func(start, end int) *walkthrough.Lines { return &walkthrough.Lines{start, end} }
 	steps := []walkthrough.Step{
 		{Title: "Working file", File: &walkthrough.FileTarget{Path: "doc.md", Lines: lines(1, 1)}},
@@ -377,11 +378,11 @@ func TestWalkthroughTargetsAgreeWithPost(t *testing.T) {
 		{Title: "Rename by old path", Diff: &walkthrough.DiffTarget{Compare: walkthrough.Compare{Kind: "commit", Commit: change.String()[:8]}, Path: "old.md"}},
 	}
 	draft := walkthrough.Draft{Project: root, ID: "same", Title: "Same", Steps: steps}
-	if response := publish(t, app, draftJSON(t, draft), nil); response.Code != http.StatusCreated {
+	if response := publish(t, server, draftJSON(t, draft), nil); response.Code != http.StatusCreated {
 		t.Fatalf("publish = %d %s", response.Code, response.Body.String())
 	}
-	var posted walkthroughResponse
-	if status := requestJSON(t, app, "/api/walkthrough?project=.&id=same", &posted); status != http.StatusOK {
+	var posted contract.Walkthrough
+	if status := requestJSON(t, server, "/api/walkthrough?project=.&id=same", &posted); status != http.StatusOK {
 		t.Fatalf("get status = %d", status)
 	}
 	// Publish normalizes before it checks; so does the direct check.
@@ -389,15 +390,51 @@ func TestWalkthroughTargetsAgreeWithPost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, checked, err := NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins()).Check(context.Background(), root, normalized.Steps)
+	_, checked, err := app.NewWalkthroughTargets(testRoots(t, root), 5, document.Builtins()).Check(context.Background(), root, normalized.Steps)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored := make([]walkthrough.Step, len(posted.Steps))
+	// Without bodyHTML, stored steps encode as the model's.
+	stored := make([]contract.WalkthroughDraftStep, len(posted.Steps))
 	for i, step := range posted.Steps {
-		stored[i] = step.Step
+		stored[i] = contract.WalkthroughDraftStep{Title: step.Title, Body: step.Body, File: step.File, Diff: step.Diff}
 	}
-	if !reflect.DeepEqual(stored, checked) {
-		t.Errorf("POST stored %s\ndirect check %s", draftJSON(t, walkthrough.Draft{Steps: stored}), draftJSON(t, walkthrough.Draft{Steps: checked}))
+	storedJSON, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkedJSON, err := json.Marshal(checked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(storedJSON, checkedJSON) {
+		t.Errorf("POST stored %s\ndirect check %s", storedJSON, checkedJSON)
+	}
+}
+
+func TestStopLiveUpdatesClosesWalkthroughNotices(t *testing.T) {
+	app, _ := walkthroughApp(t, t.TempDir())
+	t.Cleanup(app.Close)
+	notices, cancel := app.Application().Walkthroughs.Notices()
+	defer cancel()
+
+	app.StopLiveUpdates()
+	assertNoticesClosed(t, "after StopLiveUpdates", notices)
+	late, cancelLate := app.Application().Walkthroughs.Notices()
+	defer cancelLate()
+	assertNoticesClosed(t, "subscribed after stop", late)
+}
+
+func assertNoticesClosed(t *testing.T, label string, notices <-chan contract.WalkthroughEvent) {
+	t.Helper()
+	for {
+		select {
+		case _, ok := <-notices:
+			if !ok {
+				return
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("%s: notices still open", label)
+		}
 	}
 }

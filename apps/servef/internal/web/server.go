@@ -13,7 +13,6 @@ import (
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
-	"github.com/flexdinesh/servef/internal/walkthrough"
 	"github.com/flexdinesh/servef/internal/watch"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
@@ -47,34 +46,24 @@ type Config struct {
 	SessionKey string
 }
 
-// App adapts the application layer (internal/app) and the remaining domain
-// handlers to the HTTP API.
+// App adapts the application layer (internal/app) to the HTTP API.
 type App struct {
 	config Config
-	// app holds the migrated domain services (decision 0080).
+	// app holds the domain services (decision 0080).
 	app *app.App
 	// roots are the canonical served roots; the browser keys stored state by
 	// them. Each request takes one List snapshot.
-	roots        *projects.RootSet
-	openFile     func(string) (fs.File, error)
-	shell        string
-	servers      *lsp.Manager
-	watches      *watch.Hub
-	walkthroughs *walkthrough.Service
-	// notices fans walkthrough announcements out (decision 0066).
-	notices noticeHub
-	routes  *http.ServeMux
+	roots    *projects.RootSet
+	openFile func(string) (fs.File, error)
+	shell    string
+	servers  *lsp.Manager
+	watches  *watch.Hub
+	routes   *http.ServeMux
 }
 
 // errorResponse is every JSON error body (contract.ErrorResponse). Code,
 // when set, names a failure the browser handles specially.
 type errorResponse = contract.ErrorResponse
-
-// workspace is the project directory a request is scoped to.
-type workspace struct {
-	id   string
-	root string
-}
 
 const (
 	noProjectMessage          = app.NoProjectMessage
@@ -101,12 +90,6 @@ func New(config Config) (*App, error) {
 	if err := checkLanguageServers(config.LanguageServers.Servers(), config.Types); err != nil {
 		return nil, err
 	}
-	if config.WalkthroughDirectory == "" {
-		config.WalkthroughDirectory, err = walkthrough.DefaultDirectory()
-		if err != nil {
-			return nil, err
-		}
-	}
 	if config.LiveUpdates == nil {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
@@ -119,13 +102,13 @@ func New(config Config) (*App, error) {
 		LanguageServers: config.LanguageServers,
 		SessionKey:      config.SessionKey,
 		// Reads go through the App's openFile, which tests replace.
-		OpenFile: func(name string) (fs.File, error) { return a.openFile(name) },
-		Watches:  config.LiveUpdates,
+		OpenFile:             func(name string) (fs.File, error) { return a.openFile(name) },
+		Watches:              config.LiveUpdates,
+		WalkthroughDirectory: config.WalkthroughDirectory,
 	})
 	if err != nil {
 		return nil, err
 	}
-	a.walkthroughs = walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: func(name string) (fs.File, error) { return a.openFile(name) }})
 	a.routes = a.newRoutes()
 	return a, nil
 }
@@ -196,26 +179,10 @@ func (a *App) Close() {
 // streams that never end on their own.
 func (a *App) StopLiveUpdates() {
 	a.watches.Close()
-	a.notices.close()
+	a.app.Walkthroughs.CloseNotices()
 }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }
-
-// project resolves a request's project ID within a snapshot of the roots.
-func (a *App) project(id string) (workspace, int, string) {
-	return projectIn(a.roots.List(), id)
-}
-
-// projectIn resolves a project ID within roots (app.ResolveProject), with
-// the status and message of a failure.
-func projectIn(roots []string, id string) (workspace, int, string) {
-	project, err := app.ResolveProject(roots, id)
-	if err != nil {
-		failure := app.AsError(err)
-		return workspace{}, contract.HTTPStatus(failure.Kind), failure.Message
-	}
-	return workspace{id: project.ID, root: project.Root}, http.StatusOK, ""
-}
 
 // writeError writes err as an errorResponse with its kind's status.
 func writeError(w http.ResponseWriter, err error) {

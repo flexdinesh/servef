@@ -1,10 +1,16 @@
+import { isWalkthrough, isWalkthroughSummary, type Walkthrough, type WalkthroughSummary } from "@servef/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { deleteResource, failureReason, fetchJSON, isAbort, RequestError } from "../../api/http.ts"
 import { projectUrl } from "../../api/project-url.ts"
-import {
-  isWalkthrough, isWalkthroughSummaries, walkthroughUnavailableCode, type Walkthrough, type WalkthroughSummary,
-} from "../../api/walkthrough-contract.ts"
+
+// walkthroughUnavailableCode marks a 404 for a walkthrough the store lacks.
+const walkthroughUnavailableCode = "walkthroughUnavailable"
+
+// GET /api/walkthroughs answers a bare array of summaries.
+function isWalkthroughSummaries(value: unknown): value is WalkthroughSummary[] {
+  return Array.isArray(value) && value.every(isWalkthroughSummary)
+}
 
 // pollInterval is how often the list rereads while the page is visible:
 // agents publish without the browser knowing (decision 0047).

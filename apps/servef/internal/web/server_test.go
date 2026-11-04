@@ -17,7 +17,6 @@ import (
 	"testing"
 
 	"github.com/flexdinesh/servef/internal/projects"
-	"github.com/flexdinesh/servef/internal/walkthrough"
 )
 
 func TestAppServesSharedMarkdownFixtures(t *testing.T) {
@@ -788,8 +787,8 @@ func TestEveryAPIFixtureDecodesStrictly(t *testing.T) {
 		{"format-error.json", func() any { return &errorResponse{} }},
 		{"error-*.json", func() any { return &errorResponse{} }},
 		{"metrics*.json", func() any { return &contract.ProcessMetrics{} }},
-		{"walkthroughs.json", func() any { return &[]walkthrough.Summary{} }},
-		{"walkthrough-*.json", func() any { return &walkthroughResponse{} }},
+		{"walkthroughs.json", func() any { return &[]contract.WalkthroughSummary{} }},
+		{"walkthrough-*.json", func() any { return &contract.Walkthrough{} }},
 		{"events-status.json", func() any { return &contract.StatusEvent{} }},
 		{"events-change.json", func() any { return &contract.ChangeEvent{} }},
 	}

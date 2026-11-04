@@ -1,6 +1,6 @@
 # 0080: Application layer, generated contracts, and transports
 
-- Status: Accepted; revised by [0083](0083-server-structured-diffs.md) (source control stages), [0084](0084-in-process-client-package.md) (in-process transport package), [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (navigation, metrics, image reads)
+- Status: Accepted; revised by [0083](0083-server-structured-diffs.md) (source control stages), [0084](0084-in-process-client-package.md) (in-process transport package), [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) (navigation, metrics, image reads), [0087](0087-walkthroughs-in-the-application-layer.md) (walkthroughs)
 - Date: 2026-11-03
 - Revises: [0078](0078-apps-and-packages-layout.md) (creates `packages/`)
 

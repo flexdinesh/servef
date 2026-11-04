@@ -5,6 +5,7 @@
 package inprocess
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -142,6 +143,27 @@ func (c *Client) References(ctx context.Context, request contract.NavigationRequ
 
 func (c *Client) Metrics(ctx context.Context) (contract.ProcessMetrics, error) {
 	return call(ctx, func() (contract.ProcessMetrics, error) { return c.app.Metrics.Sample(), nil })
+}
+
+func (c *Client) Walkthroughs(ctx context.Context, project string) ([]contract.WalkthroughSummary, error) {
+	return call(ctx, func() ([]contract.WalkthroughSummary, error) { return c.app.Walkthroughs.List(project) })
+}
+
+func (c *Client) Walkthrough(ctx context.Context, project, id string) (contract.Walkthrough, error) {
+	return call(ctx, func() (contract.Walkthrough, error) { return c.app.Walkthroughs.Get(project, id) })
+}
+
+func (c *Client) PublishWalkthrough(ctx context.Context, draft contract.WalkthroughDraft) (contract.WalkthroughPublished, error) {
+	return call(ctx, func() (contract.WalkthroughPublished, error) { return c.app.Walkthroughs.Publish(ctx, draft) })
+}
+
+func (c *Client) DeleteWalkthrough(ctx context.Context, project, id string) error {
+	_, err := call(ctx, func() (struct{}, error) { return struct{}{}, c.app.Walkthroughs.Delete(project, id) })
+	return err
+}
+
+func (c *Client) WalkthroughSchema(ctx context.Context) ([]byte, error) {
+	return call(ctx, func() ([]byte, error) { return bytes.Clone(c.app.Walkthroughs.Schema()), nil })
 }
 
 func (c *Client) DaemonStatus(ctx context.Context) (contract.DaemonStatus, error) {

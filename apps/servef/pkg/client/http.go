@@ -265,6 +265,54 @@ func (c *HTTP) Metrics(ctx context.Context) (contract.ProcessMetrics, error) {
 	return response, c.getJSON(ctx, "/api/metrics", nil, &response)
 }
 
+func (c *HTTP) Walkthroughs(ctx context.Context, project string) ([]contract.WalkthroughSummary, error) {
+	var summaries []contract.WalkthroughSummary
+	return summaries, c.getJSON(ctx, "/api/walkthroughs", url.Values{"project": {project}}, &summaries)
+}
+
+func (c *HTTP) Walkthrough(ctx context.Context, project, id string) (contract.Walkthrough, error) {
+	var walkthrough contract.Walkthrough
+	return walkthrough, c.getJSON(ctx, "/api/walkthrough", url.Values{"project": {project}, "id": {id}}, &walkthrough)
+}
+
+func (c *HTTP) PublishWalkthrough(ctx context.Context, draft contract.WalkthroughDraft) (contract.WalkthroughPublished, error) {
+	var published contract.WalkthroughPublished
+	body, err := json.Marshal(draft)
+	if err != nil {
+		return published, err
+	}
+	response, err := c.do(ctx, http.MethodPost, "/api/walkthroughs", nil, body)
+	if err != nil {
+		return published, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return published, answer(response, &published)
+}
+
+func (c *HTTP) DeleteWalkthrough(ctx context.Context, project, id string) error {
+	response, err := c.do(ctx, http.MethodDelete, "/api/walkthroughs", url.Values{"project": {project}, "id": {id}}, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusNoContent {
+		return failure(response)
+	}
+	return nil
+}
+
+func (c *HTTP) WalkthroughSchema(ctx context.Context) ([]byte, error) {
+	response, err := c.do(ctx, http.MethodGet, "/api/walkthrough-schema", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		return nil, failure(response)
+	}
+	return io.ReadAll(io.LimitReader(response.Body, maxResponse))
+}
+
 // setNonEmpty sets a query parameter the server reads as absent when empty.
 func setNonEmpty(query url.Values, name, value string) {
 	if value != "" {

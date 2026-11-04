@@ -14,6 +14,7 @@ import (
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
+	"github.com/flexdinesh/servef/internal/walkthrough"
 	"github.com/flexdinesh/servef/internal/watch"
 )
 
@@ -41,6 +42,9 @@ type Config struct {
 	// StatsBudget bounds the bytes one compare-stats read takes; zero or
 	// less uses DefaultStatsBudget.
 	StatsBudget int64
+	// WalkthroughDirectory stores published walkthroughs; empty uses
+	// walkthrough.DefaultDirectory.
+	WalkthroughDirectory string
 }
 
 // App holds the domain services. Each is safe for concurrent use.
@@ -51,6 +55,7 @@ type App struct {
 	SourceControl *SourceControl
 	Navigation    *Navigation
 	Metrics       *Metrics
+	Walkthroughs  *Walkthroughs
 }
 
 // state is the configuration every service shares.
@@ -72,7 +77,15 @@ func New(config Config) (*App, error) {
 	if config.OpenFile == nil {
 		config.OpenFile = func(name string) (fs.File, error) { return os.Open(name) }
 	}
+	if config.WalkthroughDirectory == "" {
+		directory, err := walkthrough.DefaultDirectory()
+		if err != nil {
+			return nil, err
+		}
+		config.WalkthroughDirectory = directory
+	}
 	shared := &state{config: config}
+	targets := walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: config.OpenFile}
 	return &App{
 		Projects:      &Projects{state: shared},
 		Documents:     &Documents{state: shared},
@@ -80,6 +93,7 @@ func New(config Config) (*App, error) {
 		SourceControl: &SourceControl{state: shared},
 		Navigation:    &Navigation{state: shared, servers: config.LanguageServers},
 		Metrics:       &Metrics{},
+		Walkthroughs:  &Walkthroughs{state: shared, service: walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), targets)},
 	}, nil
 }
 

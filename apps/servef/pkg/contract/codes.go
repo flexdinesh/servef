@@ -35,3 +35,15 @@ const (
 	// CodeNavigationFailed: the language server failed.
 	CodeNavigationFailed = "failed"
 )
+
+// Walkthrough error codes (decision 0047); a missing walkthrough is
+// CodeWalkthroughUnavailable.
+const (
+	// CodeInvalidWalkthrough: the draft is not strict JSON, is malformed, or
+	// names targets the project lacks.
+	CodeInvalidWalkthrough = "invalidWalkthrough"
+	// CodeWalkthroughTooLarge: the draft is over 1 MiB encoded.
+	CodeWalkthroughTooLarge = "tooLarge"
+	// CodeForeignOrigin: a browser on another site sent the write.
+	CodeForeignOrigin = "foreignOrigin"
+)

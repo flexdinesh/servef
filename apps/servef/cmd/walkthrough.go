@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
 	"github.com/flexdinesh/servef/internal/daemon"
@@ -22,7 +23,6 @@ import (
 	"github.com/flexdinesh/servef/internal/document"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/walkthrough"
-	webui "github.com/flexdinesh/servef/internal/web"
 	"github.com/spf13/cobra"
 )
 
@@ -283,7 +283,7 @@ func readDraft(source string, stdin io.Reader) (walkthrough.Draft, error) {
 }
 
 // standaloneTargets resolves the draft's project as its own root, then runs
-// web's shared checks.
+// the application layer's shared checks.
 type standaloneTargets struct {
 	depth int
 	types *document.Registry
@@ -301,7 +301,7 @@ func (t standaloneTargets) Check(ctx context.Context, project string, steps []wa
 	if err != nil {
 		return "", nil, err
 	}
-	return webui.NewWalkthroughTargets(roots, t.depth, t.types).Check(ctx, root, steps)
+	return app.NewWalkthroughTargets(roots, t.depth, t.types).Check(ctx, root, steps)
 }
 
 // findViewer asks each running registered server whether it shows the
