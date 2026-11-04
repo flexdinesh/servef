@@ -68,6 +68,19 @@ type Client interface {
 	// Metrics samples the server process.
 	Metrics(ctx context.Context) (contract.ProcessMetrics, error)
 
+	// Walkthroughs lists a project's walkthroughs, most recently updated
+	// first.
+	Walkthroughs(ctx context.Context, project string) ([]contract.WalkthroughSummary, error)
+	// Walkthrough reads a project's walkthrough with its Markdown rendered.
+	Walkthrough(ctx context.Context, project, id string) (contract.Walkthrough, error)
+	// PublishWalkthrough checks a draft's targets, stores it, and announces
+	// it; Open is honored over HTTP only.
+	PublishWalkthrough(ctx context.Context, draft contract.WalkthroughDraft) (contract.WalkthroughPublished, error)
+	// DeleteWalkthrough removes a project's walkthrough.
+	DeleteWalkthrough(ctx context.Context, project, id string) error
+	// WalkthroughSchema returns the JSON Schema of a draft.
+	WalkthroughSchema(ctx context.Context) ([]byte, error)
+
 	// DaemonStatus returns the daemon's status.
 	DaemonStatus(ctx context.Context) (contract.DaemonStatus, error)
 	// DaemonRoots returns the daemon's served and skipped roots.

@@ -1,6 +1,6 @@
 # 0047: Walkthroughs
 
-- Status: Accepted; publishing without a server added by [0065](0065-walkthrough-publish-cli.md)
+- Status: Accepted; publishing without a server added by [0065](0065-walkthrough-publish-cli.md); application layer by [0087](0087-walkthroughs-in-the-application-layer.md)
 - Date: 2026-10-26
 - Extends: [0008](0008-line-links-and-copy-path.md), [0028](0028-diff-line-links-and-copy.md),
   [0034](0034-diff-anchor-reveal-and-hunk-navigation.md), [0035](0035-compare-list-and-review-tab.md)

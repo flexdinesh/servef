@@ -1,6 +1,6 @@
 # 0066: Lease levels, head events, and daemon control events
 
-- Status: Accepted
+- Status: Accepted; announcements fan out from `internal/app` by [0087](0087-walkthroughs-in-the-application-layer.md)
 - Date: 2026-11-01
 - Implements: [0061](0061-daemon-roots-and-leases.md) Project leases
 - Revises: [0050](0050-live-updates.md) (lease parameter, open-only project

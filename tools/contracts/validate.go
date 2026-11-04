@@ -77,10 +77,10 @@ func (m *model) validateDecl(decl *typeDecl, value any, at string) error {
 			return err
 		}
 	}
-	// An absent optional string is "", as Go omits it.
+	// An absent optional string or enum is "", as Go omits it.
 	compared := object
 	for _, field := range decl.fields {
-		if _, present := object[field.json]; !present && field.optional && field.ref.kind == stringRef {
+		if _, present := object[field.json]; !present && field.optional && !field.pointer && (field.ref.kind == stringRef || field.ref.kind == namedRef) {
 			compared = maps.Clone(compared)
 			compared[field.json] = ""
 		}

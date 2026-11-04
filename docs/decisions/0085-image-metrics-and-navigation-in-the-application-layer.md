@@ -1,6 +1,6 @@
 # 0085: Image reads, metrics, and code navigation in the application layer
 
-- Status: Accepted
+- Status: Accepted; walkthroughs followed in [0087](0087-walkthroughs-in-the-application-layer.md)
 - Date: 2026-11-04
 - Revises: [0080](0080-application-layer-contracts-and-transports.md)
   (stage 2 for navigation and metrics; image reads in the client),

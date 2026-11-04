@@ -52,7 +52,7 @@ rewriting history; update `Status` on the old record.
 | [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Servef Light values amended by 0046 |
 | [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
 | [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
-| [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065 |
+| [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065; application layer by 0087 |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted; CLI publish added by 0065 |
 | [0050](0050-live-updates.md) | Live updates for the projects browsers show | Accepted; revised by 0066 |
@@ -69,8 +69,8 @@ rewriting history; update `Status` on the old record.
 | [0062](0062-desktop-app.md) | Desktop app | Accepted (0067, 0068, 0070, 0071, 0072, 0081) |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted (0065, 0068, 0071); revised by 0076 |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Accepted (0070); revised by 0076 |
-| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069 |
-| [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted |
+| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069; shared checks by 0087 |
+| [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted; announcements by 0087 |
 | [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted; revised by 0070, 0072, 0075, 0081 |
 | [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0072, 0073, 0076, 0079 (Releases, Homebrew) |
 | [0069](0069-servef-remote-and-ssh-links.md) | `servef remote` and ssh links | Superseded by 0076 |
@@ -84,10 +84,11 @@ rewriting history; update `Status` on the old record.
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted |
-| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085 |
+| [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085; walkthroughs by 0087 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
 | [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental); image reads by 0085; known gaps scheduled by 0086 |
 | [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
 | [0084](0084-in-process-client-package.md) | In-process client transport in its own package | Accepted |
-| [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) | Image reads, metrics, and code navigation in the application layer | Accepted |
+| [0085](0085-image-metrics-and-navigation-in-the-application-layer.md) | Image reads, metrics, and code navigation in the application layer | Accepted; walkthroughs by 0087 |
 | [0086](0086-native-agent-tooling-and-ports.md) | Native agent tooling, parity loop, and ports | Accepted |
+| [0087](0087-walkthroughs-in-the-application-layer.md) | Walkthroughs in the application layer | Accepted |

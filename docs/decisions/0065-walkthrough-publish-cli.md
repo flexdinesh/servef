@@ -1,6 +1,6 @@
 # 0065: `servef walkthrough publish` without a server
 
-- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (`servef://` URL when the app shows the walkthrough) and [0069](0069-servef-remote-and-ssh-links.md) (`servef://ssh` URL inside SSH)
+- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (`servef://` URL when the app shows the walkthrough) and [0069](0069-servef-remote-and-ssh-links.md) (`servef://ssh` URL inside SSH); shared checks moved to `internal/app` by [0087](0087-walkthroughs-in-the-application-layer.md)
 - Date: 2026-11-01
 - Extends: [0047](0047-walkthroughs.md), [0049](0049-copyable-agent-instructions.md)
 - Implements in part: [0063](0063-cli-commands-and-url-scheme.md) (the

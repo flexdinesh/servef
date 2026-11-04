@@ -137,3 +137,25 @@ type NavigationStatusRequest struct {
 	Refresh         bool
 	LanguageServers bool
 }
+
+// WalkthroughDraft is POST /api/walkthroughs: a walkthrough as an agent
+// submits it (decision 0047). Project is a project ID; a missing ID is
+// generated from the title, an existing one replaced. Open asks the server
+// to show it (HTTP only: the server's browser opener); it is not stored.
+type WalkthroughDraft struct {
+	Project string                 `json:"project"`
+	ID      string                 `json:"id,omitempty"`
+	Title   string                 `json:"title"`
+	Summary string                 `json:"summary,omitempty"`
+	Steps   []WalkthroughDraftStep `json:"steps"`
+	Open    bool                   `json:"open,omitempty"`
+}
+
+// WalkthroughDraftStep is a draft's step: WalkthroughStep without its
+// rendered body.
+type WalkthroughDraftStep struct {
+	Title string                 `json:"title"`
+	Body  string                 `json:"body,omitempty"`
+	File  *WalkthroughFileTarget `json:"file,omitempty"`
+	Diff  *WalkthroughDiffTarget `json:"diff,omitempty"`
+}

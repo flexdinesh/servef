@@ -45,6 +45,8 @@ func TestAPIFixturesSatisfyGeneratedContracts(t *testing.T) {
 		"navigation-status.json": "NavigationStatus",
 		"definition.json":        "NavigationResult",
 		"references.json":        "NavigationResult",
+		"walkthrough-tour.json":  "Walkthrough",
+		"walkthroughs.json":      "[]WalkthroughSummary",
 	}
 	checked := 0
 	for pattern, typeName := range shapes {
@@ -61,13 +63,19 @@ func TestAPIFixturesSatisfyGeneratedContracts(t *testing.T) {
 			if err := json.Unmarshal(content, &value); err != nil {
 				t.Fatalf("%s: %v", name, err)
 			}
-			if err := m.validate(typeName, value); err != nil {
+			// A []T shape is a bare array of T.
+			if elem, ok := strings.CutPrefix(typeName, "[]"); ok {
+				err = m.validateRef(typeRef{kind: arrayRef, elem: &typeRef{kind: namedRef, name: elem}}, value, "$")
+			} else {
+				err = m.validate(typeName, value)
+			}
+			if err != nil {
 				t.Errorf("%s as %s: %v", filepath.Base(name), typeName, err)
 			}
 			checked++
 		}
 	}
-	if checked < 35 {
+	if checked < 37 {
 		t.Errorf("checked %d fixtures, want every generated shape's", checked)
 	}
 }
@@ -143,6 +151,8 @@ type Thing struct {
 	Count   *int     ` + "`json:\"count,omitempty\"`" + `
 	Labels  []string ` + "`json:\"labels,omitempty\"`" + `
 	Ratio   *float64 ` + "`json:\"ratio\"`" + `
+	Parent  *Thing   ` + "`json:\"parent,omitempty\"`" + `
+	Tone    Mode     ` + "`json:\"tone,omitempty\"`" + `
 	Skip    string   ` + "`json:\"-\"`" + `
 }
 `,
@@ -162,6 +172,10 @@ type Thing struct {
 		"  count?: number",
 		"  labels?: string[]",
 		"  ratio: number | null",
+		"  parent?: Thing",
+		"  tone?: Mode",
+		"&& (value.parent === undefined || isThing(value.parent))",
+		"&& (value.tone === undefined || isMode(value.tone))",
 		"&& (value.labels === undefined || isArrayOf(value.labels, isString))",
 		"&& (value.ratio === null || isNumber(value.ratio))",
 		"&& (value.count === undefined || isNumber(value.count))",
@@ -195,7 +209,9 @@ func TestGeneratorRejectsWhatGuardsCannotExpress(t *testing.T) {
 		"untyped const":       "const C = \"c\"\n",
 		"unknown named":       "type T struct {\n\tU Unknown `json:\"u\"`\n}\n",
 		"optional number":     "type T struct {\n\tN int `json:\"n,omitempty\"`\n}\n",
-		"optional struct":     "type U struct{}\ntype T struct {\n\tU *U `json:\"u,omitempty\"`\n}\n",
+		"optional struct":     "type U struct{}\ntype T struct {\n\tU U `json:\"u,omitempty\"`\n}\n",
+		"optional enum ptr":   "type E string\n\nconst EOn E = \"on\"\n\ntype T struct {\n\tE *E `json:\"e,omitempty\"`\n}\n",
+		"optional ptr rule":   "type U struct{}\n\n//contract:rule u == null => s != \"\"\ntype T struct {\n\tU *U `json:\"u,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
 		"optional rule":       "//contract:rule n == true => s != \"\"\ntype T struct {\n\tN *bool `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
 		"optional slice rule": "//contract:rule n == null => s != \"\"\ntype T struct {\n\tN []string `json:\"n,omitempty\"`\n\tS string `json:\"s\"`\n}\n",
 		"pointer to slice":    "type T struct {\n\tN *[]string `json:\"n\"`\n}\n",

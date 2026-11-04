@@ -17,8 +17,6 @@ import (
 	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/files"
 	"github.com/flexdinesh/servef/internal/projects"
-	"github.com/flexdinesh/servef/internal/walkthrough"
-	"github.com/flexdinesh/servef/internal/web"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -69,11 +67,11 @@ type stopResponse struct {
 	Stopping bool `json:"stopping"`
 }
 
-// WalkthroughNotices announces published walkthroughs; runtime.Runtime
+// WalkthroughNotices announces published walkthroughs; app.Walkthroughs
 // implements it.
 type WalkthroughNotices interface {
-	AnnounceWalkthrough(project, id string, created bool) (web.WalkthroughNotice, error)
-	WalkthroughNotices() (<-chan web.WalkthroughNotice, func())
+	Announce(project, id string, created bool) (contract.WalkthroughEvent, error)
+	Notices() (<-chan contract.WalkthroughEvent, func())
 }
 
 // errorResponse matches the web app's JSON errors: {error, code?}.
@@ -337,24 +335,26 @@ func (c *Controller) announce(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Send a project and an id.", Code: "invalidRequest"})
 		return
 	}
-	_, err := c.notices.AnnounceWalkthrough(request.Project, request.ID, request.Created)
-	switch {
-	case err == nil:
+	_, err := c.notices.Announce(request.Project, request.ID, request.Created)
+	if err == nil {
 		writeJSON(w, http.StatusAccepted, announceResponse{Announced: true})
-	case errors.Is(err, web.ErrProjectUnavailable):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "No served root shows the project.", Code: "projectUnavailable"})
-	case errors.Is(err, walkthrough.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, errorResponse{Error: "The daemon's walkthrough store has no such walkthrough.", Code: "walkthroughUnavailable"})
+		return
+	}
+	switch failure := app.AsError(err); failure.Code {
+	case contract.CodeProjectUnavailable:
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "No served root shows the project.", Code: contract.CodeProjectUnavailable})
+	case contract.CodeWalkthroughUnavailable:
+		writeJSON(w, http.StatusNotFound, errorResponse{Error: "The daemon's walkthrough store has no such walkthrough.", Code: contract.CodeWalkthroughUnavailable})
 	default:
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Announce walkthrough: " + err.Error()})
+		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Announce walkthrough: " + failure.Message})
 	}
 }
 
 // Subscribe starts a control stream: its first event (status), then each
 // walkthrough announcement on notices until cancel, which the caller must
 // call. Done closes when the daemon stops.
-func (c *Controller) Subscribe() (first contract.DaemonEvent, notices <-chan web.WalkthroughNotice, cancel func()) {
-	notices, cancel = c.notices.WalkthroughNotices()
+func (c *Controller) Subscribe() (first contract.DaemonEvent, notices <-chan contract.WalkthroughEvent, cancel func()) {
+	notices, cancel = c.notices.Notices()
 	status := contract.DaemonStatusEvent{Protocol: c.status.Protocol, Version: c.status.Version}
 	return contract.DaemonEvent{Name: contract.DaemonEventStatus, Status: &status}, notices, cancel
 }
@@ -363,8 +363,8 @@ func (c *Controller) Subscribe() (first contract.DaemonEvent, notices <-chan web
 func (c *Controller) Done() <-chan struct{} { return c.done }
 
 // WalkthroughEvent is a notice as a control stream event.
-func WalkthroughEvent(notice web.WalkthroughNotice) contract.DaemonEvent {
-	return contract.DaemonEvent{Name: contract.DaemonEventWalkthrough, Walkthrough: &contract.WalkthroughEvent{Project: notice.Project, ID: notice.ID, Title: notice.Title, Created: notice.Created}}
+func WalkthroughEvent(notice contract.WalkthroughEvent) contract.DaemonEvent {
+	return contract.DaemonEvent{Name: contract.DaemonEventWalkthrough, Walkthrough: &notice}
 }
 
 // serveEvents streams daemon-level events: status first, then each

@@ -51,18 +51,6 @@ func (r *Runtime) Application() *app.App { return r.app.Application() }
 // Handler is the web application (Host check, CSP, routes).
 func (r *Runtime) Handler() http.Handler { return r.app }
 
-// AnnounceWalkthrough tells walkthrough notice subscribers that project's
-// walkthrough id was published (web.App.AnnounceWalkthrough).
-func (r *Runtime) AnnounceWalkthrough(project, id string, created bool) (web.WalkthroughNotice, error) {
-	return r.app.AnnounceWalkthrough(project, id, created)
-}
-
-// WalkthroughNotices subscribes to walkthrough announcements
-// (web.App.WalkthroughNotices).
-func (r *Runtime) WalkthroughNotices() (<-chan web.WalkthroughNotice, func()) {
-	return r.app.WalkthroughNotices()
-}
-
 // Serve serves handler on listener until ctx ends or serving fails. On ctx
 // end it shuts down: event streams end first, then in-flight requests get
 // ShutdownTimeout. It returns nil after a clean stop. listener is closed when

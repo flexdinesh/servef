@@ -22,7 +22,7 @@ const (
 )
 
 // generated lists the contract files emitted as TypeScript, in index order.
-var generated = []string{"errors.go", "projects.go", "documents.go", "sourcecontrol.go", "navigation.go", "metrics.go"}
+var generated = []string{"errors.go", "projects.go", "documents.go", "sourcecontrol.go", "navigation.go", "metrics.go", "walkthroughs.go"}
 
 // goOnly lists contract files with no generated TypeScript: package docs,
 // transport mappings, request parameters, non-JSON bodies, and shapes whose

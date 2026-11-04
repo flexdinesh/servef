@@ -50,9 +50,9 @@ type typeDecl struct {
 }
 
 // field is a struct field. An optional field may be absent: an omitempty
-// string, absent when empty (rules compare it as ""), an omitempty pointer
-// to a scalar, absent when nil, or an omitempty slice, absent when empty
-// (rules may name neither).
+// string or enum, absent when empty (rules compare it as ""), an omitempty
+// pointer to a scalar or struct, absent when nil, or an omitempty slice,
+// absent when empty (rules may name neither).
 type field struct {
 	json     string
 	optional bool
@@ -194,6 +194,16 @@ func load(dir string, generated, goOnly []string) (*model, error) {
 			if err := m.checkRef(field.ref); err != nil {
 				return nil, fmt.Errorf("%s: %s.%s: %w", decl.file.name, decl.name, field.json, err)
 			}
+			// Go omits an empty enum and a nil pointer, never a struct.
+			if field.optional && field.ref.kind == namedRef {
+				want := enumDecl
+				if field.pointer {
+					want = structDecl
+				}
+				if m.types[field.ref.name].kind != want {
+					return nil, fmt.Errorf("%s: %s.%s: omitempty names an enum or a pointer to a struct", decl.file.name, decl.name, field.json)
+				}
+			}
 		}
 		for _, rule := range decl.rules {
 			for _, condition := range []condition{rule.when, rule.then} {
@@ -306,12 +316,12 @@ func parseType(files *token.FileSet, source *sourceFile, spec *ast.TypeSpec, doc
 			if options != "" && !optional {
 				return nil, fmt.Errorf("%s: json option %q is unsupported", fieldAt, options)
 			}
-			pointer := optional && ref.kind == nullableRef && ref.elem.isScalar()
+			pointer := optional && ref.kind == nullableRef && (ref.elem.isScalar() || ref.elem.kind == namedRef)
 			if pointer {
 				ref = *ref.elem
 			}
-			if optional && ref.kind != stringRef && ref.kind != arrayRef && !pointer {
-				return nil, fmt.Errorf("%s: omitempty is supported on strings, slices, and pointers to scalars only", fieldAt)
+			if optional && ref.kind != stringRef && ref.kind != arrayRef && ref.kind != namedRef && !pointer {
+				return nil, fmt.Errorf("%s: omitempty is supported on strings, enums, slices, and pointers to scalars or structs only", fieldAt)
 			}
 			doc := docLines(item.Doc)
 			// Docs name the field as TypeScript does.

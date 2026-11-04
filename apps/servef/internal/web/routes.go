@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/flexdinesh/servef/internal/walkthrough"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -112,15 +111,17 @@ func (a *App) newRoutes() *http.ServeMux {
 
 	// Walkthroughs (decision 0047).
 	api("/api/walkthroughs", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
-		a.serveWalkthroughs(w, query.Get("project"))
+		summaries, err := a.app.Walkthroughs.List(query.Get("project"))
+		writeResult(w, summaries, err)
 	})
 	api("/api/walkthrough", func(w http.ResponseWriter, _ *http.Request, query url.Values) {
-		a.serveWalkthrough(w, query.Get("project"), query.Get("id"))
+		stored, err := a.app.Walkthroughs.Get(query.Get("project"), query.Get("id"))
+		writeResult(w, stored, err)
 	})
 	mux.HandleFunc("GET /api/walkthrough-schema", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/schema+json")
 		w.Header().Set("Cache-Control", "no-store")
-		_, _ = w.Write(walkthrough.Schema)
+		_, _ = w.Write(a.app.Walkthroughs.Schema())
 	})
 	mux.HandleFunc("POST /api/walkthroughs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
