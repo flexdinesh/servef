@@ -107,7 +107,37 @@ for the host OS and arch, run `mise run package:desktop` (installers) or
 `apps/desktop/dist/`.
 
 For development installs from `edge`, see the
-[development guide](development.md#install-from-edge).
+[development guide](development.md#install-from-main).
+
+To inspect the Linux packages, run `mise run package:desktop`, then list the
+deb (`dpkg-deb -c apps/desktop/dist/servef-desktop_0.0.0-dev_linux_$(go env GOARCH).deb`,
+or `bsdtar -tf` on its `data.tar.xz`). It must contain
+`usr/share/kio/servicemenus/servef-desktop.desktop`,
+`usr/share/nemo/actions/servef-desktop.nemo_action`, and one entry under
+`usr/share/applications/` without `inode/directory`; `desktop-file-validate`
+checks that entry (not the KDE service menu). electron-builder's bundled fpm
+needs `libcrypt.so.1` (Arch: `libxcrypt-compat`), `xz`, and `ar`.
+
+The install scripts share code between `# shared:<name>:begin/end` markers;
+edit every copy. `mise run test:release` runs shellcheck and
+`tests/install-scripts.test.ts`, which checks the copies match and runs each
+script against stub tools.
+
+## Docs site deploy
+
+The site (`apps/site`) deploys as plain static files through Cloudflare Pages
+Git integration (decision 0074). Project settings:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | repository root (CF reads `.node-version`, Node 26) |
+| Build command | `pnpm install --frozen-lockfile --filter @servef/site... && pnpm build:site` |
+| Build output directory | `apps/site/dist/public` |
+| Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
+
+The filtered install skips the web and desktop workspaces. `pnpm build:site`
+fails on dead internal links. Cloudflare serves `404.html` for unknown paths.
+There is no `wrangler.toml`: Pages build settings live in the dashboard.
 
 ## Version series
 
