@@ -19,11 +19,24 @@ curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/inst
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh              # remove all
 ```
 
+Run it:
+
+```sh
+servef --version              # servef 0.0.0-edge <commit> <date>
+servef daemon stop            # restart the daemon on the new build (next servef starts it)
+servef .                      # desktop app, else browser
+servef browser .              # browser
+servef-native .               # native app
+servef-native --version
+which -a servef               # which install wins on PATH
+```
+
 From a checkout:
 
 ```sh
-mise run install                                                  # go install the local CLI
+mise run install                                                  # go install to $(go env GOBIN) (mise's Go bin; on PATH in mise shells)
 mise run build:web && go build -o ./bin/servef ./apps/servef      # local binary in ./bin
+./bin/servef .                                                    # run it (--version prints servef dev)
 ```
 
 ## Browser
@@ -50,6 +63,8 @@ mise run measure:desktop      # memory scenario (needs a display)
 ```
 
 ## Native (mygo, experimental)
+
+User docs: [native app](../apps/site/src/pages/docs/native.mdx); decision 0082.
 
 ```sh
 go build -o .dev/native/servef ./apps/servef
