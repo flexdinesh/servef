@@ -141,3 +141,21 @@ func TestConcurrentRenders(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// A render past its deadline fails (the caller shows the source) and the
+// next one renders again.
+func TestRenderTimesOut(t *testing.T) {
+	if err := Warm(); err != nil {
+		t.Fatal(err)
+	}
+	renderTimeout = time.Nanosecond
+	_, err := Render("flowchart LR\n  A --> B\n", Options{})
+	renderTimeout = 10 * time.Second
+	var rejected *Error
+	if err == nil || errors.As(err, &rejected) {
+		t.Fatalf("timed-out render: %v", err)
+	}
+	if _, err := Render("flowchart LR\n  A --> B\n", Options{}); err != nil {
+		t.Fatalf("after a timeout: %v", err)
+	}
+}

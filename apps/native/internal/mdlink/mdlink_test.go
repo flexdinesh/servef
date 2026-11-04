@@ -1,6 +1,7 @@
 package mdlink
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/flexdinesh/servef/apps/native/internal/fakeservef"
@@ -68,20 +69,34 @@ func TestPreviewSource(t *testing.T) {
 }
 
 func TestPreview(t *testing.T) {
+	// The server declares Mermaid files as their own family, previewed as
+	// one fence (page-mermaid.json matches the server's registry).
 	var page contract.PageData
 	fakeservef.Fixture(t, "page-mermaid.json", &page)
-	got := Preview(page.Source, page.Content)
+	if page.DocumentType == nil || page.DocumentType.ID != MermaidFamily || page.DocumentType.PreviewKind != contract.PreviewMarkdown {
+		t.Fatalf("page-mermaid.json declares %+v", page.DocumentType)
+	}
+	if want := "<pre><code class=\"language-mermaid\">"; !strings.HasPrefix(page.Content, want) {
+		t.Fatalf("the server's Mermaid preview is no longer one mermaid fence: %q", page.Content)
+	}
+	got := Preview(page.Source, page.DocumentType)
 	if want := "```mermaid\n" + page.Source + "```\n"; got != want {
 		t.Fatalf("mermaid page preview:\n%q\nwant\n%q", got, want)
 	}
-	if got := Preview("a ``` b", "<pre><code class=\"language-mermaid\">a ``` b</code></pre>\n"); got != "````mermaid\na ``` b\n````\n" {
+	mermaid := &contract.FileType{ID: MermaidFamily}
+	if got := Preview("a ``` b", mermaid); got != "````mermaid\na ``` b\n````\n" {
 		t.Fatalf("fence around backticks: %q", got)
 	}
-	// Any other preview shows the Markdown source.
-	if got := Preview("---\nx: 1\n---\n# Hi\n", "<h1>Hi</h1>"); got != "# Hi\n" {
+	// Every other family shows its Markdown source, whatever its preview
+	// looks like.
+	markdown := &contract.FileType{ID: "markdown"}
+	if got := Preview("---\nx: 1\n---\n# Hi\n", markdown); got != "# Hi\n" {
 		t.Fatalf("markdown preview %q", got)
 	}
-	if got := Preview("x", "<pre><code class=\"language-mermaid\">a</code></pre>\n<p>b</p>"); got != "x" {
-		t.Fatalf("more than one fence %q", got)
+	if got := Preview("```mermaid\nA-->B\n```\n", markdown); got != "```mermaid\nA-->B\n```\n" {
+		t.Fatalf("a Markdown file of one mermaid fence %q", got)
+	}
+	if got := Preview("x", nil); got != "x" {
+		t.Fatalf("no type %q", got)
 	}
 }

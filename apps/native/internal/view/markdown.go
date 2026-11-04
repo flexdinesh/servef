@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -21,9 +22,9 @@ const (
 	mermaidLoadError   = "Could not load Mermaid. Reload to try again."
 )
 
-// cacheLimit bounds the fences and diagrams a view keeps; past it the
-// cache starts over.
-const cacheLimit = 64
+// resizeDelay is how long a diagram's frame keeps a new width before the
+// diagram renders for it; until then the last render scales to fit.
+const resizeDelay = 250 * time.Millisecond
 
 // fenceKey is a fence's code in a language.
 type fenceKey struct{ language, code string }
@@ -34,53 +35,63 @@ type fence struct {
 	ready bool
 }
 
-// diagramKey is a Mermaid source laid out for a width.
-type diagramKey struct {
-	source string
-	width  int
-}
-
-// diagram is a rendered Mermaid source: the drawing, or the message its
+// rendered is a finished Mermaid render: the drawing, or the message its
 // source shows with.
-type diagram struct {
+type rendered struct {
 	doc    *svgdraw.Doc
 	err    string
 	failed bool // Mermaid did not load
-	ready  bool
 }
 
-// markdownBlocks keeps what Markdown code blocks computed off the UI
-// thread.
+// diagram is a Mermaid source's renders: the last finished one, for the
+// width it was laid out for, and the one in flight.
+type diagram struct {
+	shown    *rendered
+	width    int
+	inflight bool
+	// want is a new frame width, seen since wantSince.
+	want      int
+	wantSince time.Time
+	// measured asked for the frame that measures the width.
+	measured bool
+}
+
+// markdownBlocks keeps what the open document's code blocks computed off
+// the UI thread, one entry per fence or diagram source: mygo builds every
+// block each frame, so an entry must outlive the frame for its result to
+// show. It starts over for another document.
 type markdownBlocks struct {
+	document string
 	fences   map[fenceKey]*fence
-	diagrams map[diagramKey]*diagram
-	// shown is each source's last ready width, shown while another width
-	// renders.
-	shown map[string]int
+	diagrams map[string]*diagram
 }
 
-func (b *markdownBlocks) fence(key fenceKey) (*fence, bool) {
+// use keeps the blocks of document, dropping another document's.
+func (b *markdownBlocks) use(document string) {
+	if b.document != document || b.fences == nil {
+		b.document = document
+		b.fences, b.diagrams = map[fenceKey]*fence{}, map[string]*diagram{}
+	}
+}
+
+// fence returns key's entry; known is false when it was just made, and
+// its highlighting is to start.
+func (b *markdownBlocks) fence(key fenceKey) (f *fence, known bool) {
 	if f, ok := b.fences[key]; ok {
 		return f, true
 	}
-	if b.fences == nil || len(b.fences) >= cacheLimit {
-		b.fences = map[fenceKey]*fence{}
-	}
-	f := &fence{}
+	f = &fence{}
 	b.fences[key] = f
 	return f, false
 }
 
-func (b *markdownBlocks) diagram(key diagramKey) (*diagram, bool) {
-	if d, ok := b.diagrams[key]; ok {
-		return d, true
+func (b *markdownBlocks) diagram(source string) *diagram {
+	d, ok := b.diagrams[source]
+	if !ok {
+		d = &diagram{}
+		b.diagrams[source] = d
 	}
-	if b.diagrams == nil || len(b.diagrams) >= cacheLimit {
-		b.diagrams, b.shown = map[diagramKey]*diagram{}, map[string]int{}
-	}
-	d := &diagram{}
-	b.diagrams[key] = d
-	return d, false
+	return d
 }
 
 // codeBlock builds a fence as the web app's preview does: highlighted with
@@ -186,9 +197,12 @@ func codeSpans(colors *editor.Theme, code string, lines [][]highlight.Span) []ui
 
 // mermaidBlock draws a Mermaid fence as the web app's OndineMermaidDiagram
 // does: rendered by Ondine for the frame's width (padding 16), centered on
-// a bordered surface, colored by the theme's --ondine-* variables. Until it
-// renders the source shows; a source Ondine rejects shows with Ondine's
-// diagnostic, and one that fails otherwise with a generic message.
+// a bordered surface, colored by the theme's --ondine-* variables (applied
+// when drawing, so a theme switch renders nothing anew). Until it renders
+// the source shows; a source Ondine rejects shows with Ondine's diagnostic,
+// and one that fails otherwise (or fails to draw) with a generic message.
+// A new frame width renders again once it has held for resizeDelay; the
+// last render scales down meanwhile.
 func (a *App) mermaidBlock(c *ui.Context, b *markdown.CodeBlockView, th *markdown.Theme, palette theme.Palette) {
 	source := b.Code()
 	frame := ui.Column(c).AlignSelf(ui.Stretch).Gap(em(th, 0.5))
@@ -198,47 +212,67 @@ func (a *App) mermaidBlock(c *ui.Context, b *markdown.CodeBlockView, th *markdow
 			mermaidSource(c, th, source, "")
 			return
 		}
+		d := a.blocks.diagram(source)
 		if width <= 0 {
 			// The frame's width comes with the next frame.
-			mermaidSource(c, th, source, "")
-			c.Invalidate()
-			return
-		}
-		d, known := a.blocks.diagram(diagramKey{source, width})
-		if !known {
-			a.renderMermaid(source, width, d)
-		}
-		if !d.ready {
-			if last, ok := a.blocks.shown[source]; ok {
-				if shown, ok := a.blocks.diagrams[diagramKey{source, last}]; ok && shown.ready {
-					d = shown
-				}
+			if !d.measured {
+				d.measured = true
+				c.Invalidate()
 			}
+			if d.shown == nil {
+				mermaidSource(c, th, source, "")
+				return
+			}
+		} else {
+			a.scheduleMermaid(c, source, width, d)
 		}
+		shown := d.shown
 		switch {
-		case !d.ready:
+		case shown == nil:
 			mermaidSource(c, th, source, "")
-		case d.failed:
+		case shown.failed:
 			mermaidSource(c, th, source, mermaidLoadError)
 			if ui.Button(c, "Reload diagrams").Clicked() {
-				a.blocks.diagrams, a.blocks.shown = nil, nil
+				a.blocks.diagrams = map[string]*diagram{}
 			}
-		case d.err != "":
-			mermaidSource(c, th, source, d.err)
+		case shown.err != "":
+			mermaidSource(c, th, source, shown.err)
+		case shown.doc.Err() != nil:
+			mermaidSource(c, th, source, mermaidRenderError)
 		default:
 			style := &svgdraw.Style{Vars: palette.Ondine(), Font: "monospace", Color: ui.Hex(palette.TextPrimary)}
 			// mermaid.css: margin var(--space-5) 0, radius var(--radius-md).
 			ui.Column(c).AlignSelf(ui.Stretch).AlignItems(ui.Center).MarginY(24).Border(1, ui.Hex(palette.Border)).Radius(4).Background(ui.Hex(palette.Surface)).Clip().Children(func() {
-				svgdraw.View(c, d.doc, style).Label("Mermaid diagram")
+				svgdraw.View(c, shown.doc, style).Label("Mermaid diagram")
 			})
 		}
 	})
 }
 
+// scheduleMermaid starts d's render for width when it has none, or when
+// the frame has held a new width for resizeDelay; one render at a time.
+func (a *App) scheduleMermaid(c *ui.Context, source string, width int, d *diagram) {
+	switch {
+	case d.inflight:
+	case d.shown == nil:
+		a.renderMermaid(source, width, d)
+	case d.shown.failed || width == d.width:
+		d.want = 0
+	case d.want != width:
+		d.want, d.wantSince = width, c.Now()
+		c.After(resizeDelay)
+	case c.Now().Sub(d.wantSince) >= resizeDelay:
+		a.renderMermaid(source, width, d)
+	default:
+		c.After(resizeDelay - c.Now().Sub(d.wantSince))
+	}
+}
+
 // renderMermaid renders source for width off the UI thread into d.
 func (a *App) renderMermaid(source string, width int, d *diagram) {
+	d.inflight = true
 	a.run.Go(func() func() {
-		var result diagram
+		var result rendered
 		if err := ondine.Warm(); err != nil {
 			result.failed = true
 		} else if out, err := ondine.Render(source, ondine.Options{IDPrefix: "mermaid", MaxWidth: float64(width), Padding: 16}); err != nil {
@@ -252,12 +286,8 @@ func (a *App) renderMermaid(source string, width int, d *diagram) {
 		} else {
 			result.doc = doc
 		}
-		result.ready = true
 		return func() {
-			*d = result
-			if d.doc != nil && a.blocks.shown != nil {
-				a.blocks.shown[source] = width
-			}
+			d.shown, d.width, d.inflight, d.want = &result, width, false, 0
 		}
 	})
 }

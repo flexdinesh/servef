@@ -16,7 +16,9 @@ NDJSON over a Unix socket; `windows`, `tree`, `act`, `input`, `menu`,
 `capture`, `idle`), so they drive a headless session and a built app alike.
 
 - **Headless session** (`agent/session`): hosts any `ui.View` in a
-  `ui.Tester` (CPU rasterizer, no display). Its tree is built from
+  `ui.Tester` (CPU rasterizer, no display; text still goes through the
+  system's Pango, cairo, and fontconfig, which mygo loads with dlopen and
+  does not bundle: without them shots show no text). Its tree is built from
   `Tester.Texts` and `Tester.Find`: one `text` node per text, the box of the
   first element showing it; repeated texts are listed but only the first is
   pressable; open context-menu items show as `menuItem`. Nodes have no

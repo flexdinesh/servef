@@ -16,6 +16,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -188,11 +189,21 @@ func number(s string) (float64, bool) {
 	case strings.HasSuffix(s, "em"):
 		s, scale = s[:len(s)-2], 16
 	}
-	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	v, err := parseFinite(strings.TrimSpace(s))
 	if err != nil {
 		return 0, false
 	}
 	return v * scale, true
+}
+
+// parseFinite parses a finite float: NaN and infinities (which
+// strconv accepts) are errors, so no drawing call sees them.
+func parseFinite(s string) (float64, error) {
+	v, err := strconv.ParseFloat(s, 64)
+	if err == nil && (math.IsNaN(v) || math.IsInf(v, 0)) {
+		err = strconv.ErrRange
+	}
+	return v, err
 }
 
 // numbers parses a list of numbers separated by commas or spaces.

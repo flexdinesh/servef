@@ -7,8 +7,10 @@
 // XID).
 //
 // The module compiles once per process, on first use, through the shared
-// wasmcache; instances are pooled, one per call in flight, and an instance
-// whose memory grew past 8 MiB is dropped after its call.
+// wasmcache (a failed compile is tried again on the next call); at most
+// GOMAXPROCS instances run at once, two idle ones are pooled, and an
+// instance that failed, panicked, ran past callTimeout, or grew past 8 MiB
+// is closed after its call.
 package highlights
 
 import (
@@ -17,9 +19,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/tetratelabs/wazero"
@@ -111,8 +115,7 @@ func Tokens(lang, src string, opts Options) (lines []Line, err error) {
 	if err != nil {
 		return Plain(src), err
 	}
-	recs, err := inst.records(id, src)
-	release(inst, err)
+	recs, err := inst.call(id, src)
 	if err != nil {
 		return Plain(src), err
 	}
@@ -233,38 +236,43 @@ type engine struct {
 }
 
 var (
-	engineOnce sync.Once
-	shared     *engine
-	engineErr  error
+	// engineMu guards shared; a failed load is not kept, so the next
+	// call tries again.
+	engineMu sync.Mutex
+	shared   *engine
+
+	// slots bounds the instances in use at once.
+	slots = make(chan struct{}, max(1, runtime.GOMAXPROCS(0)))
 
 	poolMu sync.Mutex
 	idle   []*instance
 )
 
 func loadEngine() (*engine, error) {
-	engineOnce.Do(func() {
-		ctx := context.Background()
-		rt := wasmcache.NewRuntime(maxPages)
-		_, err := rt.NewHostModuleBuilder("env").
-			NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, ptr, n uint32) uint32 {
-			return idClass(m, ptr, n, isIDStart)
-		}).Export("is_id_start").
-			NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, ptr, n uint32) uint32 {
-			return idClass(m, ptr, n, isIDContinue)
-		}).Export("is_id_continue").
-			Instantiate(ctx)
-		if err != nil {
-			engineErr = fmt.Errorf("highlights: host module: %w", err)
-			return
-		}
-		compiled, err := wasmcache.Compile(rt, wasmBytes)
-		if err != nil {
-			engineErr = fmt.Errorf("highlights: compile: %w", err)
-			return
-		}
-		shared = &engine{runtime: rt, compiled: compiled}
-	})
-	return shared, engineErr
+	engineMu.Lock()
+	defer engineMu.Unlock()
+	if shared != nil {
+		return shared, nil
+	}
+	rt, compiled, err := wasmcache.Load(maxPages, wasmBytes)
+	if err != nil {
+		return nil, fmt.Errorf("highlights: %w", err)
+	}
+	ctx := context.Background()
+	_, err = rt.NewHostModuleBuilder("env").
+		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, ptr, n uint32) uint32 {
+		return idClass(m, ptr, n, isIDStart)
+	}).Export("is_id_start").
+		NewFunctionBuilder().WithFunc(func(_ context.Context, m api.Module, ptr, n uint32) uint32 {
+		return idClass(m, ptr, n, isIDContinue)
+	}).Export("is_id_continue").
+		Instantiate(ctx)
+	if err != nil {
+		_ = rt.Close(ctx)
+		return nil, fmt.Errorf("highlights: host module: %w", err)
+	}
+	shared = &engine{runtime: rt, compiled: compiled}
+	return shared, nil
 }
 
 // Warm compiles the module ahead of the first Tokens call.
@@ -294,7 +302,10 @@ type instance struct {
 	module api.Module
 }
 
+// acquire takes a slot and an instance, pooled or new; release gives both
+// back.
 func acquire() (*instance, error) {
+	slots <- struct{}{}
 	poolMu.Lock()
 	if n := len(idle); n > 0 {
 		inst := idle[n-1]
@@ -305,18 +316,22 @@ func acquire() (*instance, error) {
 	poolMu.Unlock()
 	e, err := loadEngine()
 	if err != nil {
+		<-slots
 		return nil, err
 	}
 	module, err := e.runtime.InstantiateModule(context.Background(), e.compiled, wazero.NewModuleConfig().WithName(""))
 	if err != nil {
+		<-slots
 		return nil, fmt.Errorf("highlights: instantiate: %w", err)
 	}
 	return &instance{module: module}, nil
 }
 
-// release pools a healthy instance with little memory and closes the rest.
-func release(inst *instance, err error) {
-	if err == nil && inst.module.Memory().Size()/pageSize <= keepPages {
+// release pools a healthy instance with little memory, closes the rest,
+// and frees its slot.
+func release(inst *instance, healthy bool) {
+	defer func() { <-slots }()
+	if healthy && inst.module.Memory().Size()/pageSize <= keepPages {
 		poolMu.Lock()
 		if len(idle) < poolSize {
 			idle = append(idle, inst)
@@ -326,6 +341,25 @@ func release(inst *instance, err error) {
 		poolMu.Unlock()
 	}
 	_ = inst.module.Close(context.Background())
+}
+
+// callTimeout bounds one lexing call; past it the instance is closed.
+const callTimeout = 10 * time.Second
+
+// call lexes src and releases the instance, closing it when the call
+// fails, panics, or runs out of time.
+func (inst *instance) call(id uint8, src string) ([]uint32, error) {
+	return inst.use(func() ([]uint32, error) { return inst.records(id, src) })
+}
+
+// use runs work on the instance, then releases it: pooled when work
+// succeeded, closed when it failed or panicked.
+func (inst *instance) use(work func() ([]uint32, error)) (recs []uint32, err error) {
+	healthy := false
+	defer func() { release(inst, healthy) }()
+	recs, err = work()
+	healthy = err == nil
+	return recs, err
 }
 
 // records lexes src in language id with output mode 3 (UTF-16 line
@@ -347,7 +381,9 @@ func (inst *instance) records(id uint8, src string) ([]uint32, error) {
 	if !mem.Write(0, header[:]) {
 		return nil, errors.New("highlights: write header")
 	}
-	if _, err := inst.module.ExportedFunction("highlight").Call(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	defer cancel()
+	if _, err := inst.module.ExportedFunction("highlight").Call(ctx); err != nil {
 		return nil, fmt.Errorf("highlights: %w", err)
 	}
 	out, ok := mem.Read(6, 8)

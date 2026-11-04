@@ -100,7 +100,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	if group == "native" {
 		// Opt-in (decision 0082): apps/native is its own module on Go 1.27,
 		// outside go.work.
-		native := tools.WithExec([]string{"sh", "-ec", nativeGo}).
+		native := tools.WithExec([]string{"sh", "-ec", nativeGo}).WithExec([]string{"sh", "-ec", nativeTextPackages}).
 			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_NATIVE_GOROOT", "/usr/local/go1.27")
 		// packages/mygo (decision 0086) is apps/native's agent tooling, a
 		// module of its own that apps/native replaces.
@@ -229,6 +229,17 @@ apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   xvfb xauth dbus dbus-x11 libgtk-3-0 libepoxy0 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0 \
   fonts-dejavu-core
+rm -rf /var/lib/apt/lists/*
+`
+
+// nativeTextPackages are what mygo's headless text needs: it shapes and
+// draws text through the system's Pango, cairo, HarfBuzz, and fontconfig
+// (dlopen), with no fonts of its own; without them a ui.Tester draws no
+// text. The native tests require it (MYGO_REQUIRE_TEXT).
+const nativeTextPackages = `
+apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+  libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libharfbuzz0b fontconfig fonts-dejavu-core
 rm -rf /var/lib/apt/lists/*
 `
 

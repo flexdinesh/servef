@@ -1,6 +1,7 @@
 package svgdraw
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -15,6 +16,9 @@ type Doc struct {
 	vx, vy, vw, vh float64
 	width, height  float64
 	lists          []*list
+	// err is the first failure drawing it; a failed document draws
+	// nothing more.
+	err error
 }
 
 // Style is how a document draws beyond its own markup.
@@ -30,8 +34,14 @@ type Style struct {
 	Color ui.Color
 }
 
-// Parse parses an SVG document.
-func Parse(svg string) (*Doc, error) {
+// Parse parses an SVG document. Malformed input is an error, never a
+// panic.
+func Parse(svg string) (doc *Doc, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			doc, err = nil, fmt.Errorf("svgdraw: parse: %v", r)
+		}
+	}()
 	root, err := parse([]byte(svg))
 	if err != nil {
 		return nil, err
@@ -518,9 +528,29 @@ func firstNumber(s string) float64 {
 	return 0
 }
 
+// Err is the failure that stopped the document drawing, or nil.
+func (d *Doc) Err() error { return d.err }
+
 // Draw draws the document into r, its viewBox scaled to fit and
-// centered, as an img of that size shows it.
-func (d *Doc) Draw(p *ui.Painter, r ui.Rect, s *Style) {
+// centered, as an img of that size shows it. A value it cannot draw is an
+// error (kept in Err), never a panic; the document then draws nothing.
+// Call it on the UI thread.
+func (d *Doc) Draw(p *ui.Painter, r ui.Rect, s *Style) (err error) {
+	if d.err != nil {
+		return d.err
+	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			d.err = fmt.Errorf("svgdraw: draw: %v", rec)
+			d.lists = nil
+			err = d.err
+		}
+	}()
+	d.draw(p, r, s)
+	return nil
+}
+
+func (d *Doc) draw(p *ui.Painter, r ui.Rect, s *Style) {
 	if d.vw <= 0 || d.vh <= 0 || r.W <= 0 || r.H <= 0 {
 		return
 	}
@@ -558,11 +588,14 @@ func (d *Doc) Draw(p *ui.Painter, r ui.Rect, s *Style) {
 		if o.hasStroke {
 			path.Cap(o.cap).Join(o.join).MiterLimit(float32(o.miter))
 			if len(o.dash) > 0 {
-				dash := make([]float32, len(o.dash))
+				dash, ok := make([]float32, len(o.dash)), true
 				for i, v := range o.dash {
 					dash[i] = float32(v * k)
+					ok = ok && finite32(dash[i]) && dash[i] >= 0
 				}
-				path.Dash(float32(o.dashOffset*k), dash...)
+				if offset := float32(o.dashOffset * k); ok && finite32(offset) {
+					path.Dash(offset, dash...)
+				}
 			}
 			p.StrokePath(&path, float32(o.width*k), o.stroke)
 		}
@@ -609,3 +642,5 @@ func drawText(p *ui.Painter, t *textOp, k float64, at func(x, y float64) (float3
 		}
 	}
 }
+
+func finite32(v float32) bool { return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0) }

@@ -2,7 +2,6 @@ package svgdraw
 
 import (
 	"math"
-	"strconv"
 	"strings"
 )
 
@@ -393,7 +392,7 @@ func (sc *scanner) num() (float64, bool) {
 					sc.i++
 				}
 			}
-			v, err := strconv.ParseFloat(sc.s[start:sc.i], 64)
+			v, err := parseFinite(sc.s[start:sc.i])
 			return v, err == nil
 		default:
 			goto end
@@ -405,7 +404,7 @@ end:
 		sc.i = start
 		return 0, false
 	}
-	v, err := strconv.ParseFloat(sc.s[start:sc.i], 64)
+	v, err := parseFinite(sc.s[start:sc.i])
 	return v, err == nil
 }
 

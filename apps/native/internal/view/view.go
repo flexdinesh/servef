@@ -5,6 +5,7 @@ package view
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -422,11 +423,12 @@ func (a *App) preview(c *ui.Context, code *editor.Theme) {
 		}
 		return ui.DecodeImage(data)
 	}
+	a.blocks.use(fmt.Sprint(m.Page.Project, "\x00", m.Page.Selected, "\x00", m.DocumentVersion))
 	a.markdown.CodeBlock = func(c *ui.Context, b *markdown.CodeBlockView) { a.codeBlock(c, b, th) }
 	a.markdown.Code = map[string]func(*ui.Context, *markdown.CodeBlockView){
 		"mermaid": func(c *ui.Context, b *markdown.CodeBlockView) { a.mermaidBlock(c, b, th, palette) },
 	}
-	source := mdlink.Preview(m.Page.Source, m.Page.Content)
+	source := mdlink.Preview(m.Page.Source, m.Page.DocumentType)
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).Padding(16, 24).FillWidth().Children(func() {
 			markdown.View(c.Key(m.Page.Selected), source, &a.markdown)

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -188,5 +189,37 @@ func TestResolve(t *testing.T) {
 	}
 	if _, ok := Resolve(syntax, "type"); ok {
 		t.Error("type has no entry")
+	}
+}
+
+// A panic on an instance closes it and frees its slot; concurrent calls
+// past the slot count all finish and leave no slot taken.
+func TestInstancesAreReleased(t *testing.T) {
+	inst, err := acquire()
+	if err != nil {
+		t.Fatal(err)
+	}
+	func() {
+		defer func() { _ = recover() }()
+		_, _ = inst.use(func() ([]uint32, error) { panic("boom") })
+	}()
+	if !inst.module.IsClosed() || len(slots) != 0 {
+		t.Fatalf("after a panic: closed %v, slots in use %d", inst.module.IsClosed(), len(slots))
+	}
+	var wg sync.WaitGroup
+	for i := range 4 * cap(slots) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := Tokens("go", fmt.Sprintf("var x = %d", i), Options{}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	if len(slots) != 0 || len(idle) > poolSize {
+		t.Fatalf("slots in use %d, idle %d", len(slots), len(idle))
 	}
 }

@@ -24,30 +24,46 @@ Run both modules under wazero (v1.12, its compiler) in generic
   `env.is_id_continue` (Unicode XID). `Tokens` mirrors `codeToTokens`
   (lines, scopes, `tokenizeMaxLineLength`) in byte offsets; an unknown
   language, invalid UTF-8, an engine error, or a panic return plain lines
-  and the error. Instances are pooled (two idle, at most 64 MiB each; one
-  that grew past 8 MiB is closed); `Resolve` is `resolveThemeSyntax`.
+  and the error. At most GOMAXPROCS instances run at once (64 MiB each),
+  two idle ones are pooled, and one that failed, panicked, ran past 10 s,
+  or grew past 8 MiB is closed; `Resolve` is `resolveThemeSyntax`.
 - `ondine`: the embedded module, called as the glue's `Wasm.ts` and
   `Render.ts` call it; `Render` returns the SVG, size, and links, or an
   `*Error` with code, line, column, snippet, and message. One instance under
-  a mutex (at most 128 MiB; dropped after an engine failure or past
-  32 MiB). It loads lazily, on the first diagram.
-- `wasmcache`: one wazero compilation cache per process, optionally on disk
-  (`SetDir`); `Compile` returns the compiler's garbage to the system once.
-  The native app keeps it in the user cache directory
-  (`servef-native/wasm`, about 7 MiB) and warms Highlights at launch.
+  a mutex (at most 128 MiB; closed after an engine failure, a panic, a
+  render past 10 s, or past 32 MiB). It loads lazily, on the first diagram.
+- Neither keeps a failed load: the next call (or "Reload diagrams") tries
+  again, as the web app clears its pending import.
+- `wasmcache`: `Load` compiles on runtimes sharing one wazero compilation
+  cache per process, optionally on disk (`SetDir`), with
+  `WithCloseOnContextDone` so call deadlines stop runaway calls, and returns
+  the compiler's garbage to the system. A disk entry wazero rejects
+  (`compilationcache: checksum mismatch`) clears the directory and compiles
+  again, then in memory alone. The native app keeps it in the user cache
+  directory (`servef-native/wasm`, about 7 MiB) and warms Highlights at
+  launch.
 - `svgdraw`: draws Ondine's SVG with mygo's Painter (shapes, paths, arcs,
   groups, nested viewports, transforms, strokes, fills, dashes, opacity,
   text with anchors and baselines, `var()`, `color-mix()`); `Style.Vars`
   supplies the `--ondine-*` variables per frame, so a theme switch redraws
-  without rendering again.
+  without rendering again. Diagram authors control style values (Mermaid's
+  `style` and `classDef`), so parsing rejects malformed and non-finite
+  values, and `Parse` and `Draw` turn any panic into an error (`Doc.Err`);
+  the view then shows the source with the web's generic message. Tests
+  draw hostile values directly and through Ondine, plus a fuzz target.
 
 Pins: `packages/mygo/scripts/sync-wasm.sh` (`mise run native:wasm-sync`)
 copies each module and its license files from `apps/web/node_modules`, writes
 `pin.go` (version, lockfile integrity, sha256), and regenerates the goldens
 with the same JavaScript glue: token scopes for 36 samples covering every
 family language, and Ondine's SVG for 11 diagrams. Tests fail when the
-embedded bytes or `pnpm-lock.yaml` disagree with `pin.go`, and when Go's
-tokens or SVG differ from the goldens (byte-identical SVG).
+embedded bytes disagree with `pin.go` (`packages/mygo`), when
+`pnpm-lock.yaml`'s version or integrity for `@pierre/highlights` or
+`ondine` does (`apps/native/pins_test.go`; the lockfile is a native
+validation input), and when Go's tokens or SVG differ from the goldens
+(byte-identical SVG). Release packages carry `THIRD_PARTY_NOTICES.txt`
+(`apps/native/scripts/notices.sh`): Highlights' LICENSE and NOTICE,
+Ondine's LICENSE, and wazero's.
 
 `apps/native` drops Chroma. `internal/highlight` mirrors
 `syntax-highlight.ts` and `syntax-theme.ts` (servef's eight syntax
@@ -56,11 +72,21 @@ compares native spans with the rows `highlightLines` renders
 (`apps/native/scripts/web-highlights.ts`), and hashes the mirrored web files
 so a web change asks for new goldens. Source, Markdown fences, and diff sides
 all go through it. Fences gain their language label once highlighted, as on
-the web. Mermaid fences and `.mmd` previews render through Ondine for the
-frame's width (padding 16), centered on a bordered surface; the source shows
-while rendering and on errors, with Ondine's diagnostic (or the web's
-generic message) below. The `--ondine-*` mapping mirrors `mermaid.css`, and
-a test checks it.
+the web. Mermaid fences, and the documents the server declares as the
+`mermaid` family (`.mmd`; the page's `documentType.id`, since the contract
+has no diagram capability), render through Ondine for the frame's width
+(padding 16), centered on a bordered surface; the source shows while
+rendering and on errors, with Ondine's diagnostic (or the web's generic
+message) below. A new width renders again once it holds for 250 ms; the
+last render scales meanwhile. Highlighted fences and renders are kept per
+open document, one per fence or diagram source (mygo builds every block
+each frame, so results must outlive it), and never started twice. The
+`--ondine-*` mapping mirrors `mermaid.css`, and a test checks it.
+
+Headless text (`ui.Tester`) shapes and draws through the system's Pango,
+cairo, HarfBuzz, and fontconfig (dlopen); mygo bundles no fonts. The
+`test:native` container installs them, and `MYGO_REQUIRE_TEXT=1` makes
+svgdraw's glyph test fail rather than skip without them.
 
 ## Measurements
 

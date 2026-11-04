@@ -7,10 +7,11 @@
 package mdlink
 
 import (
-	"html"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // Kind is what a destination opens.
@@ -114,31 +115,27 @@ func PreviewSource(source string) string {
 	return source
 }
 
-// mermaidPreview is the preview the server sends for a Mermaid file: one
-// escaped mermaid fence (apps/servef/internal/document/mermaid.go).
-const (
-	mermaidOpen  = `<pre><code class="language-mermaid">`
-	mermaidClose = "</code></pre>\n"
-)
+// MermaidFamily is the document family the server declares for Mermaid
+// files (apps/servef/internal/document/mermaid.go: previewKind markdown,
+// previewed as one mermaid fence). The contract has no diagram capability;
+// the declared family is the server's own metadata, not a guess from the
+// path, and testdata/api/default/page-mermaid.json (checked against the
+// server's registry) carries it.
+const MermaidFamily = "mermaid"
 
-// Preview is the Markdown a page's preview shows: when the server's
-// preview (content) is one mermaid fence, that fence, so the diagram
-// renders as in a Markdown document; else PreviewSource(source).
-func Preview(source, content string) string {
-	inner, ok := strings.CutPrefix(content, mermaidOpen)
-	if ok {
-		inner, ok = strings.CutSuffix(inner, mermaidClose)
-	}
-	if !ok || strings.Contains(inner, "<") {
+// Preview is the Markdown a page's preview shows: a Mermaid file's source
+// as one mermaid fence, as the server previews it, so the diagram renders
+// as in a Markdown document; any other document's PreviewSource.
+func Preview(source string, fileType *contract.FileType) string {
+	if fileType == nil || fileType.ID != MermaidFamily {
 		return PreviewSource(source)
 	}
-	diagram := html.UnescapeString(inner)
 	fence := "```"
-	for strings.Contains(diagram, fence) {
+	for strings.Contains(source, fence) {
 		fence += "`"
 	}
-	if !strings.HasSuffix(diagram, "\n") {
-		diagram += "\n"
+	if !strings.HasSuffix(source, "\n") {
+		source += "\n"
 	}
-	return fence + "mermaid\n" + diagram + fence + "\n"
+	return fence + "mermaid\n" + source + fence + "\n"
 }

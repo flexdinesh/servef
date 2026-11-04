@@ -370,11 +370,11 @@ run = "pnpm exec node scripts/test-browser.ts --project=webkit"
 # mise's GOROOT points at the locked Go.
 [tasks."_container:native"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH MYGO_REQUIRE_TEXT=1; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
 
 [tasks."_container:test:native"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/native/scripts/*.sh; export GOROOT=$SERVEF_NATIVE_GOROOT PATH=$SERVEF_NATIVE_GOROOT/bin:$PATH MYGO_REQUIRE_TEXT=1; for m in packages/mygo apps/native; do go -C $m mod tidy -diff; go -C $m vet ./...; done; go -C apps/native vet -tags agent ./cmd/native-agent; go -C apps/native vet -tags e2e .; go -C packages/mygo test -race -count=1 ./...; go -C apps/native test -race -count=1 ./...'"
 
 # The built app on Xvfb, Mesa, and GTK; artifacts in /out/native-e2e.
 [tasks."_container:test:native:e2e"]

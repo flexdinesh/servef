@@ -241,7 +241,11 @@ func TestDraws(t *testing.T) {
 		t.Fatalf("surface %v, want %v", got, green)
 	}
 	if !drawsText() {
-		t.Log("mygo draws no text on this system (no fonts): glyphs not checked")
+		// mygo draws text through the system's Pango and fontconfig.
+		if os.Getenv("MYGO_REQUIRE_TEXT") != "" {
+			t.Fatal("mygo draws no text here (no Pango, fontconfig, or fonts), and MYGO_REQUIRE_TEXT is set")
+		}
+		t.Log("mygo draws no text on this system (no Pango, fontconfig, or fonts): glyphs not checked")
 		return
 	}
 	dark := 0
@@ -258,8 +262,9 @@ func TestDraws(t *testing.T) {
 	dumpPNG(t, "draws", img)
 }
 
-// drawsText reports whether mygo draws text here at all: containers
-// without fonts draw none.
+// drawsText reports whether mygo draws text here at all: it shapes and
+// draws through the system's Pango, cairo, and fontconfig (dlopen), so a
+// host without them draws none.
 func drawsText() bool {
 	tt := ui.NewTester(func(c *ui.Context) {
 		ui.Text(c, "Hi").FontSize(24).TextColor(ui.Hex("#000000"))

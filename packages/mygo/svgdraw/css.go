@@ -63,8 +63,12 @@ func (r *resolver) substitute(value string, n *node, depth int) (string, bool) {
 	}
 }
 
-// closing returns the index of the parenthesis closing the one at open.
+// closing returns the index of the parenthesis closing the one at open,
+// or -1 when there is none (open is not a "(" in s, or it never closes).
 func closing(s string, open int) int {
+	if open < 0 || open >= len(s) || s[open] != '(' {
+		return -1
+	}
 	depth := 0
 	for i := open; i < len(s); i++ {
 		switch s[i] {
@@ -132,7 +136,7 @@ func parseColor(value string, current ui.Color) (ui.Color, bool) {
 		var ch [4]float64
 		ch[3] = 1
 		for i, part := range parts[:min(len(parts), 4)] {
-			v, err := strconv.ParseFloat(strings.TrimSuffix(part, "%"), 64)
+			v, err := parseFinite(strings.TrimSuffix(part, "%"))
 			if err != nil {
 				return ui.Color{}, false
 			}
@@ -199,7 +203,7 @@ func colorMix(value string, current ui.Color) (ui.Color, bool) {
 		s = strings.TrimSpace(s)
 		var p part
 		if i := strings.LastIndexByte(s, ' '); i > 0 && strings.HasSuffix(s, "%") {
-			v, err := strconv.ParseFloat(strings.TrimSuffix(s[i+1:], "%"), 64)
+			v, err := parseFinite(strings.TrimSuffix(s[i+1:], "%"))
 			if err != nil {
 				return p, false
 			}

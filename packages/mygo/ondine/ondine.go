@@ -5,9 +5,10 @@
 // Render returns the SVG and diagnostics render returns there.
 //
 // The module has no imports. It compiles once per process, on the first
-// Render (or Warm), through the shared wasmcache; one instance serves the
-// calls in turn, and is dropped after a call that grew its memory past
-// 32 MiB.
+// Render (or Warm), through the shared wasmcache; a failed compile is
+// tried again on the next Render. One instance serves the calls in turn;
+// it is closed after a call that failed, panicked, ran past renderTimeout,
+// or grew its memory past 32 MiB.
 package ondine
 
 import (
@@ -104,29 +105,37 @@ const (
 	pageSize  = 65536
 )
 
-var (
-	engineOnce sync.Once
-	runtime    wazero.Runtime
-	compiled   wazero.CompiledModule
-	engineErr  error
+// renderTimeout bounds one Render; past it the instance is closed and
+// Render fails (callers show the source).
+var renderTimeout = 10 * time.Second
 
-	mu      sync.Mutex
-	current api.Module
+var (
+	// mu guards the engine and the instance; a failed load is not kept, so
+	// the next Render (Reload diagrams) tries again.
+	mu       sync.Mutex
+	runtime  wazero.Runtime
+	compiled wazero.CompiledModule
+	current  api.Module
 )
 
 func loadEngine() error {
-	engineOnce.Do(func() {
-		runtime = wasmcache.NewRuntime(maxPages)
-		compiled, engineErr = wasmcache.Compile(runtime, wasmBytes)
-		if engineErr != nil {
-			engineErr = fmt.Errorf("ondine: compile: %w", engineErr)
-		}
-	})
-	return engineErr
+	if compiled != nil {
+		return nil
+	}
+	rt, c, err := wasmcache.Load(maxPages, wasmBytes)
+	if err != nil {
+		return fmt.Errorf("ondine: %w", err)
+	}
+	runtime, compiled = rt, c
+	return nil
 }
 
 // Warm compiles the module ahead of the first Render.
-func Warm() error { return loadEngine() }
+func Warm() error {
+	mu.Lock()
+	defer mu.Unlock()
+	return loadEngine()
+}
 
 // Render renders Mermaid source. A diagram Ondine rejects is an *Error;
 // other errors are the engine's.
@@ -144,11 +153,20 @@ func Render(source string, opts Options) (diagram Diagram, err error) {
 	if !opts.Now.IsZero() {
 		now = float64(opts.Now.UnixMilli())
 	}
-	if err := loadEngine(); err != nil {
-		return Diagram{}, err
-	}
 	mu.Lock()
 	defer mu.Unlock()
+	// A panic (recovered above, after this) leaves the instance closed.
+	healthy := false
+	defer func() {
+		if !healthy && current != nil {
+			_ = current.Close(context.Background())
+			current = nil
+		}
+	}()
+	if err := loadEngine(); err != nil {
+		healthy = true
+		return Diagram{}, err
+	}
 	if current == nil {
 		current, err = runtime.InstantiateModule(context.Background(), compiled, wazero.NewModuleConfig().WithName(""))
 		if err != nil {
@@ -156,12 +174,11 @@ func Render(source string, opts Options) (diagram Diagram, err error) {
 			return Diagram{}, fmt.Errorf("ondine: instantiate: %w", err)
 		}
 	}
-	diagram, err = render(current, source, options, now)
+	ctx, cancel := context.WithTimeout(context.Background(), renderTimeout)
+	defer cancel()
+	diagram, err = render(ctx, current, source, options, now)
 	var rejected *Error
-	if (err != nil && !errors.As(err, &rejected)) || current.Memory().Size()/pageSize > keepPages {
-		_ = current.Close(context.Background())
-		current = nil
-	}
+	healthy = (err == nil || errors.As(err, &rejected)) && current.Memory().Size()/pageSize <= keepPages
 	return diagram, err
 }
 
@@ -178,12 +195,12 @@ func serialize(opts Options) (string, error) {
 	return string(data), nil
 }
 
-func call(m api.Module, name string, params ...uint64) ([]uint64, error) {
+func call(ctx context.Context, m api.Module, name string, params ...uint64) ([]uint64, error) {
 	fn := m.ExportedFunction(name)
 	if fn == nil {
 		return nil, fmt.Errorf("ondine: no export %s", name)
 	}
-	results, err := fn.Call(context.Background(), params...)
+	results, err := fn.Call(ctx, params...)
 	if err != nil {
 		return nil, fmt.Errorf("ondine: %s: %w", name, err)
 	}
@@ -192,15 +209,15 @@ func call(m api.Module, name string, params ...uint64) ([]uint64, error) {
 
 // render writes source and options into one allocation, calls render, and
 // decodes the result, as Wasm.ts's instantiate does.
-func render(m api.Module, source, options string, now float64) (Diagram, error) {
-	if _, err := call(m, "reset"); err != nil {
+func render(ctx context.Context, m api.Module, source, options string, now float64) (Diagram, error) {
+	if _, err := call(ctx, m, "reset"); err != nil {
 		return Diagram{}, err
 	}
 	size := len(source) + len(options)
 	if size > math.MaxInt32 {
 		return Diagram{}, errors.New("ondine: source too large")
 	}
-	results, err := call(m, "alloc", uint64(size))
+	results, err := call(ctx, m, "alloc", uint64(size))
 	if err != nil {
 		return Diagram{}, err
 	}
@@ -209,7 +226,7 @@ func render(m api.Module, source, options string, now float64) (Diagram, error) 
 	if !mem.WriteString(at, source) || !mem.WriteString(at+uint32(len(source)), options) {
 		return Diagram{}, errors.New("ondine: write source")
 	}
-	results, err = call(m, "render", uint64(at), uint64(len(source)), uint64(at)+uint64(len(source)), uint64(len(options)), api.EncodeF64(now))
+	results, err = call(ctx, m, "render", uint64(at), uint64(len(source)), uint64(at)+uint64(len(source)), uint64(len(options)), api.EncodeF64(now))
 	if err != nil {
 		return Diagram{}, err
 	}
