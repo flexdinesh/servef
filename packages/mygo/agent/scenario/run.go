@@ -129,7 +129,7 @@ func do(c *client.Client, w int, step Step, logf func(string, ...any)) (*capture
 	switch {
 	case step.Click != nil:
 		k := step.Click
-		if k.Label != "" && k.Button == "" && k.Clicks <= 1 {
+		if k.Label != "" && k.Button == "" && k.Clicks <= 1 && len(k.Mods) == 0 {
 			if err := c.ClickText(w, k.Label); err != nil {
 				return nil, err
 			}
@@ -143,7 +143,7 @@ func do(c *client.Client, w int, step Step, logf func(string, ...any)) (*capture
 			}
 			x, y = node.Bounds.Center()
 		}
-		if err := c.Input(w, protocol.InputEvent{Type: "click", X: x, Y: y, Button: k.Button, Clicks: k.Clicks}); err != nil {
+		if err := c.Input(w, protocol.InputEvent{Type: "click", X: x, Y: y, Button: k.Button, Clicks: k.Clicks, Mods: k.Mods}); err != nil {
 			return nil, err
 		}
 		return nil, settle()

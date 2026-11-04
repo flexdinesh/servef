@@ -34,6 +34,8 @@ type Connection struct {
 	Label  string
 	Daemon bool
 	Client client.Client
+	// Target is the connection as a link's target, without a project.
+	Target link.Target
 }
 
 // Run runs a program and returns its standard output and error.
@@ -131,7 +133,7 @@ func lastStatus(stdout []byte) (contract.DaemonStatus, bool) {
 
 // Local connects to the daemon at socket.
 func Local(socket string) Connection {
-	return Connection{ID: "local", Label: "This computer", Daemon: true, Client: client.NewUnix(socket)}
+	return Connection{ID: "local", Label: "This computer", Daemon: true, Client: client.NewUnix(socket), Target: link.Target{Kind: link.Local}}
 }
 
 // Server connects to the servef http server a Server target names.
@@ -141,6 +143,7 @@ func Server(target link.Target) Connection {
 		ID:     fmt.Sprintf("http-%s-%d", strings.NewReplacer(":", "-", "[", "", "]", "").Replace(target.Host), target.Port),
 		Label:  strings.TrimPrefix(origin, "http://"),
 		Client: client.NewTCP(origin),
+		Target: link.Target{Kind: link.Server, Host: target.Host, Port: target.Port},
 	}
 }
 

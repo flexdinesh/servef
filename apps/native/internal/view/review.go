@@ -230,14 +230,7 @@ func copyButton(c *ui.Context, reference string) {
 	if b.Hovered() {
 		b.Background(t.SurfaceHover)
 	}
-	b.Draw(func(p *ui.Painter, r ui.Rect) {
-		x, y := r.X+4, r.Y+3
-		var back, front ui.Path
-		back.MoveTo(x+3, y+3).LineTo(x+3, y).LineTo(x+10, y).LineTo(x+10, y+8).LineTo(x+7, y+8)
-		front.MoveTo(x, y+4).LineTo(x+7, y+4).LineTo(x+7, y+12).LineTo(x, y+12).Close()
-		p.StrokePath(&back, 1.2, t.TextMuted)
-		p.StrokePath(&front, 1.2, t.TextMuted)
-	})
+	b.Draw(func(p *ui.Painter, r ui.Rect) { iconCopy(p, r, t.TextMuted) })
 	if b.Clicked() {
 		c.WriteClipboard(reference)
 	}

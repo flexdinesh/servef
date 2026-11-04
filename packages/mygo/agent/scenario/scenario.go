@@ -98,6 +98,8 @@ type Click struct {
 	Y      float64 `yaml:"y,omitempty" json:"y,omitempty"`
 	Button string  `yaml:"button,omitempty" json:"button,omitempty"`
 	Clicks int     `yaml:"clicks,omitempty" json:"clicks,omitempty"`
+	// Mods are modifiers held during the click, as shift (native only).
+	Mods []string `yaml:"mods,omitempty" json:"mods,omitempty"`
 }
 
 // UnmarshalYAML takes a text or a mapping.

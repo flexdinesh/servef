@@ -13,7 +13,7 @@ steps:
   - wait: huge.log
   - shot: expanded
   - click: getting-started.md
-  - wait: View
+  - wait: guides/getting-started.md
   - shot: selected
   - click: config
   - key: Down

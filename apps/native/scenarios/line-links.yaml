@@ -1,0 +1,20 @@
+# Lines selected from the gutter (decision 0008): click, then Shift-click.
+# The web opens the same selection from its link.
+description: Line selection in guides/code-blocks.md
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - click: guides
+  - click: code-blocks.md
+  - wait: guides/code-blocks.md
+  - click: "12"
+  - click: {label: "16", mods: [shift]}
+  - wait: "Copy guides/code-blocks.md:12-16"
+  - shot: lines
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    lines:
+      path: /view?project=/home/user/markdown&path=guides/code-blocks.md#L12-L16
+      steps:
+        - wait: code-blocks.md

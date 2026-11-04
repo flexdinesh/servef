@@ -33,6 +33,19 @@ func TestPalettesMatchTokens(t *testing.T) {
 	}
 }
 
+// Servef's surface-recessed lives in themes.css: light-dark over the
+// secondary surface.
+func TestSurfaceRecessedMatchesThemes(t *testing.T) {
+	css, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "styles", "themes.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "--color-surface-recessed: light-dark(" + Light.SurfaceRecessed + ", var(--color-surface-secondary));"
+	if !strings.Contains(string(css), want) || Dark.SurfaceRecessed != Dark.SurfaceSecondary {
+		t.Errorf("themes.css lacks %q, or dark recessed %s is not secondary %s", want, Dark.SurfaceRecessed, Dark.SurfaceSecondary)
+	}
+}
+
 // Ondine's variables are mermaid.css's, through the same tokens.
 func TestOndineMatchesMermaidCSS(t *testing.T) {
 	css, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "features", "documents", "mermaid.css"))

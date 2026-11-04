@@ -7,6 +7,7 @@
 //	servef-native://<host>:<port>/?project=…&path=…     an http server
 //
 // The route is "/" or "/view"; review=working opens the uncommitted changes.
+// A fragment is the web's: #L12 or #L12-L20 selects lines (decision 0008).
 package link
 
 import (
@@ -44,6 +45,8 @@ type Target struct {
 	Path    string
 	// Review opens the project's uncommitted changes.
 	Review bool
+	// Fragment is the link's fragment, without "#".
+	Fragment string
 }
 
 // ErrInvalid reports a link servef-native does not open.
@@ -63,7 +66,7 @@ func Parse(raw string) (Target, error) {
 		return Target{}, ErrInvalid
 	}
 	query := u.Query()
-	target := Target{Project: query.Get("project"), Path: query.Get("path"), Review: query.Get("review") == "working"}
+	target := Target{Project: query.Get("project"), Path: query.Get("path"), Review: query.Get("review") == "working", Fragment: u.Fragment}
 	if u.Host == "local" {
 		return target, nil
 	}
@@ -86,6 +89,24 @@ func splitHostPort(hostport string) (string, int, error) {
 		return "", 0, ErrInvalid
 	}
 	return strings.ToLower(host), port, nil
+}
+
+// String is the servef-native:// link opening the target's project and
+// path, with its fragment.
+func (t Target) String() string {
+	u := url.URL{Scheme: Scheme, Host: "local", Path: "/view", Fragment: t.Fragment}
+	if t.Kind == Server {
+		u.Host = net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
+	}
+	query := url.Values{}
+	if t.Project != "" {
+		query.Set("project", t.Project)
+	}
+	if t.Path != "" {
+		query.Set("path", t.Path)
+	}
+	u.RawQuery = query.Encode()
+	return u.String()
 }
 
 // Origin is a Server target's http origin, as the server prints it.
@@ -118,7 +139,7 @@ func ParseServer(raw string) (Target, error) {
 		return Target{}, fmt.Errorf("%q needs a host and port, such as localhost:7971", raw)
 	}
 	query := u.Query()
-	return Target{Kind: Server, Host: host, Port: port, Project: query.Get("project"), Path: query.Get("path")}, nil
+	return Target{Kind: Server, Host: host, Port: port, Project: query.Get("project"), Path: query.Get("path"), Fragment: u.Fragment}, nil
 }
 
 // Loopback reports a host on this machine: localhost or a loopback IP.

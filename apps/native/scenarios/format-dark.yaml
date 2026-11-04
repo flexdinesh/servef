@@ -1,0 +1,28 @@
+# The Format view and a failure notice in the dark appearance.
+description: Dark appearance of Format and its failure
+size: {width: 1100, height: 700}
+dark: true
+steps:
+  - click: markdown
+  - click: config
+  - click: settings.json
+  - click: Format
+  - wait: JSON formatted
+  - shot: format-dark
+  - click: broken.json
+  - click: Format
+  - wait: "Couldn't format: unexpected end of JSON input."
+  - shot: format-failure-dark
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    format-dark:
+      path: /view?project=/home/user/markdown&path=config/settings.json
+      steps:
+        - click: Format
+        - wait: "\"name\""
+    format-failure-dark:
+      path: /view?project=/home/user/markdown&path=config/broken.json
+      steps:
+        - click: Format
+        - wait: "Couldn't format: unexpected end of JSON input."

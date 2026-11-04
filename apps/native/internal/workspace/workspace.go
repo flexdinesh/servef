@@ -108,17 +108,25 @@ type Model struct {
 	TreeVersion   int
 	TreeOpen      []string
 	RevealVersion int
-	// Mode is the user's last choice of document view.
-	Mode docview.Mode
-	View docview.View
-	// Lines are the open document's highlighted lines once ready, for
-	// DocumentVersion.
+	View          docview.View
+	// Lines are the shown code's highlighted lines once ready, for
+	// CodeVersion. CodeVersion changes when the code shown does: another
+	// document, a reread, or Source and Format switching.
 	Lines           [][]highlight.Span
 	LinesVersion    int
+	CodeVersion     int
 	DocumentVersion int
+	documents       documents
 	// Anchor is a heading to scroll a Markdown preview to.
 	Anchor        string
 	AnchorVersion uint64
+	// RevealLine is a line a link asked to see, once LineRevealVersion
+	// changes; ScrollResetVersion changes when the document's scroll starts
+	// over.
+	RevealLine         int
+	RevealKey          string
+	LineRevealVersion  uint64
+	ScrollResetVersion uint64
 
 	// Panel is the sidebar's view.
 	Panel Panel
@@ -155,7 +163,9 @@ type Model struct {
 
 // New returns an empty workspace.
 func New(run Runner, connector Connector) *Model {
-	return &Model{run: run, connector: connector, trusted: map[string]bool{}, reconnect: reconnectDelay, now: time.Now}
+	m := &Model{run: run, connector: connector, trusted: map[string]bool{}, reconnect: reconnectDelay, now: time.Now}
+	m.documents.memory = docview.NewMemory()
+	return m
 }
 
 // Close ends background streams.
@@ -182,7 +192,7 @@ func (m *Model) Handle(request link.Request) {
 // computers wait in Confirm until AcceptLink, once per host and port per
 // run.
 func (m *Model) OpenLink(target link.Target) {
-	then := func() { m.openTarget(target.Project, target.Path) }
+	then := func() { m.openTarget(target) }
 	if target.Kind == link.Local {
 		m.ConnectLocal(then)
 		return
@@ -202,7 +212,7 @@ func (m *Model) AcceptLink() {
 	target := *m.Confirm
 	m.Confirm = nil
 	m.trusted[target.Origin()] = true
-	m.connectServer(target, func() { m.openTarget(target.Project, target.Path) })
+	m.connectServer(target, func() { m.openTarget(target) })
 }
 
 // RejectLink drops the link Confirm names.
@@ -215,7 +225,7 @@ func (m *Model) ConnectAddress(address string) {
 		m.Error = err.Error()
 		return
 	}
-	m.connectServer(target, func() { m.openTarget(target.Project, target.Path) })
+	m.connectServer(target, func() { m.openTarget(target) })
 }
 
 // ConnectLocal ensures the daemon, connects, and then runs then, if any.
@@ -341,16 +351,21 @@ func (m *Model) OpenPath(path string) {
 
 // openTarget opens a link's project and path; a link without a project
 // keeps the project list.
-func (m *Model) openTarget(project, path string) {
+func (m *Model) openTarget(target link.Target) {
+	project, path := target.Project, target.Path
 	if project == "" {
 		return
 	}
+	lines := docview.ParseLineAnchor(target.Fragment)
 	if project != m.Project {
 		m.openProject(project, path)
+		if path != "" {
+			m.visit(path, lines)
+		}
 		return
 	}
 	if path != "" {
-		m.OpenDocument(path)
+		m.openLocation(path, lines)
 	}
 }
 
@@ -390,17 +405,12 @@ func (m *Model) closeProject() {
 	m.Review = nil
 	m.changesRequest++
 	m.changesLoading = false
+	m.documents.close()
 }
 
 // OpenDocument opens a project-relative path in the open project, in
 // place of an open diff.
-func (m *Model) OpenDocument(path string) {
-	if m.Project == "" {
-		return
-	}
-	m.Review = nil
-	m.loadPage(path, true, false, true)
-}
+func (m *Model) OpenDocument(path string) { m.openLocation(path, nil) }
 
 // ShowPanel switches the sidebar; opening Source Control rereads the
 // changes, as the web's view does, unless a read is in flight.
@@ -546,12 +556,6 @@ func diffError(path string, err error) string {
 	return "Could not read the diff: " + message(err)
 }
 
-// SetMode switches the open document's view.
-func (m *Model) SetMode(mode docview.Mode) {
-	m.Mode = mode
-	m.decide()
-}
-
 // FollowLink handles a link clicked in a Markdown preview: it opens
 // project documents and headings, and returns an external URL for the
 // system to open ("" for none).
@@ -561,9 +565,17 @@ func (m *Model) FollowLink(destination string) string {
 	case mdlink.External:
 		return target.URL
 	case mdlink.Anchor:
+		if lines := docview.ParseLineAnchor(target.Fragment); lines != nil {
+			m.openLocation(m.Page.Selected, lines)
+			break
+		}
 		m.Anchor = target.Fragment
 		m.AnchorVersion++
 	case mdlink.Document:
+		if lines := docview.ParseLineAnchor(target.Fragment); lines != nil {
+			m.openLocation(target.Path, lines)
+			break
+		}
 		m.Anchor = target.Fragment
 		m.AnchorVersion++
 		m.OpenDocument(target.Path)
@@ -627,7 +639,7 @@ func (m *Model) loadPage(path string, required, newTree, reveal bool) {
 }
 
 func (m *Model) setPage(page contract.PageData, newTree, reveal bool) {
-	documentChanged := page.Selected != m.Page.Selected || page.Source != m.Page.Source || page.HasFile != m.Page.HasFile
+	documentChanged := page.Selected != m.Page.Selected || page.At != m.Page.At || page.Source != m.Page.Source || page.HasFile != m.Page.HasFile
 	m.Page = page
 	m.Tree = tree.New(page.Tree)
 	m.TreeRead++
@@ -642,27 +654,8 @@ func (m *Model) setPage(page contract.PageData, newTree, reveal bool) {
 		m.DocumentVersion++
 		m.Lines = nil
 	}
+	m.documents.seed(page)
 	m.decide()
-}
-
-// decide recomputes the document view and starts highlighting its source.
-func (m *Model) decide() {
-	m.View = docview.Decide(m.Page, m.Mode)
-	if m.View.Kind != docview.Code || m.LinesVersion == m.DocumentVersion && m.Lines != nil {
-		return
-	}
-	version, source, language := m.DocumentVersion, m.Page.Source, m.View.Language
-	if !m.View.Highlight {
-		language = "text"
-	}
-	m.run.Go(func() func() {
-		lines := highlight.Lines(source, language)
-		return func() {
-			if version == m.DocumentVersion {
-				m.Lines, m.LinesVersion = lines, version
-			}
-		}
-	})
 }
 
 // startStream follows the open project's live updates at open lease.

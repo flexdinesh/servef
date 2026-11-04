@@ -112,6 +112,15 @@ func (s *Server) LoadFixtures(dir string) error {
 			diffs[diff.Path] = diff
 		}
 	}
+	// As apps/web/dev-server.ts's mockFormats.
+	var formatted contract.FormatResult
+	if err := read("format-settings.json", &formatted); err != nil {
+		return err
+	}
+	var refused contract.ErrorResponse
+	if err := read("format-error.json", &refused); err != nil {
+		return err
+	}
 	preview, err := os.ReadFile(filepath.Join(dir, "raw-preview.png"))
 	if err != nil {
 		return err
@@ -125,6 +134,8 @@ func (s *Server) LoadFixtures(dir string) error {
 			s.Diffs[path] = diff
 		}
 		s.Images["assets/preview.png"] = preview
+		s.Formats["config/settings.json"] = formatted.Formatted
+		s.FormatErrors["config/broken.json"] = refused.Error
 	})
 	for _, page := range pages {
 		s.Page(page)

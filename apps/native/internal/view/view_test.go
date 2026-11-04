@@ -132,7 +132,7 @@ func TestSourceViewIsHighlightedReadOnly(t *testing.T) {
 	h.settle()
 	h.wantText("src/main.go", "main.go", "go")
 	state := h.app.code
-	if state == nil || state.LineNumbers != editor.LineNumbersOn || !state.ReadOnly {
+	if state == nil || state.LineNumbers != editor.LineNumbersOff || !state.ReadOnly {
 		t.Fatalf("editor %+v", state)
 	}
 	if got := state.Buffer.Line(3); got != "func main() {" {

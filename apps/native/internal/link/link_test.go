@@ -96,3 +96,31 @@ func TestFromArgs(t *testing.T) {
 		t.Fatal("invalid link accepted")
 	}
 }
+
+func TestStringOpensTheSameDocument(t *testing.T) {
+	for _, raw := range []string{
+		"servef-native://local/view?path=src%2Fmain.go&project=%2Fhome%2Fdee%2Fdemo#L5-L9",
+		"servef-native://local/view?path=a+b.md&project=%2Fhome%2Fdee%2Fdemo",
+		"servef-native://127.0.0.1:7971/view?path=README.md&project=%2Fsrv%2Fdemo#L2",
+	} {
+		target, err := Parse(raw)
+		if err != nil {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		again, err := Parse(target.String())
+		if err != nil || again != target {
+			t.Fatalf("%s: round trip %+v, %v; want %+v", raw, again, err, target)
+		}
+	}
+}
+
+func TestParseKeepsTheFragment(t *testing.T) {
+	target, err := Parse("servef-native://local/view?project=%2Fp&path=a.go#L3-L4")
+	if err != nil || target.Fragment != "L3-L4" {
+		t.Fatalf("%+v, %v", target, err)
+	}
+	server, err := ParseServer("http://localhost:7971/view?project=%2Fp&path=a.go#L9")
+	if err != nil || server.Fragment != "L9" {
+		t.Fatalf("%+v, %v", server, err)
+	}
+}

@@ -149,6 +149,15 @@
       "selected": false,
       "children": [
         {
+          "name": "enormous.log",
+          "path": "logs/enormous.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        },
+        {
           "name": "huge.log",
           "path": "logs/huge.log",
           "isDir": false,
