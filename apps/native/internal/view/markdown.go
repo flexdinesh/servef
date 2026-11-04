@@ -62,21 +62,44 @@ type diagram struct {
 // show. It starts over for another document.
 type markdownBlocks struct {
 	document string
+	version  int
 	fences   map[fenceKey]*fence
 	diagrams map[string]*diagram
+	// used are the entries the document's version has shown: a reread
+	// keeps what its blocks computed, and leaves the rest behind.
+	usedFences   map[fenceKey]bool
+	usedDiagrams map[string]bool
 }
 
-// use keeps the blocks of document, dropping another document's.
-func (b *markdownBlocks) use(document string) {
+// use keeps the blocks of a version of document, dropping another
+// document's and, on each new version, what the last one did not show.
+func (b *markdownBlocks) use(document string, version int) {
 	if b.document != document || b.fences == nil {
-		b.document = document
+		b.document, b.version = document, version
 		b.fences, b.diagrams = map[fenceKey]*fence{}, map[string]*diagram{}
+		b.usedFences, b.usedDiagrams = map[fenceKey]bool{}, map[string]bool{}
+		return
+	}
+	if b.version != version {
+		b.version = version
+		for key := range b.fences {
+			if !b.usedFences[key] {
+				delete(b.fences, key)
+			}
+		}
+		for key := range b.diagrams {
+			if !b.usedDiagrams[key] {
+				delete(b.diagrams, key)
+			}
+		}
+		b.usedFences, b.usedDiagrams = map[fenceKey]bool{}, map[string]bool{}
 	}
 }
 
 // fence returns key's entry; known is false when it was just made, and
 // its highlighting is to start.
 func (b *markdownBlocks) fence(key fenceKey) (f *fence, known bool) {
+	b.usedFences[key] = true
 	if f, ok := b.fences[key]; ok {
 		return f, true
 	}
@@ -86,6 +109,7 @@ func (b *markdownBlocks) fence(key fenceKey) (f *fence, known bool) {
 }
 
 func (b *markdownBlocks) diagram(source string) *diagram {
+	b.usedDiagrams[source] = true
 	d, ok := b.diagrams[source]
 	if !ok {
 		d = &diagram{}
@@ -244,6 +268,9 @@ func (a *App) mermaidBlock(c *ui.Context, b *markdown.CodeBlockView, th *markdow
 			// mermaid.css: margin var(--space-5) 0, radius var(--radius-md).
 			ui.Column(c).AlignSelf(ui.Stretch).AlignItems(ui.Center).MarginY(24).Border(1, ui.Hex(palette.Border)).Radius(4).Background(ui.Hex(palette.Surface)).Clip().Children(func() {
 				svgdraw.View(c, shown.doc, style).Label("Mermaid diagram")
+				if iconButton(c, "Expand diagram", iconExpand).Absolute().Top(8).Right(8).Clicked() {
+					a.expandDiagram(source)
+				}
 			})
 		}
 	})

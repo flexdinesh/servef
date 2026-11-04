@@ -1,0 +1,30 @@
+# The expanded diagram's dialog (decision 0025): fitted, then zoomed.
+description: Mermaid dialog of guides/request-flow.mmd, fitted and zoomed
+size: {width: 1100, height: 900}
+steps:
+  - click: markdown
+  - click: guides
+  - click: request-flow.mmd
+  - wait: Expand diagram
+  - click: Expand diagram
+  - wait: Reset zoom
+  - shot: expanded
+  - click: Zoom in
+  - click: Zoom in
+  - shot: zoomed
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    expanded:
+      path: /view?project=/home/user/markdown&path=guides/request-flow.mmd
+      steps:
+        - wait: {ms: 2000}
+        - click: {label: Expand diagram, by: label}
+        - wait: Mermaid diagram
+    zoomed:
+      path: /view?project=/home/user/markdown&path=guides/request-flow.mmd
+      steps:
+        - wait: {ms: 2000}
+        - click: {label: Expand diagram, by: label}
+        - click: {label: Zoom in, by: label}
+        - click: {label: Zoom in, by: label}

@@ -14,7 +14,13 @@ What it does today:
   and copy, and previews Markdown with its links, images, highlighted code
   blocks, and Mermaid diagrams (also `.mmd` files). Highlighting and diagrams
   come from the same engines the browser uses; a diagram with a syntax error
-  shows its source and the error. Diagrams do not expand or zoom yet.
+  shows its source and the error. Diagrams expand into a dialog with zoom and
+  drag pan. Files with a formatter have a read-only **Format** view.
+- Shows images with fit and zoom (not yet `.ico` or `.avif`, which say they
+  can't display), and says so for binary, too-large, and large files.
+- Selects lines from the gutter (click, Shift-click, drag) and copies the
+  file path, a line reference like `src/main.go:5-9`, or a link to the lines.
+  Back and forward return to each document where you left it.
 - Reviews uncommitted changes: **Changes** in the sidebar lists the working
   tree's changes since the last commit; choosing one shows its diff side by
   side or unified, as hunks or the full file, optionally ignoring leading and
@@ -22,8 +28,8 @@ What it does today:
 - Follows live updates: the open file, the change list, and the open diff
   reread when the project changes on disk.
 
-Not yet: commit history, branch and range compares, search, Format, code
-navigation, walkthroughs, and tabs. Use the desktop app or the browser for
+Not yet: commit history, branch and range compares, search, code navigation,
+walkthroughs, and tabs. Use the desktop app or the browser for
 those.
 
 ## Install

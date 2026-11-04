@@ -1,0 +1,28 @@
+# Format on demand (config/settings.json, format-settings.json), and a file
+# it refuses (config/broken.json, format-error.json): Source with a notice.
+description: Format view and its failure
+size: {width: 1100, height: 700}
+steps:
+  - click: markdown
+  - click: config
+  - click: settings.json
+  - click: Format
+  - wait: JSON formatted
+  - shot: format
+  - click: broken.json
+  - click: Format
+  - wait: "Couldn't format: unexpected end of JSON input."
+  - shot: format-failure
+web:
+  storage: {servef-theme: "${theme}"}
+  shots:
+    format:
+      path: /view?project=/home/user/markdown&path=config/settings.json
+      steps:
+        - click: Format
+        - wait: "\"name\""
+    format-failure:
+      path: /view?project=/home/user/markdown&path=config/broken.json
+      steps:
+        - click: Format
+        - wait: "Couldn't format: unexpected end of JSON input."

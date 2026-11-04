@@ -94,6 +94,15 @@
       "selected": false,
       "children": [
         {
+          "name": "enormous.log",
+          "path": "logs/enormous.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        },
+        {
           "name": "huge.log",
           "path": "logs/huge.log",
           "isDir": false,
@@ -111,7 +120,7 @@
   "content": "",
   "source": "2026-10-12T09:00:00Z info server started\n2026-10-12T09:00:01Z info indexed 42 files\n",
   "fileSize": 9437184,
-  "fileCount": 6,
+  "fileCount": 7,
   "hasFile": true,
   "empty": false,
   "error": "",

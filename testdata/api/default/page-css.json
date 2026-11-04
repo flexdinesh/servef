@@ -149,6 +149,15 @@
       "selected": false,
       "children": [
         {
+          "name": "enormous.log",
+          "path": "logs/enormous.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        },
+        {
           "name": "huge.log",
           "path": "logs/huge.log",
           "isDir": false,
@@ -166,7 +175,7 @@
   "content": "",
   "source": "/* css-search-token */:root{--accent:#3366ff}.card{margin:0 auto;padding:1rem;&:hover{color:var(--accent)}}@media (min-width:600px){.card{max-width:40rem}}\n",
   "fileSize": 156,
-  "fileCount": 6,
+  "fileCount": 12,
   "hasFile": true,
   "empty": false,
   "error": "",

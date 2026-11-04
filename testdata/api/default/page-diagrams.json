@@ -149,6 +149,15 @@
       "selected": false,
       "children": [
         {
+          "name": "enormous.log",
+          "path": "logs/enormous.log",
+          "isDir": false,
+          "open": false,
+          "selected": false,
+          "children": [],
+          "fileType": "text"
+        },
+        {
           "name": "huge.log",
           "path": "logs/huge.log",
           "isDir": false,
@@ -166,7 +175,7 @@
   "content": "<h1>Mermaid diagrams</h1>\n<h2>Request flow</h2>\n<pre><code class=\"language-mermaid\">flowchart LR\n    Browser --&gt; Vite\n    Vite --&gt; GoAPI[&quot;Go API &amp; renderer&quot;]\n    click Browser href &quot;https://example.com/&quot; &quot;Open example&quot;\n</code></pre>\n<h2>Page load</h2>\n<pre><code class=\"language-mermaid\">sequenceDiagram\n    participant User\n    participant App\n    participant Server\n    User-&gt;&gt;App: Open nested document\n    App-&gt;&gt;Server: GET /api/page\n    Server--&gt;&gt;App: Rendered Markdown\n</code></pre>\n<h2>Document modes</h2>\n<pre><code class=\"language-mermaid\">stateDiagram-v2\n    [*] --&gt; Source\n    Source --&gt; Preview: toggle\n    Preview --&gt; Source: toggle\n</code></pre>\n<h2>Git graph</h2>\n<pre><code class=\"language-mermaid\">gitGraph\n    commit id: &quot;boot&quot;\n    branch experiment\n    checkout experiment\n    commit id: &quot;feature&quot;\n</code></pre>\n<h2>Syntax error fallback</h2>\n<pre><code class=\"language-mermaid\">flowchart LR\n    A --&gt; B\n    B --&gt; [broken\n</code></pre>\n",
   "source": "# Mermaid diagrams\n\n## Request flow\n\n```mermaid\nflowchart LR\n    Browser --> Vite\n    Vite --> GoAPI[\"Go API & renderer\"]\n    click Browser href \"https://example.com/\" \"Open example\"\n```\n\n## Page load\n\n```mermaid\nsequenceDiagram\n    participant User\n    participant App\n    participant Server\n    User->>App: Open nested document\n    App->>Server: GET /api/page\n    Server-->>App: Rendered Markdown\n```\n\n## Document modes\n\n```mermaid\nstateDiagram-v2\n    [*] --> Source\n    Source --> Preview: toggle\n    Preview --> Source: toggle\n```\n\n## Git graph\n\n```mermaid\ngitGraph\n    commit id: \"boot\"\n    branch experiment\n    checkout experiment\n    commit id: \"feature\"\n```\n\n## Syntax error fallback\n\n```mermaid\nflowchart LR\n    A --> B\n    B --> [broken\n```\n",
   "fileSize": 752,
-  "fileCount": 6,
+  "fileCount": 12,
   "hasFile": true,
   "empty": false,
   "error": "",

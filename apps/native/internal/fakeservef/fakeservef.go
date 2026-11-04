@@ -39,6 +39,15 @@ type Server struct {
 	Diffs        map[string]contract.DiffResponse
 	ChangesReads int
 	DiffQueries  []url.Values
+	// Formats answers /api/format by path; FormatErrors refuses paths with
+	// a message (422); others are not formattable (400). FormatQueries
+	// records the queries.
+	Formats       map[string]string
+	FormatErrors  map[string]string
+	FormatQueries []url.Values
+	// FormatRaw answers paths with these bytes, as a proxy or a broken
+	// server might.
+	FormatRaw map[string]RawAnswer
 
 	events chan contract.Event
 	server *httptest.Server
@@ -62,8 +71,15 @@ func newServer() *Server {
 		Images:  map[string][]byte{},
 		Changes: map[string]contract.ChangesResponse{},
 		Diffs:   map[string]contract.DiffResponse{},
-		events:  make(chan contract.Event, 64),
+		Formats: map[string]string{}, FormatErrors: map[string]string{}, FormatRaw: map[string]RawAnswer{},
+		events: make(chan contract.Event, 64),
 	}
+}
+
+// RawAnswer is a response that is not the contract's.
+type RawAnswer struct {
+	Status int
+	Body   string
 }
 
 // NewDaemon starts a fake daemon on a Unix socket.
@@ -196,6 +212,28 @@ func (s *Server) handler(daemon bool) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, diff)
+	})
+	mux.HandleFunc("GET /api/format", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		query := r.URL.Query()
+		s.FormatQueries = append(s.FormatQueries, query)
+		path := query.Get("path")
+		if raw, ok := s.FormatRaw[path]; ok {
+			w.WriteHeader(raw.Status)
+			_, _ = w.Write([]byte(raw.Body))
+			return
+		}
+		if message, ok := s.FormatErrors[path]; ok {
+			writeJSON(w, http.StatusUnprocessableEntity, contract.ErrorResponse{Error: message})
+			return
+		}
+		formatted, ok := s.Formats[path]
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, contract.ErrorResponse{Error: "This file type cannot be formatted"})
+			return
+		}
+		writeJSON(w, http.StatusOK, contract.FormatResult{Formatted: formatted})
 	})
 	mux.HandleFunc("GET /api/image", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()

@@ -9,11 +9,11 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 
 | Milestone | Scope | Rows | Done / partial / missing |
 | --- | --- | --- | --- |
-| M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 24 / 0 / 0 |
+| M0/0082 | Shipped in M1 (#145): connections, projects, explorer, Source, Markdown preview, live updates, uncommitted review | 24 | 23 / 1 / 0 |
 | M1 | Ports: Highlights (wazero), ondine diagrams, trees widget, diffs viewer | 6 | 5 / 1 / 0 |
 | M2 | Shell: activity bar, sidebar, tabs and tab menu, title bar, status bar, Welcome, empty state, workspace memory, project picker | 13 | 0 / 4 / 9 |
 | M3 | Settings dialog, font size, themes (Omarchy), color theme picker, command palette, quick pick, commands | 8 | 0 / 1 / 7 |
-| M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 2 / 1 / 5 |
+| M4 | Documents: Format, Mermaid, fences, images, line links, copy path, navigation memory | 8 | 8 / 0 / 0 |
 | M5 | Explorer: filename filter, gitignore marks, icons, context menus | 5 | 1 / 1 / 3 |
 | M6 | Search: filename and content, include/exclude globs | 7 | 0 / 0 / 7 |
 | M7 | Code navigation and language-server status | 4 | 0 / 0 / 4 |
@@ -21,7 +21,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | M9 | Walkthroughs: list, tab, narration, step bar, announcements | 8 | 0 / 0 / 8 |
 | M10 | Bridge v2: reveal, context menus, recent folders, folder drop, notifications | 6 | 0 / 0 / 6 |
 | M11 | ssh: Connect page hosts, ControlMaster, socket forwards, remote folder picker | 6 | 0 / 0 / 6 |
-| Total | | 115 | 29 / 11 / 75 |
+| Total | | 115 | 34 / 11 / 70 |
 
 ## Shell and workspace
 
@@ -75,15 +75,15 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Source/Preview toggle; Markdown opens in Source | `features/documents/document-view.ts`, `features/documents/DocumentModeToggle.tsx` | 0003, 0010 | done | M0/0082 | document-preview | #145 |
 | Markdown preview: document, heading, and external links; root-confined images | `features/documents/DocumentPreview.tsx` | 0002, 0005, 0010 | done | M0/0082 | document-preview | #145 |
 | Highlighted fences with language chip and copy | `features/documents/DocumentPreview.tsx`, `features/documents/CodeBlockControls.tsx` | 0029, 0088 | done (language label in mygo's head row, not the copy chip) | M4 | markdown-fences | |
-| Format (on demand, read-only) | `features/documents/FormattedDocument.tsx`, `features/documents/use-document-format.ts` | 0003, 0011 | missing | M4 | _format_ | |
+| Format (on demand, read-only) | `features/documents/FormattedDocument.tsx`, `features/documents/use-document-format.ts` | 0003, 0011 | done | M4 | format, format-dark | |
 | Ondine diagram renderer (port) | `features/documents/ondine-renderer.ts`, `features/documents/diagram.ts` | 0025, 0088 | done | M1 | mermaid | |
 | Mermaid rendered in preview, source on error | `features/documents/MermaidBlock.tsx`, `features/documents/MermaidSource.tsx` | 0022, 0025, 0088 | done | M4 | mermaid | |
-| Mermaid expand, zoom, reset | `features/documents/OndineMermaidDiagram.tsx` | 0025 | missing | M4 | mermaid | |
-| Image documents | `features/documents/ImageDocument.tsx` | 0005 | done | M0/0082 | _image-document_ | #145 |
-| Image zoom controls | `features/documents/ImageZoomControls.tsx`, `features/documents/image-zoom.ts` | 0005 | missing | M4 | _image-document_ | |
-| Binary, tooLarge, and preview-disabled notes | `features/documents/BinaryDocument.tsx`, `features/documents/DocumentNotice.tsx` | 0004 | done | M0/0082 | _binary-notes_ | #145 |
-| Line selection, line links (`#L`), copy path and line reference | `features/documents/SourceDocument.tsx`, `lib/line-selection.ts` | 0008 | missing | M4 | _line-links_ | |
-| Navigation memory (back/forward, scroll per document) | `features/documents/use-document-navigation.ts` | 0008, 0050 | missing | M4 | _navigation-memory_ | |
+| Mermaid expand, zoom, reset | `features/documents/OndineMermaidDiagram.tsx` | 0025 | done | M4 | mermaid-expanded | |
+| Image documents | `features/documents/ImageDocument.tsx` | 0005 | partial (`.ico` and `.avif` say "Can't display this image.": mygo has no decoder for them) | M0/0082 | image-document | #145 |
+| Image zoom controls | `features/documents/ImageZoomControls.tsx`, `features/documents/image-zoom.ts` | 0005 | done | M4 | image-document | |
+| Binary, tooLarge, and preview-disabled notes | `features/documents/BinaryDocument.tsx`, `features/documents/DocumentNotice.tsx` | 0004 | done | M0/0082 | file-notes | #145 |
+| Line selection, line links (`#L`), copy path and line reference | `features/documents/SourceDocument.tsx`, `lib/line-selection.ts` | 0008 | done (copy path in the document toolbar until the M2 status bar; Copy Link in the context menu, no address bar) | M4 | line-links | |
+| Navigation memory (back/forward, scroll per document) | `features/documents/use-document-navigation.ts` | 0008, 0050 | done (scroll per document, not per history entry) | M4 | view tests | |
 
 ## Explorer
 
@@ -170,7 +170,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | --- | --- | --- | --- | --- | --- | --- |
 | Event stream per open project (`lease=open`), reconnect, live indicator | `features/live-updates/use-live-updates.ts`, `features/live-updates/live-updates.ts` | 0050, 0066 | done | M0/0082 | _live-updates_ | #145 |
 | Reread open document, tree, changes list, and open diff on change | `features/live-updates/live-updates.ts`, `features/source-control/use-changes.ts` | 0050 | done | M0/0082 | _live-updates_ | #145 |
-| Reread keeps scroll | `features/documents/use-document-navigation.ts` | 0050 | partial (Source view rebuilt on change) | M4 | _live-updates_ | |
+| Reread keeps scroll | `features/documents/use-document-navigation.ts` | 0050 | done | M4 | view tests | |
 | `head` event (branch label) | `features/live-updates/use-live-updates.ts` | 0050, 0066 | done | M0/0082 | _live-updates_ | #145 |
 | One stream per visible tab | `features/live-updates/use-live-updates.ts` | 0050 | missing | M2 | _tabs_ | |
 

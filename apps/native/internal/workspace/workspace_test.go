@@ -558,3 +558,291 @@ func TestChangesRetryOnLiveUpdatesAndReturns(t *testing.T) {
 		t.Fatalf("a return after the throttle reads once; %d -> %d", before, reads())
 	}
 }
+
+func openFixtures(t *testing.T) (*Model, *fakeservef.Queue, *fakeservef.Server) {
+	t.Helper()
+	model, queue, daemon := setup(t)
+	if err := daemon.LoadFixtures(fakeservef.FixtureDir()); err != nil {
+		t.Fatal(err)
+	}
+	model.Handle(link.Request{})
+	queue.Drain()
+	model.OpenProject("/home/user/markdown")
+	queue.Drain()
+	return model, queue, daemon
+}
+
+func TestSetModeRemembersAndPrefersPreview(t *testing.T) {
+	model, queue, _ := openFixtures(t)
+	model.OpenDocument("guides/getting-started.md")
+	queue.Drain()
+	if model.View.Mode != docview.Source {
+		t.Fatalf("Markdown opens by its type: %+v", model.View)
+	}
+	model.SelectLines(&docview.LineRange{Start: 2, End: 2})
+	model.SetMode(docview.Preview)
+	queue.Drain()
+	if model.View.Kind != docview.Markdown || model.Selection() != nil {
+		t.Fatalf("preview %+v, lines %+v", model.View, model.Selection())
+	}
+	// The preference follows to the next Markdown document; other files
+	// show what they can.
+	model.OpenDocument("guides/diagrams.md")
+	queue.Drain()
+	if model.View.Kind != docview.Markdown {
+		t.Fatalf("preference: %+v", model.View)
+	}
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	if model.View.Kind != docview.Code {
+		t.Fatalf("no preview: %+v", model.View)
+	}
+	// Each document's own choice outlives leaving it.
+	model.OpenDocument("guides/getting-started.md")
+	queue.Drain()
+	model.SetMode(docview.Source)
+	model.OpenDocument("guides/diagrams.md")
+	queue.Drain()
+	if model.View.Kind != docview.Code {
+		t.Fatalf("Source clears the preference: %+v", model.View)
+	}
+	model.SetMode(docview.Preview)
+	model.OpenDocument("guides/getting-started.md")
+	queue.Drain()
+	if model.View.Kind != docview.Code {
+		t.Fatalf("its own choice wins: %+v", model.View)
+	}
+}
+
+func TestFormatIsCachedPerSource(t *testing.T) {
+	model, queue, daemon := openFixtures(t)
+	reads := func() int {
+		var count int
+		daemon.Get(func(s *fakeservef.Server) { count = len(s.FormatQueries) })
+		return count
+	}
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	model.SetMode(docview.Format)
+	if !model.View.FormatPending || model.View.Kind != docview.Code {
+		t.Fatalf("source shows while Format reads: %+v", model.View)
+	}
+	queue.Drain()
+	if model.View.Kind != docview.Formatted || reads() != 1 {
+		t.Fatalf("format %+v, reads %d", model.View, reads())
+	}
+	if model.Lines == nil || model.LinesVersion != model.CodeVersion {
+		t.Fatal("formatted text is highlighted")
+	}
+
+	// Coming back shows Format again without another read.
+	model.OpenDocument("config/broken.json")
+	queue.Drain()
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	if model.View.Kind != docview.Formatted || reads() != 1 {
+		t.Fatalf("return %+v, reads %d", model.View, reads())
+	}
+
+	// New source is formatted anew.
+	var page contract.PageData
+	fakeservef.Fixture(t, "page-json.json", &page)
+	page.Source += " "
+	daemon.Page(page)
+	daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{"config/settings.json"}}})
+	if !queue.Until(func() bool { return reads() == 2 && model.View.Kind == docview.Formatted }, 5*time.Second) {
+		t.Fatalf("reread %+v, reads %d", model.View, reads())
+	}
+}
+
+func TestHistoryRestoresDocumentsAndLines(t *testing.T) {
+	model, queue, _ := openFixtures(t)
+	if model.CanGoBack() || model.CanGoForward() {
+		t.Fatal("no history yet")
+	}
+	model.OpenDocument("guides/getting-started.md")
+	queue.Drain()
+	model.SelectLines(&docview.LineRange{Start: 2, End: 3})
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	if model.Selection() != nil {
+		t.Fatalf("lines belong to their document: %+v", model.Selection())
+	}
+	model.GoBack()
+	queue.Drain()
+	if got := model.Selection(); model.Page.Selected != "guides/getting-started.md" || got == nil || got.Start != 2 || got.End != 3 {
+		t.Fatalf("back to %q, lines %+v", model.Page.Selected, got)
+	}
+	model.GoForward()
+	queue.Drain()
+	if model.Page.Selected != "config/settings.json" || model.CanGoForward() {
+		t.Fatalf("forward to %q", model.Page.Selected)
+	}
+	model.CloseProject()
+	if model.CanGoBack() {
+		t.Fatal("history belongs to a project")
+	}
+}
+
+func TestLineLinkToTheOpenDocumentReadsNothing(t *testing.T) {
+	model, queue, daemon := openFixtures(t)
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	var before, after int
+	daemon.Get(func(s *fakeservef.Server) { before = s.PageReads })
+	reveal := model.LineRevealVersion
+	model.FollowLink("#L1")
+	queue.Drain()
+	daemon.Get(func(s *fakeservef.Server) { after = s.PageReads })
+	if after != before || model.LineRevealVersion == reveal {
+		t.Fatalf("reads %d -> %d, reveal %d -> %d", before, after, reveal, model.LineRevealVersion)
+	}
+	if got := model.Selection(); got == nil || got.Start != 1 {
+		t.Fatalf("lines %+v", got)
+	}
+}
+
+// Finding: the first page's load must not rewrite the history entry.
+func TestLineLinkSelectionSurvivesLeavingAndComingBack(t *testing.T) {
+	model, queue, _ := openFixtures(t)
+	model.CloseProject()
+	model.OpenLink(link.Target{Kind: link.Local, Project: "/home/user/markdown", Path: "guides/code-blocks.md", Fragment: "L5"})
+	queue.Drain()
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	model.GoBack()
+	queue.Drain()
+	if got := model.Selection(); model.Page.Selected != "guides/code-blocks.md" || got == nil || got.Start != 5 {
+		t.Fatalf("back to %q, lines %+v", model.Page.Selected, got)
+	}
+}
+
+func TestSelectionSurvivesARereadOfTheFirstDocument(t *testing.T) {
+	model, queue, daemon := openFixtures(t)
+	model.OpenDocument("guides/code-blocks.md")
+	queue.Drain()
+	model.SelectLines(&docview.LineRange{Start: 3, End: 3})
+
+	var page contract.PageData
+	fakeservef.Fixture(t, "page-code-blocks.json", &page)
+	page.Source += "\nmore\n"
+	daemon.Page(page)
+	daemon.Send(contract.Event{Name: contract.EventChange, Change: &contract.ChangeEvent{Paths: []string{"guides/code-blocks.md"}}})
+	if !queue.Until(func() bool { return model.Page.Source == page.Source }, 5*time.Second) {
+		t.Fatal("not reread")
+	}
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	model.GoBack()
+	queue.Drain()
+	if got := model.Selection(); got == nil || got.Start != 3 {
+		t.Fatalf("lines %+v", got)
+	}
+}
+
+// As App.tsx derives the mode each render: a cleared line anchor no longer
+// asks for Source, so the preference applies again.
+func TestClearingLinesReturnsToThePreferredView(t *testing.T) {
+	model, queue, _ := openFixtures(t)
+	model.OpenDocument("guides/diagrams.md")
+	queue.Drain()
+	model.SetMode(docview.Preview)
+	queue.Drain()
+	model.OpenLink(link.Target{Kind: link.Local, Project: "/home/user/markdown", Path: "guides/code-blocks.md", Fragment: "L2"})
+	queue.Drain()
+	if model.View.Kind != docview.Code {
+		t.Fatalf("a line link shows Source: %+v", model.View)
+	}
+	model.SelectLines(nil)
+	queue.Drain()
+	if model.View.Kind != docview.Markdown {
+		t.Fatalf("cleared lines keep %+v", model.View)
+	}
+}
+
+func TestFormatFailureWordsSayWhatHappened(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  fakeservef.RawAnswer
+		want string
+	}{
+		{"error page", fakeservef.RawAnswer{Status: 502, Body: "<html>Bad gateway</html>"}, "Couldn't format: the server responded with 502."},
+		{"empty error", fakeservef.RawAnswer{Status: 500}, "Couldn't format: the server responded with 500."},
+		{"malformed success", fakeservef.RawAnswer{Status: 200, Body: "not json"}, "Couldn't format: the server returned an invalid response."},
+		{"wrong shape", fakeservef.RawAnswer{Status: 200, Body: `{"formatted":1}`}, "Couldn't format: the server returned an invalid response."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model, queue, daemon := openFixtures(t)
+			daemon.Set(func(s *fakeservef.Server) { s.FormatRaw["config/settings.json"] = tc.raw })
+			model.OpenDocument("config/settings.json")
+			queue.Drain()
+			model.SetMode(docview.Format)
+			queue.Drain()
+			if len(model.View.Notices) != 1 || model.View.Notices[0].Text != tc.want {
+				t.Fatalf("notices %+v, want %q", model.View.Notices, tc.want)
+			}
+		})
+	}
+}
+
+func TestStaleFormatDoesNotTouchTheDocumentShown(t *testing.T) {
+	model, queue, daemon := openFixtures(t)
+	reads := func() int {
+		var count int
+		daemon.Get(func(s *fakeservef.Server) { count = len(s.FormatQueries) })
+		return count
+	}
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	model.SetMode(docview.Format)
+	inFlight := queue.Hold()
+	key, source := model.DocumentKey(), model.Page.Source
+
+	model.OpenDocument("config/broken.json")
+	queue.Drain()
+	shown, code := model.View, model.CodeVersion
+	inFlight()
+	if state := model.documents.formats.Get(key, source); state == nil || state.Kind != docview.FormatReady {
+		t.Fatalf("its document keeps the answer: %+v", state)
+	}
+	if model.Page.Selected != "config/broken.json" || model.View.Kind != shown.Kind || model.View.Mode != shown.Mode || model.CodeVersion != code {
+		t.Fatalf("stale format changed the view: %+v, code %d -> %d", model.View, code, model.CodeVersion)
+	}
+	// Returning shows it with no new read.
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	if model.View.Kind != docview.Formatted || reads() != 1 {
+		t.Fatalf("return %+v, reads %d", model.View, reads())
+	}
+}
+
+func TestFormatFromAClosedProjectIsDropped(t *testing.T) {
+	model, queue, _ := openFixtures(t)
+	model.OpenDocument("config/settings.json")
+	queue.Drain()
+	model.SetMode(docview.Format)
+	inFlight := queue.Hold()
+	key, source := model.DocumentKey(), model.Page.Source
+	model.CloseProject()
+	inFlight()
+	if state := model.documents.formats.Get(key, source); state != nil {
+		t.Fatalf("closed project kept %+v", state)
+	}
+}
+
+func TestLoneCarriageReturnsHighlightAsLines(t *testing.T) {
+	model, queue, daemon := openFixtures(t)
+	var page contract.PageData
+	fakeservef.Fixture(t, "page-go.json", &page)
+	page.Project, page.Selected = "/home/user/markdown", "code/cr.go"
+	page.Source = "package main\r\rfunc main() {}\r"
+	daemon.Page(page)
+	model.OpenDocument("code/cr.go")
+	queue.Drain()
+	if model.Lines == nil || len(model.Lines[0]) == 0 || model.Lines[0][0].Category != highlight.Keyword {
+		t.Fatalf("lines %+v", model.Lines)
+	}
+	if model.Page.Source != page.Source {
+		t.Fatalf("the page's source changed: %q", model.Page.Source)
+	}
+}
