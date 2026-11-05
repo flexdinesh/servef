@@ -396,6 +396,7 @@ void test('install-desktop-edge.sh installs the Linux app, registers servef://, 
   assert.doesNotMatch(log, /servef_0\.0\.0-edge_linux_amd64\.tar\.gz/)
   assert.doesNotMatch(log, /releases\/latest/)
   assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+  assert.ok(await exists(join(sandbox.home, '.config')), 'xdg-mime writes mimeapps.list there and does not create it')
   assert.match(log, /^update-desktop-database .*\/applications$/m)
   assert.match(result.stdout, /servef-desktop \./)
   assert.match(result.stdout, /scripts\/install\.sh/)

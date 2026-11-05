@@ -291,7 +291,7 @@ install_desktop_linux() {
   ok "installed $DESKTOP_HOME ($version)"
   electron_paths remove_electron
   exec_arg="$(desktop_exec "$DESKTOP_HOME/servef-desktop")"
-  mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")"
+  mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")" "$DESKTOP_CONFIG"
   cp "$DESKTOP_HOME/servef-desktop.png" "$DESKTOP_ICON"
   cat >"$DESKTOP_DATA/applications/$DESKTOP_ID" <<EOF2
 [Desktop Entry]
