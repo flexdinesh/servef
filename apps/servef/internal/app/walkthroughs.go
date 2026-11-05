@@ -266,6 +266,26 @@ type noticeHub struct {
 	mu          sync.Mutex
 	closed      bool
 	subscribers map[chan contract.WalkthroughEvent]struct{}
+	// listeners run under mu, so they must not block.
+	listeners map[*func(contract.WalkthroughEvent)]struct{}
+}
+
+// listen calls fn with each announcement until the returned function runs.
+func (h *noticeHub) listen(fn func(contract.WalkthroughEvent)) func() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return func() {}
+	}
+	if h.listeners == nil {
+		h.listeners = map[*func(contract.WalkthroughEvent)]struct{}{}
+	}
+	h.listeners[&fn] = struct{}{}
+	return func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		delete(h.listeners, &fn)
+	}
 }
 
 func (h *noticeHub) subscribe() (<-chan contract.WalkthroughEvent, func()) {
@@ -295,6 +315,9 @@ func (h *noticeHub) subscribe() (<-chan contract.WalkthroughEvent, func()) {
 func (h *noticeHub) announce(notice contract.WalkthroughEvent) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	for listener := range h.listeners {
+		(*listener)(notice)
+	}
 	for notices := range h.subscribers {
 		for sent := false; !sent; {
 			select {
@@ -320,4 +343,5 @@ func (h *noticeHub) close() {
 		close(notices)
 	}
 	h.subscribers = nil
+	h.listeners = nil
 }

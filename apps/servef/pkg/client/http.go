@@ -524,6 +524,9 @@ func projectEvent(name string, data []byte) (contract.Event, bool, error) {
 	case contract.EventHead:
 		event.Head = &contract.HeadEvent{}
 		target = event.Head
+	case contract.EventWalkthrough:
+		event.Walkthrough = &contract.WalkthroughEvent{}
+		target = event.Walkthrough
 	default:
 		return contract.Event{}, false, nil
 	}

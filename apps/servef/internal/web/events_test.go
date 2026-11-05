@@ -2,6 +2,7 @@ package web
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"github.com/flexdinesh/servef/pkg/contract"
 	"io"
@@ -261,7 +262,7 @@ func TestEventsSendHeadFirstThenWhenItMoves(t *testing.T) {
 	if event.name != "head" {
 		t.Fatalf("second event = %+v, want head", event)
 	}
-	want := `{"branch":"master","commit":"` + initial.String() + `","subject":"Initial commit","previous":null}`
+	want := `{"branch":"master","commit":"` + initial.String() + `","parent":"","subject":"Initial commit","previous":null}`
 	if event.data != want {
 		t.Fatalf("baseline head = %s, want %s", event.data, want)
 	}
@@ -280,9 +281,46 @@ func TestEventsSendHeadFirstThenWhenItMoves(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(root, "README.md"), "# Two\n")
 	next := commitAll(t, repo, "Second commit")
-	committed := contract.HeadEvent{Branch: "feature", Commit: next.String(), Subject: "Second commit", Previous: &contract.HeadRef{Branch: "feature", Commit: initial.String()}}
+	committed := contract.HeadEvent{Branch: "feature", Commit: next.String(), Parent: initial.String(), Subject: "Second commit", Previous: &contract.HeadRef{Branch: "feature", Commit: initial.String()}}
 	if got := stream.nextHead(); !reflect.DeepEqual(got, committed) {
 		t.Fatalf("head after commit = %+v (previous %+v), want %+v", got, got.Previous, committed)
+	}
+}
+
+// A stream carries walkthroughs of its own project only (decision 0099).
+func TestEventsCarryTheirProjectsWalkthroughs(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	options := watch.DefaultOptions()
+	app, err := New(Config{Roots: testRoots(t, first, second), Depth: 5, LiveUpdates: watch.NewHub(options), WalkthroughDirectory: filepath.Join(t.TempDir(), "walkthroughs")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	server := liveServer(t, app, 0)
+	roots := app.roots.List()
+	firstStream, secondStream := openEvents(t, server, roots[0]), openEvents(t, server, roots[1])
+	for _, stream := range []*eventStream{firstStream, secondStream} {
+		if event := stream.take(); event.name != "status" {
+			t.Fatalf("first event = %+v, want status", event)
+		}
+	}
+	publish := func(project, id string) {
+		t.Helper()
+		draft := contract.WalkthroughDraft{Project: project, ID: id, Title: id, Summary: "Start.", Steps: []contract.WalkthroughDraftStep{{Title: "Intro", Body: "Hello."}}}
+		if _, err := app.app.Walkthroughs.Publish(context.Background(), draft); err != nil {
+			t.Fatal(err)
+		}
+	}
+	publish(roots[1], "second")
+	publish(roots[0], "first")
+	var got contract.WalkthroughEvent
+	firstStream.next("walkthrough", &got)
+	if want := (contract.WalkthroughEvent{Project: roots[0], ID: "first", Title: "first", Created: true}); got != want {
+		t.Errorf("first project's stream = %+v, want %+v", got, want)
+	}
+	secondStream.next("walkthrough", &got)
+	if want := (contract.WalkthroughEvent{Project: roots[1], ID: "second", Title: "second", Created: true}); got != want {
+		t.Errorf("second project's stream = %+v, want %+v", got, want)
 	}
 }
 

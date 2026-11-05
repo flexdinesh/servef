@@ -88,14 +88,15 @@ func New(config Config) (*App, error) {
 	}
 	shared := &state{config: config}
 	targets := walkthroughTargets{roots: config.Roots, depth: config.Depth, types: config.Types, openFile: config.OpenFile}
+	walkthroughs := &Walkthroughs{state: shared, service: walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), targets)}
 	return &App{
 		Projects:      &Projects{state: shared},
 		Documents:     &Documents{state: shared},
-		Events:        &Events{state: shared},
+		Events:        &Events{state: shared, notices: &walkthroughs.notices},
 		SourceControl: &SourceControl{state: shared},
 		Navigation:    &Navigation{state: shared, servers: config.LanguageServers},
 		Metrics:       &Metrics{},
-		Walkthroughs:  &Walkthroughs{state: shared, service: walkthrough.NewService(walkthrough.NewStore(config.WalkthroughDirectory), targets)},
+		Walkthroughs:  walkthroughs,
 	}, nil
 }
 

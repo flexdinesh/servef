@@ -166,6 +166,10 @@ func (s *Subscription) Ready() <-chan struct{} { return s.ready }
 // Done is closed when the hub closes.
 func (s *Subscription) Done() <-chan struct{} { return s.done }
 
+// Wake makes Ready receive, for events its owner keeps beside this
+// subscription's own.
+func (s *Subscription) Wake() { s.signal() }
+
 // Next takes the pending status and change; either may be nil.
 func (s *Subscription) Next() (*Status, *Change) {
 	s.hub.mu.Lock()
