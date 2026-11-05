@@ -310,7 +310,9 @@ func selected(group, name string) bool {
 			return false
 		}
 	}
-	if (group == "browser" || group == "desktop") && strings.HasSuffix(name, "_test.go") && !strings.HasPrefix(name, "apps/desktop/") {
+	// Desktop runs tidy against its replaced servef module: dependency tests
+	// affect the required sums. Only the browser consumes production Go alone.
+	if group == "browser" && strings.HasSuffix(name, "_test.go") {
 		return false
 	}
 	if group == "frontend" && name == "apps/servef/internal/walkthrough/schema.json" {

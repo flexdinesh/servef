@@ -199,6 +199,10 @@ schema. Shared workspace locks invalidate their consumers. Site content does
 not invalidate application tests. Toolchain preparation is separate from task
 commands, so unchanged toolchains can survive a task edit.
 
+Desktop keeps the replaced servef module's test files: `go mod tidy` follows
+dependency test imports when checking its sums. The standalone application
+binary still excludes Go test files from its build inputs.
+
 Input identities include relevant contents, paths, modes, symlinks, manifests,
 locks, patches, configuration, implementation, toolchain/image/browser identity,
 platform, arguments, and behavior-affecting environment. Host static certificates
