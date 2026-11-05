@@ -4,12 +4,15 @@ import {
   DEFAULT_FONT_SIZE,
   defaultSettings,
   isLanguageServerSetting,
+  isNotifySetting,
   isShowWelcomeSetting,
   languageServerOptions,
   modifiedSettings,
+  notifyOptions,
   parseFontSize,
   settingDefinitions,
   showWelcomeOptions,
+  type NotifyKey,
   type SettingDefinition,
   type SettingId,
 } from "./settings.ts"
@@ -47,6 +50,10 @@ function showWelcomeLabel(value: string): string {
   return showWelcomeOptions.find((option) => option.value === value)?.label ?? value
 }
 
+function notifyLabel(value: string): string {
+  return notifyOptions.find((option) => option.value === value)?.label ?? value
+}
+
 function themeLabel(value: string): string {
   return themeOptions.find((option) => option.value === value)?.label ?? value
 }
@@ -57,6 +64,19 @@ export function useSettingValues(): SettingValues {
   const { settings, setSetting, resetSetting, resetAll } = useSettings()
   const { theme, setTheme } = useTheme()
   const themeModified = theme !== DEFAULT_THEME
+  const notify = (key: NotifyKey): SettingValue => ({
+    definition: definition(key),
+    value: settings[key],
+    label: notifyLabel(settings[key]),
+    defaultLabel: notifyLabel(defaultSettings[key]),
+    modified: settings[key] !== defaultSettings[key],
+    set(value) {
+      if (!isNotifySetting(value)) return false
+      setSetting(key, value)
+      return true
+    },
+    reset() { resetSetting(key) },
+  })
 
   return {
     values: {
@@ -113,6 +133,10 @@ export function useSettingValues(): SettingValues {
         },
         reset() { resetSetting("showWelcome") },
       },
+      notifyCommits: notify("notifyCommits"),
+      notifyBranches: notify("notifyBranches"),
+      notifyEdits: notify("notifyEdits"),
+      notifyWalkthroughs: notify("notifyWalkthroughs"),
     },
     modifiedCount: modifiedSettings(settings).length + (themeModified ? 1 : 0),
     resetAll() {

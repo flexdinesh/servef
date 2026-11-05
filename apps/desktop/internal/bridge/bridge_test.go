@@ -9,6 +9,45 @@ import (
 	"testing"
 )
 
+func TestParseNotifications(t *testing.T) {
+	valid := func() map[string]any {
+		return map[string]any{"project": "/code/servef", "commits": true, "branches": true, "edits": false, "walkthroughs": true}
+	}
+	got, ok := ParseNotifications(valid())
+	want := Notifications{Project: "/code/servef", Commits: true, Branches: true, Walkthroughs: true}
+	if !ok || got != want {
+		t.Errorf("ParseNotifications = %+v, %v; want %+v", got, ok, want)
+	}
+	none := valid()
+	none["project"] = ""
+	if got, ok := ParseNotifications(none); !ok || got.Project != "" {
+		t.Errorf("no project = %+v, %v", got, ok)
+	}
+	bad := []func(map[string]any){
+		func(fields map[string]any) { fields["project"] = "relative/path" },
+		func(fields map[string]any) { fields["project"] = "/code/../etc" },
+		func(fields map[string]any) { fields["project"] = 1 },
+		func(fields map[string]any) { delete(fields, "project") },
+		func(fields map[string]any) { fields["commits"] = "yes" },
+		func(fields map[string]any) { delete(fields, "branches") },
+		func(fields map[string]any) { fields["edits"] = nil },
+		func(fields map[string]any) { fields["walkthroughs"] = 1 },
+		func(fields map[string]any) { fields["connection"] = "r-000000000000" },
+	}
+	for i, change := range bad {
+		fields := valid()
+		change(fields)
+		if _, ok := ParseNotifications(fields); ok {
+			t.Errorf("bad payload %d accepted: %v", i, fields)
+		}
+	}
+	for _, value := range []any{nil, "x", 1, []any{}} {
+		if _, ok := ParseNotifications(value); ok {
+			t.Errorf("ParseNotifications(%v) accepted", value)
+		}
+	}
+}
+
 func TestIsAppPage(t *testing.T) {
 	for raw, want := range map[string]bool{
 		"app://local":                      true,

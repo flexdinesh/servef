@@ -1,5 +1,5 @@
 import type { HighlightRange } from "../features/search/search-engine.ts"
-import { settingDefinitions, type SettingId } from "../settings/settings.ts"
+import { availableSettings, settingDefinitions, type SettingId } from "../settings/settings.ts"
 
 const mac = typeof navigator !== "undefined" && navigator.platform.includes("Mac")
 
@@ -50,6 +50,13 @@ export const commands: readonly Command[] = [
   { id: "walkthrough.exit", category: "Walkthrough", title: "Close Walkthrough", action: { kind: "walkthrough-exit" } },
   { id: "help.welcome", category: "Help", title: "Welcome", action: { kind: "open-welcome" } },
 ]
+
+// availableCommands drops the commands of settings this client does not show.
+export function availableCommands(notificationsAvailable: boolean): readonly Command[] {
+  const settings = availableSettings(notificationsAvailable)
+  return commands.filter(({ action }) =>
+    action.kind !== "open-setting" || settings.some((definition) => definition.id === action.setting))
+}
 
 function mergeRanges(ranges: HighlightRange[]): HighlightRange[] {
   const sorted = ranges.toSorted((a, b) => a.start - b.start)

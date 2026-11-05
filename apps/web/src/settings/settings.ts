@@ -6,6 +6,23 @@ export interface Settings {
   fontSize: number
   languageServers: LanguageServerSetting
   showWelcome: ShowWelcomeSetting
+  notifyCommits: NotifySetting
+  notifyBranches: NotifySetting
+  notifyEdits: NotifySetting
+  notifyWalkthroughs: NotifySetting
+}
+
+// NotifySetting chooses one kind of desktop notification (decision 0099).
+export type NotifySetting = "off" | "on"
+export type NotifyKey = "notifyCommits" | "notifyBranches" | "notifyEdits" | "notifyWalkthroughs"
+
+export const notifyOptions: readonly { label: string; value: NotifySetting }[] = [
+  { label: "Off", value: "off" },
+  { label: "On", value: "on" },
+]
+
+export function isNotifySetting(value: unknown): value is NotifySetting {
+  return value === "off" || value === "on"
 }
 
 // ShowWelcomeSetting opens the Welcome tab when a project opens with no tabs
@@ -39,7 +56,15 @@ export function isLanguageServerSetting(value: unknown): value is LanguageServer
 export type SettingKey = keyof Settings
 export type SettingId = SettingKey | "theme"
 
-const storedKeys: readonly SettingKey[] = ["fontSize", "languageServers", "showWelcome"]
+const storedKeys: readonly SettingKey[] = [
+  "fontSize",
+  "languageServers",
+  "showWelcome",
+  "notifyCommits",
+  "notifyBranches",
+  "notifyEdits",
+  "notifyWalkthroughs",
+]
 
 // The UI type scale is authored for a 13px base: explorer, tabs, and source
 // text are 0.8125rem, so 1rem is 16px at the default.
@@ -47,7 +72,15 @@ export const DEFAULT_FONT_SIZE = 13
 export const FONT_SIZE_MIN = 10
 export const FONT_SIZE_MAX = 20
 
-export const defaultSettings: Settings = { fontSize: DEFAULT_FONT_SIZE, languageServers: "on", showWelcome: "on" }
+export const defaultSettings: Settings = {
+  fontSize: DEFAULT_FONT_SIZE,
+  languageServers: "on",
+  showWelcome: "on",
+  notifyCommits: "on",
+  notifyBranches: "on",
+  notifyEdits: "off",
+  notifyWalkthroughs: "on",
+}
 
 interface SettingBase {
   id: SettingId
@@ -69,6 +102,8 @@ export interface SelectSettingDefinition extends SettingBase {
 }
 
 export type SettingDefinition = NumberSettingDefinition | SelectSettingDefinition
+
+export const NOTIFICATIONS_CATEGORY = "Notifications"
 
 export const settingDefinitions: readonly SettingDefinition[] = [
   {
@@ -105,7 +140,47 @@ export const settingDefinitions: readonly SettingDefinition[] = [
     description: "Open the Welcome tab when a project opens with no tabs to restore. Off opens the project picker on first launch instead.",
     options: showWelcomeOptions,
   },
+  {
+    id: "notifyCommits",
+    kind: "select",
+    category: NOTIFICATIONS_CATEGORY,
+    title: "New Commits",
+    description: "When a project's branch gets a new commit.",
+    options: notifyOptions,
+  },
+  {
+    id: "notifyBranches",
+    kind: "select",
+    category: NOTIFICATIONS_CATEGORY,
+    title: "Branch Switches",
+    description: "When a project checks out another branch.",
+    options: notifyOptions,
+  },
+  {
+    id: "notifyEdits",
+    kind: "select",
+    category: NOTIFICATIONS_CATEGORY,
+    title: "File Edits",
+    description: "When edits stop for 10 seconds. Keeps the project's folders watched while the window is hidden.",
+    options: notifyOptions,
+  },
+  {
+    id: "notifyWalkthroughs",
+    kind: "select",
+    category: NOTIFICATIONS_CATEGORY,
+    title: "Walkthroughs",
+    description: "When a walkthrough is published or updated.",
+    options: notifyOptions,
+  },
 ]
+
+// availableSettings is what this client can act on: notifications exist only in
+// the desktop app.
+export function availableSettings(notificationsAvailable: boolean): readonly SettingDefinition[] {
+  return notificationsAvailable
+    ? settingDefinitions
+    : settingDefinitions.filter((definition) => definition.category !== NOTIFICATIONS_CATEGORY)
+}
 
 // parseSettingValue accepts whole numbers, or numeric text, within the
 // definition's range.
@@ -136,7 +211,19 @@ export function parseSettings(raw: string | null): Settings {
   const showWelcome = "showWelcome" in stored && isShowWelcomeSetting(stored.showWelcome)
     ? stored.showWelcome
     : defaultSettings.showWelcome
-  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE, languageServers, showWelcome }
+  const notifyCommits = "notifyCommits" in stored && isNotifySetting(stored.notifyCommits)
+    ? stored.notifyCommits
+    : defaultSettings.notifyCommits
+  const notifyBranches = "notifyBranches" in stored && isNotifySetting(stored.notifyBranches)
+    ? stored.notifyBranches
+    : defaultSettings.notifyBranches
+  const notifyEdits = "notifyEdits" in stored && isNotifySetting(stored.notifyEdits)
+    ? stored.notifyEdits
+    : defaultSettings.notifyEdits
+  const notifyWalkthroughs = "notifyWalkthroughs" in stored && isNotifySetting(stored.notifyWalkthroughs)
+    ? stored.notifyWalkthroughs
+    : defaultSettings.notifyWalkthroughs
+  return { fontSize: fontSize ?? DEFAULT_FONT_SIZE, languageServers, showWelcome, notifyCommits, notifyBranches, notifyEdits, notifyWalkthroughs }
 }
 
 export function modifiedSettings(settings: Settings): SettingKey[] {
@@ -148,9 +235,9 @@ export function uiScale(settings: Settings): number {
   return settings.fontSize / DEFAULT_FONT_SIZE
 }
 
-export function matchSettings(query: string): readonly SettingDefinition[] {
+export function matchSettings(query: string, definitions: readonly SettingDefinition[]): readonly SettingDefinition[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-  return settingDefinitions.filter((definition) => {
+  return definitions.filter((definition) => {
     const options = definition.kind === "select" ? definition.options.map((option) => option.label).join(" ") : ""
     const text = `${definition.category} ${definition.title} ${definition.description} ${options}`.toLowerCase()
     return terms.every((term) => text.includes(term))

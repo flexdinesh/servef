@@ -108,14 +108,36 @@ manager; the Explorer menu also copies a file's full or relative path. servef
 reveals only files inside a project it serves, and never follows a link out of
 the project.
 
+## Notifications
+
+The app tells you what changed in projects you are not looking at. Choose what in
+Settings, under **Notifications**:
+
+| Setting | Default | Notifies you when |
+| --- | --- | --- |
+| New Commits | On | a project's branch gets a new commit |
+| Branch Switches | On | a project checks out another branch |
+| File Edits | Off | edits stop for 10 seconds in the project a window shows |
+| Walkthroughs | On | a walkthrough is published or updated |
+
+Commits, branch switches, and walkthroughs cover every project opened since the
+window opened, up to 16. Nothing fires for the project in a focused window, and
+closing a window ends its notifications. Editing a file that already has
+uncommitted changes does not notify again. Click a notification to open what it
+is about.
+
+Settings warns you if this computer has no notification service or macOS is
+blocking servef. Each notification is limited to one per project and kind every
+30 seconds.
+
 ## Not in the desktop app
 
 These went with the earlier Electron app and are not coming back as they were:
 
 - ssh connections and the Connect page. `servef connect` opens other machines
   ([Remote hosts](/docs/remote)).
-- Open at Login, notifications, recent folders, the Dock menu, and dropping
-  folders on the window or the Dock.
+- Open at Login, recent folders, the Dock menu, and dropping folders on the
+  window or the Dock.
 - **Open in servef** in file managers, and deb and AppImage packages.
 
 ## WebKit

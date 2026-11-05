@@ -14,12 +14,14 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo"
 
 	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
 	"github.com/flexdinesh/servef/apps/desktop/internal/link"
+	"github.com/flexdinesh/servef/apps/desktop/internal/notifier"
 	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
 	"github.com/flexdinesh/servef/pkg/client"
 	"github.com/flexdinesh/servef/pkg/connection"
@@ -37,10 +39,16 @@ var (
 type host struct {
 	daemon      *connect.Daemon
 	connections *proxy.Connections
+	store       connection.Store
 
-	// mu guards windows: one per connection, by its scheme host.
-	mu      sync.Mutex
-	windows map[string]*mygo.Window
+	// mu guards windows, notifiers, and noticeTargets. Windows and notifiers are
+	// one per connection, by its scheme host; noticeTargets is where a notice's
+	// click goes, by its ID.
+	mu            sync.Mutex
+	windows       map[string]*mygo.Window
+	notifiers     map[string]*notifier.Notifier
+	noticeTargets map[string]string
+	noticesDenied atomic.Bool
 	// opening serializes looking for a window and creating it, so two links to
 	// one connection cannot open two windows. It is separate from mu because
 	// creating a window waits for the main thread, where OnClosed takes mu.
@@ -61,13 +69,21 @@ func main() {
 	}
 	resources, _ := mygo.App.Path(mygo.PathResources)
 	binary, binaryErr := connect.Locate(mygo.App.IsPackaged(), resources, os.Getenv, exec.LookPath)
-	app := &host{daemon: connect.NewDaemon(binary, binaryErr, connect.DevFlags(os.Getenv), connect.Exec), windows: map[string]*mygo.Window{}}
+	app := &host{
+		daemon:        connect.NewDaemon(binary, binaryErr, connect.DevFlags(os.Getenv), connect.Exec),
+		windows:       map[string]*mygo.Window{},
+		notifiers:     map[string]*notifier.Notifier{},
+		noticeTargets: map[string]string{},
+	}
 	app.notify = app.showWarning
 	storePath, err := connection.DefaultStorePath()
 	if err != nil {
 		log.Printf("servef-desktop: %v", err)
 	}
-	app.connections = proxy.NewConnections(app.daemon, connection.NewStore(storePath))
+	app.store = connection.NewStore(storePath)
+	app.connections = proxy.NewConnections(app.daemon, app.store)
+	clickNotice = app.noticeClicked
+	mygo.App.OnNotificationClick(app.noticeClicked)
 
 	pages := proxy.New(app.connections)
 	if err := mygo.Protocol.Handle(proxy.Scheme, pages); err != nil {
@@ -145,9 +161,13 @@ func (h *host) openWindow(start string) {
 	h.mu.Unlock()
 	window.OnClosed(func() {
 		h.mu.Lock()
-		defer h.mu.Unlock()
-		if h.windows[connectionHost] == window {
+		current := h.windows[connectionHost] == window
+		if current {
 			delete(h.windows, connectionHost)
+		}
+		h.mu.Unlock()
+		if current {
+			h.stopNotifier(connectionHost)
 		}
 	})
 	page := window.Page()

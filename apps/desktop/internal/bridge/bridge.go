@@ -158,6 +158,42 @@ func ParseReveal(project, relative any) (string, string, bool) {
 	return p, r, true
 }
 
+// Notifications is what a page tells the notifier: the project it shows and
+// the user's settings (decision 0099).
+type Notifications struct {
+	// Project is "" when the page shows none.
+	Project      string
+	Commits      bool
+	Branches     bool
+	Edits        bool
+	Walkthroughs bool
+}
+
+// NotificationStatus is whether notices can reach the user.
+type NotificationStatus struct {
+	Supported bool `json:"supported"`
+	Denied    bool `json:"denied"`
+}
+
+// ParseNotifications validates {project, commits, branches, edits,
+// walkthroughs}: project "" or absolute and normalized, the rest booleans, and
+// nothing else.
+func ParseNotifications(value any) (Notifications, bool) {
+	fields, ok := value.(map[string]any)
+	if !ok || len(fields) != 5 {
+		return Notifications{}, false
+	}
+	project, okProject := fields["project"].(string)
+	commits, okCommits := fields["commits"].(bool)
+	branches, okBranches := fields["branches"].(bool)
+	edits, okEdits := fields["edits"].(bool)
+	walkthroughs, okWalkthroughs := fields["walkthroughs"].(bool)
+	if !okProject || !okCommits || !okBranches || !okEdits || !okWalkthroughs || (project != "" && !isPlainAbsolute(project)) {
+		return Notifications{}, false
+	}
+	return Notifications{Project: project, Commits: commits, Branches: branches, Edits: edits, Walkthroughs: walkthroughs}, true
+}
+
 func isPlainAbsolute(name string) bool {
 	if len(name) > maxPathLength || strings.ContainsRune(name, 0) || !filepath.IsAbs(name) || filepath.Clean(name) != name {
 		return false

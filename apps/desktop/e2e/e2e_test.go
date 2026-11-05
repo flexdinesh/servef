@@ -110,6 +110,7 @@ type world struct {
 	daemon  string
 	project string
 	out     string
+	notices string
 	report  map[string]any
 }
 
@@ -135,6 +136,7 @@ func newWorld(t *testing.T) (*world, string) {
 	w := &world{t: t, out: out, report: map[string]any{}, sock: filepath.Join(base, "a.sock"), daemon: filepath.Join(base, "d.sock")}
 	w.project = filepath.Join(base, "project")
 	writeFixture(t, w.project)
+	w.notices = filepath.Join(base, "notices.jsonl")
 	// Dagger may supply the app built from the same immutable source snapshot.
 	w.bin = os.Getenv("SERVEF_DESKTOP_APP_BINARY")
 	if w.bin == "" {
@@ -150,7 +152,7 @@ func newWorld(t *testing.T) (*world, string) {
 		"HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"),
 		"XDG_RUNTIME_DIR="+filepath.Join(base, "run"),
 		"SERVEF_DESKTOP_SOCKET="+w.daemon, "SERVEF_DESKTOP_ROOTS_FILE="+filepath.Join(base, "roots.json"),
-		"MYGO_AUTOMATION="+w.sock, "MYGO_ENV=production",
+		"MYGO_AUTOMATION="+w.sock, "MYGO_ENV=production", "SERVEF_E2E_NOTICES="+w.notices,
 	)
 	for _, dir := range []string{home, filepath.Join(base, "run")} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -603,6 +605,26 @@ func TestWebViewApp(t *testing.T) {
 		waitForExit(app)
 	})
 
+	t.Run("notices for a project on this computer", func(t *testing.T) {
+		w.t = t
+		useHandler(t, "notices")
+		project := filepath.Join(base, "notices project")
+		writeFixture(t, project)
+		app := w.launch(project)
+		defer app.stop()
+		app.waitEval("the project's tree", treeShows("README.md"))
+		w.exerciseNotices(app, project, "local", regexp.MustCompile(`^notices project · |^notices project$`), func() {
+			draft, err := json.Marshal(map[string]any{"project": project, "title": "Notice tour", "steps": []map[string]any{{"title": "Start", "body": "Read this.", "file": map[string]any{"path": "README.md"}}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := app.eval(fmt.Sprintf(`const r = await fetch("/api/walkthroughs", {method: "POST", headers: {"Content-Type": "application/json"}, body: %s}); return r.ok`, strconv.Quote(string(draft))))
+			if got != true {
+				t.Fatalf("publishing a walkthrough answered %v", got)
+			}
+		})
+	})
+
 	// The whole remote flow (decision 0098): one machine runs --remote, this
 	// computer runs the printed string, and the app shows it in a window of its
 	// own. The two share nothing but that string.
@@ -740,6 +762,20 @@ func TestWebViewApp(t *testing.T) {
 		app.waitEval("the window following the server again", `return document.querySelector('.status-live[data-mode="watching"]') !== null`)
 		writeServed("live-remote-again.md")
 		app.waitEval("a file created after the server came back", treeShows("live-remote-again.md"))
+
+		// Notices work as they do on this computer, over the notifier's own
+		// streams, which came back with the server too (decision 0099). Each names
+		// its connection, so a server cannot pass off as this computer.
+		w.exerciseNotices(app, served, id, regexp.MustCompile(`^[^·]+ · connect project · |^[^·]+ · connect project$`), func() {
+			draft := filepath.Join(base, "notice-tour.json")
+			content := fmt.Sprintf(`{"project":%q,"title":"Notice tour","steps":[{"title":"Start","body":"Read this.","file":{"path":"README.md"}}]}`, served)
+			if err := os.WriteFile(draft, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if output, err := onServer("walkthrough", "publish", draft, "--no-open"); err != nil {
+				t.Fatalf("walkthrough publish: %v\n%s", err, output)
+			}
+		})
 
 		// Connecting again brings the window forward and keeps what it shows.
 		app.eval(`window.__stamp = 1; return true`)

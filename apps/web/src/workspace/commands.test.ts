@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { commands, matchCommands, type Command } from "./commands.ts"
+import { availableCommands, commands, matchCommands, type Command } from "./commands.ts"
 
 const sample: readonly Command[] = [
   { id: "a", category: "Settings", title: "Theme", action: { kind: "open-setting", setting: "theme" } },
@@ -10,6 +10,15 @@ const sample: readonly Command[] = [
 
 test("typing welcome finds the Welcome tab and its startup setting", () => {
   assert.deepEqual(matchCommands(commands, "welcome").map((match) => match.command.id), ["settings.showWelcome", "help.welcome"])
+})
+
+test("the palette offers notification settings only where they exist", () => {
+  const ids = (list: readonly Command[]) => list.map((command) => command.id)
+  assert.deepEqual(availableCommands(true), commands)
+  assert.ok(ids(availableCommands(true)).includes("settings.notifyCommits"))
+  assert.ok(!ids(availableCommands(false)).some((id) => id.startsWith("settings.notify")))
+  assert.ok(ids(availableCommands(false)).includes("settings.theme"))
+  assert.ok(ids(availableCommands(false)).includes("help.welcome"))
 })
 
 test("an empty query lists every command in order", () => {
