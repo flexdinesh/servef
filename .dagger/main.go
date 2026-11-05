@@ -31,7 +31,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	// +optional
 	task string,
 ) (*dagger.Directory, error) {
-	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "electron": true, "native": true}
+	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "electron": true, "mygo": true}
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
@@ -40,7 +40,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
 		"test:browser:webkit": "browser", "test:electron": "electron",
-		"test:native": "native", "test:native:e2e": "native",
+		"test:mygo": "mygo", "test:mygo:e2e": "mygo",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -56,7 +56,9 @@ func (m *ServefValidation) Run(ctx context.Context,
 	}
 	prepared := dependencies(tools, source)
 	runner := prepared.WithDirectory("/src", source)
-	if group == "go" || group == "browser" || group == "electron" {
+	// The mygo e2e runs the real servef binary, whose daemon serves the UI.
+	mygoE2E := group == "mygo" && task == "test:mygo:e2e"
+	if group == "go" || group == "browser" || group == "electron" || mygoE2E {
 		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
 			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/electron/package.json"},
 			Exclude: []string{"apps/web/**/*.test.ts", "apps/web/**/*.test.tsx", "apps/web/test-fixtures/**"},
@@ -71,7 +73,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
-	if group == "browser" || group == "electron" {
+	if group == "browser" || group == "electron" || mygoE2E {
 		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"})).
 			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
@@ -103,22 +105,20 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("SERVEF_BROWSER_ARTIFACT_DIR", "/out/fixtures").WithEnvVariable("SERVEF_BROWSER_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("PORT", "18090").WithEnvVariable("SERVEF_BROWSER_WEB_PORT", "15183")
 	}
-	if group == "native" {
-		// Opt-in (decision 0082): apps/native is its own module on Go 1.27,
+	if group == "mygo" {
+		// Opt-in (decision 0094): apps/mygo is its own module on Go 1.27,
 		// outside go.work.
-		native := withApt(tools.WithExec([]string{"sh", "-ec", nativeGo}), []string{"sh", "-ec", nativeTextPackages}).
-			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_NATIVE_GOROOT", "/usr/local/go1.27")
-		// packages/mygo (decision 0086) is apps/native's agent tooling, a
-		// module of its own that apps/native replaces.
-		modules := native.WithDirectory("/src", subset(source, []string{"apps/native/go.mod", "apps/native/go.sum", "apps/servef/go.mod", "apps/servef/go.sum", "packages/mygo/go.mod", "packages/mygo/go.sum"})).
+		mygo := tools.WithExec([]string{"sh", "-ec", mygoGo}).
+			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_MYGO_GOROOT", "/usr/local/go1.27")
+		modules := mygo.WithDirectory("/src", subset(source, []string{"apps/mygo/go.mod", "apps/mygo/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
 			WithEnvVariable("GOROOT", "/usr/local/go1.27").
-			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/native", "mod", "download"}).
-			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "packages/mygo", "mod", "download"})
-		if task == "test:native:e2e" {
-			// The built app needs a display, GTK 3, and Mesa's GL (llvmpipe).
-			native = withApt(native, []string{"sh", "-ec", nativeE2EPackages})
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/mygo", "mod", "download"})
+		if mygoE2E {
+			// The built app needs a display, GTK 3, and WebKitGTK.
+			mygo = withApt(mygo, []string{"sh", "-ec", mygoE2EPackages}).
+				WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_MYGO_BINARY", "/opt/servef")
 		}
-		runner = native.WithDirectory("/src", source).
+		runner = mygo.WithDirectory("/src", source).
 			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	// The baseline index is private and independent of host Git metadata.
@@ -240,30 +240,19 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
 rm -rf /var/lib/apt/lists/*
 `
 
-// nativeE2EPackages are the native e2e smoke's display, session bus, GTK 3,
-// and Mesa (mygo draws native UI with OpenGL through EGL and libepoxy).
-const nativeE2EPackages = `
+// mygoE2EPackages are the mygo e2e smoke's display, session bus, GTK 3,
+// WebKitGTK, Mesa, and xdotool (it chooses items of native menus).
+const mygoE2EPackages = `
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-  xvfb xauth dbus dbus-x11 libgtk-3-0 libepoxy0 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0 \
-  fonts-dejavu-core
+  xvfb xauth dbus dbus-x11 libgtk-3-0 libwebkit2gtk-4.1-0 libepoxy0 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0 \
+  xdotool fonts-dejavu-core
 rm -rf /var/lib/apt/lists/*
 `
 
-// nativeTextPackages are what mygo's headless text needs: it shapes and
-// draws text through the system's Pango, cairo, HarfBuzz, and fontconfig
-// (dlopen), with no fonts of its own; without them a ui.Tester draws no
-// text. The native tests require it (MYGO_REQUIRE_TEXT).
-const nativeTextPackages = `
-apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-  libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libharfbuzz0b fontconfig fonts-dejavu-core
-rm -rf /var/lib/apt/lists/*
-`
-
-// nativeGo installs the checksum-verified Go 1.27.3 apps/native requires
+// mygoGo installs the checksum-verified Go 1.27.3 apps/mygo requires
 // (mygo v0.7.4) beside the locked toolchain.
-const nativeGo = `
+const mygoGo = `
 curl -fsSL https://go.dev/dl/go1.27.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
 printf '%s\n' '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  /tmp/go.tar.gz' | sha256sum -c -
 mkdir -p /usr/local/go1.27

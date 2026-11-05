@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test"
 import { fixtureRoot, rootParam } from "./fixture-root.ts"
+import { grantClipboard } from "./clipboard.ts"
 
 function readClipboard(page: Page) {
   return page.evaluate(() => navigator.clipboard.readText())
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await grantClipboard(page)
 })
 
 test("line numbers select lines and ranges, update the URL, and copy path:line", async ({ page }) => {

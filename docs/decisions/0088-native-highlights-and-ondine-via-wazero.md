@@ -1,6 +1,6 @@
 # 0088: Native Highlights and Ondine via wazero
 
-- Status: Accepted (experimental, with 0082)
+- Status: Superseded by [0094](0094-mygo-app-uses-web-views.md)
 - Date: 2026-11-04
 - Revises: [0025](0025-ondine-mermaid.md), [0029](0029-highlights-syntax-highlighting.md), [0082](0082-native-mygo-experiment.md), [0086](0086-native-agent-tooling-and-ports.md)
 

@@ -1,6 +1,6 @@
 # 0086: Native agent tooling, parity loop, and ports
 
-- Status: Accepted; M1a (Highlights, Ondine) shipped as [0088](0088-native-highlights-and-ondine-via-wazero.md), which also corrects the headless session's text: "no display" does not mean self-contained, since `ui.Tester` draws text through the system's Pango, cairo, and fontconfig (dlopen; mygo bundles no fonts), and hosts without them draw none
+- Status: Superseded by [0094](0094-mygo-app-uses-web-views.md)
 - Date: 2026-11-04
 - Relates to: [0082](0082-native-mygo-experiment.md) (the native app; stays
   in force), [0078](0078-apps-and-packages-layout.md) (`packages/`),

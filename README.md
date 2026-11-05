@@ -13,8 +13,8 @@ macOS and Linux, no sudo, no runtime needed. Installs to `~/.local/bin` (or `~/b
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
 # desktop app and CLI
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh
-# native app (experimental)
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native.sh | sh
+# mygo app (experimental)
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-mygo.sh | sh
 # uninstall everything (keeps user data)
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
 ```

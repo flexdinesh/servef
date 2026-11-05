@@ -8,6 +8,7 @@ import {
   featureSubject, gitFixtureChanges, gitFixtureRoot, lowerBranch, lowerSubject, upperBranch,
 } from "./git-fixture.ts"
 import { gitApiOrigin } from "./ports.ts"
+import { grantClipboard } from "./clipboard.ts"
 
 // The fixture repository is built by the git server's webServer command.
 test.skip(() => !existsSync(path.join(gitFixtureRoot, ".git")), "git is not installed")
@@ -197,7 +198,7 @@ test("large diffs keep the page responsive and render only rows near the viewpor
 })
 
 test("diff line numbers select lines, update the URL, and copy path:line", async ({ page }) => {
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await grantClipboard(page)
   await openReview(page, "review=working#f=README.md")
   // Split: HEAD's lines on the left (L), the working copy's on the right (R).
   const gutter = (side: "deletions" | "additions", line: number) =>

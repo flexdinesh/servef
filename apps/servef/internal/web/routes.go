@@ -12,7 +12,7 @@ import (
 
 // contentSecurityPolicy lets pages load only servef's own scripts, styles,
 // fonts, and workers.
-const contentSecurityPolicy = "default-src 'none'; img-src data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+const contentSecurityPolicy = "default-src 'none'; img-src 'self' data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 
 // ServeHTTP refuses requests for other hosts, then routes. Every request
 // rescans the project it names.

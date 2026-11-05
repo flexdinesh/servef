@@ -1,9 +1,0 @@
-# PowerShell sample
-param([string]$Name = "world", [int]$Count = 2)
-function Get-Greeting {
-    [CmdletBinding()]
-    param($Who)
-    return "Hello $Who" * $Count
-}
-Get-ChildItem -Path . -Filter *.txt | ForEach-Object { Write-Host $_.Name }
-if ($Count -gt 1 -and $true) { Get-Greeting -Who $Name }

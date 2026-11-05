@@ -443,7 +443,7 @@ func TestBrowserAssetsAndCSP(t *testing.T) {
 	}
 	assertContains(t, px0License.Body.String(), "MIT License", "Arpit Bhayani")
 	csp := shell.Header().Get("Content-Security-Policy")
-	wantCSP := "default-src 'none'; img-src data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
+	wantCSP := "default-src 'none'; img-src 'self' data: blob: http: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'"
 	if csp != wantCSP {
 		t.Errorf("Content-Security-Policy = %q, want %q", csp, wantCSP)
 	}

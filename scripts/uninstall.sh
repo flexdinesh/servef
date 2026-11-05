@@ -2,7 +2,7 @@
 # Removes servef from this machine: the CLI the user can write in ~/.local/bin,
 # ~/bin, or Go's install directory; the desktop app, desktop entry, icon, file
 # manager actions, and login entry the install scripts or the documented
-# manual steps create; the experimental native app (decision 0082). Prints how to remove package-managed copies (deb,
+# manual steps create; the experimental mygo app (decision 0094) and old servef-native installs. Prints how to remove package-managed copies (deb,
 # Homebrew, mise). Never deletes user data (app data, roots.json, caches).
 # Decision 0073.
 #
@@ -124,25 +124,27 @@ check_desktop_conflicts() {
 }
 # shared:desktop:end
 
-# shared:native:begin
-NATIVE_DATA="${XDG_DATA_HOME:-}"
-case "$NATIVE_DATA" in
+# shared:mygo:begin
+MYGO_DATA="${XDG_DATA_HOME:-}"
+case "$MYGO_DATA" in
   /*) ;;
-  *) NATIVE_DATA="$HOME/.local/share" ;;
+  *) MYGO_DATA="$HOME/.local/share" ;;
 esac
-NATIVE_HOME="$NATIVE_DATA/servef-native"
-NATIVE_DESKTOP_ID="servef-native.desktop"
-NATIVE_ICON="$NATIVE_DATA/icons/hicolor/512x512/apps/servef-native.png"
+# The app has a directory of its own: WebKit keeps the page's localStorage
+# beside it in servef-mygo/, which updates and uninstall leave alone.
+MYGO_HOME="$MYGO_DATA/servef-mygo/app"
+MYGO_DESKTOP_ID="servef-mygo.desktop"
+MYGO_ICON="$MYGO_DATA/icons/hicolor/512x512/apps/servef-mygo.png"
 
-native_running() {
+mygo_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
-    pgrep -f 'servef-native\.app/Contents/MacOS/servef-native' >/dev/null 2>&1
+    pgrep -f 'servef-mygo\.app/Contents/MacOS/servef-mygo' >/dev/null 2>&1
   else
-    pgrep -x -u "$(id -u)" servef-native >/dev/null 2>&1
+    pgrep -x -u "$(id -u)" servef-mygo >/dev/null 2>&1
   fi
 }
-# shared:native:end
+# shared:mygo:end
 
 REMOVED=0
 
@@ -198,8 +200,17 @@ detect_platform
 if app_running; then
   fail "the servef desktop app is running; quit it, then run this again"
 fi
-if native_running; then
-  fail "the servef native app is running; quit it, then run this again"
+# An install from before the rename to mygo (decision 0094).
+native_running() {
+  has pgrep || return 1
+  if [ "$OS" = darwin ]; then
+    pgrep -f 'servef-native\.app/Contents/MacOS/servef-native' >/dev/null 2>&1
+  else
+    pgrep -x -u "$(id -u)" servef-native >/dev/null 2>&1
+  fi
+}
+if mygo_running || native_running; then
+  fail "the servef mygo app is running; quit it, then run this again"
 fi
 if has servef && servef daemon status >/dev/null 2>&1; then
   fail "a servef daemon is running; stop it with 'servef daemon stop', then run this again"
@@ -207,6 +218,7 @@ fi
 
 step "removing servef"
 remove "$HOME/.local/bin/servef" "$HOME/bin/servef" "$(go_bin)/servef" \
+  "$HOME/.local/bin/servef-mygo" "$HOME/bin/servef-mygo" \
   "$HOME/.local/bin/servef-native" "$HOME/bin/servef-native"
 
 if [ "$OS" = linux ]; then
@@ -230,7 +242,10 @@ if [ "$OS" = linux ]; then
   if [ -f "$CONFIG_HOME/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$CONFIG_HOME/Thunar/uca.xml"; then
     warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
   fi
-  remove "$NATIVE_HOME" "$NATIVE_DATA/applications/$NATIVE_DESKTOP_ID" "$NATIVE_ICON"
+  remove "$MYGO_HOME" "$MYGO_DATA/applications/$MYGO_DESKTOP_ID" "$MYGO_ICON"
+  rmdir "$MYGO_DATA/servef-mygo" 2>/dev/null || true
+  # Installs from before the rename to mygo (decision 0094).
+  remove "$MYGO_DATA/servef-native" "$MYGO_DATA/applications/servef-native.desktop" "$MYGO_DATA/icons/hicolor/512x512/apps/servef-native.png"
   if [ -e "$DEB_EXECUTABLE" ]; then
     warn "the servef-electron deb is installed; remove it with:"
     note "sudo apt remove servef-electron"
@@ -241,7 +256,7 @@ if [ "$OS" = linux ]; then
   fi
 else
   for dir in /Applications "$HOME/Applications"; do
-    for app in servef.app servef-native.app; do
+    for app in servef.app servef-mygo.app servef-native.app; do
       if [ -e "$dir/$app" ] && ! [ -w "$dir" ]; then
         warn "cannot remove $dir/$app; remove it with:"
         note "sudo rm -rf \"$dir/$app\""
@@ -291,8 +306,8 @@ if [ "$OS" = linux ]; then
     /*) ;;
     *) cache="$HOME/.cache" ;;
   esac
-  report_kept "$CONFIG_HOME/servef-desktop" "$CONFIG_HOME/servef-native" "$CONFIG_HOME/servef" "$cache/servef"
+  report_kept "$CONFIG_HOME/servef-desktop" "$CONFIG_HOME/servef-mygo" "$CONFIG_HOME/servef-native" "$CONFIG_HOME/servef" "$cache/servef" "$MYGO_DATA/servef-mygo" "$cache/servef-mygo"
 else
   support="$HOME/Library/Application Support"
-  report_kept "$support/servef-desktop" "$support/servef-native" "$support/servef" "$HOME/Library/Caches/servef"
+  report_kept "$support/servef-desktop" "$support/servef-mygo" "$support/servef-native" "$support/servef" "$HOME/Library/Caches/servef" "$HOME/Library/WebKit/io.github.flexdinesh.servef.mygo"
 fi

@@ -36,7 +36,7 @@
 /apps/electron/dist/
 /apps/electron/.build/
 
-# Native app builds (apps/native, decision 0082): mygo build output and the
-# servef binary it bundles
-/apps/native/build/
-/apps/native/resources/bin/
+# mygo app builds (apps/mygo, decision 0094): mygo build output and the servef
+# binary it bundles
+/apps/mygo/build/
+/apps/mygo/resources/bin/

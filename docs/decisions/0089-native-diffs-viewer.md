@@ -1,6 +1,6 @@
 # 0089: Native diffs viewer
 
-- Status: Accepted
+- Status: Superseded by [0094](0094-mygo-app-uses-web-views.md)
 - Date: 2026-11-04
 - Relates to: [0082](0082-native-mygo-experiment.md) (revises its review
   rendering: rows through `DiffState.SetPatch`), [0083](0083-server-structured-diffs.md)

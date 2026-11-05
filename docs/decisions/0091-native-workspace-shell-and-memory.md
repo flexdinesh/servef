@@ -1,6 +1,6 @@
 # 0091: Native workspace shell and memory
 
-- Status: Accepted (experimental)
+- Status: Superseded by [0094](0094-mygo-app-uses-web-views.md)
 - Date: 2026-11-05
 - Relates to: [0082](0082-native-mygo-experiment.md) (the native app),
   [0086](0086-native-agent-tooling-and-ports.md) (parity loop),

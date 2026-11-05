@@ -11,7 +11,7 @@ var groups = []string{"repo", "web-static", "tooling-static", "site-static", "el
 
 // optionalGroups run only when named with --group; check:pr and check:status
 // cover groups alone (decision 0082).
-var optionalGroups = []string{"native"}
+var optionalGroups = []string{"mygo"}
 
 func knownGroup(group string) bool {
 	return slices.Contains(groups, group) || slices.Contains(optionalGroups, group)
@@ -27,7 +27,7 @@ func taskBelongsToGroup(task, group string) bool {
 		"typecheck:web": "web-static", "lint": "web-static", "typecheck:root": "tooling-static", "typecheck:site": "site-static",
 		"typecheck:electron": "electron-static", "lint:electron": "electron-static",
 		"vet": "go", "test:go": "go", "test:race": "go", "test:web": "frontend", "test:release": "tooling", "build:site": "docs", "test:browser": "browser",
-		"test:browser:webkit": "browser", "test:electron": "electron", "test:native": "native", "test:native:e2e": "native",
+		"test:browser:webkit": "browser", "test:electron": "electron", "test:mygo": "mygo", "test:mygo:e2e": "mygo",
 	}
 	prefix := "_container:"
 	if isHostGroup(group) {

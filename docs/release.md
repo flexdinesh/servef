@@ -78,8 +78,8 @@ desktop packages, where `<version>` is the tag without its leading `v`, or
 `edge` omits every `darwin_amd64` asset (decision 0093); the edge install
 scripts stop on macOS Intel and point at the stable ones.
 
-The native app (decision 0079, phase 5) adds its packages to this set, a job
-to `build.yml`, and `install-native.sh` and `install-native-edge.sh`.
+The mygo app (decision 0094) adds its packages to this set, jobs to
+`build.yml`, and `install-mygo.sh` and `install-mygo-edge.sh`.
 
 The install scripts download these names:
 
