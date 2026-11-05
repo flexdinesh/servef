@@ -1,9 +1,9 @@
 # Remote hosts
 
-servef runs beside the files. To browse another machine, either serve it
-over http from that machine and open its link, or let the
-[desktop app](/docs/desktop) connect to it over SSH with your own `ssh`
-setup.
+servef runs beside the files. To browse another machine, serve it over http from
+that machine and open its link in a browser. The [desktop app](/docs/desktop)
+shows this computer's projects only: it has no ssh connections, and it opens
+server links in your browser.
 
 ## Install servef on the host
 
@@ -36,128 +36,21 @@ servef ~/code/foo
   no authentication: anyone who can reach this address can read the served files.
 ```
 
-Open the `web:` URL in a browser on your computer, or the `desktop:` link in
-the desktop app (terminals that support hyperlinks make both clickable). The
-address is the server side of your SSH connection, else the machine's
-outbound address; it binds that one address, never all interfaces.
+Open the `web:` URL in a browser on your computer (terminals that support
+hyperlinks make both clickable). The `desktop:` link does the same through the
+desktop app, which hands it to your browser. The address is the server side of
+your SSH connection, else the machine's outbound address; it binds that one
+address, never all interfaces.
 
 :::warning
 These servers have **no authentication**. Anyone who can reach the address
 can read the served files. Use them only on networks you trust. For a
 private server, run `servef browser` (it binds `localhost`) and forward its
-port yourself, for example `ssh -L 7971:localhost:7971 <host>`, or open it
-from the desktop app's [SSH connection](#servers-on-the-host).
+port yourself, for example `ssh -L 7971:localhost:7971 <host>`.
 :::
 
 `--host` and `--port` choose the address yourself. `servef browser` keeps
 its `localhost` default everywhere and never opens anything over SSH.
-
-### Links
-
-A `servef://<host>:<port>/…` link is the web URL with the scheme swapped.
-The desktop app opens it in its own window:
-
-- `servef://localhost:<port>/…` (and `127.0.0.1`, `[::1]`) opens the servef
-  server running on that port on **your** computer
-  ([Servers in a terminal](/docs/desktop#servers-in-a-terminal)).
-- Any other host opens that server directly over http. The first link to a
-  host and port asks you to confirm ("It is not on this computer. Open only
-  servers you trust."); your answer is remembered. **File > Connect…** lists
-  these servers with a **Forget** button.
-- **Open a link** on the Connect page takes `http://<host>:<port>/…` URLs too,
-  without asking: you typed them.
-
-Windows of an http server show its address in the title, for example
-`README.md - 10.0.0.5:7971`. Nothing is started or stopped for you: when
-the server stops, the window says so.
-
-## Connect from the app over SSH
-
-**File > Connect…** lists the hosts the app knows and the `Host` entries from
-your `~/.ssh/config`. Click one to connect: the app runs your computer's
-`ssh`, starts servef's daemon on the host, and forwards it to a private
-socket. Files, git, and language servers stay on the host. The host is
-remembered after the first visit; **Forget** disconnects and removes it.
-
-The app runs `servef` in non-interactive SSH commands, which often skip your
-shell profile. Check that it is found:
-
-```sh
-ssh <host> 'command -v servef'
-```
-
-If that prints nothing, put `servef` on the `PATH` your shell sets for
-non-interactive sessions, or in `~/.local/bin`, `~/go/bin`, `~/bin`,
-`/usr/local/bin`, or Homebrew's `bin` directory.
-
-- **No prompts, ever.** The app connects in batch mode: it never asks for a
-  password, a one-time code, or to accept a host key. The host must accept a
-  key from your SSH agent (or an unencrypted key), and its host key must
-  already be in your `known_hosts`. Check both with:
-
-  ```sh
-  ssh -o BatchMode=yes <host> true
-  ```
-
-- **Your SSH configuration applies:** `ProxyJump`, keys, the agent,
-  `known_hosts`, and `SetEnv`. The app opens its own connection per host
-  and ignores your configured port forwards.
-- **Nothing is installed or uploaded** on the host. The app only runs
-  `servef daemon ensure`, `servef control list --json`, and
-  `servef daemon stop` (when you ask). Folder paths travel over the forwarded
-  socket, never in a command.
-- A host stays connected while a window shows it, and disconnects 30
-  seconds after its last window closes. The host's daemon then stops on its
-  own after 30 idle minutes.
-- Windows of a host show its name in the title, for example
-  `README.md - devbox (SSH)`, and `(SSH, reconnecting)` while the connection
-  recovers. The app reconnects on its own after network drops.
-
-### The host page
-
-Connecting opens the host's page:
-
-- **Folders**: the directories the host's daemon serves. Click one to open
-  it in a window.
-- **Browse folders**: pick any directory on the host, starting at your home
-  directory, and **Open this folder** to serve it. A folder inside a
-  repository opens the whole repository.
-- **Servers**: servef servers running on the host
-  ([see below](#servers-on-the-host)).
-
-### Servers on the host
-
-The host page lists the servef servers running there (`servef browser`, or
-`servef [path]` in an SSH session). Click one to open it through the SSH
-connection, so even a `localhost`-only server is reachable; its title reads
-`README.md - devbox:7971 (SSH)`. When the host refuses the forward, the app
-opens the server directly at its address instead (the host's `ssh -G`
-hostname for one listening on every address). A server listening on the
-host's `localhost` only has no such fallback.
-
-### Notifications
-
-Branch switches, commits, settled edits, and walkthroughs published on the
-host (`servef walkthrough publish`) notify you only while a window for that
-host's folders is open. Servers opened over http or through a forwarded
-port do not notify.
-
-## Troubleshooting
-
-When a connection fails, the window shows what happened and what to run.
-Reload or click **Retry** after fixing it.
-
-| Page | Fix |
-| --- | --- |
-| OpenSSH is missing or too old | Install the OpenSSH client (6.7 or later); the app uses the system `ssh` |
-| Host key not verified | Run `ssh <host>` in a terminal once and accept the key there |
-| Authentication failed | Load your key with `ssh-add` until `ssh -o BatchMode=yes <host> true` works |
-| Host unreachable | Check the network or VPN; the app keeps retrying while the window is open |
-| servef is not installed | [Install servef on the host](#install-servef-on-the-host); the page names the command for its OS and architecture |
-| servef is too old | Upgrade servef on the host; **Browse folders** also needs a servef that lists folders |
-| Incompatible daemon | Upgrade the older side, then **Stop the running daemon and retry** |
-| Socket forwarding refused | The host's sshd needs `AllowStreamLocalForwarding yes` (and no `DisableForwarding`) and OpenSSH 6.7 or later. The page still lists the host's servers you can reach by address |
-| Cannot reach the servef server | The http server stopped, or this computer cannot reach its address |
 
 ## Walkthroughs
 

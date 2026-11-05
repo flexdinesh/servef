@@ -1,6 +1,7 @@
 # 0081: Desktop bridge v2: reveal, native context menus, recent folders, folder drop
 
 - Status: Accepted
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md) for recent folders and folder drop; `openFolder`, `showAppMenu`, `revealPath`, and `showContextMenu` stay
 - Date: 2026-11-03
 - Revises: [0067](0067-desktop-shell-and-protocol-proxy.md) Bridge v1
   (bridge v2), [0072](0072-os-integration.md) Deferred (reveal in file

@@ -36,7 +36,7 @@ func NewRootSet(paths []string) (*RootSet, error) {
 func (s *RootSet) List() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return append([]string(nil), s.roots...)
+	return append([]string{}, s.roots...)
 }
 
 // Add appends path's canonical directory and reports whether it was added. An

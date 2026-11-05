@@ -1,118 +1,76 @@
 # Desktop app
 
-The servef desktop app shows the same UI in its own windows, one per project,
-and notifies you when a branch switches, a commit lands, edits settle, or a
-walkthrough is published. It talks to one long-lived servef daemon per user
-over a private socket, so every window and `servef .` share the same server.
+The servef desktop app, `servef-desktop`, shows the same UI as `servef browser`
+in one window of its own: the operating system's web view, with native menus
+and dialogs, through the [mygo](https://github.com/egoist/mygo) toolkit. It talks
+to one long-lived servef daemon per user over a private socket, so the window
+and `servef .` share the same server.
 
-The app is a preview: macOS builds are not notarized and there is no
-auto-update. Install a new version over the old one.
+It shows projects on this computer. The app is a preview: macOS builds are not
+notarized and there is no auto-update. It has not been run on a Mac yet.
 
 ## Install
-
-### Install script
 
 macOS and Linux, no sudo:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
 ```
 
-It installs the latest release's app and the `servef` CLI (in `~/.local/bin`,
-or `~/bin` when that is on your `PATH`). Run it again to update; quit the app
-first.
-
-- macOS: `servef.app` goes to `/Applications` (or `~/Applications`). curl
-  marks nothing as downloaded, so Gatekeeper does not block the first launch.
-- Linux: the AppImage goes to `~/.local/share/servef-electron/`, with a
-  desktop entry that opens `servef://` links, an icon, and **Open in servef**
-  in Dolphin and Nemo. If the AppImage does not start, install FUSE 2
-  (`libfuse2`); the script says so when it cannot find it. It stops when the
-  deb is installed.
-
-To remove it, run
-`curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh`
-([Uninstall](#uninstall)).
-
-### Packages
-
-Download a package for your system from
-[GitHub Releases](https://github.com/flexdinesh/servef/releases). `<version>`
-omits the leading `v`; pick `arm64` or `amd64` for your CPU.
-
-#### macOS
-
-1. Download `servef-electron_<version>_darwin_<arm64|amd64>.dmg` (or the
-   `.zip`).
-2. Drag **servef** to Applications.
-3. The app is ad-hoc signed, not notarized, so Gatekeeper blocks the first
-   launch. Right-click **servef** in Applications and choose **Open**, then
-   confirm. Or clear the download quarantine once:
-
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/servef.app
-   ```
-
-Installing the app registers `servef://` links with macOS.
-
-#### Linux
-
-Install the `.deb` (Debian, Ubuntu, and derivatives):
+The latest stable release does not carry the app yet, so that script stops and
+says so. Until the next release, use latest `main` (the `edge` prerelease; no
+macOS Intel builds):
 
 ```sh
-sudo apt install ./servef-electron_<version>_linux_amd64.deb
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
 ```
 
-It installs to `/opt/servef`, adds `servef-electron` to `PATH`, and registers
-`servef://` links through its desktop entry.
-
-The AppImage runs without installing:
+Linux needs WebKitGTK 4.1 and GTK 3; the install script warns when it can't find
+them. On Debian and Ubuntu:
 
 ```sh
-chmod +x servef-electron_<version>_linux_amd64.AppImage
-./servef-electron_<version>_linux_amd64.AppImage
+sudo apt install libwebkit2gtk-4.1-0
 ```
 
-An AppImage registers `servef://` only through desktop integration (for
-example AppImageLauncher, or the entry below). Without it, `servef .` cannot
-find the app and serves in a browser instead. To register it yourself, keep
-the AppImage where it is and create
-`~/.local/share/applications/servef-electron.desktop`:
+The app carries its own `servef` binary for the daemon. The scripts link
+`servef-desktop` into `~/.local/bin` (or `~/bin`). The `servef` CLI is a separate
+install ([Getting started](/docs/getting-started)); it is what opens the app with
+`servef .` and publishes walkthroughs.
 
-```ini
-[Desktop Entry]
-Type=Application
-Name=servef
-Exec=/home/you/Applications/servef-electron_<version>_linux_amd64.AppImage %U
-MimeType=x-scheme-handler/servef;
-Terminal=false
-```
+- macOS: `servef-desktop.app` goes to `/Applications` (or `~/Applications`).
+  Builds are ad-hoc signed, not notarized. curl marks nothing as downloaded, so
+  Gatekeeper does not block the first launch. A browser-downloaded zip needs one
+  right-click, **Open**, or:
 
-then run `update-desktop-database ~/.local/share/applications`.
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/servef-desktop.app
+  ```
 
-The app bundles its own `servef` binary, so it needs no separate install. The
-`servef` CLI ([Getting started](/docs/getting-started)) is what opens it from a
-terminal.
+- Linux: the app goes to `~/.local/share/servef-desktop/app/`, with a desktop
+  entry that opens `servef://` links and an icon.
 
-## Window title bar
-
-Windows draw their title bar in the current color theme, like VS Code. On
-Windows and Linux the menu button at its left opens the app menu (File,
-Edit, View, Window, Help); keyboard shortcuts work as before. A window
-connected to an older servef over ssh shows no title band until that host
-is upgraded.
+Run a script again to update; quit the app first. Packages are on
+[GitHub Releases](https://github.com/flexdinesh/servef/releases):
+`servef-desktop_<version>_linux_<arch>.tar.gz` and
+`servef-desktop_<version>_darwin_<arch>.zip`. Unpacking one by hand registers no
+`servef://` handler on Linux, so `servef .` serves in a browser instead.
 
 ## Open from a terminal
 
-With the app installed:
+```sh
+servef-desktop .
+```
+
+opens the current directory. Only one copy runs: a second command or link opens
+in the running app. With the CLI installed:
 
 ```sh
 servef .
 ```
 
-servef checks the directory, starts the daemon if needed, adds the directory
-to it, opens the project in the app, and exits. A window already showing the
-project comes forward. `--no-open` prints the `servef://` link instead.
+servef checks the directory, starts the daemon if needed, adds the directory to
+it, opens the project in the app, and exits. `--no-open` prints the `servef://`
+link instead.
 
 servef serves in a browser instead, as `servef browser` does, when:
 
@@ -120,170 +78,79 @@ servef serves in a browser instead, as `servef browser` does, when:
 - the app is not installed or does not open (prints install instructions);
 - the daemon cannot start or speaks another protocol (prints why).
 
-`servef browser [path]` always serves in a browser. On a machine without a
-UI (an SSH session, or Linux without a display), `servef [path]` serves on
-that machine's address and prints a `servef://` link for the app on your
-computer ([Remote hosts](/docs/remote)).
+`servef browser [path]` always serves in a browser. On a machine without a UI
+(an SSH session, or Linux without a display), `servef [path]` serves on that
+machine's address ([Remote hosts](/docs/remote)).
 
 ## Links
 
 `servef://local/?project=/abs/path` opens a project, and
-`servef://local/view?…` takes the same query as a browser URL (`path`,
-`wt`, `review`, …). Links never add directories; only `servef [path]`,
-**File › Open Folder…**, **File › Open Recent**, and the folder entry points
-below do. `servef walkthrough publish` prints a
+`servef://local/view?…` takes the same query as a browser URL (`path`, `wt`,
+`review`, …). Links never add directories; only `servef [path]`, `servef-desktop
+[path]`, and **File › Open Folder…** do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
 
-`servef://<host>:<port>/…` opens the servef server at that address: a
-`localhost` address opens a [server in a terminal](#servers-in-a-terminal) on
-this computer, any other host a [remote server](/docs/remote#links) over http
-(the app asks first).
-
-## Open folders from your file manager
-
-Folders opened this way are added to the daemon, as `servef [path]` adds
-them. Each folder's project opens in its own window (a window already
-showing it comes forward), up to 8 folders at a time. A file, or a folder
-servef cannot open, shows why.
-
-You can also drop folders from your file manager onto any window that shows
-this computer's projects. Windows connected to other computers ignore drops.
-
-### macOS
-
-- Drop a folder on **servef** in the Dock or in Applications.
-- From a terminal: `open -a servef ~/code/project`.
-- For a Finder right-click entry, create a Quick Action once:
-  1. Open **Automator**, choose **New Document**, then **Quick Action**.
-  2. Set **Workflow receives current** to **folders** in **Finder**.
-  3. Add **Run Shell Script**, set **Pass input** to **as arguments**, and
-     replace the script with:
-
-     ```sh
-     open -a servef "$@"
-     ```
-
-  4. Save it as `Open in servef`. It appears under **Quick Actions** when you
-     right-click a folder.
-
-### Linux
-
-The `.deb` adds **Open in servef** to the folder context menu in Dolphin
-(KDE) and Nemo (Cinnamon). For other file managers, add an entry yourself.
-With the AppImage, use its path instead of `servef-electron`.
-
-- Nautilus (GNOME Files): create
-  `~/.local/share/nautilus/scripts/Open in servef`, make it executable
-  (`chmod +x`), and pick it under **Scripts** when you right-click folders:
-
-  ```sh
-  #!/bin/sh
-  exec servef-electron --open-path "$@"
-  ```
-
-- Thunar: **Edit › Configure custom actions…**, add an action named
-  `Open in servef` with the command `servef-electron --open-path %F`, and
-  check **Directories** under **Appearance Conditions**.
-
-The deb does not make servef the default app for folders, so opening a
-folder elsewhere never adds it to the daemon.
-
-## Recent folders
-
-**File › Open Recent** lists the last 10 projects your windows showed on this
-computer, newest first; choosing one opens it as **Open Folder…** does.
-**Clear Recently Opened** empties the list. On macOS the same folders appear
-in the Dock menu, with **New Window**, and in the system's recent items.
-Linux launchers show no recent folders: that would mean writing files into
-your home directory.
+`servef://<host>:<port>/…` opens the servef server at that address in your
+browser: the window shows this computer's daemon only.
 
 ## File context menus
 
 Right-click a file or folder in the Explorer, or a tab, for the app's native
 menu. **Reveal in File Manager** shows the file in Finder or your Linux file
 manager; the Explorer menu also copies a file's full or relative path. servef
-reveals only files inside a project it serves, and never follows a link out
-of the project. Windows connected to other computers keep the page's own tab
-menu and have no Reveal.
+reveals only files inside a project it serves, and never follows a link out of
+the project.
 
-## Open at Login
+## Not in the desktop app
 
-Check **Open at Login** in the **servef** menu (macOS) or the **File** menu
-(Linux) to start the app, with a window, when you log in. It is off until you
-check it, and unchecking removes it.
+These went with the earlier Electron app and are not coming back as they were:
 
-- macOS adds servef to **System Settings › General › Login Items**. If macOS
-  asks for approval, servef offers to open that page; allow servef there.
-- Linux writes `~/.config/autostart/servef-electron.desktop` (or under
-  `$XDG_CONFIG_HOME`). For an AppImage it points at the AppImage file: after
-  moving it, uncheck and check **Open at Login** again.
+- ssh connections, the Connect page, and windows for servers started in a
+  terminal or on other hosts. Open those in a browser ([Remote hosts](/docs/remote)).
+- Open at Login, notifications, recent folders, the Dock menu, and dropping
+  folders on the window or the Dock.
+- **Open in servef** in file managers, and deb and AppImage packages.
 
-## Servers in a terminal
+## WebKit
 
-A server you start in a terminal (`servef browser`, or `servef` with
-`--host` or `--port`) can open in the app too. **File › Connect…** lists the
-servers running on this computer under **Servers on this computer**; click
-one to open it in its own window, titled `… - localhost:<port>`.
+The page runs on WebKit: Safari's engine on macOS and WebKitGTK on Linux. A
+distribution's WebKitGTK can lag behind what the UI is tested on. Explorer, tabs,
+documents, diagrams, images, and live updates are tested in this app. Search,
+Source Control, code navigation, and walkthroughs are the same UI, tested on
+WebKit in a browser but not yet in this app. Known differences from a browser:
 
-To open a copied browser address, paste it into **Open a link** on the same
-page. It accepts `http://localhost:<port>/…` (or `127.0.0.1`, `[::1]`)
-addresses of a running servef server, and `servef://` links. Anything else
-shows **Not a servef link**.
+- Text shifts slightly when a document gains a scrollbar.
+- A review link to a line deep in a very large diff may not reach it.
 
-The app only shows such a server; it never starts or stops it, and sends no
-notifications for it. When the server stops, its window says so: start it
-again in the terminal and click **Retry**.
+## Moving from the Electron app
 
-## Notifications
+Run the install script. Your Electron app data (recent folders, ssh connections)
+stays where it was, unused; open tabs and other page state start fresh, because
+WebKit keeps its own, and the saved window size resets.
 
-While the app runs it notifies for projects it has opened:
-
-- **Switched to `<branch>`** and **New commit on `<branch>`**;
-- **Edits settled**: changes stopped for 10 seconds;
-- **Walkthrough ready**, for any project the daemon serves.
-
-Clicking one opens the project, commit, changes, or walkthrough. Nothing is
-shown for a project whose window is focused, and each kind repeats at most
-every 30 seconds per project. Turn notifications off in your system settings.
-
-## Moving from servef-desktop
-
-The app was named `servef-desktop` before it became `servef-electron`. Your
-app data, recent folders, and connections stay where they are.
-
-- Install script: run it again. It replaces the old AppImage, desktop entry,
-  icon, and file manager actions, and makes the new entry the `servef://`
+- Linux, script install: the script removes the old AppImage, desktop entry, icon,
+  file manager actions, and login entry, and makes the new entry the `servef://`
   handler.
-- Deb: `sudo apt install ./servef-electron_<version>_linux_amd64.deb` removes
-  the `servef-desktop` package and installs the new one.
-- Open at Login moves to the new name the next time the app starts, so open the
-  app once after upgrading: until then the old entry runs nothing at login. If
-  the old entry was edited, it does not move: delete
-  `~/.config/autostart/servef-desktop.desktop` and check **Open at Login**.
-- If `servef .` falls back to the browser after a deb upgrade, run
-  `xdg-mime default servef-electron.desktop x-scheme-handler/servef`.
-- Update what you made by hand: a Nautilus script or Thunar action that runs
-  `servef-desktop`, a desktop entry for an AppImage, and launcher favorites.
+- Linux, deb: the script stops until you remove it: `sudo apt remove servef-desktop`
+  or `sudo apt remove servef-electron`.
+- macOS: the script removes `servef.app`. Remove a Quick Action you made, and a
+  Login Item in **System Settings › General**.
+- A Thunar action you made stays: the script reports it. Remove it in **Edit ›
+  Configure custom actions…**.
 
 ## Uninstall
 
-The uninstall script removes the app and CLI however you installed them in
-your home directory: the install scripts, an AppImage you registered, the
-desktop and login entries, the file manager actions, a Nautilus script or
-Quick Action from the steps above, and `servef.app`. Quit the app and run
-`servef daemon stop` first. It prints the command for the deb or a copy
-another tool installed, and keeps your data:
+The uninstall script removes the app and CLI however you installed them in your
+home directory, along with what the Electron app and `servef-mygo` left. Quit the
+app first; if a daemon is running, the script stops and prints the command to end
+it. It prints the command for a deb or a copy
+another tool installed, and keeps and lists your data:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
 ```
 
-By hand: uncheck **Open at Login** first, or remove servef from **Login Items**
-(macOS) or delete `~/.config/autostart/servef-electron.desktop` (Linux)
-afterwards: uninstalling leaves it behind. Then quit the app and remove
-`/Applications/servef.app` (macOS), or run `sudo apt remove servef-electron`
-(Linux). Remove any Quick Action, Nautilus script, or Thunar action you
-created. App data lives in
-`servef-desktop` under `~/Library/Application Support` or `~/.config`. The
-daemon's remembered directories are in `servef/roots.json` in the same
-place; `servef daemon stop` stops a running daemon.
+Page state lives in `~/.local/share/servef-desktop/` beside the app on Linux, and
+in `~/Library/WebKit/io.github.flexdinesh.servef.desktop` on macOS. The daemon's
+remembered directories are in `servef/roots.json` under `~/.config` or
+`~/Library/Application Support`.

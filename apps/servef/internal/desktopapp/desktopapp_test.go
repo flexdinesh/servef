@@ -48,7 +48,7 @@ func TestInstalledPerOS(t *testing.T) {
 		calls  [][]string
 	}{
 		{"darwin lets open decide", "darwin", &fakeRunner{}, true, false, nil},
-		{"linux with a handler", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-electron.desktop\n"}}, true, false, [][]string{query}},
+		{"linux with a handler", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-desktop.desktop\n"}}, true, false, [][]string{query}},
 		{"linux without a handler", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "\n"}}, false, false, [][]string{query}},
 		{"linux without xdg-mime", "linux", &fakeRunner{errs: map[string]error{"xdg-mime": &exec.Error{Name: "xdg-mime", Err: exec.ErrNotFound}}}, false, false, [][]string{query}},
 		{"linux query failure", "linux", &fakeRunner{errs: map[string]error{"xdg-mime": exitError(1)}}, false, true, [][]string{query}},
@@ -78,9 +78,9 @@ func TestOpenPerOS(t *testing.T) {
 		{"darwin opens", "darwin", &fakeRunner{}, false, false, [][]string{{"open", target}}},
 		{"darwin without a handler", "darwin", &fakeRunner{errs: map[string]error{"open": exitError(1)}}, true, true, [][]string{{"open", target}}},
 		{"darwin open missing", "darwin", &fakeRunner{errs: map[string]error{"open": exec.ErrNotFound}}, false, true, [][]string{{"open", target}}},
-		{"linux opens", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-electron.desktop\n"}}, false, false, [][]string{query, {"xdg-open", target}}},
+		{"linux opens", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-desktop.desktop\n"}}, false, false, [][]string{query, {"xdg-open", target}}},
 		{"linux without a handler", "linux", &fakeRunner{}, true, true, [][]string{query}},
-		{"linux xdg-open failure", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-electron.desktop\n"}, errs: map[string]error{"xdg-open": exitError(4)}}, false, true, [][]string{query, {"xdg-open", target}}},
+		{"linux xdg-open failure", "linux", &fakeRunner{outputs: map[string]string{"xdg-mime": "servef-desktop.desktop\n"}, errs: map[string]error{"xdg-open": exitError(4)}}, false, true, [][]string{query, {"xdg-open", target}}},
 		{"windows", "windows", &fakeRunner{}, true, true, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestOpenPerOS(t *testing.T) {
 
 func TestInstallHintPerOS(t *testing.T) {
 	footer := []string{
-		"curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh",
+		"curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh",
 		"`servef browser` serves in a web browser",
 		"https://github.com/flexdinesh/servef/blob/main/apps/site/src/pages/docs/desktop.mdx",
 	}
@@ -106,16 +106,16 @@ func TestInstallHintPerOS(t *testing.T) {
 		want []string
 	}{
 		{"darwin", append([]string{
-			"servef-electron_<version>_darwin_<arm64|amd64>.dmg",
+			"servef-desktop_<version>_darwin_<arm64|amd64>.zip",
 			"https://github.com/flexdinesh/servef/releases",
 			"Applications",
 			"right-click",
-			"xattr -dr com.apple.quarantine /Applications/servef.app",
+			"xattr -dr com.apple.quarantine /Applications/servef-desktop.app",
 		}, footer...)},
 		{"linux", append([]string{
-			"sudo apt install ./servef-electron_<version>_linux_<amd64|arm64>.deb",
+			"WebKitGTK 4.1",
+			"servef-desktop_<version>_linux_<amd64|arm64>.tar.gz",
 			"https://github.com/flexdinesh/servef/releases",
-			"AppImageLauncher",
 		}, footer...)},
 		{"windows", []string{"not available on this OS"}},
 	} {

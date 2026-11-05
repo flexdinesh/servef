@@ -360,14 +360,6 @@ func (c *HTTP) DaemonOpen(ctx context.Context, path string) (contract.DaemonOpen
 	return result, answer(response, &result)
 }
 
-func (c *HTTP) DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error) {
-	var listing contract.DaemonDirectories
-	if !c.daemon {
-		return listing, ErrNoDaemon
-	}
-	return listing, c.getJSON(ctx, "/_daemon/directories", url.Values{"path": {path}}, &listing)
-}
-
 func (c *HTTP) DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEvent], error) {
 	if !c.daemon {
 		return nil, ErrNoDaemon

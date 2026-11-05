@@ -229,45 +229,55 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 	if !taskBelongsToGroup("_container:test:browser:webkit", "browser") {
 		t.Fatal("WebKit browser task rejected for browser group")
 	}
-	if taskBelongsToGroup("_container:test:browser:webkit", "electron") {
-		t.Fatal("WebKit browser task accepted for electron group")
+	if taskBelongsToGroup("_container:test:browser:webkit", "desktop") {
+		t.Fatal("WebKit browser task accepted for desktop group")
 	}
 }
 
-func TestMygoGroupIsOptIn(t *testing.T) {
-	if slices.Contains(groups, "mygo") || !knownGroup("mygo") {
-		t.Fatal("mygo must be accepted by --group and stay out of check:pr")
+func TestDesktopGroupIsPartOfCheckPR(t *testing.T) {
+	if !slices.Contains(groups, "desktop") || isHostGroup("desktop") {
+		t.Fatal("check:pr must cover the desktop group, in Dagger")
 	}
-	if len(groups) != 11 {
-		t.Fatalf("check:pr covers %d groups, want 11", len(groups))
+	if len(groups) != 10 {
+		t.Fatalf("check:pr covers %d groups, want 10", len(groups))
 	}
-	for _, task := range []string{"_container:test:mygo", "_container:test:mygo:e2e"} {
-		if !taskBelongsToGroup(task, "mygo") || taskBelongsToGroup(task, "go") {
-			t.Fatalf("%s belongs to the mygo group alone", task)
+	for _, task := range []string{"_container:test:desktop", "_container:test:desktop:e2e"} {
+		if !taskBelongsToGroup(task, "desktop") || taskBelongsToGroup(task, "go") {
+			t.Fatalf("%s belongs to the desktop group alone", task)
 		}
 	}
 	// The e2e runs the real servef binary with the web app embedded.
-	for _, name := range []string{"apps/mygo/main.go", "apps/servef/pkg/client/client.go", "apps/web/src/App.tsx", "packages/contracts/src/index.ts", "pnpm-lock.yaml"} {
-		if !selected("mygo", name) {
-			t.Fatalf("mygo does not select %s", name)
+	for _, name := range []string{"apps/desktop/main.go", "apps/servef/pkg/client/client.go", "apps/web/src/App.tsx", "packages/contracts/src/index.ts", "pnpm-lock.yaml"} {
+		if !selected("desktop", name) {
+			t.Fatalf("desktop does not select %s", name)
 		}
 	}
-	if selected("mygo", "apps/electron/src/main/main.ts") {
-		t.Fatal("mygo selects the Electron app")
+	if selected("desktop", "apps/site/src/pages/index.mdx") || selected("desktop", "tests/browser/app.spec.ts") {
+		t.Fatal("desktop selected unrelated inputs")
 	}
-	const source = "apps/mygo/main.go"
+	const source = "apps/desktop/main.go"
 	if !selected("repo", source) {
 		t.Fatalf("fmt:check must see %s", source)
 	}
-	for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
+	for _, group := range []string{"go", "frontend", "browser", "web-static"} {
 		if selected(group, source) {
-			t.Fatalf("mygo sources invalidate %s", group)
+			t.Fatalf("desktop sources invalidate %s", group)
 		}
 	}
-	for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
-		if !selected(group, "packages/contracts/src/index.ts") {
-			t.Fatalf("%s must select the generated contracts", group)
+	// Every group installs the whole workspace from the frozen lockfile.
+	for _, group := range groups {
+		if !selected(group, "packages/contracts/package.json") {
+			t.Fatalf("%s lacks the workspace manifest", group)
 		}
+	}
+	// Generated contracts feed the drift check and every web consumer.
+	for _, group := range []string{"repo", "web-static", "go", "frontend", "browser", "desktop"} {
+		if !selected(group, "packages/contracts/src/index.ts") {
+			t.Fatalf("%s misses the generated contracts", group)
+		}
+	}
+	if !taskBelongsToGroup("_host:contracts:check", "repo") {
+		t.Fatal("contracts:check is not a repo check")
 	}
 }
 
@@ -277,60 +287,6 @@ func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
 	}
 	if selected("frontend", "apps/servef/internal/walkthrough/store.go") {
 		t.Fatal("unrelated Go implementation entered frontend inputs")
-	}
-}
-
-func TestElectronGroupsSelectShellAndServerInputs(t *testing.T) {
-	if !isHostGroup("electron-static") || isHostGroup("electron") {
-		t.Fatal("electron-static runs on the host; electron tests run in Dagger")
-	}
-	for _, task := range []string{"_host:typecheck:electron", "_host:lint:electron"} {
-		if !taskBelongsToGroup(task, "electron-static") || taskBelongsToGroup(task, "web-static") {
-			t.Fatalf("wrong owner for %s", task)
-		}
-	}
-	if !taskBelongsToGroup("_container:test:electron", "electron") || taskBelongsToGroup("_container:test:electron", "browser") {
-		t.Fatal("wrong owner for electron tests")
-	}
-	for _, name := range []string{"apps/electron/src/main/proxy.ts", "apps/web/src/api/events-contract.ts"} {
-		if !selected("electron-static", name) {
-			t.Fatalf("electron-static misses %s", name)
-		}
-	}
-	for _, name := range []string{"apps/servef/internal/daemon/daemon.go", "apps/web/src/App.tsx", "apps/servef/main.go"} {
-		if selected("electron-static", name) {
-			t.Fatalf("electron-static selected unrelated %s", name)
-		}
-	}
-	for _, name := range []string{"apps/electron/test/smoke/app.spec.ts", "apps/servef/internal/daemon/daemon.go", "apps/servef/cmd/daemon.go", "apps/web/src/App.tsx", "testdata/markdown/README.md", "apps/servef/main.go"} {
-		if !selected("electron", name) {
-			t.Fatalf("electron misses %s", name)
-		}
-	}
-	if selected("electron", "apps/site/src/pages/index.mdx") || selected("electron", "tests/browser/app.spec.ts") {
-		t.Fatal("electron selected unrelated inputs")
-	}
-	// Every group installs the whole workspace from the frozen lockfile.
-	for _, group := range groups {
-		for _, manifest := range []string{"apps/electron/package.json", "packages/contracts/package.json"} {
-			if !selected(group, manifest) {
-				t.Fatalf("%s lacks the workspace manifest %s", group, manifest)
-			}
-		}
-	}
-	// Generated contracts feed the drift check and every web consumer.
-	for _, group := range []string{"repo", "web-static", "go", "frontend", "browser", "electron"} {
-		if !selected(group, "packages/contracts/src/index.ts") {
-			t.Fatalf("%s misses the generated contracts", group)
-		}
-	}
-	if !taskBelongsToGroup("_host:contracts:check", "repo") {
-		t.Fatal("contracts:check is not a repo check")
-	}
-	for _, name := range []string{"apps/electron/build/main.mjs", "apps/electron/test-results/trace.zip", "apps/electron/node_modules/electron/index.js"} {
-		if !excluded(name) {
-			t.Fatalf("generated %s entered snapshots", name)
-		}
 	}
 }
 

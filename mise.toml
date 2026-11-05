@@ -53,13 +53,19 @@ run = "node scripts/dev-walkthroughs.ts"
 description = "Run only Vite against the Go server"
 run = "pnpm dev:web"
 
-# The desktop app runs against its own daemon, socket, roots, and walkthrough
-# cache in the gitignored .dev/electron; it never touches the user's daemon.
-[tasks."dev:electron"]
+# The desktop app runs against its own daemon, socket, roots, page state, and
+# walkthrough cache in the gitignored .dev/desktop and .dev/cache; it never
+# touches the user's daemon. apps/desktop needs Go 1.27 (GOTOOLCHAIN fetches it)
+# and, on Linux, WebKitGTK 4.1.
+[tasks."dev:desktop"]
 description = "Run the desktop app against a private dev daemon"
-depends = ["build:electron"]
-env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/electron/servef", SERVEF_DESKTOP_SOCKET = "{{config_root}}/.dev/electron/daemon.sock", SERVEF_DESKTOP_ROOTS_FILE = "{{config_root}}/.dev/electron/roots.json", SERVEF_DESKTOP_USER_DATA = "{{config_root}}/.dev/electron/user-data", XDG_CACHE_HOME = "{{config_root}}/.dev/cache" }
-run = "apps/electron/node_modules/.bin/electron --no-sandbox apps/electron"
+depends = ["build:web"]
+env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/desktop/servef", SERVEF_DESKTOP_SOCKET = "{{config_root}}/.dev/desktop/daemon.sock", SERVEF_DESKTOP_ROOTS_FILE = "{{config_root}}/.dev/desktop/roots.json", MYGO_ENV = "production" }
+run = [
+  "go build -o .dev/desktop/servef ./apps/servef",
+  "GOWORK=off GOTOOLCHAIN=go1.27.3 go -C apps/desktop build -o \"{{config_root}}/.dev/desktop/servef-desktop\" .",
+  "XDG_DATA_HOME=\"{{config_root}}/.dev/desktop/data\" XDG_CACHE_HOME=\"{{config_root}}/.dev/cache\" .dev/desktop/servef-desktop",
+]
 
 [tasks."dev:mock"]
 description = "Run Vite with API fixtures"
@@ -88,37 +94,6 @@ sources = [
   "pnpm-workspace.yaml",
 ]
 outputs = ["apps/servef/internal/web/dist/**/*"]
-
-# Electron's binary downloads only here and in the desktop Dagger preparation
-# (pnpm allowBuilds: electron: false); install.js verifies its checksum.
-[tasks."build:electron"]
-description = "Build the dev servef binary and desktop bundle; fetch Electron once"
-depends = ["build:web"]
-run = [
-  "go build -o .dev/electron/servef ./apps/servef",
-  "pnpm --filter @servef/electron build",
-  "node apps/electron/node_modules/electron/install.js",
-]
-
-# Host OS and arch, bundling a release-style servef (decision 0068).
-# .github/workflows/build.yml calls apps/electron/scripts/package.ts per arch itself.
-[tasks."package:electron"]
-description = "Package desktop installers for the host OS and arch"
-depends = ["build:web"]
-env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
-run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/electron/.build/servef-host ./apps/servef",
-  "node apps/electron/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/electron/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\"",
-]
-
-[tasks."package:electron:dir"]
-description = "Package the unpacked desktop app for the host OS and arch"
-depends = ["build:web"]
-env = { SERVEF_PACKAGE_VERSION = "0.0.0-dev" }
-run = [
-  "CGO_ENABLED=0 go build -trimpath -ldflags \"-s -w -X github.com/flexdinesh/servef/internal/version.Version=$SERVEF_PACKAGE_VERSION -X github.com/flexdinesh/servef/internal/version.Commit=$(git rev-parse --short=12 HEAD)\" -o apps/electron/.build/servef-host ./apps/servef",
-  "node apps/electron/scripts/package.ts --arch \"$(go env GOARCH)\" --servef apps/electron/.build/servef-host --version \"$SERVEF_PACKAGE_VERSION\" --dir",
-]
 
 [tasks."build:go"]
 description = "Build all Go packages"
@@ -188,10 +163,6 @@ run = "go run ./tools/validate working --group frontend --task _container:test:w
 description = "Run test:release against a private current-edit snapshot"
 run = "go run ./tools/validate working --group tooling --task _container:test:release"
 
-[tasks."test:electron"]
-description = "Run test:electron against a private current-edit snapshot"
-run = "go run ./tools/validate working --group electron --task _container:test:electron"
-
 [tasks."test:browser"]
 description = "Run test:browser against a private current-edit snapshot"
 run = "go run ./tools/validate working --group browser --task _container:test:browser"
@@ -200,25 +171,18 @@ run = "go run ./tools/validate working --group browser --task _container:test:br
 description = "Run the browser tests on Playwright WebKit (opt-in, not in check:pr)"
 run = "go run ./tools/validate working --group browser --task _container:test:browser:webkit"
 
-[tasks."test:mygo"]
-description = "Run the mygo app's tests (opt-in, not in check:pr)"
-run = "go run ./tools/validate working --group mygo --task _container:test:mygo"
+[tasks."test:desktop"]
+description = "Run the desktop app's unit tests against a private current-edit snapshot"
+run = "go run ./tools/validate working --group desktop --task _container:test:desktop"
 
-[tasks."test:mygo:e2e"]
-description = "Smoke the built mygo app under Xvfb (opt-in, not in check:pr)"
-alias = "mygo:e2e"
-run = "go run ./tools/validate working --group mygo --task _container:test:mygo:e2e"
+[tasks."test:desktop:e2e"]
+description = "Drive the built desktop app under Xvfb against a private current-edit snapshot"
+alias = "desktop:e2e"
+run = "go run ./tools/validate working --group desktop --task _container:test:desktop:e2e"
 
 [tasks."lint"]
-description = "Lint web and desktop in private current-edit snapshots"
-run = [
-  "go run ./tools/validate working --group web-static --task _host:lint",
-  "go run ./tools/validate working --group electron-static --task _host:lint:electron",
-]
-
-[tasks."lint:electron"]
-description = "Run lint:electron against a private current-edit snapshot"
-run = "go run ./tools/validate working --group electron-static --task _host:lint:electron"
+description = "Lint web in a private current-edit snapshot"
+run = "go run ./tools/validate working --group web-static --task _host:lint"
 
 [tasks.typecheck]
 description = "Type-check all workspaces in private host snapshots"
@@ -226,16 +190,7 @@ run = [
   "go run ./tools/validate working --group web-static --task _host:typecheck:web",
   "go run ./tools/validate working --group tooling-static --task _host:typecheck:root",
   "go run ./tools/validate working --group site-static --task _host:typecheck:site",
-  "go run ./tools/validate working --group electron-static --task _host:typecheck:electron",
 ]
-
-# Linux and a display (X11 or Wayland); no gate. Pass Electron display flags
-# through, e.g. -- --display-args="--ozone-platform=wayland".
-[tasks."measure:electron"]
-description = "Measure desktop, daemon, and language-server memory in a scripted scenario"
-depends = ["build:electron"]
-env = { SERVEF_DESKTOP_BINARY = "{{config_root}}/.dev/electron/servef" }
-run = "node apps/electron/scripts/measure-memory.ts"
 
 [tasks."check:pr"]
 description = "Validate clean committed HEAD before PR work"
@@ -286,10 +241,6 @@ run = "pnpm exec tsc --noEmit"
 hide = true
 run = "pnpm --filter @servef/site typecheck"
 
-[tasks."_host:electron-static"]
-hide = true
-run = "node scripts/check.ts _host:typecheck:electron _host:lint:electron"
-
 [tasks."_container:go"]
 hide = true
 run = "node scripts/check.ts _container:vet _container:test:go _container:test:race"
@@ -309,12 +260,6 @@ run = "pnpm build:site"
 [tasks."_container:browser"]
 hide = true
 run = "pnpm exec node scripts/test-browser.ts --project=chromium"
-
-# Unit tests, ssh integration tests (real sshd), bundle, then the Electron
-# smoke under Xvfb. Arguments select smoke specs relative to apps/electron/.
-[tasks."_container:electron"]
-hide = true
-run = "pnpm --filter @servef/electron test && pnpm --filter @servef/electron test:ssh && pnpm --filter @servef/electron build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/electron test:smoke"
 
 [tasks."_container:binary"]
 hide = true
@@ -345,25 +290,21 @@ run = "pnpm exec node scripts/test-browser.ts --project=chromium"
 hide = true
 run = "pnpm exec node scripts/test-browser.ts --project=webkit"
 
-# Opt-in mygo app (decision 0094): its own Go 1.27 module outside go.work,
-# never part of check:pr. SERVEF_MYGO_GOROOT is the container's Go 1.27;
-# mise's GOROOT points at the locked Go.
-[tasks."_container:mygo"]
+# The desktop app (decision 0095): its own Go 1.27 module outside go.work.
+# SERVEF_DESKTOP_GOROOT is the container's Go 1.27; mise's GOROOT points at the
+# locked Go. The group runs the unit tests, then the built app on Xvfb, Mesa,
+# GTK, and WebKitGTK; artifacts in /out/desktop-e2e.
+[tasks."_container:desktop"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/mygo/scripts/*.sh; export GOROOT=$SERVEF_MYGO_GOROOT PATH=$SERVEF_MYGO_GOROOT/bin:$PATH; go -C apps/mygo mod tidy -diff; go -C apps/mygo vet ./...; go -C apps/mygo vet -tags e2e ./...; go -C apps/mygo test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/desktop/scripts/*.sh; export GOROOT=$SERVEF_DESKTOP_GOROOT PATH=$SERVEF_DESKTOP_GOROOT/bin:$PATH; go -C apps/desktop mod tidy -diff; go -C apps/desktop vet ./...; go -C apps/desktop vet -tags e2e ./...; go -C apps/desktop test -race -count=1 ./...; SERVEF_DESKTOP_E2E_OUT=/out/desktop-e2e xvfb-run -a --server-args=\"-screen 0 1280x800x24\" dbus-run-session -- sh apps/desktop/scripts/e2e.sh'"
 
-[tasks."_container:test:mygo"]
+[tasks."_container:test:desktop"]
 hide = true
-run = "bash -ec 'shellcheck -s sh apps/mygo/scripts/*.sh; export GOROOT=$SERVEF_MYGO_GOROOT PATH=$SERVEF_MYGO_GOROOT/bin:$PATH; go -C apps/mygo mod tidy -diff; go -C apps/mygo vet ./...; go -C apps/mygo vet -tags e2e ./...; go -C apps/mygo test -race -count=1 ./...'"
+run = "bash -ec 'shellcheck -s sh apps/desktop/scripts/*.sh; export GOROOT=$SERVEF_DESKTOP_GOROOT PATH=$SERVEF_DESKTOP_GOROOT/bin:$PATH; go -C apps/desktop mod tidy -diff; go -C apps/desktop vet ./...; go -C apps/desktop vet -tags e2e ./...; go -C apps/desktop test -race -count=1 ./...'"
 
-# The built app on Xvfb, Mesa, GTK, and WebKitGTK; artifacts in /out/mygo-e2e.
-[tasks."_container:test:mygo:e2e"]
+[tasks."_container:test:desktop:e2e"]
 hide = true
-run = "bash -ec 'export GOROOT=$SERVEF_MYGO_GOROOT PATH=$SERVEF_MYGO_GOROOT/bin:$PATH SERVEF_MYGO_E2E_OUT=/out/mygo-e2e; xvfb-run -a --server-args=\"-screen 0 1280x800x24\" dbus-run-session -- sh apps/mygo/scripts/e2e.sh'"
-
-[tasks."_container:test:electron"]
-hide = true
-run = "pnpm --filter @servef/electron test && pnpm --filter @servef/electron test:ssh && pnpm --filter @servef/electron build && xvfb-run -a --server-args='-screen 0 1280x800x24' pnpm --filter @servef/electron test:smoke"
+run = "bash -ec 'export GOROOT=$SERVEF_DESKTOP_GOROOT PATH=$SERVEF_DESKTOP_GOROOT/bin:$PATH; SERVEF_DESKTOP_E2E_OUT=/out/desktop-e2e xvfb-run -a --server-args=\"-screen 0 1280x800x24\" dbus-run-session -- sh apps/desktop/scripts/e2e.sh'"
 
 [tasks."_container:build:site"]
 hide = true
@@ -384,14 +325,6 @@ run = "pnpm --filter @servef/site typecheck"
 [tasks."_host:lint"]
 hide = true
 run = "pnpm --filter @servef/web lint"
-
-[tasks."_host:typecheck:electron"]
-hide = true
-run = "pnpm --filter @servef/electron typecheck"
-
-[tasks."_host:lint:electron"]
-hide = true
-run = "pnpm --filter @servef/electron lint"
 
 [tasks."_host:fmt:check"]
 hide = true

@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,18 @@ func rootsFixture(t *testing.T) (parent, a, b string) {
 		t.Fatal(err)
 	}
 	return parent, a, b
+}
+
+// The web app's guards reject null: an empty set must encode as a list.
+func TestRootSetListWithNoRootsEncodesAsAList(t *testing.T) {
+	var set RootSet
+	encoded, err := json.Marshal(set.List())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != "[]" {
+		t.Fatalf("List() encodes as %s; want []", encoded)
+	}
 }
 
 func TestNewRootSetKeepsOrderAndDeduplicates(t *testing.T) {

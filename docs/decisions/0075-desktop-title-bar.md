@@ -1,6 +1,7 @@
 # 0075: Desktop title band
 
 - Status: Accepted
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): the band needs a window-controls overlay WebKit lacks
 - Date: 2026-11-02
 - Revises: [0067](0067-desktop-shell-and-protocol-proxy.md) Windows (window
   chrome, bridge v1 gains optional `showAppMenu`), DESIGN.md "No app header"

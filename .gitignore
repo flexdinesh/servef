@@ -27,16 +27,7 @@
 # go.sum stays authoritative.
 /go.work.sum
 
-# Desktop bundle (apps/electron/build.ts)
-/apps/electron/node_modules/
-/apps/electron/build/
-/apps/electron/test-results/
-
-# Desktop packages (apps/electron/scripts/package.ts)
-/apps/electron/dist/
-/apps/electron/.build/
-
-# mygo app builds (apps/mygo, decision 0094): mygo build output and the servef
-# binary it bundles
-/apps/mygo/build/
-/apps/mygo/resources/bin/
+# Desktop app builds (apps/desktop): mygo build output and the servef
+# binary it bundles.
+/apps/desktop/build/
+/apps/desktop/resources/bin/

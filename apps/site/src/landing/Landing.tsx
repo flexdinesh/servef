@@ -59,9 +59,9 @@ export function Landing() {
             reverse
           />
           <FeatureSection
-            eyebrow="Desktop and SSH"
-            title="Your projects, in their own windows."
-            body="The desktop app opens folders, terminal servers, and servef:// links from remote hosts, and tells you when branches move or edits settle."
+            eyebrow="Desktop"
+            title="Your project, in its own window."
+            body="The desktop app opens folders and servef:// links in the OS web view, with native menus and a daemon every terminal shares."
             visual={<DesktopAnimation />}
           />
         </div>

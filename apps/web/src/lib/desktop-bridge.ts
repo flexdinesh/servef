@@ -9,7 +9,7 @@ declare global {
 
 // NativeMenuItem describes one native context menu row (decision 0081): an
 // action the UI runs when its id comes back, or a separator. accelerator is a
-// display hint in Electron's grammar (e.g. "CmdOrCtrl+W"); nothing registers it.
+// display hint (e.g. "CmdOrCtrl+W"); nothing registers it.
 export type NativeMenuItem =
   | { id: string; label: string; enabled?: boolean; accelerator?: string }
   | { separator: true }

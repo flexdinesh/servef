@@ -21,7 +21,7 @@ const aptSnapshot = "20261031T000000Z"
 // Run returns diagnostics and status.json even for failed checks. The caller
 // must inspect exitCode before issuing a successful validation receipt.
 func (m *ServefValidation) Run(ctx context.Context,
-	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "apps/electron/node_modules", "packages/contracts/node_modules", "apps/electron/build", "apps/electron/test-results", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
+	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "packages/contracts/node_modules", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
 	source *dagger.Directory, group string, attempt string,
 	// +optional
 	force bool,
@@ -31,7 +31,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	// +optional
 	task string,
 ) (*dagger.Directory, error) {
-	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "electron": true, "mygo": true}
+	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true}
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
@@ -39,8 +39,8 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"vet": "go", "test:go": "go", "test:race": "go",
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
-		"test:browser:webkit": "browser", "test:electron": "electron",
-		"test:mygo": "mygo", "test:mygo:e2e": "mygo",
+		"test:browser:webkit": "browser",
+		"test:desktop":        "desktop", "test:desktop:e2e": "desktop",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -56,11 +56,11 @@ func (m *ServefValidation) Run(ctx context.Context,
 	}
 	prepared := dependencies(tools, source)
 	runner := prepared.WithDirectory("/src", source)
-	// The mygo e2e runs the real servef binary, whose daemon serves the UI.
-	mygoE2E := group == "mygo" && task == "test:mygo:e2e"
-	if group == "go" || group == "browser" || group == "electron" || mygoE2E {
+	// The desktop e2e runs the real servef binary, whose daemon serves the UI.
+	desktopE2E := group == "desktop" && task != "test:desktop"
+	if group == "go" || group == "browser" || desktopE2E {
 		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
-			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/electron/package.json"},
+			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json"},
 			Exclude: []string{"apps/web/**/*.test.ts", "apps/web/**/*.test.tsx", "apps/web/test-fixtures/**"},
 		})
 		web := prepared.WithDirectory("/src", webSource)
@@ -73,7 +73,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
-	if group == "browser" || group == "electron" || mygoE2E {
+	if group == "browser" || desktopE2E {
 		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"})).
 			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
@@ -81,14 +81,6 @@ func (m *ServefValidation) Run(ctx context.Context,
 			build = build.WithEnvVariable("SERVEF_BUILD_ATTEMPT", attempt)
 		}
 		binary = build.WithExec([]string{"mise", "run", "--force", "_container:binary"}).File("/out/servef")
-	}
-	if group == "electron" {
-		// The app reaches the UI through the binary's daemon; it needs no dist.
-		runner = electronRuntime(tools, source).WithDirectory("/src", source).
-			WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef").
-			WithEnvVariable("SERVEF_DESKTOP_OUTPUT_DIR", "/out/playwright").
-			WithEnvVariable("SERVEF_DESKTOP_ELECTRON_ARGS", "--disable-dev-shm-usage --disable-gpu").
-			WithEnvVariable("SERVEF_DESKTOP_SSH_TESTS", "require")
 	}
 	if group == "browser" {
 		// WebKit installs only for its opt-in task; the gate prepares Chromium alone.
@@ -105,20 +97,19 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("SERVEF_BROWSER_ARTIFACT_DIR", "/out/fixtures").WithEnvVariable("SERVEF_BROWSER_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("PORT", "18090").WithEnvVariable("SERVEF_BROWSER_WEB_PORT", "15183")
 	}
-	if group == "mygo" {
-		// Opt-in (decision 0094): apps/mygo is its own module on Go 1.27,
-		// outside go.work.
-		mygo := tools.WithExec([]string{"sh", "-ec", mygoGo}).
-			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_MYGO_GOROOT", "/usr/local/go1.27")
-		modules := mygo.WithDirectory("/src", subset(source, []string{"apps/mygo/go.mod", "apps/mygo/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
+	if group == "desktop" {
+		// apps/desktop is its own module on Go 1.27, outside go.work.
+		desktop := tools.WithExec([]string{"sh", "-ec", desktopGo}).
+			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_DESKTOP_GOROOT", "/usr/local/go1.27")
+		modules := desktop.WithDirectory("/src", subset(source, []string{"apps/desktop/go.mod", "apps/desktop/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
 			WithEnvVariable("GOROOT", "/usr/local/go1.27").
-			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/mygo", "mod", "download"})
-		if mygoE2E {
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/desktop", "mod", "download"})
+		if desktopE2E {
 			// The built app needs a display, GTK 3, and WebKitGTK.
-			mygo = withApt(mygo, []string{"sh", "-ec", mygoE2EPackages}).
-				WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_MYGO_BINARY", "/opt/servef")
+			desktop = withApt(desktop, []string{"sh", "-ec", desktopE2EPackages}).
+				WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef")
 		}
-		runner = mygo.WithDirectory("/src", source).
+		runner = desktop.WithDirectory("/src", source).
 			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	// The baseline index is private and independent of host Git metadata.
@@ -215,44 +206,24 @@ func preparationTools(lock string) (string, string, error) {
 }
 
 func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
-	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "apps/electron/package.json", "packages/contracts/package.json", "patches/**"})).
+	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "packages/contracts/package.json", "patches/**"})).
 		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
 }
 
-// electronRuntime adds Xvfb, Electron's shared libraries and OpenSSH (the ssh
-// tests' sshd and client) from the pinned snapshot, and the checksum-verified
-// Electron binary. ldd fails preparation on a missing library instead of a
-// later opaque launch failure. Packages come before dependencies, so a lockfile
-// change does not install them again.
-func electronRuntime(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
-	return dependencies(withApt(tools, []string{"sh", "-ec", electronPackages}), source).
-		WithExec([]string{"mise", "exec", "--", "node", "apps/electron/node_modules/electron/install.js"}).
-		WithExec([]string{"sh", "-ec", `electron="apps/electron/node_modules/electron/dist/$(cat apps/electron/node_modules/electron/path.txt)"; if ldd "$electron" | grep 'not found'; then exit 1; fi`})
-}
-
-const electronPackages = `
-apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-  xvfb xauth fonts-dejavu-core libgtk-3-0 libnss3 libnspr4 libgbm1 libasound2 libxss1 libxtst6 \
-  libcups2 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libdrm2 libxkbcommon0 libxcomposite1 \
-  libxdamage1 libxrandr2 libxfixes3 libpango-1.0-0 libcairo2 libdbus-1-3 libexpat1 libx11-xcb1 \
-  openssh-server openssh-client
-rm -rf /var/lib/apt/lists/*
-`
-
-// mygoE2EPackages are the mygo e2e smoke's display, session bus, GTK 3,
-// WebKitGTK, Mesa, and xdotool (it chooses items of native menus).
-const mygoE2EPackages = `
+// desktopE2EPackages are the desktop e2e's display, session bus, GTK 3,
+// WebKitGTK, Mesa, xdotool (it chooses items of native menus), and xdg-utils
+// (the CLI opens servef:// links through it).
+const desktopE2EPackages = `
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   xvfb xauth dbus dbus-x11 libgtk-3-0 libwebkit2gtk-4.1-0 libepoxy0 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0 \
-  xdotool fonts-dejavu-core
+  xdotool xdg-utils fonts-dejavu-core
 rm -rf /var/lib/apt/lists/*
 `
 
-// mygoGo installs the checksum-verified Go 1.27.3 apps/mygo requires
+// desktopGo installs the checksum-verified Go 1.27.3 apps/desktop requires
 // (mygo v0.7.4) beside the locked toolchain.
-const mygoGo = `
+const desktopGo = `
 curl -fsSL https://go.dev/dl/go1.27.3.linux-amd64.tar.gz -o /tmp/go.tar.gz
 printf '%s\n' '65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40  /tmp/go.tar.gz' | sha256sum -c -
 mkdir -p /usr/local/go1.27
@@ -296,7 +267,6 @@ set +e
   mise exec -- node --version
   mise exec -- pnpm --version
   mise exec -- pnpm exec playwright --version
-  if [ -f apps/electron/node_modules/electron/package.json ]; then printf 'electron %s\n' "$(mise exec -- node -p 'require("./apps/electron/node_modules/electron/package.json").version')"; fi
   printf 'HOME=%s\nLANG=%s\nTZ=%s\nGOFLAGS=%s\nGOMAXPROCS=%s\nMISE_JOBS=%s\n' "$HOME" "$LANG" "$TZ" "$GOFLAGS" "$GOMAXPROCS" "$MISE_JOBS"
 } > /out/environment.txt 2>&1
 "$@" 2>&1 | tee /out/check.log

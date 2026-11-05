@@ -1,6 +1,7 @@
 # 0094: mygo app uses web views
 
-- Status: Accepted (experimental)
+- Status: Accepted
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md) for the names, "ssh stays in the Electron app", and opt-in validation; the web view design stays
 - Date: 2026-11-05
 - Supersedes: the native UI of [0082](0082-native-mygo-experiment.md);
   [0086](0086-native-agent-tooling-and-ports.md), [0088](0088-native-highlights-and-ondine-via-wazero.md),

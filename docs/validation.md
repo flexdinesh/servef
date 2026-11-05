@@ -18,10 +18,9 @@ mise run test:race
 mise run test:web
 mise run test:release
 mise run test:browser -- tests/browser/live-updates.spec.ts
-mise run test:electron
-mise run test:electron -- test/smoke/app.spec.ts
+mise run test:desktop
+mise run test:desktop:e2e
 mise run lint
-mise run lint:electron
 mise run typecheck
 mise run fmt:check
 mise run tidy:check
@@ -30,7 +29,7 @@ mise run contracts:check
 ```
 
 Before creating or updating a PR, commit changes and validate clean committed
-HEAD across all eleven groups. Verify status immediately before the separate
+HEAD across all ten groups. Verify status immediately before the separate
 push/PR operation:
 
 ```sh
@@ -60,14 +59,12 @@ container execution from recursively launching the host coordinator.
 | web-static | Host | Web typecheck, oxlint, stylelint |
 | tooling-static | Host | Root TypeScript check for scripts and tests |
 | site-static | Host | Site TypeScript check |
-| electron-static | Host | Desktop TypeScript check and oxlint |
 | go | Dagger | Vet, ordinary Go tests, race tests |
 | frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
 | tooling | Dagger | Release, runner, and browser harness tests |
 | docs | Dagger | Production site build and internal-link validation |
 | browser | Dagger | Chromium integration tests and fixture servers (WebKit opt-in) |
-| electron | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
-| mygo (opt-in) | Dagger | mygo app tests on Go 1.27; not in `check:pr` |
+| desktop | Dagger | Desktop app unit tests on Go 1.27, then the built app under Xvfb |
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
 architecture or validation tooling remain tests and run there too. Git, Ruby,
@@ -83,63 +80,25 @@ WebKit and its system libraries; the gate prepares Chromium alone. Playwright's
 WebKit tracks recent WebKit, so passing here is an upper bound: distribution
 WebKitGTK builds can lag it.
 
-### mygo (opt-in)
+### Desktop
 
-`mise run test:mygo` runs the experimental mygo app's checks (decision 0094)
-in a `mygo` Dagger group that `check:pr` and `check:status` never include;
-failures do not block PRs. `apps/mygo` is a Go 1.27 module outside `go.work`,
-so its preparation installs the Go 1.27.3 tarball after checking its sha256,
-and the leaf sets `GOROOT` to it (mise's points at the locked Go). The leaf
-runs shellcheck on `apps/mygo/scripts`, `go mod tidy -diff`, `go vet`, and
+The `desktop` group runs `mise run test:desktop` then `mise run test:desktop:e2e`
+(decision 0095). `apps/desktop` is a Go 1.27 module outside `go.work`, so its
+preparation installs the Go 1.27.3 tarball after checking its sha256, and the
+leaf sets `GOROOT` to it (mise's points at the locked Go). The unit half runs
+shellcheck on `apps/desktop/scripts`, `go mod tidy -diff`, `go vet`, and
 `go test -race` with `GOWORK=off`.
 
-`mise run test:mygo:e2e` builds the app with `-tags e2e` (mygo's automation
-plugin) and drives its page under Xvfb with WebKitGTK from the Debian
-snapshot, against the real `servef` binary with its web app embedded;
-screenshots, `rss.txt`, and `report.json` land in the artifact directory.
-The group reads `apps/mygo/`, `apps/servef/` (the module it replaces and the
-binary it runs), `apps/web/`, and `packages/contracts/`. `fmt:check` covers
-`apps/mygo`; `tidy:check` does not.
-
-### Electron
-
-`electron-static` reads `apps/electron/` and the shared `apps/web/src/api/` contracts.
-`electron` also reads the server sources (`apps/servef/`),
-`apps/web/`, and `testdata/`: its smoke drives the real daemon. pnpm never downloads
-Electron (`allowBuilds: electron: false`). Desktop preparation alone runs
-`apps/electron/node_modules/electron/install.js`, which verifies the archive against
-the package's checksums, installs Xvfb and Electron's shared libraries from the
-pinned Debian snapshot, and fails if `ldd` reports a missing library. It builds
-the embedded UI and the servef binary as the browser group does.
-
-`_container:test:electron` runs the unit tests, the ssh integration tests, bundles
-the app, then runs the Playwright `_electron` smoke under `xvfb-run -a` with `--no-sandbox` (the
-container runs as root). Each run gets its own short temporary socket, roots
-file, user data, walkthrough cache, notification log, and git fixtures; nothing
-reaches the user's daemon. Traces, window screenshots, and daemon, app, and
-notification logs survive failures under the group's `playwright/` output.
-
-The ssh tests (`apps/electron/test/ssh/`, `pnpm --filter @servef/electron test:ssh`)
-and `remote.spec.ts` start a private `/usr/sbin/sshd` on 127.0.0.1 from
-OpenSSH in the same pinned snapshot. Each run owns a short temp dir with host
-and client keys, known hosts, and a client `ssh_config` (passed to the app as
-`SERVEF_DESKTOP_SSH_CONFIG`) whose aliases each set one remote environment
-through `SetEnv`: `GOPATH` reaches the copied `SERVEF_DESKTOP_BINARY`, and
-private `XDG_*` directories isolate the remote daemon. The tests drive the real
-connector and app: connect, re-ensure, reconnect, every failure kind, and
-teardown. As root (Dagger) a second user covers `servefMissing` and
-`forwardDenied`; elsewhere `forwardDenied` skips and `servefMissing` uses the
-current user, skipping when its remote `PATH` already finds servef. Hosts without `sshd` skip the ssh
-tests; the Dagger runner sets `SERVEF_DESKTOP_SSH_TESTS=require`, which turns
-every skip into a failure.
-
-The smoke covers Linux only. Headless Chromium reports hidden pages and closes
-the UI's live stream, so the smoke always needs a display: Xvfb in Dagger, or a
-real or virtual compositor on a host (`SERVEF_DESKTOP_BINARY`, plus
-`SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland). macOS
-shell behavior stays a manual check (`mise run dev:electron`), as does
-`mise run measure:electron`, which prints Electron, daemon, and language-server
-memory for decision 0067 and gates nothing.
+The e2e half builds the app with `-tags e2e` (mygo's automation plugin) and drives
+its page under Xvfb with WebKitGTK from the Debian snapshot, against the real
+`servef` binary with its web app embedded; screenshots, `rss.txt`, and
+`report.json` land in the artifact directory under `desktop-e2e/`. It also runs
+`servef <dir>` against a `servef://` handler registered with real `xdg-utils`. Each
+launch gets its own socket, roots file, and XDG directories; nothing reaches the
+user's daemon. The group reads `apps/desktop/`, `apps/servef/` (the module it
+replaces and the binary it runs), `apps/web/`, and `packages/contracts/`.
+`fmt:check` covers `apps/desktop`; `tidy:check` does not. Linux only: macOS is
+built and smoke-tested by `build.yml`.
 
 ## Engine ownership
 

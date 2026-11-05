@@ -1,6 +1,7 @@
 # 0068: CLI opens the desktop app; desktop releases
 
 - Status: Accepted; revised by [0076](0076-remote-servers-over-http.md) (step 2: no-UI machines serve over http), [0069](0069-servef-remote-and-ssh-links.md) (SSH sessions), [0072](0072-os-integration.md) (folder document type, deb file manager actions), [0073](0073-install-scripts.md) (install scripts, edge desktop builds), [0079](0079-releases-edge-prerelease-and-install-scripts.md) (Releases: tag-triggered, edge prerelease with desktop packages, no Homebrew); package and executable names superseded by [0092](0092-electron-app-name.md)
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md) for packages and the Electron bundle; bare `servef [path]` opening the app stays
 - Date: 2026-11-01
 - Implements: [0063](0063-cli-commands-and-url-scheme.md) `servef [path]` and
   the local scheme; [0062](0062-desktop-app.md) Revisions when accepted

@@ -197,7 +197,7 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			root := t.TempDir()
 			source := filepath.Join(root, "source")
-			files := []string{"mise.toml", "mise.lock", ".node-version", ".gitignore", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/electron/package.json", "packages/contracts/package.json", "scripts/check.ts", "scripts/browser-process.ts"}
+			files := []string{"mise.toml", "mise.lock", ".node-version", ".gitignore", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "packages/contracts/package.json", "scripts/check.ts", "scripts/browser-process.ts"}
 			patches, err := os.ReadDir(filepath.Join(repo, "patches"))
 			if err != nil {
 				t.Fatal(err)

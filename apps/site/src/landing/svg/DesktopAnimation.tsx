@@ -1,18 +1,16 @@
-// A servef:// link from a remote server opens a project window in the desktop app, then
-// notifications arrive. Animation lives in landing.css (desk-*).
+// A servef:// link from a terminal opens a project in the desktop app's window.
+// Animation lives in landing.css (desk-*).
 export function DesktopAnimation() {
   return (
     <svg className="landing-svg" viewBox="0 0 560 340" role="img" aria-labelledby="desk-svg-title">
-      <title id="desk-svg-title">
-        A servef link from a remote server opens a project window in the desktop app, followed by notifications
-      </title>
+      <title id="desk-svg-title">A servef link from a terminal opens a project in the desktop app's window</title>
 
-      {/* Link from a remote terminal */}
+      {/* Link from a terminal */}
       <g className="desk-link">
         <rect className="s-window" x="10" y="14" width="300" height="34" rx="17" />
         <circle className="s-accent" cx="30" cy="31" r="6" />
         <text x="44" y="35" fontSize="11">
-          servef://devbox:7971/?project=/srv/api
+          servef://local/?project=/srv/api
         </text>
       </g>
 
@@ -24,7 +22,7 @@ export function DesktopAnimation() {
         <circle className="s-dot" cx="72" cy="81" r="4" />
         <circle className="s-dot" cx="86" cy="81" r="4" />
         <text x="190" y="85" fontSize="11">
-          api · devbox
+          api · servef
         </text>
         <line className="s-divider" x1="150" y1="98" x2="150" y2="330" />
         <rect className="s-line" x="56" y="116" width="70" height="7" rx="3.5" />
@@ -42,28 +40,6 @@ export function DesktopAnimation() {
         <rect className="s-line" x="202" y="232" width="180" height="7" rx="3.5" />
         <rect className="s-line" x="202" y="248" width="140" height="7" rx="3.5" />
         <rect className="s-line" x="186" y="264" width="60" height="7" rx="3.5" />
-      </g>
-
-      {/* Notifications */}
-      <g className="desk-toast-1">
-        <rect className="s-window" x="330" y="120" width="220" height="56" rx="10" />
-        <circle className="s-accent" cx="352" cy="148" r="8" />
-        <text className="s-strong-text" x="368" y="143" fontSize="11">
-          Branch switched
-        </text>
-        <text x="368" y="160" fontSize="10">
-          api is on feature/rate-limit
-        </text>
-      </g>
-      <g className="desk-toast-2">
-        <rect className="s-window" x="330" y="186" width="220" height="56" rx="10" />
-        <circle className="s-add-mark" cx="352" cy="214" r="8" />
-        <text className="s-strong-text" x="368" y="209" fontSize="11">
-          Edits settled
-        </text>
-        <text x="368" y="226" fontSize="10">
-          4 files changed in api
-        </text>
       </g>
     </svg>
   )

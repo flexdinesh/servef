@@ -1,6 +1,7 @@
 # 0070: Desktop ssh connections
 
 - Status: Accepted; links, resolution, confirmation, and Connect page revised by [0076](0076-remote-servers-over-http.md); install instructions (the install script, no Homebrew or `go install`) by [0079](0079-releases-edge-prerelease-and-install-scripts.md)
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): Electron and its ssh connections are removed
 - Date: 2026-11-02
 - Implements: [0064](0064-ssh-remotes.md) Transport, Host identity, Missing
   or mismatched servef, Notifications; [0062](0062-desktop-app.md) ssh

@@ -68,6 +68,11 @@ export function DocumentPane({
           <p>{loadError}</p>
           <Button type="button" variant="outline" onClick={retry}>Try again</Button>
         </div>
+      ) : page.projectUnavailable && !page.project ? (
+        <div className="empty">
+          <p>No folder is open.</p>
+          <Button type="button" variant="outline" onClick={onChooseProject}>Open a folder</Button>
+        </div>
       ) : page.projectUnavailable ? (
         <div className="error project-unavailable" role="alert">
           <p>The project <code>{page.project}</code> is unavailable. It may have been moved or deleted.</p>

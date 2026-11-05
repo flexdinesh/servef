@@ -87,9 +87,6 @@ type Client interface {
 	DaemonRoots(ctx context.Context) (contract.DaemonRoots, error)
 	// DaemonOpen serves an absolute directory, covering it with a root.
 	DaemonOpen(ctx context.Context, path string) (contract.DaemonOpenResult, error)
-	// DaemonDirectories lists any absolute directory for a folder picker;
-	// "" lists the home directory.
-	DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error)
 	// DaemonEvents follows the daemon's control stream: status, then
 	// walkthrough announcements.
 	DaemonEvents(ctx context.Context) (*Stream[contract.DaemonEvent], error)

@@ -23,7 +23,7 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 - `apps/servef/internal/web/`: HTTP adapter (`routes.go`, kind-to-status mapping, server-sent events, raw bytes), shell/static delivery, embedded assets, and the domains not yet moved to `internal/app` (navigation, walkthroughs, metrics).
 - `packages/contracts/`: generated TypeScript types and runtime guards (`@servef/contracts`); never edited by hand.
 - `apps/web/`: React UI, Vite build, frontend tests and development tooling.
-- `apps/electron/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
+- `apps/desktop/`: the desktop app `servef-desktop` (decisions 0094, 0095), its own Go 1.27 module outside `go.work`: mygo shows `apps/web` in the OS web view, proxying `servef-app://local` from the daemon socket; it never reads project files and embeds no frontend.
 - `tools/`: validation, release, and contract-generation tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
@@ -44,20 +44,14 @@ socket: 0600 in a 0700 directory owned by the user, so only that user
 connects and browsers cannot. Web routes keep the same `Host` check (clients
 send `Host: localhost`); `/_daemon/*` control requests never reach the web
 app and are refused when they carry `Origin` or `Sec-Fetch-Site`. Clients
-open paths (`/_daemon/open`, which may replace served roots inside the path)
-and hold a control event stream (`/_daemon/events`) for walkthrough
-announcements; project event streams take a `lease` level (decision 0066).
+open paths (`/_daemon/open`, which may replace served roots inside the path).
+The control event stream (`/_daemon/events`) announces walkthroughs and project
+event streams take a `lease` level (decision 0066); no shipped client uses
+either yet.
 The desktop app proxies renderer requests to the socket, refuses `/_daemon`
 paths itself, and adds `Sec-Fetch-Site: same-origin` so proxied requests
 never pass as control requests (decision 0067).
 
-ssh connections (decision 0070) reach a host's daemon socket through the
-system `ssh`: one app-owned ControlMaster per host, constant remote commands,
-and a Unix-socket forward in a private 0700 runtime directory (symlinks and
-other owners refused). The forwarded socket is as trusted as the local one,
-so first contact with a host is always confirmed, unconfirmed `ssh-*`
-origins are 404, and each host's pages stay in their own origin without the
-preload bridge.
 
 ## Dependency direction
 
@@ -67,7 +61,6 @@ web -> document, files, git, lsp, projects (domains not yet in app)
 app, web, client -> pkg/contract
 client -> HTTP (TCP, Unix socket) | app + daemon.Controller (in process)
 desktop -> daemon socket -> runtime
-desktop -> ssh -> remote daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
 React -> @servef/contracts guards -> HTTP API -> HTTP adapter -> app
@@ -76,8 +69,7 @@ web source -> Vite -> apps/servef/internal/web/dist -> go:embed -> servef binary
 ```
 
 Go and pnpm retain their native dependency graphs. The repository-level
-`package.json` is a command facade; `apps/web/package.json` owns browser dependencies;
-`apps/electron/package.json` owns the Electron app's build-time dependencies.
+`package.json` is a command facade; `apps/web/package.json` owns browser dependencies.
 Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests
@@ -113,9 +105,8 @@ replaces the assets of the `edge` prerelease. Installed releases contain no
 Node.js runtime or frontend sidecar; the install scripts are the supported
 install.
 
-Both publish CLI archives and desktop packages (macOS dmg/zip, Linux
-AppImage/deb per arch): electron-builder bundles that build's Go binary as
-`resources/bin/servef` with Electron's Chromium and Node.
+Both publish CLI archives and desktop packages (macOS zip, Linux tar.gz per
+arch): `mygo build` bundles that build's Go binary as `resources/bin/servef`.
 Bare `servef [path]` opens the installed app through the daemon and otherwise
 serves in a browser.
 

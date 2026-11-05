@@ -152,8 +152,8 @@ export function applyResolvedTheme(resolvedTheme: ResolvedTheme): void {
   root.classList.toggle("dark", resolvedTheme === "dark")
   root.style.colorScheme = resolvedTheme
 
-  // The active theme-color is the canvas, so phone browser chrome and the
-  // desktop title band (decision 0075) follow named themes too.
+  // The active theme-color is the canvas, so phone browser chrome follows
+  // named themes too.
   const canvas = canvasColor()
   const themeColors = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
   for (const meta of themeColors) {

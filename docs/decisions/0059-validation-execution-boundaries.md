@@ -1,6 +1,7 @@
 # 0059: Test isolation and safe host checks before PR work
 
 - Status: Accepted; revised by [0067](0067-desktop-shell-and-protocol-proxy.md) (eleven groups: `desktop-static`, `desktop`)
+- Revised by: [0095](0095-desktop-app-is-mygo-electron-removed.md) (the `desktop` group replaces `electron` and `electron-static`; ten groups)
 - Date: 2026-11-01
 - Supersedes: 0058 command boundary, grouping, certification lifecycle, and PR wrappers
 

@@ -366,7 +366,7 @@ function Explorer({ gitStatus, hasData, onNavigate, onOpenProjects, onOpenWorktr
         </div>
       </div>
       {!hasData ? <p className="muted">Loading files…</p>
-        : page.projectUnavailable ? <p className="muted">Project unavailable.</p>
+        : page.projectUnavailable ? <p className="muted">{page.project ? "Project unavailable." : "No folder is open."}</p>
         : page.empty ? <p className="muted">No files found.</p>
         : paths.length === 0 ? <p className="muted explorer-empty">
           No files match <code>{filter.applied}</code>
