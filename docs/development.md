@@ -9,7 +9,7 @@ mise tasks                                     # list every task
 
 ## Install from main
 
-CI publishes the `edge` prerelease after every green push to `main`; `servef --version` prints `0.0.0-edge` and the commit.
+CI publishes the `edge` prerelease after every green push to `main`; `servef --version` prints `0.0.0-edge` and the commit. Edge has no macOS Intel builds.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh           # CLI

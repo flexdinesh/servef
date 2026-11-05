@@ -1,9 +1,9 @@
 name: Edge
 
-# Each push to main builds the stable asset set (build.yml) stamped
-# 0.0.0-edge and, once every build job passes, replaces the assets of the one
-# `edge` prerelease and moves its tag to that commit (decision 0079). Nothing
-# is committed to any branch.
+# Each push to main builds the stable asset set (build.yml) without macOS Intel
+# (decision 0093), stamped 0.0.0-edge and, once every build job passes, replaces
+# the assets of the one `edge` prerelease and moves its tag to that commit
+# (decision 0079). Nothing is committed to any branch.
 on:
   push:
     branches:
@@ -23,6 +23,7 @@ jobs:
       ref: ${{ github.sha }}
       version: 0.0.0-edge
       retention-days: 3
+      macos-arches: arm64
 
   publish:
     needs: build

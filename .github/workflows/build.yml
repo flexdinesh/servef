@@ -23,6 +23,11 @@ on:
         required: false
         type: number
         default: 30
+      macos-arches:
+        description: Space-separated macOS architectures to build; arm64 must be one (the smoke tests run it)
+        required: false
+        type: string
+        default: amd64 arm64
 
 permissions:
   contents: read
@@ -64,6 +69,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
+          MACOS_ARCHES: ${{ inputs.macos-arches }}
         run: |
           set -euo pipefail
 
@@ -74,7 +80,11 @@ jobs:
           rm -rf release-dist
           mkdir -p release-dist
 
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+          targets=(linux/amd64 linux/arm64)
+          for arch in $MACOS_ARCHES; do
+            targets+=("darwin/${arch}")
+          done
+          for target in "${targets[@]}"; do
             goos="${target%/*}"
             goarch="${target#*/}"
             archive_dir="servef_${VERSION}_${goos}_${goarch}"
@@ -293,12 +303,13 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
+          MACOS_ARCHES: ${{ inputs.macos-arches }}
         run: |
           set -euo pipefail
 
           rm -rf electron-dist
           mkdir -p electron-dist
-          for arch in amd64 arm64; do
+          for arch in $MACOS_ARCHES; do
             name="servef_${VERSION}_darwin_${arch}"
             bin_dir="$(mktemp -d)"
             tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
@@ -423,8 +434,9 @@ jobs:
       - name: Package native app
         env:
           VERSION: ${{ inputs.version }}
+          MACOS_ARCHES: ${{ inputs.macos-arches }}
           GOTOOLCHAIN: go1.27.3
-        run: apps/native/scripts/package.sh darwin "$VERSION" release-dist native-dist
+        run: apps/native/scripts/package.sh darwin "$VERSION" release-dist native-dist "$MACOS_ARCHES"
 
       # arm64 only: macos-latest runs on Apple silicon.
       - name: Smoke test native packages
@@ -475,25 +487,25 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
+          MACOS_ARCHES: ${{ inputs.macos-arches }}
         run: |
           set -euo pipefail
 
           expected=()
-          for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
-            expected+=("servef_${VERSION}_${target}.tar.gz")
-          done
           for arch in amd64 arm64; do
             expected+=(
-              "servef-electron_${VERSION}_darwin_${arch}.dmg"
-              "servef-electron_${VERSION}_darwin_${arch}.zip"
+              "servef_${VERSION}_linux_${arch}.tar.gz"
               "servef-electron_${VERSION}_linux_${arch}.AppImage"
               "servef-electron_${VERSION}_linux_${arch}.deb"
+              "servef-native_${VERSION}_linux_${arch}.tar.gz"
             )
           done
-          for arch in amd64 arm64; do
+          for arch in $MACOS_ARCHES; do
             expected+=(
+              "servef_${VERSION}_darwin_${arch}.tar.gz"
+              "servef-electron_${VERSION}_darwin_${arch}.dmg"
+              "servef-electron_${VERSION}_darwin_${arch}.zip"
               "servef-native_${VERSION}_darwin_${arch}.zip"
-              "servef-native_${VERSION}_linux_${arch}.tar.gz"
             )
           done
 

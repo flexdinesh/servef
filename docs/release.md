@@ -53,7 +53,8 @@ workflow; to replace a published one, publish a new patch version.
 ## Edge prerelease
 
 After every push to `main`, the **Edge** workflow runs `build.yml` with
-version `0.0.0-edge`. When every build job passes, `publish` moves the `edge`
+version `0.0.0-edge` and `macos-arches: arm64` (no macOS Intel, decision 0093).
+When every build job passes, `publish` moves the `edge`
 tag to the pushed commit, creates or edits the `edge` release (prerelease,
 never latest, notes name the commit), uploads the assets with `--clobber`
 (same names every time, so each is replaced in place), and deletes assets
@@ -73,6 +74,9 @@ desktop packages, where `<version>` is the tag without its leading `v`, or
 - `servef_<version>_<darwin|linux>_<amd64|arm64>.tar.gz`
 - `servef-electron_<version>_darwin_<amd64|arm64>.dmg` and `.zip`
 - `servef-electron_<version>_linux_<amd64|arm64>.AppImage` and `.deb`
+
+`edge` omits every `darwin_amd64` asset (decision 0093); the edge install
+scripts stop on macOS Intel and point at the stable ones.
 
 The native app (decision 0079, phase 5) adds its packages to this set, a job
 to `build.yml`, and `install-native.sh` and `install-native-edge.sh`.
