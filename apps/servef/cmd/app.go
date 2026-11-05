@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"runtime"
@@ -27,8 +26,7 @@ type appDeps struct {
 	openRoot  func(ctx context.Context, socket, path string) (daemon.OpenResult, error)
 	browser   runner
 	terminal  func(io.Writer) bool
-	// route is the default route's local address on no-UI machines.
-	route func() net.IP
+	remote    func(context.Context, options, io.Writer, io.Writer) error
 }
 
 func (d appDeps) daemonRoots() daemonRootsDeps {
@@ -45,9 +43,39 @@ func defaultAppDeps() appDeps {
 		openRoot:  openDaemonRoot,
 		browser:   run,
 		terminal:  isTerminal,
-		route:     outboundAddress,
+		remote:    runRemote,
 	}
 }
+
+// launch is what bare servef does.
+type launch int
+
+const (
+	launchDesktop launch = iota
+	launchBrowser
+	launchRemote
+	launchNoUI
+)
+
+// chooseLaunch decides from the flags and the machine. An explicit address
+// asks for a server; a machine with no UI gets advice, never an open port.
+func chooseLaunch(opts options, goos string, getenv func(string) string) launch {
+	switch {
+	case opts.remote:
+		return launchRemote
+	case opts.hostSet || opts.portSet:
+		return launchBrowser
+	case noUI(goos, getenv):
+		return launchNoUI
+	case goos != "darwin" && goos != "linux":
+		return launchBrowser
+	default:
+		return launchDesktop
+	}
+}
+
+// errNoUI is bare servef on a machine with no UI (decision 0098).
+var errNoUI = errors.New("no display here; run `servef <path> --remote` to open this machine's files from your computer")
 
 // runApp opens the paths in the desktop app through the daemon, falling back
 // to browser mode with a notice when the app or daemon is unavailable.
@@ -63,23 +91,14 @@ func openInApp(ctx context.Context, opts options, stdin io.Reader, stdout, stder
 		return serveInBrowser()
 	}
 
-	// An explicit address asks for a server.
-	if opts.hostSet || opts.portSet {
+	switch chooseLaunch(opts, deps.goos, deps.getenv) {
+	case launchRemote:
+		return deps.remote(ctx, opts, stdout, stderr)
+	case launchBrowser:
 		return serveInBrowser()
-	}
-	// Without a UI here, serve on this machine's address so another machine
-	// can open the printed links (decision 0076).
-	if noUI(deps.goos, deps.getenv) {
-		opts.host = detectHost(deps.getenv, deps.route)
-		if opts.host == "" {
-			opts.host = defaultHost
-			_, _ = fmt.Fprintln(stderr, "could not detect this machine's address; serving on localhost")
-		}
-		opts.noOpen = true
-		return serveInBrowser()
-	}
-	if deps.goos != "darwin" && deps.goos != "linux" {
-		return serveInBrowser()
+	case launchNoUI:
+		return errNoUI
+	case launchDesktop:
 	}
 
 	roots, err := validateRoots(opts.paths, opts.scanDepth)

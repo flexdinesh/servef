@@ -9,7 +9,7 @@ import (
 )
 
 // noUI reports whether this machine cannot show a UI to the user at its
-// terminal (decision 0076): an SSH session, or Linux without a display.
+// terminal: an SSH session, or Linux without a display.
 func noUI(goos string, getenv func(string) string) bool {
 	if inSSHSession(getenv) {
 		return true
@@ -26,49 +26,6 @@ func inSSHSession(getenv func(string) string) bool {
 	return false
 }
 
-// routeAddresses lie outside every local network (documentation ranges); a
-// UDP socket "connected" to one makes the kernel pick the default route's
-// interface. Nothing is sent.
-var routeAddresses = []string{"192.0.2.1:9", "[2001:db8::1]:9"}
-
-// detectHost returns the IP a no-UI server binds and prints: the server
-// address of SSH_CONNECTION ("client_ip client_port server_ip server_port"),
-// else route's outbound address, else "" (the caller falls back to
-// localhost).
-func detectHost(getenv func(string) string, route func() net.IP) string {
-	if fields := strings.Fields(getenv("SSH_CONNECTION")); len(fields) == 4 {
-		if ip := net.ParseIP(fields[2]); usableAddress(ip) {
-			return ip.String()
-		}
-	}
-	if ip := route(); usableAddress(ip) {
-		return ip.String()
-	}
-	return ""
-}
-
-// usableAddress reports whether ip can be bound and dialed from another
-// machine without a zone.
-func usableAddress(ip net.IP) bool {
-	return ip != nil && !ip.IsLoopback() && !ip.IsUnspecified() && !ip.IsLinkLocalUnicast() && !ip.IsMulticast()
-}
-
-// outboundAddress is the local address of the default route, or nil.
-func outboundAddress() net.IP {
-	for _, address := range routeAddresses {
-		conn, err := net.Dial("udp", address)
-		if err != nil {
-			continue
-		}
-		local, ok := conn.LocalAddr().(*net.UDPAddr)
-		_ = conn.Close()
-		if ok && usableAddress(local.IP) {
-			return local.IP
-		}
-	}
-	return nil
-}
-
 // loopbackHost reports whether host (an IP or "localhost") only accepts
 // connections from this machine.
 func loopbackHost(host string) bool {
@@ -77,15 +34,6 @@ func loopbackHost(host string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
-}
-
-// desktopURL is a server URL's desktop form: the same URL with the servef
-// scheme (decision 0076).
-func desktopURL(webURL string) string {
-	if rest, ok := strings.CutPrefix(webURL, "http://"); ok {
-		return "servef://" + rest
-	}
-	return webURL
 }
 
 // serverURL is the web URL of a server bound to host and port.

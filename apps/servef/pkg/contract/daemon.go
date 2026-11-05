@@ -36,6 +36,27 @@ type RemoteInfo struct {
 	Name string `json:"name"`
 }
 
+// DaemonRemoteRequest is the body of POST /_daemon/remote. An empty Host binds
+// every interface. A nil Port tries the last port, then the default range. The
+// durations (time.ParseDuration text) default to 10m and 5m.
+type DaemonRemoteRequest struct {
+	Host      string `json:"host,omitempty"`
+	Port      *int   `json:"port,omitempty"`
+	FirstWait string `json:"firstWait,omitempty"`
+	Grace     string `json:"grace,omitempty"`
+}
+
+// DaemonRemote is the daemon's TCP listener, /_daemon/remote. Credential is a
+// secret: only the Unix socket answers this. Clients is the UIs connected.
+type DaemonRemote struct {
+	Listening  bool   `json:"listening"`
+	Host       string `json:"host,omitempty"`
+	Port       int    `json:"port,omitempty"`
+	ID         string `json:"id,omitempty"`
+	Credential string `json:"credential,omitempty"`
+	Clients    int    `json:"clients"`
+}
+
 // Daemon control stream event names, GET /_daemon/events.
 const (
 	DaemonEventStatus      = "status"

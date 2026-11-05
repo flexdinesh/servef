@@ -40,10 +40,13 @@ type Project struct {
 type ProjectsResponse struct {
 	// SessionKey keys the last project remembered for this session: "daemon"
 	// under the daemon, else the served roots joined by newlines.
-	SessionKey string    `json:"sessionKey"`
-	Roots      []Root    `json:"roots"`
-	Projects   []Project `json:"projects"`
-	Warnings   []string  `json:"warnings"`
+	SessionKey string `json:"sessionKey"`
+	// Presence asks a page to hold /api/presence while open: this server's
+	// lifetime follows its UIs (decision 0098).
+	Presence bool      `json:"presence"`
+	Roots    []Root    `json:"roots"`
+	Projects []Project `json:"projects"`
+	Warnings []string  `json:"warnings"`
 }
 
 // Directory is a child directory of a folder within the served roots.

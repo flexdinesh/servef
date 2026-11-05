@@ -57,6 +57,7 @@ func (p *Projects) List() contract.ProjectsResponse {
 	discovery := projects.Discover(roots, p.config.ScanDepth)
 	return contract.ProjectsResponse{
 		SessionKey: p.sessionKey(roots),
+		Presence:   p.config.Presence,
 		Roots:      mapSlice(projects.Roots(roots), rootContract),
 		Projects:   mapSlice(discovery.Projects, projectContract),
 		Warnings:   warningStrings(append(discovery.Skipped, discovery.Warnings...)),

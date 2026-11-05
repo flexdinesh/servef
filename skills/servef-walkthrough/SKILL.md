@@ -107,12 +107,13 @@ For example:
 - Reuse `id` to revise a walkthrough (it replaces) rather than publishing a
   new one. Without `id`, servef derives one from the title.
 - servef prints `published <id> (created|replaced) for <project>`, then the
-  links when the desktop app or a running servef shows the project:
-  `desktop: servef://local/view?…` (desktop app on this machine), or
-  `web: http://…` and `desktop: servef://…` for a running server. Give the
-  user both; over SSH they open on the user's computer. `--json` prints
-  `{"id", "project", "created", "url", "desktopUrl"}` instead (`url` only
-  when something shows it; `desktopUrl` only with an `http://` url).
+  link when the desktop app or a running servef shows the project:
+  `desktop: servef://local/view?…` (desktop app on this machine),
+  `desktop: servef://<connection>/view?…` (this machine runs
+  `servef <path> --remote`; it opens on the user's computer), or `web: http://…`
+  for a browser server. Give the user the link. `--json` prints
+  `{"id", "project", "created", "url", "desktopUrl"}` instead (`url` when a
+  window or server here shows it; `desktopUrl` for a connected computer).
   `"open": true` opens the url in the app or their browser unless
   `--no-open` is passed or the machine has no UI (SSH, or Linux without a
   display). With no running servef, it prints how to view the walkthrough

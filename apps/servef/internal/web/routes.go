@@ -137,6 +137,9 @@ func (a *App) newRoutes() *http.ServeMux {
 
 	// Live updates (decision 0050).
 	mux.HandleFunc("GET /api/events", a.serveEvents)
+	if a.config.Presence {
+		mux.HandleFunc("GET /api/presence", a.servePresence)
+	}
 
 	api("/api/metrics", func(w http.ResponseWriter, _ *http.Request, _ url.Values) {
 		writeJSON(w, http.StatusOK, a.app.Metrics.Sample())

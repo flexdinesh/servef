@@ -110,7 +110,8 @@ type publishResult struct {
 	Project string `json:"project"`
 	Created bool   `json:"created"`
 	URL     string `json:"url,omitempty"`
-	// DesktopURL is URL's servef:// form when URL is a web URL.
+	// DesktopURL is the connected desktop app's link when this machine serves
+	// remotely and nothing here shows the walkthrough.
 	DesktopURL string `json:"desktopUrl,omitempty"`
 }
 
@@ -197,9 +198,13 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 		}
 	}
 
+	// A machine serving remotely has no window of its own to open, but the
+	// connected app can show this; the link names the connection, not its secret.
 	desktop := ""
-	if strings.HasPrefix(viewer, "http://") {
-		desktop = desktopURL(viewer)
+	if viewer == "" && announced {
+		if id := remoteConnectionID(ctx, opts.socket); id != "" {
+			desktop = "servef://" + id + "/view?" + viewerQuery.Encode()
+		}
 	}
 	if opts.json {
 		encoder := json.NewEncoder(stdout)
@@ -214,7 +219,9 @@ func publishWalkthrough(ctx context.Context, opts publishOptions, stdin io.Reade
 	tty := linkTerminal(stdout, getenv)
 	switch {
 	case desktop != "":
-		_, _ = fmt.Fprintf(stdout, "web: %s\ndesktop: %s\n", hyperlink(viewer, tty), hyperlink(desktop, tty))
+		_, _ = fmt.Fprintf(stdout, "desktop: %s\n", hyperlink(desktop, tty))
+	case strings.HasPrefix(viewer, "http://"):
+		_, _ = fmt.Fprintf(stdout, "web: %s\n", hyperlink(viewer, tty))
 	case viewer != "":
 		_, _ = fmt.Fprintf(stdout, "desktop: %s\n", hyperlink(viewer, tty))
 	case draft.Open:
@@ -247,6 +254,21 @@ func announceToDaemon(ctx context.Context, socket, project, id string, created b
 		_, _ = fmt.Fprintf(stderr, "servef daemon at %s serves this project but keeps walkthroughs elsewhere\n", socket)
 	}
 	return err == nil
+}
+
+// remoteConnectionID is the id of the running daemon's TCP listener, or "".
+func remoteConnectionID(ctx context.Context, socket string) string {
+	socket, err := resolveSocket(socket)
+	if err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, announceTimeout)
+	defer cancel()
+	status, err := daemon.NewClient(socket).RemoteStatus(ctx)
+	if err != nil || !status.Listening {
+		return ""
+	}
+	return status.ID
 }
 
 // desktopAppInstalled reports whether the desktop app handles servef:// URLs;

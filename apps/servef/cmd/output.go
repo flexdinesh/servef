@@ -14,9 +14,9 @@ import (
 type startupInfo struct {
 	Version      string
 	Directories  []string
-	URL          string // web URL; the desktop URL swaps its scheme
-	Exposed      bool   // bound to an address other machines may reach
-	Links        bool   // write URLs as OSC 8 hyperlinks
+	URL          string
+	Exposed      bool // bound to an address other machines may reach
+	Links        bool // write URLs as OSC 8 hyperlinks
 	ProjectCount int
 	Discovery    time.Duration
 }
@@ -43,7 +43,6 @@ func writeStartup(output io.Writer, info startupInfo) {
 		writeStartupValue(output, label, path, name, directory)
 	}
 	writeStartupValue(output, label, url, "web:      ", hyperlink(info.URL, info.Links))
-	writeStartupValue(output, label, url, "desktop:  ", hyperlink(desktopURL(info.URL), info.Links))
 	if info.Exposed {
 		_, _ = fmt.Fprint(output, "  ")
 		_, _ = color.New(color.FgHiYellow).Fprintln(output, "no authentication: anyone who can reach this address can read the served files.")
@@ -52,6 +51,53 @@ func writeStartup(output io.Writer, info startupInfo) {
 	writeDiscovery(output, label, count, duration, info)
 	_, _ = fmt.Fprint(output, "  ")
 	_, _ = label.Fprintln(output, "ctrl-c to stop.")
+}
+
+// remoteStartup is what `servef --remote` prints.
+type remoteStartup struct {
+	Version     string
+	Directories []string
+	Connect     string // the connection string, ready for a shell
+	Web         string // "" unless --web
+	Links       bool   // write Web as an OSC 8 hyperlink
+	FirstWait   time.Duration
+	Grace       time.Duration
+}
+
+func writeRemoteStartup(output io.Writer, info remoteStartup) {
+	output = terminalWriter(output)
+	heading := color.New(color.Bold, color.FgHiMagenta)
+	label := color.New(color.Faint)
+	path := color.New(color.FgHiBlue)
+	url := color.New(color.FgHiCyan, color.Underline)
+	command := color.New(color.FgHiCyan)
+
+	_, _ = fmt.Fprint(output, "  ")
+	_, _ = heading.Fprintln(output, info.Version)
+	name := "serving directory:  "
+	if len(info.Directories) > 1 {
+		name = "serving directories:  "
+	}
+	for i, directory := range info.Directories {
+		if i > 0 {
+			name = strings.Repeat(" ", len(name))
+		}
+		writeStartupValue(output, label, path, name, directory)
+	}
+	_, _ = fmt.Fprintln(output)
+	_, _ = fmt.Fprint(output, "  ")
+	_, _ = label.Fprintln(output, "on your computer, run:")
+	_, _ = fmt.Fprint(output, "  ")
+	_, _ = command.Fprintln(output, "servef connect "+info.Connect)
+	if info.Web != "" {
+		_, _ = fmt.Fprintln(output)
+		writeStartupValue(output, label, url, "web:  ", hyperlink(info.Web, info.Links))
+		_, _ = fmt.Fprint(output, "  ")
+		_, _ = label.Fprintln(output, "browsers warn about its self-signed certificate; this link is a password.")
+	}
+	_, _ = fmt.Fprintln(output)
+	_, _ = fmt.Fprint(output, "  ")
+	_, _ = label.Fprintf(output, "stops %s after this if nothing connects, and %s after the last UI closes. `servef remote stop` stops it now.\n", minutesText(info.FirstWait), minutesText(info.Grace))
 }
 
 func writeDiscovery(output io.Writer, label, count, duration *color.Color, info startupInfo) {

@@ -60,6 +60,9 @@ export interface ProjectsResponse {
   // sessionKey keys the last project remembered for this session: "daemon"
   // under the daemon, else the served roots joined by newlines.
   sessionKey: string
+  // presence asks a page to hold /api/presence while open: this server's
+  // lifetime follows its UIs (decision 0098).
+  presence: boolean
   roots: Root[]
   projects: Project[]
   warnings: string[]
@@ -68,6 +71,7 @@ export interface ProjectsResponse {
 export function isProjectsResponse(value: unknown): value is ProjectsResponse {
   return isRecord(value)
     && isString(value.sessionKey)
+    && isBoolean(value.presence)
     && isArrayOf(value.roots, isRoot)
     && isArrayOf(value.projects, isProject)
     && isArrayOf(value.warnings, isString)

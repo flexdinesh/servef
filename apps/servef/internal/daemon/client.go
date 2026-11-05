@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"syscall"
 	"time"
+
+	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // ErrNotRunning reports that nothing answers on the socket.
@@ -106,6 +108,30 @@ func (c *Client) Open(ctx context.Context, path string) (OpenResult, error) {
 		return OpenResult{}, err
 	}
 	return result, nil
+}
+
+// RemoteStatus returns the daemon's TCP listener.
+func (c *Client) RemoteStatus(ctx context.Context) (contract.DaemonRemote, error) {
+	var remote contract.DaemonRemote
+	return remote, c.call(ctx, http.MethodGet, "remote", nil, http.StatusOK, &remote)
+}
+
+// RemoteStart asks the daemon to serve over TCP.
+func (c *Client) RemoteStart(ctx context.Context, request contract.DaemonRemoteRequest) (contract.DaemonRemote, error) {
+	var remote contract.DaemonRemote
+	return remote, c.call(ctx, http.MethodPost, "remote", request, http.StatusOK, &remote)
+}
+
+// RemoteStop asks the daemon to stop serving over TCP.
+func (c *Client) RemoteStop(ctx context.Context) error {
+	var remote contract.DaemonRemote
+	return c.call(ctx, http.MethodDelete, "remote", nil, http.StatusOK, &remote)
+}
+
+// RemoteRotate asks the daemon to replace its identity.
+func (c *Client) RemoteRotate(ctx context.Context) (contract.DaemonRemote, error) {
+	var remote contract.DaemonRemote
+	return remote, c.call(ctx, http.MethodPost, "remote/rotate", nil, http.StatusOK, &remote)
 }
 
 // AnnounceWalkthrough asks the daemon to announce project's walkthrough id,

@@ -38,6 +38,8 @@ type Config struct {
 	OpenBrowser func(url string) error
 	// SessionKey keys the browser's session memory; "" keys it by roots.
 	SessionKey string
+	// Presence makes pages hold /api/presence while open.
+	Presence bool
 }
 
 // Runtime is the composed web application.
@@ -52,7 +54,7 @@ type Runtime struct {
 // New builds the web app over document.Builtins(); language servers, the
 // watch hub, and the walkthrough service use web.New's defaults.
 func New(config Config) (*Runtime, error) {
-	app, err := web.New(web.Config{Roots: config.Roots, ScanDepth: config.ScanDepth, Depth: config.Depth, Types: document.Builtins(), OpenBrowser: config.OpenBrowser, SessionKey: config.SessionKey})
+	app, err := web.New(web.Config{Roots: config.Roots, ScanDepth: config.ScanDepth, Depth: config.Depth, Types: document.Builtins(), OpenBrowser: config.OpenBrowser, SessionKey: config.SessionKey, Presence: config.Presence})
 	if err != nil {
 		return nil, fmt.Errorf("create web interface: %w", err)
 	}

@@ -63,6 +63,41 @@ func (a *App) serveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// servePresence holds a stream open while a page is open (decision 0098). It
+// sends only heartbeats; the stream existing is the message. /api/events
+// cannot say this: pages close it while hidden, and a hidden window is still
+// open. The daemon counts these streams.
+func (a *App) servePresence(w http.ResponseWriter, r *http.Request) {
+	controller := http.NewResponseController(w)
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	write := func(chunk string) bool {
+		_ = controller.SetWriteDeadline(time.Now().Add(eventHeartbeat + 5*time.Second))
+		if _, err := fmt.Fprint(w, chunk); err != nil {
+			return false
+		}
+		return controller.Flush() == nil
+	}
+	if !write(": servef\n\n") {
+		return
+	}
+	heartbeat := time.NewTicker(eventHeartbeat)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-a.stopping:
+			return
+		case <-heartbeat.C:
+			if !write(": heartbeat\n\n") {
+				return
+			}
+		}
+	}
+}
+
 func serverEvent(name string, value any) string {
 	data, err := json.Marshal(value)
 	if err != nil {
