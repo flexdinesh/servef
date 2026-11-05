@@ -24,6 +24,7 @@ const preloadScript = `(() => {
   window.servefDesktop = Object.freeze({
     version: 2,
     openFolder() { void call("OpenFolder").catch(() => undefined) },
+    closeWindow() { void call("CloseWindow").catch(() => undefined) },
     showAppMenu(x, y) { void call("ShowAppMenu", x, y).catch(() => undefined) },
     revealPath(project, path) { return call("RevealPath", project, path) },
     showContextMenu(items, x, y) { return call("ShowContextMenu", items, x, y) },
@@ -51,6 +52,16 @@ func callerWindow(ctx context.Context) (*mygo.Window, bool) {
 	}
 	window := mygo.CallerWindow(ctx)
 	return window, window != nil
+}
+
+// CloseWindow closes the sender's window after the UI closes its final tab.
+func (b *bridgeService) CloseWindow(ctx context.Context) error {
+	window, ok := callerWindow(ctx)
+	if !ok {
+		return errRefused
+	}
+	window.Close()
+	return nil
 }
 
 // OpenFolder asks for a directory and opens it as a project.
@@ -156,23 +167,40 @@ func (h *host) menu() *mygo.Menu {
 		}},
 		{Role: mygo.RoleEditMenu},
 		{Role: mygo.RoleViewMenu},
-		windowMenu(runtime.GOOS),
+		h.windowMenu(runtime.GOOS),
 	})
 }
 
-// windowMenu is the Window menu. mygo's macOS role has no Close, so Cmd+W
-// would do nothing there.
-func windowMenu(goos string) *mygo.MenuItem {
+// windowMenu replaces the native Close action with the workspace's Close Tab.
+func (h *host) windowMenu(goos string) *mygo.MenuItem {
+	closeTab := &mygo.MenuItem{Label: "Close Tab", Accelerator: "CmdOrCtrl+W", Click: func(_ *mygo.MenuItem, window *mygo.Window) {
+		if window != nil {
+			go h.closeTab(window)
+		}
+	}}
 	if goos != "darwin" {
-		return &mygo.MenuItem{Role: mygo.RoleWindowMenu}
+		return &mygo.MenuItem{Role: mygo.RoleWindow, Submenu: []*mygo.MenuItem{
+			{Role: mygo.RoleMinimize}, closeTab,
+		}}
 	}
 	return &mygo.MenuItem{Role: mygo.RoleWindow, Submenu: []*mygo.MenuItem{
 		{Role: mygo.RoleMinimize},
 		{Role: mygo.RoleZoom},
-		{Role: mygo.RoleClose},
+		closeTab,
 		mygo.Separator(),
 		{Role: mygo.RoleFront},
 	}}
+}
+
+// closeTab asks the UI to close its active tab. Pages without a workspace
+// (including startup failures) retain the native close behavior.
+func (h *host) closeTab(window *mygo.Window) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	unhandled, err := window.Page().EvalContext(ctx, `return window.dispatchEvent(new Event("servef:close-tab", { cancelable: true }))`)
+	if err == nil && unhandled == true {
+		window.Close()
+	}
 }
 
 func (h *host) chooseFolder() {

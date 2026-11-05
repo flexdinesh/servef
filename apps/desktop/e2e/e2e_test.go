@@ -493,6 +493,56 @@ func TestWebViewApp(t *testing.T) {
 		app.capture("no-folder-picker.png")
 	})
 
+	t.Run("close shortcut closes the active tab then the app", func(t *testing.T) {
+		w.t = t
+		isolate("close-tabs")
+		app := w.launch(w.project)
+		app.waitEval("Welcome", `return document.querySelector('[role=tab][aria-selected=true]')?.textContent === "Welcome"`)
+		// Clicking the final tab's X keeps the empty workspace open.
+		app.eval(`document.querySelector(".buffer-tab-close").click(); return true`)
+		app.waitEval("the empty workspace", `return document.querySelectorAll('[role=tab]').length === 0`)
+		for index, path := range []string{"README.md", "main.go"} {
+			app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=" + ` + strconv.Quote(path) + `; return true`)
+			app.waitEval("the open document tabs", fmt.Sprintf(`return document.querySelectorAll('[role=tab]').length === %d && document.querySelector('[role=tab][aria-selected=true]')?.textContent === %q`, index+1, path))
+		}
+		pressClose := func() {
+			t.Helper()
+			key := exec.Command("xdotool", "key", "--clearmodifiers", "ctrl+w")
+			if output, err := key.CombinedOutput(); err != nil {
+				t.Fatalf("xdotool: %v\n%s", err, output)
+			}
+		}
+		waitForExit := func(app *session) {
+			t.Helper()
+			defer app.conn.Close()
+			done := make(chan error, 1)
+			go func() { done <- app.cmd.Wait() }()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatalf("close shortcut exit: %v", err)
+				}
+			case <-time.After(pageTimeout):
+				_ = app.cmd.Process.Kill()
+				<-done
+				t.Fatal("close shortcut did not quit the app")
+			}
+		}
+		// Native shortcuts must work even while a text input owns focus.
+		app.eval(`document.body.appendChild(document.createElement("input")).focus(); return true`)
+		pressClose()
+		app.waitEval("the previous tab selected", `return document.querySelectorAll('[role=tab]').length === 1 && document.querySelector('[role=tab][aria-selected=true]')?.textContent === "README.md"`)
+		pressClose()
+		waitForExit(app)
+
+		app = w.launch(w.project)
+		app.waitEval("Welcome without closed documents restored", `const tabs = document.querySelectorAll('[role=tab]'); return tabs.length === 1 && tabs[0].textContent === "Welcome"`)
+		app.eval(`document.querySelector(".buffer-tab-close").click(); return true`)
+		app.waitEval("the empty workspace", `return document.querySelectorAll('[role=tab]').length === 0`)
+		pressClose()
+		waitForExit(app)
+	})
+
 	t.Run("a server link opens without a window or a daemon", func(t *testing.T) {
 		w.t = t
 		isolate("serverlink")

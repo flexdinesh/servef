@@ -22,6 +22,15 @@ test("showAppMenu passes the point through when exposed and is null otherwise", 
   assert.equal(readDesktopBridge({ version: 1, openFolder() {}, showAppMenu: "menu" })?.showAppMenu, null)
 })
 
+test("closeWindow calls the native method when exposed and is null otherwise", () => {
+  const calls: unknown[] = []
+  const exposed = { version: 2, openFolder() {}, closeWindow(this: unknown) { calls.push(this) } }
+  readDesktopBridge(exposed)?.closeWindow?.()
+  assert.deepEqual(calls, [exposed])
+  assert.equal(readDesktopBridge({ version: 2, openFolder() {} })?.closeWindow, null)
+  assert.equal(readDesktopBridge({ version: 2, openFolder() {}, closeWindow: "close" })?.closeWindow, null)
+})
+
 test("a version 2 bridge reveals paths and resolves native menu choices", async () => {
   const calls: unknown[] = []
   const exposed = {
