@@ -72,7 +72,7 @@ rewriting history; update `Status` on the old record.
 | [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069; shared checks by 0087 |
 | [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted; announcements by 0087 |
 | [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted; revised by 0070, 0072, 0075, 0081 |
-| [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0072, 0073, 0076, 0079 (Releases, Homebrew) |
+| [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0072, 0073, 0076, 0079 (Releases, Homebrew); names superseded by 0092 |
 | [0069](0069-servef-remote-and-ssh-links.md) | `servef remote` and ssh links | Superseded by 0076 |
 | [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Accepted; revised by 0076, 0079 (install instructions) |
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Accepted; revised by 0076 |
@@ -96,3 +96,4 @@ rewriting history; update `Status` on the old record.
 | [0089](0089-native-diffs-viewer.md) | Native diffs viewer | Accepted |
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Accepted |
 | [0091](0091-native-workspace-shell-and-memory.md) | Native workspace shell and memory | Accepted (experimental) |
+| [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Accepted (experimental); supersedes the names in 0068 |

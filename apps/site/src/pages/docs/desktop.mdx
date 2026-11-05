@@ -15,7 +15,7 @@ auto-update. Install a new version over the old one.
 macOS and Linux, no sudo:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh
 ```
 
 It installs the latest release's app and the `servef` CLI (in `~/.local/bin`,
@@ -24,7 +24,7 @@ first.
 
 - macOS: `servef.app` goes to `/Applications` (or `~/Applications`). curl
   marks nothing as downloaded, so Gatekeeper does not block the first launch.
-- Linux: the AppImage goes to `~/.local/share/servef-desktop/`, with a
+- Linux: the AppImage goes to `~/.local/share/servef-electron/`, with a
   desktop entry that opens `servef://` links, an icon, and **Open in servef**
   in Dolphin and Nemo. If the AppImage does not start, install FUSE 2
   (`libfuse2`); the script says so when it cannot find it. It stops when the
@@ -42,7 +42,7 @@ omits the leading `v`; pick `arm64` or `amd64` for your CPU.
 
 #### macOS
 
-1. Download `servef-desktop_<version>_darwin_<arm64|amd64>.dmg` (or the
+1. Download `servef-electron_<version>_darwin_<arm64|amd64>.dmg` (or the
    `.zip`).
 2. Drag **servef** to Applications.
 3. The app is ad-hoc signed, not notarized, so Gatekeeper blocks the first
@@ -60,30 +60,30 @@ Installing the app registers `servef://` links with macOS.
 Install the `.deb` (Debian, Ubuntu, and derivatives):
 
 ```sh
-sudo apt install ./servef-desktop_<version>_linux_amd64.deb
+sudo apt install ./servef-electron_<version>_linux_amd64.deb
 ```
 
-It installs to `/opt/servef`, adds `servef-desktop` to `PATH`, and registers
+It installs to `/opt/servef`, adds `servef-electron` to `PATH`, and registers
 `servef://` links through its desktop entry.
 
 The AppImage runs without installing:
 
 ```sh
-chmod +x servef-desktop_<version>_linux_amd64.AppImage
-./servef-desktop_<version>_linux_amd64.AppImage
+chmod +x servef-electron_<version>_linux_amd64.AppImage
+./servef-electron_<version>_linux_amd64.AppImage
 ```
 
 An AppImage registers `servef://` only through desktop integration (for
 example AppImageLauncher, or the entry below). Without it, `servef .` cannot
 find the app and serves in a browser instead. To register it yourself, keep
 the AppImage where it is and create
-`~/.local/share/applications/servef-desktop.desktop`:
+`~/.local/share/applications/servef-electron.desktop`:
 
 ```ini
 [Desktop Entry]
 Type=Application
 Name=servef
-Exec=/home/you/Applications/servef-desktop_<version>_linux_amd64.AppImage %U
+Exec=/home/you/Applications/servef-electron_<version>_linux_amd64.AppImage %U
 MimeType=x-scheme-handler/servef;
 Terminal=false
 ```
@@ -170,7 +170,7 @@ this computer's projects. Windows connected to other computers ignore drops.
 
 The `.deb` adds **Open in servef** to the folder context menu in Dolphin
 (KDE) and Nemo (Cinnamon). For other file managers, add an entry yourself.
-With the AppImage, use its path instead of `servef-desktop`.
+With the AppImage, use its path instead of `servef-electron`.
 
 - Nautilus (GNOME Files): create
   `~/.local/share/nautilus/scripts/Open in servef`, make it executable
@@ -178,11 +178,11 @@ With the AppImage, use its path instead of `servef-desktop`.
 
   ```sh
   #!/bin/sh
-  exec servef-desktop --open-path "$@"
+  exec servef-electron --open-path "$@"
   ```
 
 - Thunar: **Edit › Configure custom actions…**, add an action named
-  `Open in servef` with the command `servef-desktop --open-path %F`, and
+  `Open in servef` with the command `servef-electron --open-path %F`, and
   check **Directories** under **Appearance Conditions**.
 
 The deb does not make servef the default app for folders, so opening a
@@ -214,7 +214,7 @@ check it, and unchecking removes it.
 
 - macOS adds servef to **System Settings › General › Login Items**. If macOS
   asks for approval, servef offers to open that page; allow servef there.
-- Linux writes `~/.config/autostart/servef-desktop.desktop` (or under
+- Linux writes `~/.config/autostart/servef-electron.desktop` (or under
   `$XDG_CONFIG_HOME`). For an AppImage it points at the AppImage file: after
   moving it, uncheck and check **Open at Login** again.
 
@@ -246,6 +246,24 @@ Clicking one opens the project, commit, changes, or walkthrough. Nothing is
 shown for a project whose window is focused, and each kind repeats at most
 every 30 seconds per project. Turn notifications off in your system settings.
 
+## Moving from servef-desktop
+
+The app was named `servef-desktop` before it became `servef-electron`. Your
+app data, recent folders, and connections stay where they are.
+
+- Install script: run it again. It replaces the old AppImage, desktop entry,
+  icon, and file manager actions, and makes the new entry the `servef://`
+  handler.
+- Deb: `sudo apt install ./servef-electron_<version>_linux_amd64.deb` removes
+  the `servef-desktop` package and installs the new one.
+- Open at Login moves to the new name the next time the app starts, unless the
+  old entry was edited: then delete
+  `~/.config/autostart/servef-desktop.desktop` and check **Open at Login**.
+- If `servef .` falls back to the browser after a deb upgrade, run
+  `xdg-mime default servef-electron.desktop x-scheme-handler/servef`.
+- Update what you made by hand: a Nautilus script or Thunar action that runs
+  `servef-desktop`, a desktop entry for an AppImage, and launcher favorites.
+
 ## Uninstall
 
 The uninstall script removes the app and CLI however you installed them in
@@ -260,9 +278,9 @@ curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/unin
 ```
 
 By hand: uncheck **Open at Login** first, or remove servef from **Login Items**
-(macOS) or delete `~/.config/autostart/servef-desktop.desktop` (Linux)
+(macOS) or delete `~/.config/autostart/servef-electron.desktop` (Linux)
 afterwards: uninstalling leaves it behind. Then quit the app and remove
-`/Applications/servef.app` (macOS), or run `sudo apt remove servef-desktop`
+`/Applications/servef.app` (macOS), or run `sudo apt remove servef-electron`
 (Linux). Remove any Quick Action, Nautilus script, or Thunar action you
 created. App data lives in
 `servef-desktop` under `~/Library/Application Support` or `~/.config`. The

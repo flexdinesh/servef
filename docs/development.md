@@ -13,7 +13,7 @@ CI publishes the `edge` prerelease after every green push to `main`; `servef --v
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh           # CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh   # desktop app and CLI
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron-edge.sh | sh   # desktop app and CLI
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native-edge.sh | sh    # native app
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh                # back to stable
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh              # remove all
@@ -55,11 +55,11 @@ Ports: copy `.env.example` to `.env`, set `SERVEF_DEV_SERVER_PORT` and `SERVEF_D
 ## Desktop (Electron)
 
 ```sh
-mise run dev:desktop          # isolated dev daemon, roots, and app data under .dev/desktop
-mise run build:desktop        # dev binary and bundle only
-apps/desktop/node_modules/.bin/electron --no-sandbox apps/desktop --open-path <dir>   # OS folder entry (dev:desktop env)
-SERVEF_DESKTOP_AUTOSTART_DIR=<abs dir> mise run dev:desktop   # show Open at Login (Linux)
-mise run measure:desktop      # memory scenario (needs a display)
+mise run dev:electron          # isolated dev daemon, roots, and app data under .dev/electron
+mise run build:electron        # dev binary and bundle only
+apps/electron/node_modules/.bin/electron --no-sandbox apps/electron --open-path <dir>   # OS folder entry (dev:electron env)
+SERVEF_DESKTOP_AUTOSTART_DIR=<abs dir> mise run dev:electron   # show Open at Login (Linux)
+mise run measure:electron      # memory scenario (needs a display)
 ```
 
 ## Native (mygo, experimental)
@@ -93,7 +93,7 @@ Needs Go 1.27 (`GOTOOLCHAIN=auto` downloads it). Omit the `SERVEF_NATIVE_*` sock
 ssh host 'servef ~/code/foo'                    # no-UI host: prints web: and desktop: links
 servef browser --host 0.0.0.0 --no-open .       # simulate a remote server locally
 ssh -o BatchMode=yes host true                  # ssh host must pass this for the desktop app
-mise run dev:desktop                            # then File > Connect... and pick the host
+mise run dev:electron                            # then File > Connect... and pick the host
 ```
 
 Dev seams: `SERVEF_DESKTOP_SSH`, `SERVEF_DESKTOP_SSH_CONFIG`, `SERVEF_DESKTOP_RUNTIME_DIR`, `SERVEF_DESKTOP_AUTO_CONFIRM=1` with `SERVEF_DESKTOP_DIALOG_LOG`.
@@ -114,7 +114,7 @@ mise run test:race            # Go with race detector
 mise run test:web             # frontend
 mise run test:browser -- tests/browser/<spec>.ts   # browser (omit spec for all)
 mise run test:browser:webkit -- tests/browser/<spec>.ts   # WebKit (opt-in)
-mise run test:desktop         # desktop unit, real sshd, Electron smoke
+mise run test:electron         # desktop unit, real sshd, Electron smoke
 mise run test:release         # install scripts and release tooling
 mise run typecheck            # TypeScript
 mise run lint                 # oxlint and stylelint
@@ -125,7 +125,7 @@ mise run contracts:generate && mise run contracts:check   # after pkg/contract e
 Desktop smoke on a host display:
 
 ```sh
-mise run build:desktop && SERVEF_DESKTOP_BINARY=$PWD/.dev/desktop/servef pnpm --filter @servef/desktop test:smoke
+mise run build:electron && SERVEF_DESKTOP_BINARY=$PWD/.dev/electron/servef pnpm --filter @servef/electron test:smoke
 ```
 
 Add `SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland.
@@ -143,8 +143,8 @@ Details: [validation](validation.md). Adding file types: `AGENTS.md`, "Adding La
 ## Package
 
 ```sh
-mise run package:desktop:dir  # unpacked desktop app, host OS and arch
-mise run package:desktop      # installers in apps/desktop/dist
+mise run package:electron:dir  # unpacked desktop app, host OS and arch
+mise run package:electron      # installers in apps/electron/dist
 ```
 
 Releases and docs deploy: [release](release.md).

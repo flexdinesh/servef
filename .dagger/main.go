@@ -17,7 +17,7 @@ const baseImage = "debian:bookworm-slim@sha256:a3bba7dc7dbcc1f37c2856c51fc9a7fac
 // Run returns diagnostics and status.json even for failed checks. The caller
 // must inspect exitCode before issuing a successful validation receipt.
 func (m *ServefValidation) Run(ctx context.Context,
-	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "apps/desktop/node_modules", "packages/contracts/node_modules", "apps/desktop/build", "apps/desktop/test-results", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
+	// +ignore=[".git", "node_modules", "apps/web/node_modules", "apps/site/node_modules", "apps/electron/node_modules", "packages/contracts/node_modules", "apps/electron/build", "apps/electron/test-results", "apps/servef/internal/web/dist", "apps/site/dist", ".scratch", ".dev", ".env", "test-results", "playwright-report"]
 	source *dagger.Directory, group string, attempt string,
 	// +optional
 	force bool,
@@ -27,7 +27,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	// +optional
 	task string,
 ) (*dagger.Directory, error) {
-	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true, "native": true}
+	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "electron": true, "native": true}
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
@@ -35,7 +35,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"vet": "go", "test:go": "go", "test:race": "go",
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
-		"test:browser:webkit": "browser", "test:desktop": "desktop",
+		"test:browser:webkit": "browser", "test:electron": "electron",
 		"test:native": "native", "test:native:e2e": "native",
 	}
 	task = strings.TrimPrefix(task, "_container:")
@@ -52,9 +52,9 @@ func (m *ServefValidation) Run(ctx context.Context,
 	}
 	prepared := dependencies(tools, source)
 	runner := prepared.WithDirectory("/src", source)
-	if group == "go" || group == "browser" || group == "desktop" {
+	if group == "go" || group == "browser" || group == "electron" {
 		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
-			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/desktop/package.json"},
+			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json", "apps/electron/package.json"},
 			Exclude: []string{"apps/web/**/*.test.ts", "apps/web/**/*.test.tsx", "apps/web/test-fixtures/**"},
 		})
 		web := prepared.WithDirectory("/src", webSource)
@@ -67,7 +67,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
-	if group == "browser" || group == "desktop" {
+	if group == "browser" || group == "electron" {
 		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"})).
 			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
@@ -76,9 +76,9 @@ func (m *ServefValidation) Run(ctx context.Context,
 		}
 		binary = build.WithExec([]string{"mise", "run", "--force", "_container:binary"}).File("/out/servef")
 	}
-	if group == "desktop" {
+	if group == "electron" {
 		// The app reaches the UI through the binary's daemon; it needs no dist.
-		runner = desktopRuntime(prepared).WithDirectory("/src", source).
+		runner = electronRuntime(prepared).WithDirectory("/src", source).
 			WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef").
 			WithEnvVariable("SERVEF_DESKTOP_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("SERVEF_DESKTOP_ELECTRON_ARGS", "--disable-dev-shm-usage --disable-gpu").
@@ -198,21 +198,21 @@ func preparationTools(lock string) (string, string, error) {
 }
 
 func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
-	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "packages/contracts/package.json", "patches/**"})).
+	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "apps/electron/package.json", "packages/contracts/package.json", "patches/**"})).
 		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
 }
 
-// desktopRuntime adds Xvfb, Electron's shared libraries and OpenSSH (the ssh
+// electronRuntime adds Xvfb, Electron's shared libraries and OpenSSH (the ssh
 // tests' sshd and client) from the pinned snapshot, and the checksum-verified
 // Electron binary. ldd fails preparation on a missing library instead of a
 // later opaque launch failure.
-func desktopRuntime(prepared *dagger.Container) *dagger.Container {
-	return prepared.WithExec([]string{"sh", "-ec", desktopPackages}).
-		WithExec([]string{"mise", "exec", "--", "node", "apps/desktop/node_modules/electron/install.js"}).
-		WithExec([]string{"sh", "-ec", `electron="apps/desktop/node_modules/electron/dist/$(cat apps/desktop/node_modules/electron/path.txt)"; if ldd "$electron" | grep 'not found'; then exit 1; fi`})
+func electronRuntime(prepared *dagger.Container) *dagger.Container {
+	return prepared.WithExec([]string{"sh", "-ec", electronPackages}).
+		WithExec([]string{"mise", "exec", "--", "node", "apps/electron/node_modules/electron/install.js"}).
+		WithExec([]string{"sh", "-ec", `electron="apps/electron/node_modules/electron/dist/$(cat apps/electron/node_modules/electron/path.txt)"; if ldd "$electron" | grep 'not found'; then exit 1; fi`})
 }
 
-const desktopPackages = `
+const electronPackages = `
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
   xvfb xauth fonts-dejavu-core libgtk-3-0 libnss3 libnspr4 libgbm1 libasound2 libxss1 libxtst6 \
@@ -281,7 +281,7 @@ set +e
   mise exec -- node --version
   mise exec -- pnpm --version
   mise exec -- pnpm exec playwright --version
-  if [ -f apps/desktop/node_modules/electron/package.json ]; then printf 'electron %s\n' "$(mise exec -- node -p 'require("./apps/desktop/node_modules/electron/package.json").version')"; fi
+  if [ -f apps/electron/node_modules/electron/package.json ]; then printf 'electron %s\n' "$(mise exec -- node -p 'require("./apps/electron/node_modules/electron/package.json").version')"; fi
   printf 'HOME=%s\nLANG=%s\nTZ=%s\nGOFLAGS=%s\nGOMAXPROCS=%s\nMISE_JOBS=%s\n' "$HOME" "$LANG" "$TZ" "$GOFLAGS" "$GOMAXPROCS" "$MISE_JOBS"
 } > /out/environment.txt 2>&1
 "$@" 2>&1 | tee /out/check.log

@@ -231,7 +231,7 @@ func excluded(name string) bool {
 		}
 	}
 	return strings.HasPrefix(name, ".scratch/") || strings.HasPrefix(name, ".dev/") || strings.HasPrefix(name, "apps/servef/internal/web/dist/") || strings.HasPrefix(name, "apps/site/dist/") || strings.HasPrefix(name, "test-results/") || strings.HasPrefix(name, "playwright-report/") ||
-		strings.HasPrefix(name, "apps/desktop/build/") || strings.HasPrefix(name, "apps/desktop/test-results/")
+		strings.HasPrefix(name, "apps/electron/build/") || strings.HasPrefix(name, "apps/electron/test-results/")
 }
 
 func selected(group, name string) bool {
@@ -239,7 +239,7 @@ func selected(group, name string) bool {
 		return true
 	}
 	switch name {
-	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/desktop/package.json", "packages/contracts/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
+	case "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/web/package.json", "apps/site/package.json", "apps/electron/package.json", "packages/contracts/package.json", "dagger.json", "go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod", ".gitignore", ".npmrc", ".pnpmfile.cjs":
 		return true
 	}
 	for _, prefix := range []string{".dagger/", "patches/", "tools/validate/"} {
@@ -252,18 +252,18 @@ func selected(group, name string) bool {
 		return true
 	}
 	prefixes := map[string][]string{
-		"repo":           {"apps/servef/", "apps/native/", "packages/mygo/", "tools/", "packages/contracts/"},
-		"web-static":     {"apps/web/", "packages/contracts/"},
-		"tooling-static": {"scripts/", "tests/"},
-		"site-static":    {"apps/site/"},
-		"desktop-static": {"apps/desktop/", "apps/web/src/api/"},
-		"go":             {"apps/servef/", "tools/", "testdata/", "apps/web/", "packages/contracts/"},
-		"frontend":       {"apps/web/", "testdata/", "packages/contracts/"},
-		"tooling":        {"scripts/", "tests/", "tools/validate/", "testdata/"},
-		"docs":           {"apps/site/"},
-		"browser":        {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/contracts/"},
-		"desktop":        {"apps/desktop/", "apps/servef/", "apps/web/", "testdata/", "packages/contracts/"},
-		"native":         {"apps/native/", "packages/mygo/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css", "apps/web/src/styles/themes.css", "apps/web/src/features/documents/mermaid.css", "apps/web/src/highlighting/syntax-theme.ts", "apps/web/src/highlighting/syntax-highlight.ts", "apps/web/src/lib/line-selection.ts"},
+		"repo":            {"apps/servef/", "apps/native/", "packages/mygo/", "tools/", "packages/contracts/"},
+		"web-static":      {"apps/web/", "packages/contracts/"},
+		"tooling-static":  {"scripts/", "tests/"},
+		"site-static":     {"apps/site/"},
+		"electron-static": {"apps/electron/", "apps/web/src/api/"},
+		"go":              {"apps/servef/", "tools/", "testdata/", "apps/web/", "packages/contracts/"},
+		"frontend":        {"apps/web/", "testdata/", "packages/contracts/"},
+		"tooling":         {"scripts/", "tests/", "tools/validate/", "testdata/"},
+		"docs":            {"apps/site/"},
+		"browser":         {"apps/servef/", "testdata/", "apps/web/", "tests/", "scripts/", "packages/contracts/"},
+		"electron":        {"apps/electron/", "apps/servef/", "apps/web/", "testdata/", "packages/contracts/"},
+		"native":          {"apps/native/", "packages/mygo/", "apps/servef/", "testdata/document-families.json", "testdata/api/default/", "apps/web/src/styles/tokens.css", "apps/web/src/styles/themes.css", "apps/web/src/features/documents/mermaid.css", "apps/web/src/highlighting/syntax-theme.ts", "apps/web/src/highlighting/syntax-highlight.ts", "apps/web/src/lib/line-selection.ts"},
 	}
 	for _, prefix := range prefixes[group] {
 		if strings.HasPrefix(name, prefix) {

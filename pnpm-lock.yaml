@@ -22,7 +22,7 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
-  apps/desktop:
+  apps/electron:
     devDependencies:
       '@playwright/test':
         specifier: 1.63.0

@@ -34,8 +34,8 @@ No repository secrets are needed; publishing uses the workflow's
    - `cli` builds the embedded frontend and the four Go archives stamped with
      the version, commit, and commit date, and smoke tests the linux/amd64
      binary.
-   - `desktop-linux` (Ubuntu) and `desktop-macos` (macOS) package the desktop
-     app per arch with `apps/desktop/scripts/package.ts`, bundling the
+   - `electron-linux` (Ubuntu) and `electron-macos` (macOS) package the desktop
+     app per arch with `apps/electron/scripts/package.ts`, bundling the
      matching archive's `servef`. Each smoke tests one package: Linux
      extracts the amd64 AppImage and deb and checks the bundled binary's
      version, `app.asar`, the deb's `servef://` handler, and its file manager
@@ -71,8 +71,8 @@ desktop packages, where `<version>` is the tag without its leading `v`, or
 `0.0.0-edge`:
 
 - `servef_<version>_<darwin|linux>_<amd64|arm64>.tar.gz`
-- `servef-desktop_<version>_darwin_<amd64|arm64>.dmg` and `.zip`
-- `servef-desktop_<version>_linux_<amd64|arm64>.AppImage` and `.deb`
+- `servef-electron_<version>_darwin_<amd64|arm64>.dmg` and `.zip`
+- `servef-electron_<version>_linux_<amd64|arm64>.AppImage` and `.deb`
 
 The native app (decision 0079, phase 5) adds its packages to this set, a job
 to `build.yml`, and `install-native.sh` and `install-native-edge.sh`.
@@ -82,13 +82,18 @@ The install scripts download these names:
 | Script | Installs | From |
 | --- | --- | --- |
 | `install.sh` | CLI | the release `releases/latest` redirects to |
-| `install-desktop.sh` | CLI and desktop app | the same release |
+| `install-electron.sh` | CLI and desktop app | the same release |
 | `install-edge.sh` | CLI | `releases/download/edge/` |
-| `install-desktop-edge.sh` | CLI and desktop app | `releases/download/edge/` |
+| `install-electron-edge.sh` | CLI and desktop app | `releases/download/edge/` |
+
+`install-desktop.sh` and `install-desktop-edge.sh` hand over to the
+`install-electron` scripts, because earlier builds print their URLs (decision
+0092).
 
 The desktop scripts fetch the Linux icon from the tag
-(`apps/desktop/resources/icon.png`, or `desktop/resources/icon.png` for tags
-before decision 0078). Renaming an asset or moving the icon breaks them for
+(`apps/electron/resources/icon.png`, `apps/desktop/resources/icon.png` for tags
+before decision 0092, or `desktop/resources/icon.png` for tags before decision
+0078). Renaming an asset or moving the icon breaks them for
 every user at once.
 
 Each archive contains the native `servef` binary, README, and license. The
@@ -102,18 +107,18 @@ arch, at `resources/bin/servef` (not on `PATH`), plus Electron. macOS builds
 are ad-hoc signed, not notarized, so Gatekeeper blocks the first launch of a
 browser-downloaded package until the user allows it. There is no
 auto-update; upgrade by running the install script again. To package locally
-for the host OS and arch, run `mise run package:desktop` (installers) or
-`mise run package:desktop:dir` (unpacked app); output lands in
-`apps/desktop/dist/`.
+for the host OS and arch, run `mise run package:electron` (installers) or
+`mise run package:electron:dir` (unpacked app); output lands in
+`apps/electron/dist/`.
 
 For development installs from `edge`, see the
 [development guide](development.md#install-from-main).
 
-To inspect the Linux packages, run `mise run package:desktop`, then list the
-deb (`dpkg-deb -c apps/desktop/dist/servef-desktop_0.0.0-dev_linux_$(go env GOARCH).deb`,
+To inspect the Linux packages, run `mise run package:electron`, then list the
+deb (`dpkg-deb -c apps/electron/dist/servef-electron_0.0.0-dev_linux_$(go env GOARCH).deb`,
 or `bsdtar -tf` on its `data.tar.xz`). It must contain
-`usr/share/kio/servicemenus/servef-desktop.desktop`,
-`usr/share/nemo/actions/servef-desktop.nemo_action`, and one entry under
+`usr/share/kio/servicemenus/servef-electron.desktop`,
+`usr/share/nemo/actions/servef-electron.nemo_action`, and one entry under
 `usr/share/applications/` without `inode/directory`; `desktop-file-validate`
 checks that entry (not the KDE service menu). electron-builder's bundled fpm
 needs `libcrypt.so.1` (Arch: `libxcrypt-compat`), `xz`, and `ar`.

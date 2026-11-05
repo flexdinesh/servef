@@ -27,14 +27,14 @@
 # go.sum stays authoritative.
 /go.work.sum
 
-# Desktop bundle (apps/desktop/build.ts)
-/apps/desktop/node_modules/
-/apps/desktop/build/
-/apps/desktop/test-results/
+# Desktop bundle (apps/electron/build.ts)
+/apps/electron/node_modules/
+/apps/electron/build/
+/apps/electron/test-results/
 
-# Desktop packages (apps/desktop/scripts/package.ts)
-/apps/desktop/dist/
-/apps/desktop/.build/
+# Desktop packages (apps/electron/scripts/package.ts)
+/apps/electron/dist/
+/apps/electron/.build/
 
 # Native app builds (apps/native, decision 0082): mygo build output and the
 # servef binary it bundles

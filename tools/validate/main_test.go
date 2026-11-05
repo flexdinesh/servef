@@ -229,8 +229,8 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 	if !taskBelongsToGroup("_container:test:browser:webkit", "browser") {
 		t.Fatal("WebKit browser task rejected for browser group")
 	}
-	if taskBelongsToGroup("_container:test:browser:webkit", "desktop") {
-		t.Fatal("WebKit browser task accepted for desktop group")
+	if taskBelongsToGroup("_container:test:browser:webkit", "electron") {
+		t.Fatal("WebKit browser task accepted for electron group")
 	}
 }
 
@@ -251,7 +251,7 @@ func TestNativeGroupIsOptIn(t *testing.T) {
 			t.Fatalf("native does not select %s", name)
 		}
 	}
-	for _, name := range []string{"apps/desktop/src/main/main.ts", "apps/web/src/App.tsx"} {
+	for _, name := range []string{"apps/electron/src/main/main.ts", "apps/web/src/App.tsx"} {
 		if selected("native", name) {
 			t.Fatalf("native selects %s", name)
 		}
@@ -260,13 +260,13 @@ func TestNativeGroupIsOptIn(t *testing.T) {
 		if !selected("repo", name) {
 			t.Fatalf("fmt:check must see %s", name)
 		}
-		for _, group := range []string{"go", "frontend", "browser", "desktop", "web-static"} {
+		for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
 			if selected(group, name) {
 				t.Fatalf("native sources (%s) invalidate %s", name, group)
 			}
 		}
 	}
-	for _, group := range []string{"go", "frontend", "browser", "desktop", "web-static"} {
+	for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
 		if !selected(group, "packages/contracts/src/index.ts") {
 			t.Fatalf("%s must select the generated contracts", group)
 		}
@@ -282,46 +282,46 @@ func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
 	}
 }
 
-func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
-	if !isHostGroup("desktop-static") || isHostGroup("desktop") {
-		t.Fatal("desktop-static runs on the host; desktop tests run in Dagger")
+func TestElectronGroupsSelectShellAndServerInputs(t *testing.T) {
+	if !isHostGroup("electron-static") || isHostGroup("electron") {
+		t.Fatal("electron-static runs on the host; electron tests run in Dagger")
 	}
-	for _, task := range []string{"_host:typecheck:desktop", "_host:lint:desktop"} {
-		if !taskBelongsToGroup(task, "desktop-static") || taskBelongsToGroup(task, "web-static") {
+	for _, task := range []string{"_host:typecheck:electron", "_host:lint:electron"} {
+		if !taskBelongsToGroup(task, "electron-static") || taskBelongsToGroup(task, "web-static") {
 			t.Fatalf("wrong owner for %s", task)
 		}
 	}
-	if !taskBelongsToGroup("_container:test:desktop", "desktop") || taskBelongsToGroup("_container:test:desktop", "browser") {
-		t.Fatal("wrong owner for desktop tests")
+	if !taskBelongsToGroup("_container:test:electron", "electron") || taskBelongsToGroup("_container:test:electron", "browser") {
+		t.Fatal("wrong owner for electron tests")
 	}
-	for _, name := range []string{"apps/desktop/src/main/proxy.ts", "apps/web/src/api/events-contract.ts"} {
-		if !selected("desktop-static", name) {
-			t.Fatalf("desktop-static misses %s", name)
+	for _, name := range []string{"apps/electron/src/main/proxy.ts", "apps/web/src/api/events-contract.ts"} {
+		if !selected("electron-static", name) {
+			t.Fatalf("electron-static misses %s", name)
 		}
 	}
 	for _, name := range []string{"apps/servef/internal/daemon/daemon.go", "apps/web/src/App.tsx", "apps/servef/main.go"} {
-		if selected("desktop-static", name) {
-			t.Fatalf("desktop-static selected unrelated %s", name)
+		if selected("electron-static", name) {
+			t.Fatalf("electron-static selected unrelated %s", name)
 		}
 	}
-	for _, name := range []string{"apps/desktop/test/smoke/app.spec.ts", "apps/servef/internal/daemon/daemon.go", "apps/servef/cmd/daemon.go", "apps/web/src/App.tsx", "testdata/markdown/README.md", "apps/servef/main.go"} {
-		if !selected("desktop", name) {
-			t.Fatalf("desktop misses %s", name)
+	for _, name := range []string{"apps/electron/test/smoke/app.spec.ts", "apps/servef/internal/daemon/daemon.go", "apps/servef/cmd/daemon.go", "apps/web/src/App.tsx", "testdata/markdown/README.md", "apps/servef/main.go"} {
+		if !selected("electron", name) {
+			t.Fatalf("electron misses %s", name)
 		}
 	}
-	if selected("desktop", "apps/site/src/pages/index.mdx") || selected("desktop", "tests/browser/app.spec.ts") {
-		t.Fatal("desktop selected unrelated inputs")
+	if selected("electron", "apps/site/src/pages/index.mdx") || selected("electron", "tests/browser/app.spec.ts") {
+		t.Fatal("electron selected unrelated inputs")
 	}
 	// Every group installs the whole workspace from the frozen lockfile.
 	for _, group := range groups {
-		for _, manifest := range []string{"apps/desktop/package.json", "packages/contracts/package.json"} {
+		for _, manifest := range []string{"apps/electron/package.json", "packages/contracts/package.json"} {
 			if !selected(group, manifest) {
 				t.Fatalf("%s lacks the workspace manifest %s", group, manifest)
 			}
 		}
 	}
 	// Generated contracts feed the drift check and every web consumer.
-	for _, group := range []string{"repo", "web-static", "go", "frontend", "browser", "desktop"} {
+	for _, group := range []string{"repo", "web-static", "go", "frontend", "browser", "electron"} {
 		if !selected(group, "packages/contracts/src/index.ts") {
 			t.Fatalf("%s misses the generated contracts", group)
 		}
@@ -329,7 +329,7 @@ func TestDesktopGroupsSelectShellAndServerInputs(t *testing.T) {
 	if !taskBelongsToGroup("_host:contracts:check", "repo") {
 		t.Fatal("contracts:check is not a repo check")
 	}
-	for _, name := range []string{"apps/desktop/build/main.mjs", "apps/desktop/test-results/trace.zip", "apps/desktop/node_modules/electron/index.js"} {
+	for _, name := range []string{"apps/electron/build/main.mjs", "apps/electron/test-results/trace.zip", "apps/electron/node_modules/electron/index.js"} {
 		if !excluded(name) {
 			t.Fatalf("generated %s entered snapshots", name)
 		}

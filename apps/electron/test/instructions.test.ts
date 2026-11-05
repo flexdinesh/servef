@@ -13,7 +13,7 @@ test("missing instructions differ for packaged and dev builds", () => {
   assert.equal(packaged.stopAndRetry, false)
   const dev = failureInstructions({ ok: false, kind: "missing", detail: "no binary" }, false)
   assert.match(dev.paragraphs.join(" "), /SERVEF_DESKTOP_BINARY/)
-  assert.deepEqual(dev.commands, ["mise run dev:desktop"])
+  assert.deepEqual(dev.commands, ["mise run dev:electron"])
 })
 
 test("mismatch instructions name both protocols and offer stop and retry", () => {
@@ -148,8 +148,8 @@ test("forwardDenied names the sshd settings", () => {
 })
 
 test("runtimeDir shows the path and reason from the detail", () => {
-  const instructions = sshFailureInstructions(ssh("runtimeDir", { detail: "/run/user/1000/servef-desktop-ab is a symlink" }), null)
-  assert.equal(instructions.paragraphs[0], "/run/user/1000/servef-desktop-ab is a symlink")
+  const instructions = sshFailureInstructions(ssh("runtimeDir", { detail: "/run/user/1000/servef-electron-ab is a symlink" }), null)
+  assert.equal(instructions.paragraphs[0], "/run/user/1000/servef-electron-ab is a symlink")
 })
 
 test("failed shows the detail tail and the remote log when the socket is known", () => {

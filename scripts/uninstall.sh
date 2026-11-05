@@ -88,25 +88,35 @@ case "$CONFIG_HOME" in
   /*) ;;
   *) CONFIG_HOME="$HOME/.config" ;;
 esac
-APP_HOME="$DATA_HOME/servef-desktop"
-DESKTOP_ID="servef-desktop.desktop"
-ICON_PATH="$DATA_HOME/icons/hicolor/512x512/apps/servef-desktop.png"
-DOLPHIN_ACTION="$DATA_HOME/kio/servicemenus/servef-desktop.desktop"
-NEMO_ACTION="$DATA_HOME/nemo/actions/servef-desktop.nemo_action"
-DEB_EXECUTABLE="/opt/servef/servef-desktop"
+APP_HOME="$DATA_HOME/servef-electron"
+DESKTOP_ID="servef-electron.desktop"
+ICON_PATH="$DATA_HOME/icons/hicolor/512x512/apps/servef-electron.png"
+DOLPHIN_ACTION="$DATA_HOME/kio/servicemenus/servef-electron.desktop"
+NEMO_ACTION="$DATA_HOME/nemo/actions/servef-electron.nemo_action"
+DEB_EXECUTABLE="/opt/servef/servef-electron"
+# Installs from before the rename (decision 0092).
+OLD_APP_HOME="$DATA_HOME/servef-desktop"
+OLD_DESKTOP_ID="servef-desktop.desktop"
+OLD_ICON_PATH="$DATA_HOME/icons/hicolor/512x512/apps/servef-desktop.png"
+OLD_DOLPHIN_ACTION="$DATA_HOME/kio/servicemenus/servef-desktop.desktop"
+OLD_NEMO_ACTION="$DATA_HOME/nemo/actions/servef-desktop.nemo_action"
+OLD_DEB_EXECUTABLE="/opt/servef/servef-desktop"
 
 app_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
     pgrep -f 'servef\.app/Contents/MacOS/servef' >/dev/null 2>&1
   else
-    pgrep -x -u "$(id -u)" servef-desktop >/dev/null 2>&1
+    pgrep -x -u "$(id -u)" 'servef-(desktop|electron)' >/dev/null 2>&1
   fi
 }
 
 check_desktop_conflicts() {
   if [ "$OS" = linux ] && [ -e "$DEB_EXECUTABLE" ]; then
-    fail "the servef-desktop deb is installed ($DEB_EXECUTABLE); keep using it, or remove it first: sudo apt remove servef-desktop"
+    fail "the servef-electron deb is installed ($DEB_EXECUTABLE); keep using it, or remove it first: sudo apt remove servef-electron"
+  fi
+  if [ "$OS" = linux ] && [ -e "$OLD_DEB_EXECUTABLE" ]; then
+    fail "the servef-desktop deb is installed ($OLD_DEB_EXECUTABLE); install the servef-electron deb over it, or remove it first: sudo apt remove servef-desktop"
   fi
   if app_running; then
     fail "the servef desktop app is running; quit it, then run this again"
@@ -148,12 +158,13 @@ remove() {
 }
 
 # remove_appimage_of ENTRY removes the AppImage a desktop entry's Exec runs,
-# when it is a servef-desktop AppImage (a manual AppImage install).
+# when it is a servef-electron or servef-desktop AppImage (a manual AppImage
+# install).
 remove_appimage_of() {
   [ -f "$1" ] || return 0
   program="$(sed -n 's/^Exec=//p' "$1" | head -n 1 | sed -e 's/^"\([^"]*\)".*/\1/' -e t -e 's/ .*//')"
   case "$(basename "${program:-none}")" in
-    servef-desktop*.AppImage) remove "$program" ;;
+    servef-electron*.AppImage | servef-desktop*.AppImage) remove "$program" ;;
   esac
 }
 
@@ -201,18 +212,27 @@ remove "$HOME/.local/bin/servef" "$HOME/bin/servef" "$(go_bin)/servef" \
 if [ "$OS" = linux ]; then
   entry="$DATA_HOME/applications/$DESKTOP_ID"
   autostart="$CONFIG_HOME/autostart/$DESKTOP_ID"
+  old_entry="$DATA_HOME/applications/$OLD_DESKTOP_ID"
+  old_autostart="$CONFIG_HOME/autostart/$OLD_DESKTOP_ID"
   remove_appimage_of "$entry"
   remove_appimage_of "$autostart"
+  remove_appimage_of "$old_entry"
+  remove_appimage_of "$old_autostart"
   remove "$APP_HOME" "$entry" "$autostart" "$ICON_PATH" "$DOLPHIN_ACTION" "$NEMO_ACTION" \
+    "$OLD_APP_HOME" "$old_entry" "$old_autostart" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION" \
     "$DATA_HOME/nautilus/scripts/Open in servef"
   if has update-desktop-database; then
     update-desktop-database "$DATA_HOME/applications" >/dev/null 2>&1 || true
   fi
-  if [ -f "$CONFIG_HOME/Thunar/uca.xml" ] && grep -q servef-desktop "$CONFIG_HOME/Thunar/uca.xml"; then
+  if [ -f "$CONFIG_HOME/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$CONFIG_HOME/Thunar/uca.xml"; then
     warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
   fi
   remove "$NATIVE_HOME" "$NATIVE_DATA/applications/$NATIVE_DESKTOP_ID" "$NATIVE_ICON"
   if [ -e "$DEB_EXECUTABLE" ]; then
+    warn "the servef-electron deb is installed; remove it with:"
+    note "sudo apt remove servef-electron"
+  fi
+  if [ -e "$OLD_DEB_EXECUTABLE" ]; then
     warn "the servef-desktop deb is installed; remove it with:"
     note "sudo apt remove servef-desktop"
   fi

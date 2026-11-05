@@ -11,11 +11,11 @@
     "dev:mock": "pnpm --filter @servef/web dev:mock",
     "dev": "mise run dev",
     "link:local": "mise run install",
-    "lint": "pnpm --filter @servef/web lint && pnpm --filter @servef/desktop lint",
+    "lint": "pnpm --filter @servef/web lint && pnpm --filter @servef/electron lint",
     "test:browser": "mise run test:browser",
     "test:release": "node --test --test-concurrency=2 --test-reporter=dot tests/*.test.ts tests/browser/live-fixture.test.ts",
     "test:web": "pnpm --filter @servef/web test",
-    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck && pnpm --filter @servef/desktop typecheck"
+    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck && pnpm --filter @servef/electron typecheck"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

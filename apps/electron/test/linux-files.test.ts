@@ -22,16 +22,19 @@ test("every deb extra file exists and opens folders with --open-path", () => {
 
 test("the Dolphin service menu and Nemo action match folders only", () => {
   const [menu, nemo] = LINUX_EXTRA_FILES
-  assert.equal(menu.target, "/usr/share/kio/servicemenus/servef-desktop.desktop")
+  assert.equal(menu.target, "/usr/share/kio/servicemenus/servef-electron.desktop")
   assert.ok(read(menu.source).split("\n").includes("MimeType=inode/directory;"))
-  assert.equal(nemo.target, "/usr/share/nemo/actions/servef-desktop.nemo_action")
+  assert.equal(nemo.target, "/usr/share/nemo/actions/servef-electron.nemo_action")
   assert.ok(read(nemo.source).split("\n").includes("Extensions=dir;"))
 })
 
-test("debFpmArgs maps absolute sources to their targets", () => {
+test("debFpmArgs takes over the servef-desktop deb and maps absolute sources to their targets", () => {
   assert.deepEqual(debFpmArgs("/src/servef/desktop"), [
-    "/src/servef/desktop/resources/linux/servef-desktop.servicemenu.desktop=/usr/share/kio/servicemenus/servef-desktop.desktop",
-    "/src/servef/desktop/resources/linux/servef-desktop.nemo_action=/usr/share/nemo/actions/servef-desktop.nemo_action",
+    "--replaces", "servef-desktop",
+    "--conflicts", "servef-desktop",
+    "--provides", "servef-desktop",
+    "/src/servef/desktop/resources/linux/servef-electron.servicemenu.desktop=/usr/share/kio/servicemenus/servef-electron.desktop",
+    "/src/servef/desktop/resources/linux/servef-electron.nemo_action=/usr/share/nemo/actions/servef-electron.nemo_action",
   ])
 })
 

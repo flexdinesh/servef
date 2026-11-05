@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
 #
 # Writes only the servef binary to ~/.local/bin (or ~/bin when that is on
-# PATH). The desktop app and CLI: scripts/install-desktop.sh. Latest main:
+# PATH). The desktop app and CLI: scripts/install-electron.sh. Latest main:
 # scripts/install-edge.sh. Remove with scripts/uninstall.sh.
 
 # shared:base:begin

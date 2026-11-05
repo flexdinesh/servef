@@ -6,5 +6,5 @@ X-KDE-Priority=TopLevel
 
 [Desktop Action openInServef]
 Name=Open in servef
-Icon=servef-desktop
-Exec=/opt/servef/servef-desktop --open-path %F
+Icon=servef-electron
+Exec=/opt/servef/servef-electron --open-path %F

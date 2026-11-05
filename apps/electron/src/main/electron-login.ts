@@ -1,7 +1,8 @@
 // Open at Login (decision 0072): macOS login items through Electron, Linux
-// XDG autostart. Registration changes only on an explicit menu click.
+// XDG autostart. Registration changes only on an explicit menu click, except
+// that an earlier Linux opt-in moves to the renamed entry (decision 0092).
 import { app, dialog, shell, type BrowserWindow, type MessageBoxOptions } from "electron"
-import { autostartPlan, createXdgAutostart } from "./autostart.ts"
+import { autostartPlan, createXdgAutostart, migrateLegacyAutostart } from "./autostart.ts"
 
 export interface LoginItem {
   enabled(): boolean
@@ -37,6 +38,7 @@ export function createLoginItem(input: { platform: NodeJS.Platform; packaged: bo
   const plan = autostartPlan(input)
   if (plan === null) return null
   const autostart = createXdgAutostart(plan)
+  migrateLegacyAutostart(plan, autostart)
   return {
     enabled: autostart.enabled,
     set: async (on) => {

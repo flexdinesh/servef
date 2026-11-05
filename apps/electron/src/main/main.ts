@@ -68,6 +68,7 @@ function main(): void {
   // The single-instance lock is per userData directory: set it first.
   const userData = process.env.SERVEF_DESKTOP_USER_DATA
   // The default <appData>/servef is the CLI's config directory (daemon roots.json).
+  // Keeps its name across the rename: recent folders and connections live here (decision 0092).
   app.setPath("userData", userData !== undefined && userData !== "" ? path.resolve(userData) : path.join(app.getPath("appData"), "servef-desktop"))
   // A second instance hands its own parsed folders over; its argv may arrive reordered.
   const openPaths = parseOpenPaths(process.argv, process.cwd())

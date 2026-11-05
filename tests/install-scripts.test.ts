@@ -76,10 +76,10 @@ const STUBS: Record<string, string[]> = {
     '  shift',
     'done',
     'if [ -n "$write" ]; then printf "%s" "$STUB_LATEST"; exit 0; fi',
-    'if [ -n "${STUB_CURL_MISSING:-}" ] && [ "$url" = "$STUB_CURL_MISSING" ]; then exit 22; fi',
+    'case " ${STUB_CURL_MISSING:-} " in *" $url "*) exit 22 ;; esac',
     'file="$STUB_RELEASE_DIR/${url##*/}"',
     '[ -f "$file" ] || exit 22',
-    'cp "$file" "$out"',
+    'if [ -z "$out" ]; then cat "$file"; else cp "$file" "$out"; fi',
   ],
   wget: [
     'echo "wget $*" >> "$STUB_LOG"',
@@ -100,7 +100,7 @@ const STUBS: Record<string, string[]> = {
     'fi',
     'file="$STUB_RELEASE_DIR/${url##*/}"',
     '[ -f "$file" ] || exit 8',
-    'cp "$file" "$out"',
+    'if [ "$out" = - ]; then cat "$file"; else cp "$file" "$out"; fi',
   ],
 }
 
@@ -179,8 +179,8 @@ async function createRelease(
   await rm(join(release, name), { recursive: true })
   await writeFile(join(release, 'icon.png'), 'png')
   if (options.desktop === true) {
-    await writeFile(join(release, `servef-desktop_${version}_linux_${arch}.AppImage`), 'appimage')
-    await writeFile(join(release, `servef-desktop_${version}_darwin_arm64.zip`), 'zip')
+    await writeFile(join(release, `servef-electron_${version}_linux_${arch}.AppImage`), 'appimage')
+    await writeFile(join(release, `servef-electron_${version}_darwin_arm64.zip`), 'zip')
   }
 }
 
@@ -247,8 +247,11 @@ function assertOk(result: Result): void {
 
 // --- shared blocks ---
 
+// HANDOVERS only fetch and run the script that replaced them (decision 0092).
+const HANDOVERS = new Map([['install-desktop.sh', 'install-electron.sh'], ['install-desktop-edge.sh', 'install-electron-edge.sh']])
+
 void test('shared blocks are identical in every script that carries them', async () => {
-  const scripts = (await readdir(scriptsDir)).filter((name) => name.endsWith('.sh'))
+  const scripts = (await readdir(scriptsDir)).filter((name) => name.endsWith('.sh') && !HANDOVERS.has(name))
   assert.ok(scripts.length >= 3)
   const blocks = new Map<string, Map<string, string>>()
   for (const script of scripts) {
@@ -361,53 +364,53 @@ void test('install-edge.sh stops without its archive or on an unsupported platfo
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
-// --- install-desktop-edge.sh ---
+// --- install-electron-edge.sh ---
 
-void test('install-desktop-edge.sh installs the Linux AppImage, registers servef://, and adds folder actions', async (t) => {
+void test('install-electron-edge.sh installs the Linux AppImage, registers servef://, and adds folder actions', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t), { homeName: 'home 50%' })
   await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
   const share = join(sandbox.home, '.local', 'share')
-  await writeExecutable(join(share, 'servef-desktop', 'app', 'servef-desktop'), 'unpacked build')
+  await writeExecutable(join(share, 'servef-electron', 'app', 'servef-electron'), 'unpacked build')
 
-  const result = await run('install-desktop-edge.sh', sandbox)
+  const result = await run('install-electron-edge.sh', sandbox)
 
   assertOk(result)
-  const appImage = join(share, 'servef-desktop', 'servef-desktop.AppImage')
+  const appImage = join(share, 'servef-electron', 'servef-electron.AppImage')
   assert.equal(await readFile(appImage, 'utf8'), 'appimage')
   assert.ok(await isExecutable(appImage))
-  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
+  assert.equal(await exists(join(share, 'servef-electron', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
   assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'servef')))
   assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.0\.0-edge/)
 
   const exec = `"${appImage.replaceAll('%', '%%')}"`
-  const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
+  const entry = await readFile(join(share, 'applications', 'servef-electron.desktop'), 'utf8')
   assert.match(entry, /^MimeType=x-scheme-handler\/servef;$/m)
   assert.doesNotMatch(entry, /inode\/directory/)
   assert.ok(entry.includes(`\nExec=${exec} %U\n`), entry)
-  const dolphin = join(share, 'kio', 'servicemenus', 'servef-desktop.desktop')
+  const dolphin = join(share, 'kio', 'servicemenus', 'servef-electron.desktop')
   assert.ok((await readFile(dolphin, 'utf8')).includes(`\nExec=${exec} --open-path %F\n`))
   assert.ok(await isExecutable(dolphin), 'KDE runs only executable user service menus')
-  const nemo = await readFile(join(share, 'nemo', 'actions', 'servef-desktop.nemo_action'), 'utf8')
+  const nemo = await readFile(join(share, 'nemo', 'actions', 'servef-electron.nemo_action'), 'utf8')
   assert.ok(nemo.includes(`\nExec=${exec} --open-path %F\n`))
   assert.match(nemo, /^Extensions=dir;$/m)
-  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-electron.png'), 'utf8'), 'png')
 
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-desktop_0.0.0-edge_linux_amd64.AppImage`), log)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-electron_0.0.0-edge_linux_amd64.AppImage`), log)
   assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_linux_amd64.tar.gz`), log)
-  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/edge/apps/desktop/resources/icon.png'), log)
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/edge/apps/electron/resources/icon.png'), log)
   assert.doesNotMatch(log, /releases\/latest/)
-  assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+  assert.match(log, /^xdg-mime default servef-electron\.desktop x-scheme-handler\/servef$/m)
   assert.match(log, /^update-desktop-database .*\/applications$/m)
   assert.match(result.stdout, /servef \./)
 })
 
-void test('install-desktop-edge.sh installs servef.app on macOS without Linux registration', async (t) => {
+void test('install-electron-edge.sh installs servef.app on macOS without Linux registration', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
   await createDarwinArchive(sandbox, '0.0.0-edge')
 
-  const result = await run('install-desktop-edge.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
+  const result = await run('install-electron-edge.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
   assertOk(result)
   const apps = (await exists('/Applications')) ? '/Applications' : join(sandbox.home, 'Applications')
@@ -418,20 +421,20 @@ void test('install-desktop-edge.sh installs servef.app on macOS without Linux re
   assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'servef')))
   assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-desktop_0.0.0-edge_darwin_arm64.zip`), log)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-electron_0.0.0-edge_darwin_arm64.zip`), log)
   assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_darwin_arm64.tar.gz`), log)
   assert.doesNotMatch(log, /xdg-mime/)
 })
 
-void test('install-desktop-edge.sh stops before installing when it cannot', async (t) => {
+void test('install-electron-edge.sh stops before installing when it cannot', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { version: '0.0.0-edge' })
 
-  const noPackage = await run('install-desktop-edge.sh', sandbox)
+  const noPackage = await run('install-electron-edge.sh', sandbox)
   assert.notEqual(noPackage.code, 0)
-  assert.match(noPackage.stderr, /servef edge has no servef-desktop_0\.0\.0-edge_linux_amd64\.AppImage/)
+  assert.match(noPackage.stderr, /servef edge has no servef-electron_0\.0\.0-edge_linux_amd64\.AppImage/)
 
-  const running = await run('install-desktop-edge.sh', sandbox, { STUB_PGREP: '0' })
+  const running = await run('install-electron-edge.sh', sandbox, { STUB_PGREP: '0' })
   assert.notEqual(running.code, 0)
   assert.match(running.stderr, /the servef desktop app is running; quit it, then run this again/)
   assert.equal(await exists(join(sandbox.home, '.local')), false)
@@ -578,56 +581,110 @@ void test('install.sh stops when the latest release or its archive is missing', 
   assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false)
 })
 
-// --- install-desktop.sh ---
+// --- install-electron.sh ---
 
-void test('install-desktop.sh installs the Linux AppImage, registers it, and installs the CLI', async (t) => {
+void test('install-electron.sh installs the Linux AppImage, registers it, and installs the CLI', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { desktop: true })
   const share = join(sandbox.home, '.local', 'share')
-  await writeExecutable(join(share, 'servef-desktop', 'app', 'servef-desktop'), 'edge build')
+  await writeExecutable(join(share, 'servef-electron', 'app', 'servef-electron'), 'edge build')
 
-  const result = await run('install-desktop.sh', sandbox)
+  const result = await run('install-electron.sh', sandbox)
 
   assertOk(result)
-  const appImage = join(share, 'servef-desktop', 'servef-desktop.AppImage')
+  const appImage = join(share, 'servef-electron', 'servef-electron.AppImage')
   assert.equal(await readFile(appImage, 'utf8'), 'appimage')
   assert.ok(await isExecutable(appImage))
-  assert.equal(await exists(join(share, 'servef-desktop', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
-  const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
+  assert.equal(await exists(join(share, 'servef-electron', 'app')), false, 'the AppImage replaces an unpacked build from an earlier edge script')
+  const entry = await readFile(join(share, 'applications', 'servef-electron.desktop'), 'utf8')
   assert.ok(entry.includes(`\nExec=${appImage} %U\n`), entry)
-  assert.ok((await readFile(join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'), 'utf8')).includes(`\nExec=${appImage} --open-path %F\n`))
-  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
+  assert.ok((await readFile(join(share, 'kio', 'servicemenus', 'servef-electron.desktop'), 'utf8')).includes(`\nExec=${appImage} --open-path %F\n`))
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-electron.png'), 'utf8'), 'png')
   assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7/)
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-desktop_0.1.7_linux_amd64.AppImage'))
-  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/apps/desktop/resources/icon.png'))
-  assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-electron_0.1.7_linux_amd64.AppImage'))
+  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/apps/electron/resources/icon.png'))
+  assert.match(log, /^xdg-mime default servef-electron\.desktop x-scheme-handler\/servef$/m)
 })
 
-void test('install-desktop.sh fetches the icon from desktop/ for releases before the apps/ layout', async (t) => {
+void test('install-electron.sh fetches the icon from earlier layouts for earlier releases', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { desktop: true })
-  const moved = 'https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/apps/desktop/resources/icon.png'
+  const icon = (dir: string): string => `https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/${dir}/resources/icon.png`
 
-  const result = await run('install-desktop.sh', sandbox, { STUB_CURL_MISSING: moved })
+  const result = await run('install-electron.sh', sandbox, { STUB_CURL_MISSING: `${icon('apps/electron')} ${icon('apps/desktop')}` })
 
   assertOk(result)
   const share = join(sandbox.home, '.local', 'share')
-  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'png')
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-electron.png'), 'utf8'), 'png')
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes(moved))
-  assert.ok(log.includes('https://raw.githubusercontent.com/flexdinesh/servef/v0.1.7/desktop/resources/icon.png'))
+  assert.ok(log.includes(icon('apps/electron')))
+  assert.ok(log.includes(icon('apps/desktop')))
+  assert.ok(log.includes(icon('desktop')))
 })
 
-void test('install-desktop.sh stops on a release without desktop packages or while the app runs', async (t) => {
+void test('install-electron.sh replaces a servef-desktop install and leaves its login entry and data', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { desktop: true })
+  const share = join(sandbox.home, '.local', 'share')
+  const old = [
+    join(share, 'servef-desktop', 'servef-desktop.AppImage'),
+    join(share, 'applications', 'servef-desktop.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'),
+    join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'),
+    join(share, 'nemo', 'actions', 'servef-desktop.nemo_action'),
+  ]
+  for (const path of old) await writeExecutable(path, 'old')
+  const config = join(sandbox.home, '.config')
+  const autostart = join(config, 'autostart', 'servef-desktop.desktop')
+  const appData = join(config, 'servef-desktop', 'recent-folders.json')
+  await writeExecutable(autostart, 'old')
+  await writeExecutable(appData, '[]')
+
+  const result = await run('install-electron.sh', sandbox)
+
+  assertOk(result)
+  assert.match(result.stdout, /replaced the earlier servef-desktop install/)
+  for (const path of old) assert.equal(await exists(path), false, `${path} is removed`)
+  assert.ok(await exists(join(share, 'servef-electron', 'servef-electron.AppImage')))
+  assert.match(await readFile(sandbox.log, 'utf8'), /^xdg-mime default servef-electron\.desktop x-scheme-handler\/servef$/m)
+  assert.ok(await exists(autostart), 'the app moves the login entry when it starts')
+  assert.ok(await exists(appData), 'app data keeps its name')
+})
+
+for (const [moved, target] of HANDOVERS) {
+  for (const tool of ['curl', 'wget']) {
+    void test(`${moved} hands over to ${target} with ${tool}, since earlier builds print its URL`, async (t) => {
+      const sandbox = await createSandbox(t.after.bind(t), { without: tool === 'wget' ? ['curl'] : [] })
+      await createRelease(sandbox, { desktop: true, version: target.includes('edge') ? '0.0.0-edge' : '0.1.7' })
+      await writeFile(join(sandbox.env.STUB_RELEASE_DIR ?? '', target), await readFile(join(scriptsDir, target)))
+      const env: Record<string, string> = tool === 'wget' ? { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${await systemPathWithout(sandbox, ['curl'])}` } : {}
+
+      const result = await run(moved, sandbox, env)
+
+      assertOk(result)
+      assert.ok((await readFile(sandbox.log, 'utf8')).includes(`https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/${target}`))
+      assert.ok(await exists(join(sandbox.home, '.local', 'share', 'servef-electron', 'servef-electron.AppImage')))
+    })
+  }
+}
+
+void test('install-desktop.sh fails when the script it hands over to cannot be fetched', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  const result = await run('install-desktop.sh', sandbox)
+  assert.notEqual(result.code, 0)
+  assert.equal(await exists(join(sandbox.home, '.local')), false)
+})
+
+void test('install-electron.sh stops on a release without desktop packages or while the app runs', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox)
 
-  const noPackage = await run('install-desktop.sh', sandbox)
+  const noPackage = await run('install-electron.sh', sandbox)
   assert.notEqual(noPackage.code, 0)
-  assert.match(noPackage.stderr, /servef v0\.1\.7 has no servef-desktop_0\.1\.7_linux_amd64\.AppImage; releases before desktop packages have none/)
+  assert.match(noPackage.stderr, /servef v0\.1\.7 has no servef-electron_0\.1\.7_linux_amd64\.AppImage; releases before desktop packages have none/)
 
-  const running = await run('install-desktop.sh', sandbox, { STUB_PGREP: '0' })
+  const running = await run('install-electron.sh', sandbox, { STUB_PGREP: '0' })
   assert.notEqual(running.code, 0)
   assert.match(running.stderr, /the servef desktop app is running/)
   assert.equal(await exists(join(sandbox.home, '.local')), false)
@@ -638,14 +695,26 @@ void test('install-desktop.sh stops on a release without desktop packages or whi
 void test('uninstall.sh removes every install, reports package-managed copies, and keeps user data', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { desktop: true, version: '0.0.0-edge' })
-  assertOk(await run('install-desktop-edge.sh', sandbox))
-  const manual = join(sandbox.home, 'Applications', 'servef-desktop_0.1.7_linux_amd64.AppImage')
+  assertOk(await run('install-electron-edge.sh', sandbox))
+  const manual = join(sandbox.home, 'Applications', 'servef-electron_0.1.7_linux_amd64.AppImage')
   await writeExecutable(manual, 'appimage')
+  const oldManual = join(sandbox.home, 'Applications', 'servef-desktop_0.0.0-edge_linux_amd64.AppImage')
+  await writeExecutable(oldManual, 'appimage')
   const unrelated = join(sandbox.home, 'Applications', 'other.AppImage')
   await writeExecutable(unrelated, 'other')
   const config = join(sandbox.home, '.config')
   await mkdir(join(config, 'autostart'), { recursive: true })
-  await writeFile(join(config, 'autostart', 'servef-desktop.desktop'), `[Desktop Entry]\nExec=${manual}\n`)
+  await writeFile(join(config, 'autostart', 'servef-electron.desktop'), `[Desktop Entry]\nExec=${manual}\n`)
+  await writeFile(join(config, 'autostart', 'servef-desktop.desktop'), `[Desktop Entry]\nExec=${oldManual}\n`)
+  const share = join(sandbox.home, '.local', 'share')
+  const oldInstall = [
+    join(share, 'servef-desktop', 'servef-desktop.AppImage'),
+    join(share, 'applications', 'servef-desktop.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'),
+    join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'),
+    join(share, 'nemo', 'actions', 'servef-desktop.nemo_action'),
+  ]
+  for (const path of oldInstall) await writeExecutable(path, 'old')
   await writeExecutable(join(sandbox.home, '.local', 'share', 'nautilus', 'scripts', 'Open in servef'), '#!/bin/sh\n')
   await writeExecutable(join(sandbox.home, 'go', 'bin', 'servef'), fakeServef('0.1.6'))
   await mkdir(join(config, 'servef'), { recursive: true })
@@ -658,22 +727,24 @@ void test('uninstall.sh removes every install, reports package-managed copies, a
   const result = await run('uninstall.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${shims}:${SYSTEM_PATH}` })
 
   assertOk(result)
-  const share = join(sandbox.home, '.local', 'share')
   for (const path of [
+    ...oldInstall,
     join(sandbox.home, '.local', 'bin', 'servef'),
     join(sandbox.home, 'go', 'bin', 'servef'),
-    join(share, 'servef-desktop'),
-    join(share, 'applications', 'servef-desktop.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'),
-    join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'),
-    join(share, 'nemo', 'actions', 'servef-desktop.nemo_action'),
+    join(share, 'servef-electron'),
+    join(share, 'applications', 'servef-electron.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-electron.png'),
+    join(share, 'kio', 'servicemenus', 'servef-electron.desktop'),
+    join(share, 'nemo', 'actions', 'servef-electron.nemo_action'),
     join(share, 'nautilus', 'scripts', 'Open in servef'),
+    join(config, 'autostart', 'servef-electron.desktop'),
     join(config, 'autostart', 'servef-desktop.desktop'),
     manual,
+    oldManual,
   ]) {
     assert.equal(await exists(path), false, `${path} is removed`)
   }
-  assert.ok(await exists(unrelated), 'only servef-desktop AppImages are removed')
+  assert.ok(await exists(unrelated), 'only servef-electron and servef-desktop AppImages are removed')
   for (const path of [join(config, 'servef', 'roots.json'), join(config, 'servef-desktop'), join(sandbox.home, '.cache', 'servef')]) {
     assert.ok(await exists(path), `${path} is kept`)
   }

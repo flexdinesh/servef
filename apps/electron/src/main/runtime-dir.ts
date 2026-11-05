@@ -54,20 +54,20 @@ function fits(dir: string, platform: NodeJS.Platform): boolean {
 }
 
 // chooseRuntimeDir picks the directory (plan "Local runtime files"):
-// SERVEF_DESKTOP_RUNTIME_DIR override; Linux $XDG_RUNTIME_DIR/servef-desktop-<h8>
-// (absolute only) else <tmpdir>/servef-desktop-<h8>; macOS $TMPDIR (tmpdir);
-// /tmp/servef-desktop-<uid>-<h8> when a ControlPath plus 17 bytes would not
+// SERVEF_DESKTOP_RUNTIME_DIR override; Linux $XDG_RUNTIME_DIR/servef-electron-<h8>
+// (absolute only) else <tmpdir>/servef-electron-<h8>; macOS $TMPDIR (tmpdir);
+// /tmp/servef-electron-<uid>-<h8> when a ControlPath plus 17 bytes would not
 // fit sun_path (Linux 107, macOS 103) or the path contains "%" or ":".
 export function chooseRuntimeDir(input: RuntimeDirInput): string {
   const override = input.env.SERVEF_DESKTOP_RUNTIME_DIR
   if (override !== undefined && override !== "") return override
   const h8 = hexDigest(input.userData, 8)
-  const name = `servef-desktop-${h8}`
+  const name = `servef-electron-${h8}`
   const xdg = input.env.XDG_RUNTIME_DIR
   const base = input.platform === "linux" && xdg !== undefined && posix.isAbsolute(xdg) ? xdg : input.tmpdir
   const dir = posix.join(base, name)
   if (posix.isAbsolute(dir) && !dir.includes("%") && !dir.includes(":") && fits(dir, input.platform)) return dir
-  return `/tmp/servef-desktop-${input.uid}-${h8}`
+  return `/tmp/servef-electron-${input.uid}-${h8}`
 }
 
 function errorCode(error: unknown): string | undefined {
