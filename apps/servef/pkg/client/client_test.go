@@ -337,11 +337,6 @@ func TestDaemonCallsParityAcrossTransports(t *testing.T) {
 	if !errors.As(relative.Err, &invalidRoot) || invalidRoot.Code != contract.CodeInvalidRoot {
 		t.Errorf("DaemonOpen relative error = %v, want %s", relative.Err, contract.CodeInvalidRoot)
 	}
-	daemons.same(t, "DaemonDirectories", func(c client.Client) outcome { return result(c.DaemonDirectories(ctx, f.root)) })
-	missing := daemons.same(t, "DaemonDirectories missing", func(c client.Client) outcome { return result(c.DaemonDirectories(ctx, filepath.Join(f.root, "gone"))) })
-	if kindOf(missing.Err) != contract.KindNotFound {
-		t.Errorf("DaemonDirectories missing error = %v, want not found", missing.Err)
-	}
 	daemons.same(t, "DaemonEvents first", func(c client.Client) outcome {
 		stream, err := c.DaemonEvents(ctx)
 		if err != nil {

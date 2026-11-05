@@ -2,7 +2,7 @@ package contract
 
 import "time"
 
-// Daemon control (/_daemon/*, decisions 0061, 0066, 0076) error codes.
+// Daemon control (/_daemon/*, decisions 0061, 0066) error codes.
 const (
 	CodeBrowserRequest         = "browserRequest"
 	CodeUnsupportedMediaType   = "unsupportedMediaType"
@@ -11,10 +11,6 @@ const (
 	CodeRootsNotSaved          = "rootsNotSaved"
 	CodeProjectUnavailable     = "projectUnavailable"
 	CodeWalkthroughUnavailable = "walkthroughUnavailable"
-	CodePathUnavailable        = "pathUnavailable"
-	CodeInvalidPath            = "invalidPath"
-	CodeNotDirectory           = "notDirectory"
-	CodePathUnreadable         = "pathUnreadable"
 )
 
 // Daemon control stream event names, GET /_daemon/events.
@@ -57,23 +53,6 @@ type DaemonOpenResult struct {
 	Added    bool     `json:"added"`
 	Replaced []string `json:"replaced"`
 	Project  string   `json:"project"`
-}
-
-// BrowseEntry is one child directory in a folder picker listing.
-type BrowseEntry struct {
-	Name       string `json:"name"`
-	Path       string `json:"path"`
-	Repository bool   `json:"repository"`
-	Hidden     bool   `json:"hidden"`
-}
-
-// DaemonDirectories is GET /_daemon/directories: a directory's child
-// directories for a folder picker (decision 0076).
-type DaemonDirectories struct {
-	Path      string        `json:"path"`
-	Parent    string        `json:"parent"`
-	Entries   []BrowseEntry `json:"entries"`
-	Truncated bool          `json:"truncated"`
 }
 
 // DaemonStatusEvent is the control stream's first event.

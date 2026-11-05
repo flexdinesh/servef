@@ -1,6 +1,7 @@
 # 0092: The Electron app is named servef-electron
 
 - Status: Accepted (experimental)
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): the mygo app is named `servef-desktop`; Electron is removed
 - Date: 2026-11-05
 - Supersedes: the package and executable names in
   [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) Packages only

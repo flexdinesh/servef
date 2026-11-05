@@ -1,7 +1,0 @@
-[Nemo Action]
-Name=Open in servef
-Comment=Open the selected folders in servef
-Exec=/opt/servef/servef-electron --open-path %F
-Icon-Name=servef-electron
-Selection=notnone
-Extensions=dir;

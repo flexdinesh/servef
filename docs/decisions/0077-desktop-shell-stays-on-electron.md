@@ -1,6 +1,7 @@
 # 0077: Desktop shell stays on Electron
 
 - Status: Accepted
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): the desktop shell is mygo
 - Date: 2026-11-03
 - Evaluates: [0062](0062-desktop-app.md) Shell,
   [0067](0067-desktop-shell-and-protocol-proxy.md) Package, Protocol proxy,

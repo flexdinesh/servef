@@ -15,7 +15,7 @@ func daemonSupported() error { return nil }
 func daemonProcAttr() *syscall.SysProcAttr { return &syscall.SysProcAttr{Setsid: true} }
 
 // closeInheritedOnExec marks descriptors above stderr close-on-exec, so a
-// started daemon holds only its stdio. Parents such as Electron leave many
+// started daemon holds only its stdio. Parents can leave many
 // descriptors inheritable, and os/exec passes those on.
 func closeInheritedOnExec() {
 	dir := "/proc/self/fd"

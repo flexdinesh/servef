@@ -121,8 +121,8 @@ func open(ctx context.Context, url, goos string, run runner) error {
 const (
 	releasesURL = "https://github.com/flexdinesh/servef/releases"
 	docsURL     = "https://github.com/flexdinesh/servef/blob/main/apps/site/src/pages/docs/desktop.mdx"
-	// installScript installs the app and CLI from the latest release (decision 0073).
-	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh"
+	// installScript installs the app from the latest release (decision 0095).
+	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh"
 )
 
 // InstallHint returns install instructions for the desktop app on goos.
@@ -134,17 +134,16 @@ func InstallHint(goos string) string {
 		return "  install the servef desktop app:\n" +
 			"    " + installScript + "\n" +
 			"  or by hand:\n" +
-			"    1. download servef-electron_<version>_darwin_<arm64|amd64>.dmg from " + releasesURL + "\n" +
-			"    2. drag servef to Applications\n" +
-			"    3. preview builds are ad-hoc signed: on first launch right-click servef and choose Open\n" +
-			"       (or run: xattr -dr com.apple.quarantine /Applications/servef.app)\n" +
+			"    1. download servef-desktop_<version>_darwin_<arm64|amd64>.zip from " + releasesURL + "\n" +
+			"    2. move servef-desktop.app to Applications\n" +
+			"    3. builds are ad-hoc signed: on first launch right-click servef-desktop and choose Open\n" +
+			"       (or run: xattr -dr com.apple.quarantine /Applications/servef-desktop.app)\n" +
 			footer
 	case "linux":
-		return "  install the servef desktop app:\n" +
+		return "  install the servef desktop app (needs WebKitGTK 4.1):\n" +
 			"    " + installScript + "\n" +
-			"  or, on Debian and Ubuntu, from " + releasesURL + ":\n" +
-			"    sudo apt install ./servef-electron_<version>_linux_<amd64|arm64>.deb\n" +
-			"  a hand-installed AppImage registers servef:// only with desktop integration (e.g. AppImageLauncher).\n" +
+			"  the script registers servef:// links; a hand-unpacked servef-desktop_<version>_linux_<amd64|arm64>.tar.gz from\n" +
+			"  " + releasesURL + " does not.\n" +
 			footer
 	default:
 		return "  the servef desktop app is not available on this OS.\n"

@@ -13,8 +13,7 @@ CI publishes the `edge` prerelease after every green push to `main`; `servef --v
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh           # CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron-edge.sh | sh   # desktop app and CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-mygo-edge.sh | sh    # mygo app
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh   # desktop app
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh                # back to stable
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh              # remove all
 ```
@@ -26,8 +25,8 @@ servef --version              # servef 0.0.0-edge <commit> <date>
 servef daemon stop            # restart the daemon on the new build (next servef starts it)
 servef .                      # desktop app, else browser
 servef browser .              # browser
-servef-mygo .                 # mygo app
-servef-mygo --version
+servef-desktop .              # desktop app, without the CLI
+servef-desktop --version
 which -a servef               # which install wins on PATH
 ```
 
@@ -52,40 +51,23 @@ mise run dev:walkthroughs     # republish sample walkthroughs
 
 Ports: copy `.env.example` to `.env`, set `SERVEF_DEV_SERVER_PORT` and `SERVEF_DEV_WEB_PORT`.
 
-## Desktop (Electron)
+## Desktop app
+
+User docs: [desktop app](../apps/site/src/pages/docs/desktop.mdx); decisions 0094, 0095. The window is the daemon's web app in the OS web view. Linux needs WebKitGTK 4.1 (Debian: `libwebkit2gtk-4.1-0`). `apps/desktop` needs Go 1.27 (`GOTOOLCHAIN` downloads it).
 
 ```sh
-mise run dev:electron          # isolated dev daemon, roots, and app data under .dev/electron
-mise run build:electron        # dev binary and bundle only
-apps/electron/node_modules/.bin/electron --no-sandbox apps/electron --open-path <dir>   # OS folder entry (dev:electron env)
-SERVEF_DESKTOP_AUTOSTART_DIR=<abs dir> mise run dev:electron   # show Open at Login (Linux)
-mise run measure:electron      # memory scenario (needs a display)
+mise run dev:desktop                                 # build, then run against a private daemon, roots, and page state under .dev/desktop
+.dev/desktop/servef daemon stop --socket $PWD/.dev/desktop/daemon.sock   # stop its daemon
+mise run test:desktop                                # unit tests
+mise run test:desktop:e2e                            # built app (-tags e2e) under Xvfb in Dagger
 ```
 
-## mygo app (experimental)
-
-User docs: [mygo app](../apps/site/src/pages/docs/mygo.mdx); decision 0094. The window is the daemon's web app in the OS webview, so run `mise run build:web` first and build servef with it. Linux needs WebKitGTK 4.1 (Debian: `libwebkit2gtk-4.1-0`).
-
-```sh
-go build -o .dev/mygo/servef ./apps/servef
-GOWORK=off SERVEF_MYGO_BINARY=$PWD/.dev/mygo/servef SERVEF_MYGO_SOCKET=$PWD/.dev/mygo/daemon.sock SERVEF_MYGO_ROOTS_FILE=$PWD/.dev/mygo/roots.json go -C apps/mygo run . $PWD/testdata/markdown
-.dev/mygo/servef daemon stop --socket $PWD/.dev/mygo/daemon.sock   # stop its daemon
-mise run test:mygo          # opt-in tests (not in check:pr)
-mise run test:mygo:e2e      # built app (-tags e2e) under Xvfb in Dagger
-```
-
-Needs Go 1.27 (`GOTOOLCHAIN=auto` downloads it). Omit the `SERVEF_MYGO_*` socket and roots vars to use your real daemon.
-
-## Remote and ssh
+## Remote
 
 ```sh
 ssh host 'servef ~/code/foo'                    # no-UI host: prints web: and desktop: links
 servef browser --host 0.0.0.0 --no-open .       # simulate a remote server locally
-ssh -o BatchMode=yes host true                  # ssh host must pass this for the desktop app
-mise run dev:electron                            # then File > Connect... and pick the host
 ```
-
-Dev seams: `SERVEF_DESKTOP_SSH`, `SERVEF_DESKTOP_SSH_CONFIG`, `SERVEF_DESKTOP_RUNTIME_DIR`, `SERVEF_DESKTOP_AUTO_CONFIRM=1` with `SERVEF_DESKTOP_DIALOG_LOG`.
 
 ## Docs site
 
@@ -103,21 +85,14 @@ mise run test:race            # Go with race detector
 mise run test:web             # frontend
 mise run test:browser -- tests/browser/<spec>.ts   # browser (omit spec for all)
 mise run test:browser:webkit -- tests/browser/<spec>.ts   # WebKit (opt-in)
-mise run test:electron         # desktop unit, real sshd, Electron smoke
+mise run test:desktop         # desktop app unit tests
+mise run test:desktop:e2e     # built desktop app under Xvfb
 mise run test:release         # install scripts and release tooling
 mise run typecheck            # TypeScript
 mise run lint                 # oxlint and stylelint
 mise run fmt:check && mise run tidy:check
 mise run contracts:generate && mise run contracts:check   # after pkg/contract edits
 ```
-
-Desktop smoke on a host display:
-
-```sh
-mise run build:electron && SERVEF_DESKTOP_BINARY=$PWD/.dev/electron/servef pnpm --filter @servef/electron test:smoke
-```
-
-Add `SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland.
 
 ## Before a PR
 
@@ -131,9 +106,6 @@ Details: [validation](validation.md). Adding file types: `AGENTS.md`, "Adding La
 
 ## Package
 
-```sh
-mise run package:electron:dir  # unpacked desktop app, host OS and arch
-mise run package:electron      # installers in apps/electron/dist
-```
+`apps/desktop/scripts/package.sh` packages the desktop app from CLI archives, as `build.yml` does.
 
 Releases and docs deploy: [release](release.md).

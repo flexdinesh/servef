@@ -622,7 +622,7 @@ article:has(> .landing) {
   100% { opacity: 0; }
 }
 
-/* Desktop: an ssh link opens a window; notifications arrive. 9 s loop. */
+/* Desktop: a link opens the window. 9 s loop. */
 
 .desk-link {
   animation: desk-link 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
@@ -630,14 +630,6 @@ article:has(> .landing) {
 
 .desk-window {
   animation: desk-window 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
-}
-
-.desk-toast-1 {
-  animation: desk-toast-1 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
-}
-
-.desk-toast-2 {
-  animation: desk-toast-2 9s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
 }
 
 @keyframes desk-link {
@@ -649,18 +641,6 @@ article:has(> .landing) {
 @keyframes desk-window {
   0%, 20% { opacity: 0; transform: scale(0.94); }
   30%, 94% { opacity: 1; transform: none; }
-  100% { opacity: 0; }
-}
-
-@keyframes desk-toast-1 {
-  0%, 42% { opacity: 0; transform: translateX(24px); }
-  48%, 94% { opacity: 1; transform: none; }
-  100% { opacity: 0; }
-}
-
-@keyframes desk-toast-2 {
-  0%, 62% { opacity: 0; transform: translateX(24px); }
-  68%, 94% { opacity: 1; transform: none; }
   100% { opacity: 0; }
 }
 

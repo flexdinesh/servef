@@ -1,0 +1,22 @@
+{
+  "name": "servef-desktop",
+  "slug": "servef-desktop",
+  "identifier": "io.github.flexdinesh.servef.desktop",
+  "version": "0.0.0",
+  "copyright": "© 2026 Dinesh Pandiyan",
+  "out": "build",
+  "urlSchemes": [
+    "servef"
+  ],
+  "macos": {
+    "signingIdentity": "-"
+  },
+  "linux": {
+    "comment": "Browse local files with servef",
+    "categories": [
+      "Development"
+    ],
+    "webview": true,
+    "command": "servef-desktop"
+  }
+}

@@ -157,9 +157,6 @@
   --row-pick: 2rem;
   --row-drawer: 2rem;
   --chrome-height: var(--control-lg);
-  /* The desktop app's title band (decision 0075): the window-controls
-     overlay height in a desktop window, 0 in a browser. */
-  --titlebar-height: env(titlebar-area-height, 0px);
   --field-height: var(--control-md);
   /* Palette fields lead their dialog, a step above its pick rows. */
   --field-height-palette: 2.5rem;

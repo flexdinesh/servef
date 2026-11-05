@@ -1,10 +1,9 @@
 #!/bin/sh
 # Removes servef from this machine: the CLI the user can write in ~/.local/bin,
-# ~/bin, or Go's install directory; the desktop app, desktop entry, icon, file
-# manager actions, and login entry the install scripts or the documented
-# manual steps create; the experimental mygo app (decision 0094) and old servef-native installs. Prints how to remove package-managed copies (deb,
-# Homebrew, mise). Never deletes user data (app data, roots.json, caches).
-# Decision 0073.
+# ~/bin, or Go's install directory; the desktop app, its desktop entry and icon;
+# what the Electron app (decision 0095) and the servef-mygo app left. Prints how
+# to remove package-managed copies (deb, Homebrew, mise). Never deletes user data
+# (app data, page state, roots.json, caches). Decision 0073.
 #
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
 
@@ -78,73 +77,59 @@ make_tmp() {
 # shared:base:end
 
 # shared:desktop:begin
-DATA_HOME="${XDG_DATA_HOME:-}"
-case "$DATA_HOME" in
+DESKTOP_DATA="${XDG_DATA_HOME:-}"
+case "$DESKTOP_DATA" in
   /*) ;;
-  *) DATA_HOME="$HOME/.local/share" ;;
+  *) DESKTOP_DATA="$HOME/.local/share" ;;
 esac
-CONFIG_HOME="${XDG_CONFIG_HOME:-}"
-case "$CONFIG_HOME" in
+DESKTOP_CONFIG="${XDG_CONFIG_HOME:-}"
+case "$DESKTOP_CONFIG" in
   /*) ;;
-  *) CONFIG_HOME="$HOME/.config" ;;
+  *) DESKTOP_CONFIG="$HOME/.config" ;;
 esac
-APP_HOME="$DATA_HOME/servef-electron"
-DESKTOP_ID="servef-electron.desktop"
-ICON_PATH="$DATA_HOME/icons/hicolor/512x512/apps/servef-electron.png"
-DOLPHIN_ACTION="$DATA_HOME/kio/servicemenus/servef-electron.desktop"
-NEMO_ACTION="$DATA_HOME/nemo/actions/servef-electron.nemo_action"
-DEB_EXECUTABLE="/opt/servef/servef-electron"
-# Installs from before the rename (decision 0092).
-OLD_APP_HOME="$DATA_HOME/servef-desktop"
-OLD_DESKTOP_ID="servef-desktop.desktop"
-OLD_ICON_PATH="$DATA_HOME/icons/hicolor/512x512/apps/servef-desktop.png"
-OLD_DOLPHIN_ACTION="$DATA_HOME/kio/servicemenus/servef-desktop.desktop"
-OLD_NEMO_ACTION="$DATA_HOME/nemo/actions/servef-desktop.nemo_action"
-OLD_DEB_EXECUTABLE="/opt/servef/servef-desktop"
+# The app has a directory of its own: WebKit keeps the page's localStorage
+# beside it in servef-desktop/, which updates and uninstall leave alone.
+DESKTOP_HOME="$DESKTOP_DATA/servef-desktop/app"
+DESKTOP_ID="servef-desktop.desktop"
+DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-desktop.png"
+# The Electron app (decision 0095) installed its deb here, as servef-desktop or
+# servef-electron, and on macOS as servef.app.
+ELECTRON_DEB_DIR="${SERVEF_ELECTRON_DEB_DIR:-/opt/servef}"
 
-app_running() {
+desktop_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
-    pgrep -f 'servef\.app/Contents/MacOS/servef' >/dev/null 2>&1
+    pgrep -f 'servef-desktop\.app/Contents/MacOS/servef-desktop|servef\.app/Contents/MacOS/servef' >/dev/null 2>&1
   else
     pgrep -x -u "$(id -u)" 'servef-(desktop|electron)' >/dev/null 2>&1
   fi
 }
 
-check_desktop_conflicts() {
-  if [ "$OS" = linux ] && [ -e "$DEB_EXECUTABLE" ]; then
-    fail "the servef-electron deb is installed ($DEB_EXECUTABLE); keep using it, or remove it first: sudo apt remove servef-electron"
-  fi
-  if [ "$OS" = linux ] && [ -e "$OLD_DEB_EXECUTABLE" ]; then
-    fail "the servef-desktop deb is installed ($OLD_DEB_EXECUTABLE); install the servef-electron deb over it, or remove it first: sudo apt remove servef-desktop"
-  fi
-  if app_running; then
-    fail "the servef desktop app is running; quit it, then run this again"
+# electron_paths CMD runs CMD with what the Electron app's scripts and its Open
+# at Login left on Linux. Never its user data; with XDG_DATA_HOME equal to
+# XDG_CONFIG_HOME, that shares servef-desktop/ with the AppImage.
+electron_paths() {
+  "$1" "$DESKTOP_DATA/servef-electron" \
+    "$DESKTOP_DATA/servef-desktop/servef-desktop.AppImage" \
+    "$DESKTOP_DATA/applications/servef-electron.desktop" \
+    "$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-electron.png" \
+    "$DESKTOP_DATA/kio/servicemenus/servef-electron.desktop" \
+    "$DESKTOP_DATA/kio/servicemenus/servef-desktop.desktop" \
+    "$DESKTOP_DATA/nemo/actions/servef-electron.nemo_action" \
+    "$DESKTOP_DATA/nemo/actions/servef-desktop.nemo_action" \
+    "$DESKTOP_DATA/nautilus/scripts/Open in servef" \
+    "$DESKTOP_CONFIG/autostart/servef-electron.desktop" \
+    "$DESKTOP_CONFIG/autostart/servef-desktop.desktop"
+}
+
+# warn_thunar_action reports a hand-added Thunar action, which lives in Thunar's
+# own settings file.
+warn_thunar_action() {
+  if [ -f "$DESKTOP_CONFIG/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$DESKTOP_CONFIG/Thunar/uca.xml"; then
+    warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
   fi
 }
 # shared:desktop:end
-
-# shared:mygo:begin
-MYGO_DATA="${XDG_DATA_HOME:-}"
-case "$MYGO_DATA" in
-  /*) ;;
-  *) MYGO_DATA="$HOME/.local/share" ;;
-esac
-# The app has a directory of its own: WebKit keeps the page's localStorage
-# beside it in servef-mygo/, which updates and uninstall leave alone.
-MYGO_HOME="$MYGO_DATA/servef-mygo/app"
-MYGO_DESKTOP_ID="servef-mygo.desktop"
-MYGO_ICON="$MYGO_DATA/icons/hicolor/512x512/apps/servef-mygo.png"
-
-mygo_running() {
-  has pgrep || return 1
-  if [ "$OS" = darwin ]; then
-    pgrep -f 'servef-mygo\.app/Contents/MacOS/servef-mygo' >/dev/null 2>&1
-  else
-    pgrep -x -u "$(id -u)" servef-mygo >/dev/null 2>&1
-  fi
-}
-# shared:mygo:end
 
 REMOVED=0
 
@@ -160,8 +145,8 @@ remove() {
 }
 
 # remove_appimage_of ENTRY removes the AppImage a desktop entry's Exec runs,
-# when it is a servef-electron or servef-desktop AppImage (a manual AppImage
-# install).
+# when it is a servef-electron or servef-desktop AppImage (a manual install of
+# the Electron app).
 remove_appimage_of() {
   [ -f "$1" ] || return 0
   program="$(sed -n 's/^Exec=//p' "$1" | head -n 1 | sed -e 's/^"\([^"]*\)".*/\1/' -e t -e 's/ .*//')"
@@ -197,66 +182,60 @@ go_bin() {
 }
 
 detect_platform
-if app_running; then
+if desktop_running; then
   fail "the servef desktop app is running; quit it, then run this again"
 fi
-# An install from before the rename to mygo (decision 0094).
-native_running() {
+# servef-mygo: the desktop app's name on edge before decision 0095.
+mygo_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
-    pgrep -f 'servef-native\.app/Contents/MacOS/servef-native' >/dev/null 2>&1
+    pgrep -f 'servef-mygo\.app/Contents/MacOS/servef-mygo' >/dev/null 2>&1
   else
-    pgrep -x -u "$(id -u)" servef-native >/dev/null 2>&1
+    pgrep -x -u "$(id -u)" servef-mygo >/dev/null 2>&1
   fi
 }
-if mygo_running || native_running; then
-  fail "the servef mygo app is running; quit it, then run this again"
+if mygo_running; then
+  fail "the servef-mygo app is running; quit it, then run this again"
 fi
-if has servef && servef daemon status >/dev/null 2>&1; then
-  fail "a servef daemon is running; stop it with 'servef daemon stop', then run this again"
-fi
+# The desktop app bundles a servef; the CLI may not be installed.
+for program in "$(command -v servef 2>/dev/null || true)" "$DESKTOP_HOME/bin/servef" \
+  "/Applications/servef-desktop.app/Contents/Resources/bin/servef" \
+  "$HOME/Applications/servef-desktop.app/Contents/Resources/bin/servef"; do
+  if [ -x "$program" ] && "$program" daemon status >/dev/null 2>&1; then
+    fail "a servef daemon is running; stop it with '$program daemon stop', then run this again"
+  fi
+done
 
 step "removing servef"
 remove "$HOME/.local/bin/servef" "$HOME/bin/servef" "$(go_bin)/servef" \
-  "$HOME/.local/bin/servef-mygo" "$HOME/bin/servef-mygo" \
-  "$HOME/.local/bin/servef-native" "$HOME/bin/servef-native"
+  "$HOME/.local/bin/servef-desktop" "$HOME/bin/servef-desktop" \
+  "$HOME/.local/bin/servef-mygo" "$HOME/bin/servef-mygo"
 
 if [ "$OS" = linux ]; then
-  entry="$DATA_HOME/applications/$DESKTOP_ID"
-  autostart="$CONFIG_HOME/autostart/$DESKTOP_ID"
-  old_entry="$DATA_HOME/applications/$OLD_DESKTOP_ID"
-  old_autostart="$CONFIG_HOME/autostart/$OLD_DESKTOP_ID"
-  remove_appimage_of "$entry"
-  remove_appimage_of "$autostart"
-  remove_appimage_of "$old_entry"
-  remove_appimage_of "$old_autostart"
-  remove "$APP_HOME" "$entry" "$autostart" "$ICON_PATH" "$DOLPHIN_ACTION" "$NEMO_ACTION" \
-    "$OLD_APP_HOME/servef-desktop.AppImage" "$OLD_APP_HOME/app" "$old_entry" "$old_autostart" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION" \
-    "$DATA_HOME/nautilus/scripts/Open in servef"
-  # Only what the scripts put there: with XDG_DATA_HOME equal to XDG_CONFIG_HOME,
-  # this directory is also the app's user data.
-  rmdir "$OLD_APP_HOME" 2>/dev/null || true
+  for entry in "$DESKTOP_DATA/applications/servef-electron.desktop" "$DESKTOP_DATA/applications/$DESKTOP_ID" \
+    "$DESKTOP_CONFIG/autostart/servef-electron.desktop" "$DESKTOP_CONFIG/autostart/$DESKTOP_ID"; do
+    remove_appimage_of "$entry"
+  done
+  remove "$DESKTOP_HOME" "$DESKTOP_DATA/applications/$DESKTOP_ID" "$DESKTOP_ICON"
+  electron_paths remove
+  # Only what the scripts put there: WebKit's page state and, with XDG_DATA_HOME
+  # equal to XDG_CONFIG_HOME, the Electron app's user data share this directory.
+  rmdir "$DESKTOP_DATA/servef-desktop" 2>/dev/null || true
+  remove "$DESKTOP_DATA/servef-mygo/app" "$DESKTOP_DATA/applications/servef-mygo.desktop" "$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-mygo.png"
+  rmdir "$DESKTOP_DATA/servef-mygo" 2>/dev/null || true
   if has update-desktop-database; then
-    update-desktop-database "$DATA_HOME/applications" >/dev/null 2>&1 || true
+    update-desktop-database "$DESKTOP_DATA/applications" >/dev/null 2>&1 || true
   fi
-  if [ -f "$CONFIG_HOME/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$CONFIG_HOME/Thunar/uca.xml"; then
-    warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
-  fi
-  remove "$MYGO_HOME" "$MYGO_DATA/applications/$MYGO_DESKTOP_ID" "$MYGO_ICON"
-  rmdir "$MYGO_DATA/servef-mygo" 2>/dev/null || true
-  # Installs from before the rename to mygo (decision 0094).
-  remove "$MYGO_DATA/servef-native" "$MYGO_DATA/applications/servef-native.desktop" "$MYGO_DATA/icons/hicolor/512x512/apps/servef-native.png"
-  if [ -e "$DEB_EXECUTABLE" ]; then
-    warn "the servef-electron deb is installed; remove it with:"
-    note "sudo apt remove servef-electron"
-  fi
-  if [ -e "$OLD_DEB_EXECUTABLE" ]; then
-    warn "the servef-desktop deb is installed; remove it with:"
-    note "sudo apt remove servef-desktop"
-  fi
+  warn_thunar_action
+  for deb in servef-desktop servef-electron; do
+    if [ -e "$ELECTRON_DEB_DIR/$deb" ]; then
+      warn "the $deb deb is installed; remove it with:"
+      note "sudo apt remove $deb"
+    fi
+  done
 else
   for dir in /Applications "$HOME/Applications"; do
-    for app in servef.app servef-mygo.app servef-native.app; do
+    for app in servef-desktop.app servef.app servef-mygo.app; do
       if [ -e "$dir/$app" ] && ! [ -w "$dir" ]; then
         warn "cannot remove $dir/$app; remove it with:"
         note "sudo rm -rf \"$dir/$app\""
@@ -306,8 +285,10 @@ if [ "$OS" = linux ]; then
     /*) ;;
     *) cache="$HOME/.cache" ;;
   esac
-  report_kept "$CONFIG_HOME/servef-desktop" "$CONFIG_HOME/servef-mygo" "$CONFIG_HOME/servef-native" "$CONFIG_HOME/servef" "$cache/servef" "$MYGO_DATA/servef-mygo" "$cache/servef-mygo"
+  report_kept "$DESKTOP_DATA/servef-desktop" "$DESKTOP_CONFIG/servef-desktop" "$cache/servef-desktop" "$DESKTOP_CONFIG/servef" "$cache/servef" \
+    "$DESKTOP_DATA/servef-mygo" "$DESKTOP_CONFIG/servef-mygo" "$cache/servef-mygo"
 else
   support="$HOME/Library/Application Support"
-  report_kept "$support/servef-desktop" "$support/servef-mygo" "$support/servef-native" "$support/servef" "$HOME/Library/Caches/servef" "$HOME/Library/WebKit/io.github.flexdinesh.servef.mygo"
+  report_kept "$HOME/Library/WebKit/io.github.flexdinesh.servef.desktop" "$support/servef-desktop" "$support/servef" "$HOME/Library/Caches/servef" \
+    "$HOME/Library/WebKit/io.github.flexdinesh.servef.mygo" "$support/servef-mygo"
 fi

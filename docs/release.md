@@ -34,13 +34,12 @@ No repository secrets are needed; publishing uses the workflow's
    - `cli` builds the embedded frontend and the four Go archives stamped with
      the version, commit, and commit date, and smoke tests the linux/amd64
      binary.
-   - `electron-linux` (Ubuntu) and `electron-macos` (macOS) package the desktop
-     app per arch with `apps/electron/scripts/package.ts`, bundling the
-     matching archive's `servef`. Each smoke tests one package: Linux
-     extracts the amd64 AppImage and deb and checks the bundled binary's
-     version, `app.asar`, the deb's `servef://` handler, and its file manager
-     actions; macOS checks the arm64 app's binary, `CFBundleURLSchemes`, and
-     folder document type.
+   - `desktop-linux` (Ubuntu) and `desktop-macos` (macOS) package the desktop
+     app per arch with `apps/desktop/scripts/package.sh`, bundling the matching
+     archive's `servef`. Each smoke tests one package: Linux checks the amd64
+     app's and bundled binary's versions, the desktop entry's `servef://`
+     handler, and the icon; macOS checks the arm64 app's versions, its signature,
+     and `CFBundleURLSchemes`.
    - `assets` checks the exact asset set and writes `checksums.txt`.
 6. `publish` creates the GitHub Release for the tag with generated notes and
    marks it latest.
@@ -63,42 +62,33 @@ cancelled, and an older run skips publishing when `edge` already has a newer
 commit. The first green push creates the prerelease.
 
 Edge binaries report `servef 0.0.0-edge <commit> <date>`; the desktop app
-reports `0.0.0-edge` and links the latest stable release.
+reports `servef-desktop 0.0.0-edge <commit>`.
 
 ## Assets
 
-Each release and `edge` publishes `checksums.txt`, four archives, and eight
+Each release and `edge` publishes `checksums.txt`, four archives, and four
 desktop packages, where `<version>` is the tag without its leading `v`, or
 `0.0.0-edge`:
 
 - `servef_<version>_<darwin|linux>_<amd64|arm64>.tar.gz`
-- `servef-electron_<version>_darwin_<amd64|arm64>.dmg` and `.zip`
-- `servef-electron_<version>_linux_<amd64|arm64>.AppImage` and `.deb`
+- `servef-desktop_<version>_linux_<amd64|arm64>.tar.gz`
+- `servef-desktop_<version>_darwin_<amd64|arm64>.zip`
 
 `edge` omits every `darwin_amd64` asset (decision 0093); the edge install
 scripts stop on macOS Intel and point at the stable ones.
-
-The mygo app (decision 0094) adds its packages to this set, jobs to
-`build.yml`, and `install-mygo.sh` and `install-mygo-edge.sh`.
 
 The install scripts download these names:
 
 | Script | Installs | From |
 | --- | --- | --- |
 | `install.sh` | CLI | the release `releases/latest` redirects to |
-| `install-electron.sh` | CLI and desktop app | the same release |
+| `install-desktop.sh` | desktop app | the same release |
 | `install-edge.sh` | CLI | `releases/download/edge/` |
-| `install-electron-edge.sh` | CLI and desktop app | `releases/download/edge/` |
+| `install-desktop-edge.sh` | desktop app | `releases/download/edge/` |
 
-`install-desktop.sh` and `install-desktop-edge.sh` hand over to the
-`install-electron` scripts, because earlier builds print their URLs (decision
-0092).
-
-The desktop scripts fetch the Linux icon from the tag
-(`apps/electron/resources/icon.png`, `apps/desktop/resources/icon.png` for tags
-before decision 0092, or `desktop/resources/icon.png` for tags before decision
-0078). Renaming an asset or moving the icon breaks them for
-every user at once.
+Renaming an asset breaks them for every user at once. v0.1.6 and earlier have no
+desktop asset: `install-desktop.sh` stops with a message naming the edge script
+until a release carries one.
 
 Each archive contains the native `servef` binary, README, and license. The
 frontend is built into `apps/servef/internal/web/dist/` before Go
@@ -107,25 +97,15 @@ dependencies only; installed releases need no JavaScript runtime, external
 assets, or sidecar server.
 
 Desktop packages bundle the same Go binary as the archive for their OS and
-arch, at `resources/bin/servef` (not on `PATH`), plus Electron. macOS builds
-are ad-hoc signed, not notarized, so Gatekeeper blocks the first launch of a
-browser-downloaded package until the user allows it. There is no
-auto-update; upgrade by running the install script again. To package locally
-for the host OS and arch, run `mise run package:electron` (installers) or
-`mise run package:electron:dir` (unpacked app); output lands in
-`apps/electron/dist/`.
+arch, at `resources/bin/servef` (not on `PATH`). Linux needs WebKitGTK 4.1 on the
+machine. macOS builds are ad-hoc signed, not notarized, so Gatekeeper blocks the
+first launch of a browser-downloaded package until the user allows it. There is
+no auto-update; upgrade by running the install script again. To package locally,
+run `apps/desktop/scripts/package.sh` from the repository root with archives
+from the `cli` job.
 
 For development installs from `edge`, see the
 [development guide](development.md#install-from-main).
-
-To inspect the Linux packages, run `mise run package:electron`, then list the
-deb (`dpkg-deb -c apps/electron/dist/servef-electron_0.0.0-dev_linux_$(go env GOARCH).deb`,
-or `bsdtar -tf` on its `data.tar.xz`). It must contain
-`usr/share/kio/servicemenus/servef-electron.desktop`,
-`usr/share/nemo/actions/servef-electron.nemo_action`, and one entry under
-`usr/share/applications/` without `inode/directory`; `desktop-file-validate`
-checks that entry (not the KDE service menu). electron-builder's bundled fpm
-needs `libcrypt.so.1` (Arch: `libxcrypt-compat`), `xz`, and `ar`.
 
 The install scripts share code between `# shared:<name>:begin/end` markers;
 edit every copy. `mise run test:release` runs shellcheck and
@@ -144,7 +124,7 @@ Git integration (decision 0074). Project settings:
 | Build output directory | `apps/site/dist/public` |
 | Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
 
-The filtered install skips the web and desktop workspaces. `pnpm build:site`
+The filtered install skips the web workspace. `pnpm build:site`
 fails on dead internal links. Cloudflare serves `404.html` for unknown paths.
 There is no `wrangler.toml`: Pages build settings live in the dashboard.
 

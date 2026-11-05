@@ -1,6 +1,7 @@
 # 0067: Desktop shell and protocol proxy
 
 - Status: Accepted; revised by [0070](0070-desktop-ssh-connections.md) (connection kinds, per-origin windows, local-only bridge), [0072](0072-os-integration.md) (OS folder entry points), [0081](0081-desktop-bridge-v2-native-features.md) (bridge v2)
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): Electron is removed; [0094](0094-mygo-app-uses-web-views.md) keeps the proxy rules in `apps/desktop/internal/proxy`
 - Date: 2026-11-01
 - Implements: [0062](0062-desktop-app.md) Shell, local Connections, Lifetime
   and notifications, Nothing installed

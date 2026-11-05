@@ -2,9 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"mime"
 	"net/http"
 	"os"
@@ -22,9 +20,6 @@ import (
 
 // controlPrefix marks the control API; its requests never reach the web app.
 const controlPrefix = "/_daemon/"
-
-// maxDirectoryEntries bounds a GET /_daemon/directories listing.
-const maxDirectoryEntries = 2000
 
 // maxControlRequest bounds a POST /_daemon/* body.
 const maxControlRequest = 4 << 10
@@ -49,9 +44,6 @@ type addRootResponse struct {
 // whether it was added, the roots it replaced (inside it), and the project
 // that shows the path.
 type OpenResult = contract.DaemonOpenResult
-
-// directoriesResponse is GET /_daemon/directories' answer.
-type directoriesResponse = contract.DaemonDirectories
 
 type announceRequest struct {
 	Project string `json:"project"`
@@ -144,8 +136,6 @@ func (c *Controller) Handler(next http.Handler) http.Handler {
 			c.addRoot(w, r)
 		case name == "open" && r.Method == http.MethodPost:
 			c.serveOpen(w, r)
-		case name == "directories" && r.Method == http.MethodGet:
-			serveDirectories(w, r.URL.Query().Get("path"))
 		case name == "events" && r.Method == http.MethodGet:
 			c.serveEvents(w, r)
 		case name == "walkthroughs" && r.Method == http.MethodPost:
@@ -153,7 +143,7 @@ func (c *Controller) Handler(next http.Handler) http.Handler {
 		case name == "stop" && r.Method == http.MethodPost:
 			writeJSON(w, http.StatusAccepted, stopResponse{Stopping: true})
 			c.stop()
-		case name == "status", name == "events", name == "directories":
+		case name == "status", name == "events":
 			methodNotAllowed(w, http.MethodGet)
 		case name == "roots":
 			methodNotAllowed(w, "GET, POST")
@@ -270,58 +260,6 @@ func (c *Controller) Open(path string) (OpenResult, error) {
 		return OpenResult{}, &app.Error{Kind: contract.KindNotFound, Code: contract.CodeProjectUnavailable, Message: "No project shows " + path + ": " + err.Error()}
 	}
 	return OpenResult{Root: root, Added: added, Replaced: nonNil(replaced), Project: project}, nil
-}
-
-// serveDirectories answers GET /_daemon/directories (Directories).
-func serveDirectories(w http.ResponseWriter, path string) {
-	listing, err := Directories(path)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, listing)
-}
-
-// Directories lists a directory's child directories so a client can choose
-// a folder to open (decision 0076); an empty path lists the home directory.
-func Directories(path string) (contract.DaemonDirectories, error) {
-	failure := func(kind contract.ErrorKind, code, message string) (contract.DaemonDirectories, error) {
-		return contract.DaemonDirectories{}, &app.Error{Kind: kind, Code: code, Message: message}
-	}
-	if path == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return failure(contract.KindNotFound, contract.CodePathUnavailable, "The home directory is unknown: "+err.Error())
-		}
-		path = home
-	}
-	if !filepath.IsAbs(path) {
-		return failure(contract.KindInvalid, contract.CodeInvalidPath, "Path must be absolute.")
-	}
-	path = filepath.Clean(path)
-	entries, truncated, err := projects.Browse(path, maxDirectoryEntries)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		return failure(contract.KindNotFound, contract.CodePathUnavailable, path+" does not exist.")
-	case errors.Is(err, projects.ErrNotDirectory):
-		return failure(contract.KindInvalid, contract.CodeNotDirectory, path+" is not a directory.")
-	case errors.Is(err, fs.ErrPermission):
-		return failure(contract.KindForbidden, contract.CodePathUnreadable, path+" cannot be read.")
-	case err != nil:
-		return failure(contract.KindInternal, contract.CodePathUnreadable, "Read "+path+": "+err.Error())
-	}
-	parent := filepath.Dir(path)
-	if parent == path {
-		parent = ""
-	}
-	listing := contract.DaemonDirectories{Path: path, Parent: parent, Truncated: truncated}
-	if entries != nil {
-		listing.Entries = make([]contract.BrowseEntry, len(entries))
-		for i, entry := range entries {
-			listing.Entries[i] = contract.BrowseEntry{Name: entry.Name, Path: entry.Path, Repository: entry.Repository, Hidden: entry.Hidden}
-		}
-	}
-	return listing, nil
 }
 
 // announce tells control streams that a walkthrough was published to the

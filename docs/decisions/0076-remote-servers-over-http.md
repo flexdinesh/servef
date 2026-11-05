@@ -1,6 +1,7 @@
 # 0076: Remote servers over http; ssh driven from the app
 
 - Status: Accepted
+- Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md) for ssh and the desktop app's server windows and `/_daemon/directories`; no-UI serving and printed links stay
 - Date: 2026-11-02
 - Supersedes: [0069](0069-servef-remote-and-ssh-links.md) (`servef remote`,
   ssh links, link hints, `testdata/remote-links.json`)

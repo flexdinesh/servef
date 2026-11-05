@@ -21,15 +21,15 @@ The install scripts are the supported way to install servef; Homebrew and
 
 ### Desktop app
 
-Optional. The desktop app and the CLI, macOS and Linux:
+Optional, macOS and Linux. Linux needs WebKitGTK 4.1. It installs the app only:
+install the CLI too for `servef .` to open it.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
 ```
 
-Packages are also on
-[GitHub Releases](https://github.com/flexdinesh/servef/releases); see
-[Desktop app](/docs/desktop).
+The latest stable release does not carry the app yet: until the next one, use
+`scripts/install-desktop-edge.sh`. See [Desktop app](/docs/desktop).
 
 ### Uninstall
 
@@ -38,8 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/unin
 ```
 
 It removes the CLI and the desktop app however they were installed in your
-home directory, prints the command for the deb or a copy that Homebrew,
-mise, or another tool installed earlier, and keeps your data.
+home directory, prints the command for a copy that Homebrew, mise, apt, or
+another tool installed earlier, and keeps your data.
 
 ## Run
 

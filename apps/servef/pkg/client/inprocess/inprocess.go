@@ -1,6 +1,6 @@
 // Package inprocess is the in-process transport for client.Client: it calls
 // the application layer and an optional daemon controller directly. It is a
-// separate package so HTTP-only users of pkg/client, such as the mygo app,
+// separate package so HTTP-only users of pkg/client, such as the desktop app,
 // do not link the server and its embedded web app.
 package inprocess
 
@@ -176,10 +176,6 @@ func (c *Client) DaemonRoots(ctx context.Context) (contract.DaemonRoots, error) 
 
 func (c *Client) DaemonOpen(ctx context.Context, path string) (contract.DaemonOpenResult, error) {
 	return daemonCall(ctx, c.control, func() (contract.DaemonOpenResult, error) { return c.control.Open(path) })
-}
-
-func (c *Client) DaemonDirectories(ctx context.Context, path string) (contract.DaemonDirectories, error) {
-	return daemonCall(ctx, c.control, func() (contract.DaemonDirectories, error) { return daemon.Directories(path) })
 }
 
 func (c *Client) DaemonEvents(ctx context.Context) (*client.Stream[contract.DaemonEvent], error) {

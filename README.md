@@ -11,10 +11,8 @@ macOS and Linux, no sudo, no runtime needed. Installs to `~/.local/bin` (or `~/b
 ```sh
 # CLI
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
-# desktop app and CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh
-# mygo app (experimental)
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-mygo.sh | sh
+# desktop app (Linux needs WebKitGTK 4.1; `servef .` also needs the CLI)
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
 # uninstall everything (keeps user data)
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
 ```

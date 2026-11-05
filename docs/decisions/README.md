@@ -63,29 +63,29 @@ rewriting history; update `Status` on the old record.
 | [0055](0055-scrollbars.md) | Thin, hover-revealed scrollbars with reserved gutters | Accepted |
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
-| [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted |
+| [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted; groups revised by 0095 |
 | [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
 | [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
-| [0062](0062-desktop-app.md) | Desktop app | Accepted (0067, 0068, 0070, 0071, 0072, 0081) |
+| [0062](0062-desktop-app.md) | Desktop app | Electron shell superseded by 0095 |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted (0065, 0068, 0071); revised by 0076 |
-| [0064](0064-ssh-remotes.md) | SSH remotes | Accepted (0070); revised by 0076 |
+| [0064](0064-ssh-remotes.md) | SSH remotes | Superseded by 0095 |
 | [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069; shared checks by 0087 |
 | [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted; announcements by 0087 |
-| [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Accepted; revised by 0070, 0072, 0075, 0081 |
-| [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0072, 0073, 0076, 0079 (Releases, Homebrew); names superseded by 0092 |
+| [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Superseded by 0095; proxy rules kept by 0094 |
+| [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0069, 0072, 0073, 0076, 0079; packages superseded by 0092, then 0095 |
 | [0069](0069-servef-remote-and-ssh-links.md) | `servef remote` and ssh links | Superseded by 0076 |
-| [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Accepted; revised by 0076, 0079 (install instructions) |
-| [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Accepted; revised by 0076 |
-| [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Accepted; revised by 0081, 0092 |
-| [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 (names) |
+| [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Superseded by 0095 |
+| [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Superseded by 0095 |
+| [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Superseded by 0095 |
+| [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 and 0095 (names, what the desktop script installs) |
 | [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted; revised by 0079 (install tabs) |
-| [0075](0075-desktop-title-bar.md) | Desktop title band | Accepted |
-| [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted |
-| [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
+| [0075](0075-desktop-title-bar.md) | Desktop title band | Superseded by 0095 |
+| [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted; ssh and the desktop app's server windows superseded by 0095; no-UI serving and links stay |
+| [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Superseded by 0095 |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
-| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 (names), 0093 (edge assets) |
+| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 and 0095 (names, assets), 0093 (edge assets) |
 | [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085; walkthroughs by 0087 |
-| [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
+| [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted; folder drop and recent folders superseded by 0095 |
 | [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Superseded for the native UI by 0094 |
 | [0083](0083-server-structured-diffs.md) | Server-side structured diffs and the source control domain | Accepted |
 | [0084](0084-in-process-client-package.md) | In-process client transport in its own package | Accepted |
@@ -96,6 +96,7 @@ rewriting history; update `Status` on the old record.
 | [0089](0089-native-diffs-viewer.md) | Native diffs viewer | Superseded by 0094 |
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Superseded by 0094 |
 | [0091](0091-native-workspace-shell-and-memory.md) | Native workspace shell and memory | Superseded by 0094 |
-| [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Accepted (experimental); supersedes the names in 0068; revises 0072, 0073, 0079 |
+| [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
-| [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted (experimental) |
+| [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted |

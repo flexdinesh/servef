@@ -1,16 +1,412 @@
 #!/bin/sh
-# Moved to install-electron-edge.sh (decision 0092). Builds and docs from before the rename
-# print this URL, so it hands over instead of failing.
+# Installs the servef desktop app (decision 0095) from the edge prerelease:
+# latest main, rebuilt by CI after every green push. Stable installs use
+# scripts/install-desktop.sh. Decision 0079.
+#
+#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
+#
+# Installs in the same places as scripts/install-desktop.sh and replaces
+# either install. Remove with scripts/uninstall.sh.
+
+# shared:base:begin
 set -eu
 
-URL="https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron-edge.sh"
+REPO="flexdinesh/servef"
 
-if command -v curl >/dev/null 2>&1; then
-  script="$(curl -fsSL "$URL")"
-elif command -v wget >/dev/null 2>&1; then
-  script="$(wget -q -O - "$URL")"
+if [ -t 1 ]; then
+  BOLD="$(printf '\033[1m')"
+  GREEN="$(printf '\033[32m')"
+  YELLOW="$(printf '\033[33m')"
+  RED="$(printf '\033[31m')"
+  RESET="$(printf '\033[0m')"
 else
-  printf ' curl or wget is required\n' >&2
-  exit 1
+  BOLD=""
+  GREEN=""
+  YELLOW=""
+  RED=""
+  RESET=""
 fi
-exec sh -c "$script"
+
+step() { printf ' %s>%s %s\n' "$YELLOW" "$RESET" "$1"; }
+ok() { printf ' %s✓%s %s\n' "$GREEN" "$RESET" "$1"; }
+warn() { printf ' %s!%s %s\n' "$YELLOW" "$RESET" "$1"; }
+fail() {
+  printf ' %s✗ %s%s\n' "$RED" "$1" "$RESET" >&2
+  exit 1
+}
+note() { printf '     %s%s%s\n' "$BOLD" "$1" "$RESET"; }
+has() { command -v "$1" >/dev/null 2>&1; }
+
+[ -n "${HOME:-}" ] || fail "HOME is not set"
+
+detect_platform() {
+  case "$(uname -s)" in
+    Linux) OS=linux ;;
+    Darwin) OS=darwin ;;
+    *) fail "unsupported OS $(uname -s): servef supports macOS and Linux" ;;
+  esac
+  case "$(uname -m)" in
+    x86_64 | amd64) ARCH=amd64 ;;
+    aarch64 | arm64) ARCH=arm64 ;;
+    *) fail "unsupported architecture $(uname -m): servef supports amd64 and arm64" ;;
+  esac
+}
+
+# fetch URL OUT downloads URL to OUT.
+fetch() {
+  if has curl; then
+    curl -fsSL --retry 2 --connect-timeout 10 -o "$2" "$1"
+  elif has wget; then
+    wget -q -O "$2" "$1"
+  else
+    fail "curl or wget is required"
+  fi
+}
+
+TMP=""
+cleanup() {
+  if [ -n "$TMP" ]; then rm -rf "$TMP"; fi
+}
+make_tmp() {
+  TMP="$(mktemp -d 2>/dev/null || mktemp -d -t servef)"
+  trap cleanup EXIT
+  trap 'exit 130' INT TERM
+}
+# shared:base:end
+
+# shared:cli:begin
+on_path() {
+  case ":${PATH:-}:" in
+    *":$1:"*) return 0 ;;
+  esac
+  return 1
+}
+
+# choose_bin_dir sets BIN_DIR: a writable directory already on PATH
+# (~/.local/bin, then ~/bin), else ~/.local/bin, created if needed.
+choose_bin_dir() {
+  for dir in "$HOME/.local/bin" "$HOME/bin"; do
+    if on_path "$dir" && mkdir -p "$dir" 2>/dev/null && [ -w "$dir" ]; then
+      BIN_DIR="$dir"
+      return 0
+    fi
+  done
+  BIN_DIR="$HOME/.local/bin"
+  if ! mkdir -p "$BIN_DIR" 2>/dev/null || ! [ -w "$BIN_DIR" ]; then
+    fail "cannot write $BIN_DIR"
+  fi
+}
+
+# install_cli SRC installs the servef binary SRC as BIN_DIR/servef.
+install_cli() {
+  choose_bin_dir
+  target="$BIN_DIR/servef"
+  previous=""
+  if [ -x "$target" ]; then
+    previous="$("$target" --version 2>/dev/null | head -n 1 || true)"
+  fi
+  staged="$BIN_DIR/.servef.$$"
+  cp "$1" "$staged"
+  chmod 755 "$staged"
+  mv -f "$staged" "$target"
+  current="$("$target" --version 2>/dev/null | head -n 1 || true)"
+  if [ -n "$previous" ]; then
+    ok "updated $target ($previous -> $current)"
+  else
+    ok "installed $target ($current)"
+  fi
+
+  if ! on_path "$BIN_DIR"; then
+    warn "$BIN_DIR is not on PATH; add it:"
+    case "$(basename "${SHELL:-sh}")" in
+      fish) note "fish_add_path \"$BIN_DIR\"" ;;
+      zsh) note "export PATH=\"$BIN_DIR:\$PATH\"   # in ~/.zshrc" ;;
+      bash) note "export PATH=\"$BIN_DIR:\$PATH\"   # in ~/.bashrc" ;;
+      *) note "export PATH=\"$BIN_DIR:\$PATH\"   # in ~/.profile" ;;
+    esac
+  fi
+  first="$(command -v servef 2>/dev/null || true)"
+  if [ -n "$first" ] && [ "$first" != "$target" ]; then
+    warn "$first comes first on PATH and is not the servef just installed"
+  fi
+  if "$target" daemon status >/dev/null 2>&1; then
+    warn "a servef daemon is running an earlier build; to switch now, run:"
+    note "servef daemon stop"
+  fi
+}
+# shared:cli:end
+
+# shared:desktop:begin
+DESKTOP_DATA="${XDG_DATA_HOME:-}"
+case "$DESKTOP_DATA" in
+  /*) ;;
+  *) DESKTOP_DATA="$HOME/.local/share" ;;
+esac
+DESKTOP_CONFIG="${XDG_CONFIG_HOME:-}"
+case "$DESKTOP_CONFIG" in
+  /*) ;;
+  *) DESKTOP_CONFIG="$HOME/.config" ;;
+esac
+# The app has a directory of its own: WebKit keeps the page's localStorage
+# beside it in servef-desktop/, which updates and uninstall leave alone.
+DESKTOP_HOME="$DESKTOP_DATA/servef-desktop/app"
+DESKTOP_ID="servef-desktop.desktop"
+DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-desktop.png"
+# The Electron app (decision 0095) installed its deb here, as servef-desktop or
+# servef-electron, and on macOS as servef.app.
+ELECTRON_DEB_DIR="${SERVEF_ELECTRON_DEB_DIR:-/opt/servef}"
+
+desktop_running() {
+  has pgrep || return 1
+  if [ "$OS" = darwin ]; then
+    pgrep -f 'servef-desktop\.app/Contents/MacOS/servef-desktop|servef\.app/Contents/MacOS/servef' >/dev/null 2>&1
+  else
+    pgrep -x -u "$(id -u)" 'servef-(desktop|electron)' >/dev/null 2>&1
+  fi
+}
+
+# electron_paths CMD runs CMD with what the Electron app's scripts and its Open
+# at Login left on Linux. Never its user data; with XDG_DATA_HOME equal to
+# XDG_CONFIG_HOME, that shares servef-desktop/ with the AppImage.
+electron_paths() {
+  "$1" "$DESKTOP_DATA/servef-electron" \
+    "$DESKTOP_DATA/servef-desktop/servef-desktop.AppImage" \
+    "$DESKTOP_DATA/applications/servef-electron.desktop" \
+    "$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-electron.png" \
+    "$DESKTOP_DATA/kio/servicemenus/servef-electron.desktop" \
+    "$DESKTOP_DATA/kio/servicemenus/servef-desktop.desktop" \
+    "$DESKTOP_DATA/nemo/actions/servef-electron.nemo_action" \
+    "$DESKTOP_DATA/nemo/actions/servef-desktop.nemo_action" \
+    "$DESKTOP_DATA/nautilus/scripts/Open in servef" \
+    "$DESKTOP_CONFIG/autostart/servef-electron.desktop" \
+    "$DESKTOP_CONFIG/autostart/servef-desktop.desktop"
+}
+
+# warn_thunar_action reports a hand-added Thunar action, which lives in Thunar's
+# own settings file.
+warn_thunar_action() {
+  if [ -f "$DESKTOP_CONFIG/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$DESKTOP_CONFIG/Thunar/uca.xml"; then
+    warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
+  fi
+}
+# shared:desktop:end
+
+# shared:desktop-install:begin
+# check_webkit warns on Linux without WebKitGTK 4.1, which the app's window
+# needs. The app still installs: the check cannot see every library path.
+check_webkit() {
+  [ "$OS" = linux ] || return 0
+  finder="$(command -v ldconfig 2>/dev/null || true)"
+  if [ -z "$finder" ] && [ -x /sbin/ldconfig ]; then finder=/sbin/ldconfig; fi
+  [ -n "$finder" ] || return 0
+  if ! "$finder" -p 2>/dev/null | grep -q 'libwebkit2gtk-4\.1\.so\.0'; then
+    warn "WebKitGTK 4.1 not found; the app needs it to open a window. Debian, Ubuntu:"
+    note "sudo apt install libwebkit2gtk-4.1-0"
+  fi
+}
+
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+check_desktop_conflicts() {
+  if [ "$OS" = linux ]; then
+    for deb in servef-desktop servef-electron; do
+      if [ -e "$ELECTRON_DEB_DIR/$deb" ]; then
+        fail "the $deb deb (the Electron app) is installed; remove it first: sudo apt remove $deb"
+      fi
+    done
+  fi
+  if desktop_running; then
+    fail "the servef desktop app is running; quit it, then run this again"
+  fi
+}
+
+# desktop_exec PATH renders PATH as one desktop entry Exec argument.
+desktop_exec() {
+  value="$(printf '%s' "$1" | sed 's/%/%%/g')"
+  case "$value" in
+    *[!A-Za-z0-9_./+,:@=-]*)
+      # shellcheck disable=SC2016 # sed expression, not shell expansion
+      value="\"$(printf '%s' "$value" | sed 's/[\\"`$]/\\&/g')\""
+      ;;
+  esac
+  printf '%s' "$value" | sed 's/\\/\\\\/g'
+}
+
+# replace_path SRC DEST copies SRC over DEST, swapping it in once copied.
+replace_path() {
+  rm -rf "$2.new"
+  if has ditto; then
+    ditto "$1" "$2.new"
+  else
+    cp -R "$1" "$2.new"
+  fi
+  rm -rf "$2"
+  mv "$2.new" "$2"
+}
+
+# link_desktop TARGET links BIN_DIR/servef-desktop to TARGET.
+link_desktop() {
+  choose_bin_dir
+  ln -sfn "$1" "$BIN_DIR/servef-desktop"
+  ok "linked $BIN_DIR/servef-desktop"
+  if ! on_path "$BIN_DIR"; then
+    warn "$BIN_DIR is not on PATH; add it to run servef-desktop from a terminal"
+  fi
+}
+
+# remove_electron PATH... deletes each existing PATH of an Electron install.
+remove_electron() {
+  found=0
+  for path in "$@"; do
+    if [ -e "$path" ] || [ -L "$path" ]; then
+      rm -rf "$path"
+      found=1
+    fi
+  done
+  if [ "$found" = 1 ]; then ok "removed the earlier Electron app"; fi
+  warn_thunar_action
+}
+
+# warn_running_daemon SERVEF warns about a daemon from an earlier build: the app
+# reuses it, and shows its web UI, until it stops.
+warn_running_daemon() {
+  if "$1" daemon status >/dev/null 2>&1; then
+    warn "a servef daemon is running an earlier build; the app shows that build until it stops. To switch now, run:"
+    note "\"$1\" daemon stop"
+  fi
+}
+
+# install_desktop_linux DIR installs the unpacked Linux archive DIR, its
+# desktop entry and icon, and makes it the servef:// handler.
+install_desktop_linux() {
+  if ! [ -x "$1/servef-desktop" ] || ! [ -x "$1/bin/servef" ]; then
+    fail "$package has no servef-desktop app"
+  fi
+  mkdir -p "$DESKTOP_DATA/servef-desktop"
+  replace_path "$1" "$DESKTOP_HOME"
+  version="$("$DESKTOP_HOME/servef-desktop" --version 2>/dev/null | head -n 1 || true)"
+  ok "installed $DESKTOP_HOME ($version)"
+  electron_paths remove_electron
+  exec_arg="$(desktop_exec "$DESKTOP_HOME/servef-desktop")"
+  mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")"
+  cp "$DESKTOP_HOME/servef-desktop.png" "$DESKTOP_ICON"
+  cat >"$DESKTOP_DATA/applications/$DESKTOP_ID" <<EOF2
+[Desktop Entry]
+Type=Application
+Name=servef
+Comment=Browse local files with servef
+Exec=$exec_arg %U
+Icon=servef-desktop
+Terminal=false
+Categories=Development;
+MimeType=x-scheme-handler/servef;
+EOF2
+  if has update-desktop-database; then
+    update-desktop-database "$DESKTOP_DATA/applications" >/dev/null 2>&1 || true
+  fi
+  if has xdg-mime && xdg-mime default "$DESKTOP_ID" x-scheme-handler/servef; then
+    ok "registered servef:// links"
+  else
+    warn "could not set the servef:// handler (xdg-mime); servef . may serve in a browser instead"
+  fi
+  link_desktop "$DESKTOP_HOME/servef-desktop"
+  warn_running_daemon "$DESKTOP_HOME/bin/servef"
+}
+
+# install_desktop_macos APP installs servef-desktop.app into /Applications, or
+# ~/Applications when /Applications is not writable, and removes the Electron
+# app's servef.app, which also claims servef:// links.
+install_desktop_macos() {
+  apps="/Applications"
+  if ! [ -d "$apps" ] || ! [ -w "$apps" ]; then
+    apps="$HOME/Applications"
+    mkdir -p "$apps"
+  fi
+  replace_path "$1" "$apps/servef-desktop.app"
+  for dir in /Applications "$HOME/Applications"; do
+    [ -e "$dir/servef.app" ] || continue
+    if [ -w "$dir" ]; then
+      rm -rf "$dir/servef.app"
+      ok "removed the earlier Electron app $dir/servef.app"
+    else
+      warn "$dir/servef.app is the earlier Electron app and may take servef:// links; remove it with:"
+      note "sudo rm -rf \"$dir/servef.app\""
+    fi
+  done
+  if [ -x "$LSREGISTER" ]; then
+    "$LSREGISTER" -f "$apps/servef-desktop.app" >/dev/null 2>&1 || true
+  fi
+  ok "installed $apps/servef-desktop.app"
+  link_desktop "$apps/servef-desktop.app/Contents/MacOS/servef-desktop"
+  warn_running_daemon "$apps/servef-desktop.app/Contents/Resources/bin/servef"
+}
+
+# install_desktop_release installs the desktop app of release TAG. It bundles
+# the servef binary it runs the daemon with; the CLI is not installed.
+install_desktop_release() {
+  if [ "$OS" = linux ]; then
+    package="servef-desktop_${VERSION}_linux_${ARCH}.tar.gz"
+  else
+    package="servef-desktop_${VERSION}_darwin_${ARCH}.zip"
+  fi
+
+  step "downloading the servef desktop app $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$package")" "$TMP/$package" ||
+    fail "servef $TAG has no $package; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel"
+
+  mkdir -p "$TMP/desktop"
+  if [ "$OS" = linux ]; then
+    tar -xzf "$TMP/$package" -C "$TMP/desktop"
+    install_desktop_linux "$TMP/desktop"
+  else
+    if has ditto; then
+      ditto -x -k "$TMP/$package" "$TMP/desktop"
+    else
+      unzip -q "$TMP/$package" -d "$TMP/desktop"
+    fi
+    [ -d "$TMP/desktop/servef-desktop.app" ] || fail "$package has no servef-desktop.app"
+    install_desktop_macos "$TMP/desktop/servef-desktop.app"
+  fi
+  check_webkit
+  ok "done; open a directory in the desktop app with:"
+  note "servef-desktop ."
+  note "For servef . and walkthroughs, install the CLI too: scripts/install.sh"
+}
+# shared:desktop-install:end
+
+# shared:edge:begin
+# edge_release selects the edge prerelease: after every green push to main, CI
+# replaces its assets with that commit's build, named for version 0.0.0-edge.
+# Decision 0093: macOS Intel is stable only.
+edge_release() {
+  if [ "$OS" = darwin ] && [ "$ARCH" = amd64 ]; then
+    fail "edge has no macOS Intel builds; use the stable install script (the name without -edge)"
+  fi
+  TAG=edge
+  VERSION=0.0.0-edge
+}
+# shared:edge:end
+
+# shared:release:begin
+# release_url FILE prints FILE's download URL in release TAG.
+release_url() {
+  printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
+}
+
+# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# named for VERSION.
+download_cli() {
+  name="servef_${VERSION}_${OS}_${ARCH}"
+  step "downloading servef $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
+  tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
+  CLI="$TMP/$name/servef"
+  [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
+}
+# shared:release:end
+
+detect_platform
+check_desktop_conflicts
+make_tmp
+edge_release
+install_desktop_release

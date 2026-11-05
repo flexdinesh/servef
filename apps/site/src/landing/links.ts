@@ -17,6 +17,6 @@ export const installMethods: InstallMethod[] = [
   {
     id: 'desktop',
     label: 'Desktop app',
-    command: 'curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh',
+    command: 'curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh',
   },
 ]
