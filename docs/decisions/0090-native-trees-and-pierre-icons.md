@@ -1,6 +1,6 @@
 # 0090: Native trees widget and Pierre icons
 
-- Status: Accepted
+- Status: Superseded by [0094](0094-mygo-app-uses-web-views.md)
 - Date: 2026-11-05
 - Relates to: [0086](0086-native-agent-tooling-and-ports.md) (trees get a
   Pierre-like native widget; stays in force), [0082](0082-native-mygo-experiment.md)

@@ -1,6 +1,6 @@
 // Package inprocess is the in-process transport for client.Client: it calls
 // the application layer and an optional daemon controller directly. It is a
-// separate package so HTTP-only users of pkg/client, such as the native app,
+// separate package so HTTP-only users of pkg/client, such as the mygo app,
 // do not link the server and its embedded web app.
 package inprocess
 

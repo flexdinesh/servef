@@ -7,6 +7,10 @@ test("the local desktop origin shares as a servef link", () => {
   assert.equal(shareableOrigin("servef-app://local"), "servef://local")
 })
 
+test("the local mygo origin shares as a servef-mygo link", () => {
+  assert.equal(shareableOrigin("servef-mygo-app://local"), "servef-mygo://local")
+})
+
 test("CLI server origins share as their localhost address", () => {
   assert.equal(shareableOrigin("servef-app://cli-7971"), "http://localhost:7971")
   assert.equal(shareableOrigin("servef-app://cli-65535"), "http://localhost:65535")

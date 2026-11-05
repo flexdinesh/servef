@@ -3,7 +3,7 @@ name: Build
 # Builds every distribution asset for one commit (decision 0079); release.yml
 # (stable tags) and ci.yml (the edge prerelease) call it and publish the
 # result. cli (Go archives, archive smoke) -> electron-linux, electron-macos,
-# native-linux, and native-macos (packages bundling those binaries, smoke
+# mygo-linux, and mygo-macos (packages bundling those binaries, smoke
 # checks) -> assets (the expected set, checksums.txt). Every job uploads an assets-* artifact; callers
 # download them all with pattern assets-*. Nothing is committed or pushed.
 
@@ -353,11 +353,11 @@ jobs:
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
 
-  # The experimental native app (decision 0082) bundles the archives' Go
+  # The experimental mygo app (decision 0094) bundles the archives' Go
   # binary as resources/bin/servef. mygo needs no cgo, so one Linux runner
-  # builds both architectures. apps/native needs Go 1.27: GOTOOLCHAIN fetches
+  # builds both architectures. apps/mygo needs Go 1.27: GOTOOLCHAIN fetches
   # the toolchain go.mod names, verified against sum.golang.org.
-  native-linux:
+  mygo-linux:
     needs: cli
     runs-on: ubuntu-latest
     steps:
@@ -377,14 +377,14 @@ jobs:
           name: assets-archives
           path: release-dist
 
-      - name: Package native app
+      - name: Package mygo app
         env:
           VERSION: ${{ inputs.version }}
           GOTOOLCHAIN: go1.27.3
-        run: apps/native/scripts/package.sh linux "$VERSION" release-dist native-dist
+        run: apps/mygo/scripts/package.sh linux "$VERSION" release-dist mygo-dist
 
       # amd64 only: the runner cannot execute arm64 binaries.
-      - name: Smoke test native packages
+      - name: Smoke test mygo packages
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
@@ -392,26 +392,23 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          tar -C "$dir" -xzf "native-dist/servef-native_${VERSION}_linux_amd64.tar.gz"
-          "$dir/servef-native" --version | grep -Fx "servef-native ${VERSION} $(git rev-parse --short=12 HEAD)"
+          tar -C "$dir" -xzf "mygo-dist/servef-mygo_${VERSION}_linux_amd64.tar.gz"
+          "$dir/servef-mygo" --version | grep -Fx "servef-mygo ${VERSION} $(git rev-parse --short=12 HEAD)"
           "$dir/bin/servef" --version | grep -F "servef ${VERSION} "
-          grep -E '^MimeType=(.*;)?x-scheme-handler/servef-native(;|$)' "$dir/servef-native.desktop"
-          test -f "$dir/servef-native.png"
-          for license in "@pierre/highlights" "ondine" "github.com/tetratelabs/wazero" "@pierre/trees"; do
-            grep -F "$license" "$dir/THIRD_PARTY_NOTICES.txt" >/dev/null
-          done
+          grep -E '^MimeType=(.*;)?x-scheme-handler/servef-mygo(;|$)' "$dir/servef-mygo.desktop"
+          test -f "$dir/servef-mygo.png"
 
-      - name: Upload native packages
+      - name: Upload mygo packages
         uses: actions/upload-artifact@v7
         with:
-          name: assets-native-linux
-          path: native-dist/*
+          name: assets-mygo-linux
+          path: mygo-dist/*
           if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
 
   # Ad-hoc signed (mygo.json macos.signingIdentity "-"); signing needs macOS.
-  native-macos:
+  mygo-macos:
     needs: cli
     runs-on: macos-latest
     steps:
@@ -431,15 +428,15 @@ jobs:
           name: assets-archives
           path: release-dist
 
-      - name: Package native app
+      - name: Package mygo app
         env:
           VERSION: ${{ inputs.version }}
           MACOS_ARCHES: ${{ inputs.macos-arches }}
           GOTOOLCHAIN: go1.27.3
-        run: apps/native/scripts/package.sh darwin "$VERSION" release-dist native-dist "$MACOS_ARCHES"
+        run: apps/mygo/scripts/package.sh darwin "$VERSION" release-dist mygo-dist "$MACOS_ARCHES"
 
       # arm64 only: macos-latest runs on Apple silicon.
-      - name: Smoke test native packages
+      - name: Smoke test mygo packages
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
@@ -447,31 +444,28 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          ditto -x -k "native-dist/servef-native_${VERSION}_darwin_arm64.zip" "$dir"
-          app="$dir/servef-native.app/Contents"
-          "$app/MacOS/servef-native" --version | grep -Fx "servef-native ${VERSION} $(git rev-parse --short=12 HEAD)"
+          ditto -x -k "mygo-dist/servef-mygo_${VERSION}_darwin_arm64.zip" "$dir"
+          app="$dir/servef-mygo.app/Contents"
+          "$app/MacOS/servef-mygo" --version | grep -Fx "servef-mygo ${VERSION} $(git rev-parse --short=12 HEAD)"
           "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
-          for license in "@pierre/highlights" "ondine" "github.com/tetratelabs/wazero" "@pierre/trees"; do
-            grep -F "$license" "$app/Resources/THIRD_PARTY_NOTICES.txt" >/dev/null
-          done
-          codesign --verify "$dir/servef-native.app"
+          codesign --verify "$dir/servef-mygo.app"
           scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
-          if [[ "$scheme" != "servef-native" ]]; then
-            echo "Info.plist registers URL scheme '$scheme', want servef-native" >&2
+          if [[ "$scheme" != "servef-mygo" ]]; then
+            echo "Info.plist registers URL scheme '$scheme', want servef-mygo" >&2
             exit 1
           fi
 
-      - name: Upload native packages
+      - name: Upload mygo packages
         uses: actions/upload-artifact@v7
         with:
-          name: assets-native-macos
-          path: native-dist/*
+          name: assets-mygo-macos
+          path: mygo-dist/*
           if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
 
   assets:
-    needs: [cli, electron-linux, electron-macos, native-linux, native-macos]
+    needs: [cli, electron-linux, electron-macos, mygo-linux, mygo-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Download assets
@@ -497,7 +491,7 @@ jobs:
               "servef_${VERSION}_linux_${arch}.tar.gz"
               "servef-electron_${VERSION}_linux_${arch}.AppImage"
               "servef-electron_${VERSION}_linux_${arch}.deb"
-              "servef-native_${VERSION}_linux_${arch}.tar.gz"
+              "servef-mygo_${VERSION}_linux_${arch}.tar.gz"
             )
           done
           for arch in $MACOS_ARCHES; do
@@ -505,7 +499,7 @@ jobs:
               "servef_${VERSION}_darwin_${arch}.tar.gz"
               "servef-electron_${VERSION}_darwin_${arch}.dmg"
               "servef-electron_${VERSION}_darwin_${arch}.zip"
-              "servef-native_${VERSION}_darwin_${arch}.zip"
+              "servef-mygo_${VERSION}_darwin_${arch}.zip"
             )
           done
 

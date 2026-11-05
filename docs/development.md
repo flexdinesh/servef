@@ -14,7 +14,7 @@ CI publishes the `edge` prerelease after every green push to `main`; `servef --v
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh           # CLI
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron-edge.sh | sh   # desktop app and CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-native-edge.sh | sh    # native app
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-mygo-edge.sh | sh    # mygo app
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh                # back to stable
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh              # remove all
 ```
@@ -26,8 +26,8 @@ servef --version              # servef 0.0.0-edge <commit> <date>
 servef daemon stop            # restart the daemon on the new build (next servef starts it)
 servef .                      # desktop app, else browser
 servef browser .              # browser
-servef-native .               # native app
-servef-native --version
+servef-mygo .                 # mygo app
+servef-mygo --version
 which -a servef               # which install wins on PATH
 ```
 
@@ -62,30 +62,19 @@ SERVEF_DESKTOP_AUTOSTART_DIR=<abs dir> mise run dev:electron   # show Open at Lo
 mise run measure:electron      # memory scenario (needs a display)
 ```
 
-## Native (mygo, experimental)
+## mygo app (experimental)
 
-User docs: [native app](../apps/site/src/pages/docs/native.mdx); decision 0082.
-
-```sh
-go build -o .dev/native/servef ./apps/servef
-GOWORK=off SERVEF_NATIVE_BINARY=$PWD/.dev/native/servef SERVEF_NATIVE_SOCKET=$PWD/.dev/native/daemon.sock SERVEF_NATIVE_ROOTS_FILE=$PWD/.dev/native/roots.json go -C apps/native run . $PWD/testdata/markdown
-.dev/native/servef daemon stop --socket $PWD/.dev/native/daemon.sock   # stop its daemon
-mise run test:native          # opt-in tests (not in check:pr)
-```
-
-Headless agent tooling (decision 0086; `packages/mygo`, loop in `skills/mygo-parity/SKILL.md`, queue in [native-parity.md](native-parity.md)). Outputs go to `.dev/native-shots/<scenario>/`. Headless needs no display but does need the system's Pango, cairo, and fontconfig with a font (Debian: `libpango-1.0-0 libpangocairo-1.0-0 fontconfig fonts-dejavu-core`): mygo draws text through them and bundles no fonts (decision 0088).
+User docs: [mygo app](../apps/site/src/pages/docs/mygo.mdx); decision 0094. The window is the daemon's web app in the OS webview, so run `mise run build:web` first and build servef with it. Linux needs WebKitGTK 4.1 (Debian: `libwebkit2gtk-4.1-0`).
 
 ```sh
-mise run native:shots -- document-preview     # scenario shots (apps/native/scenarios), no display
-mise run native:compare -- document-preview   # plus web shots from pnpm dev:mock and web|native composites
-mise run native:agent                         # serve the app headless on the API fixtures, then:
-.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock snapshot -i
-.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock click "markdown"
-.dev/native-agent/bin/mygo-agent --socket .dev/native-agent/agent.sock screenshot .dev/native-shots/now.png
-mise run test:native:e2e                      # built app (-tags e2e) under Xvfb in Dagger
+go build -o .dev/mygo/servef ./apps/servef
+GOWORK=off SERVEF_MYGO_BINARY=$PWD/.dev/mygo/servef SERVEF_MYGO_SOCKET=$PWD/.dev/mygo/daemon.sock SERVEF_MYGO_ROOTS_FILE=$PWD/.dev/mygo/roots.json go -C apps/mygo run . $PWD/testdata/markdown
+.dev/mygo/servef daemon stop --socket $PWD/.dev/mygo/daemon.sock   # stop its daemon
+mise run test:mygo          # opt-in tests (not in check:pr)
+mise run test:mygo:e2e      # built app (-tags e2e) under Xvfb in Dagger
 ```
 
-Needs Go 1.27 (`GOTOOLCHAIN=auto` downloads it). Omit the `SERVEF_NATIVE_*` socket and roots vars to use your real daemon.
+Needs Go 1.27 (`GOTOOLCHAIN=auto` downloads it). Omit the `SERVEF_MYGO_*` socket and roots vars to use your real daemon.
 
 ## Remote and ssh
 

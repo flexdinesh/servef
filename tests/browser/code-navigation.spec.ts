@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
+import { grantClipboard } from "./clipboard.ts"
 
 function source(page: Page, label: string) {
   return page.getByRole("textbox", { name: label })
@@ -87,7 +88,7 @@ test("F12 and Shift+F12 act on the last clicked name; Escape closes", async ({ p
 
 for (const modifier of [process.platform === "darwin" ? "Meta" : "Control"]) {
   test(`${modifier} hover preserves selected source text for copying`, async ({ page }) => {
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+    await grantClipboard(page)
     await page.goto("/view?path=navigation%2Fgreet.go")
     const greet = source(page, "Go source")
     await greet.focus()

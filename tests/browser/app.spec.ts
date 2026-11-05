@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { endsWith, rootParam } from "./fixture-root.ts"
 import { apiOrigin } from "./ports.ts"
+import { grantClipboard } from "./clipboard.ts"
 
 const mermaidCaseCount = 5
 const mermaidDiagramCount = 4
@@ -256,7 +257,7 @@ test("highlights Source in the browser with the selected theme", async ({ page }
 })
 
 test("labels and copies fenced code", async ({ page }) => {
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await grantClipboard(page)
   await page.goto("/view?path=guides%2Fcode-blocks.md")
   await showPreview(page)
 

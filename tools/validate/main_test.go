@@ -234,36 +234,34 @@ func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
 	}
 }
 
-func TestNativeGroupIsOptIn(t *testing.T) {
-	if slices.Contains(groups, "native") || !knownGroup("native") {
-		t.Fatal("native must be accepted by --group and stay out of check:pr")
+func TestMygoGroupIsOptIn(t *testing.T) {
+	if slices.Contains(groups, "mygo") || !knownGroup("mygo") {
+		t.Fatal("mygo must be accepted by --group and stay out of check:pr")
 	}
 	if len(groups) != 11 {
 		t.Fatalf("check:pr covers %d groups, want 11", len(groups))
 	}
-	for _, task := range []string{"_container:test:native", "_container:test:native:e2e"} {
-		if !taskBelongsToGroup(task, "native") || taskBelongsToGroup(task, "go") {
-			t.Fatalf("%s belongs to the native group alone", task)
+	for _, task := range []string{"_container:test:mygo", "_container:test:mygo:e2e"} {
+		if !taskBelongsToGroup(task, "mygo") || taskBelongsToGroup(task, "go") {
+			t.Fatalf("%s belongs to the mygo group alone", task)
 		}
 	}
-	for _, name := range []string{"apps/native/main.go", "packages/mygo/agent/session/session.go", "apps/servef/pkg/client/client.go", "testdata/document-families.json", "testdata/api/default/diff-hunks.json", "apps/web/src/styles/tokens.css", "apps/web/src/styles/themes.css", "apps/web/src/features/documents/mermaid.css", "apps/web/src/highlighting/syntax-theme.ts", "apps/web/src/highlighting/syntax-highlight.ts", "apps/web/src/lib/line-selection.ts", "pnpm-lock.yaml"} {
-		if !selected("native", name) {
-			t.Fatalf("native does not select %s", name)
+	// The e2e runs the real servef binary with the web app embedded.
+	for _, name := range []string{"apps/mygo/main.go", "apps/servef/pkg/client/client.go", "apps/web/src/App.tsx", "packages/contracts/src/index.ts", "pnpm-lock.yaml"} {
+		if !selected("mygo", name) {
+			t.Fatalf("mygo does not select %s", name)
 		}
 	}
-	for _, name := range []string{"apps/electron/src/main/main.ts", "apps/web/src/App.tsx"} {
-		if selected("native", name) {
-			t.Fatalf("native selects %s", name)
-		}
+	if selected("mygo", "apps/electron/src/main/main.ts") {
+		t.Fatal("mygo selects the Electron app")
 	}
-	for _, name := range []string{"apps/native/main.go", "packages/mygo/go.mod"} {
-		if !selected("repo", name) {
-			t.Fatalf("fmt:check must see %s", name)
-		}
-		for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
-			if selected(group, name) {
-				t.Fatalf("native sources (%s) invalidate %s", name, group)
-			}
+	const source = "apps/mygo/main.go"
+	if !selected("repo", source) {
+		t.Fatalf("fmt:check must see %s", source)
+	}
+	for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
+		if selected(group, source) {
+			t.Fatalf("mygo sources invalidate %s", group)
 		}
 	}
 	for _, group := range []string{"go", "frontend", "browser", "electron", "web-static"} {
