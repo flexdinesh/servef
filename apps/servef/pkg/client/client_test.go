@@ -15,10 +15,12 @@ import (
 	"github.com/flexdinesh/servef/internal/daemon"
 	"github.com/flexdinesh/servef/internal/lsp"
 	"github.com/flexdinesh/servef/internal/projects"
+	"github.com/flexdinesh/servef/internal/remote"
 	"github.com/flexdinesh/servef/internal/watch"
 	"github.com/flexdinesh/servef/internal/web"
 	"github.com/flexdinesh/servef/pkg/client"
 	"github.com/flexdinesh/servef/pkg/client/inprocess"
+	"github.com/flexdinesh/servef/pkg/connection"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -105,17 +107,31 @@ func serveFixtureWith(t *testing.T, root string, servers *lsp.Manager) fixture {
 	}
 	unix := &http.Server{Handler: control.Handler(webApp)}
 	go func() { _ = unix.Serve(listener) }()
+	identity, err := remote.LoadOrCreateIdentity(filepath.Join(dir, "identity.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secure := httptest.NewUnstartedServer(remote.Authenticate(identity.Credential.TokenText(), contract.RemoteInfo{Protocol: 1, Version: "test", Name: "test"}, remote.Compress(webApp)))
+	secure.TLS = identity.TLSConfig()
+	secure.EnableHTTP2 = true
+	secure.StartTLS()
+	securePort, err := remote.Port(secure.Listener)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		// Streams end first, as servef's shutdown does.
 		close(done)
 		webApp.StopLiveUpdates()
 		tcp.Close()
+		secure.Close()
 		_ = unix.Close()
 		webApp.Close()
 		_ = os.RemoveAll(dir)
 	})
 	return fixture{root: root, transports: []transport{
 		{name: "tcp", client: client.NewTCP(tcp.URL)},
+		{name: "remote", client: client.NewRemote(connection.TLS{Hosts: []string{"127.0.0.1"}, Port: securePort, Credential: identity.Credential})},
 		{name: "unix", client: client.NewUnix(socket), daemon: true},
 		{name: "in-process", client: inprocess.New(webApp.Application(), control), daemon: true},
 	}}
