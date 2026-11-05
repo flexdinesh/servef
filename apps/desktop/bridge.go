@@ -179,7 +179,7 @@ func (h *host) windowMenu(goos string) *mygo.MenuItem {
 		}
 	}}
 	if goos != "darwin" {
-		return &mygo.MenuItem{Role: mygo.RoleWindow, Submenu: []*mygo.MenuItem{
+		return &mygo.MenuItem{Role: mygo.RoleWindowMenu, Submenu: []*mygo.MenuItem{
 			{Role: mygo.RoleMinimize}, closeTab,
 		}}
 	}
