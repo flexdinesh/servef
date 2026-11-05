@@ -23,6 +23,13 @@ const dialTimeout = 2 * time.Second
 // ProbeTimeout bounds checking all of a connection's addresses.
 const ProbeTimeout = 2 * time.Second
 
+// A silent connection is pinged this often, and is dead when no answer comes
+// this soon after. These match the server's (internal/runtime).
+const (
+	healthPingEvery   = 30 * time.Second
+	healthPingTimeout = 15 * time.Second
+)
+
 // What a probe can find. Each needs a different fix, so each has its message.
 var (
 	// ErrUnreachable: no address answered.
@@ -78,6 +85,10 @@ func (TLS) BaseURL() string { return "https://localhost" }
 // RoundTripper implements Endpoint. It gzip-decodes transparently: remote
 // answers are compressed on the wire and no caller sees that.
 func (t TLS) RoundTripper() http.RoundTripper {
+	return t.roundTripper(healthPingEvery, healthPingTimeout)
+}
+
+func (t TLS) roundTripper(pingEvery, pingTimeout time.Duration) http.RoundTripper {
 	dial := &hostDialer{hosts: t.Hosts, port: t.Port}
 	return &authorized{
 		token: t.Credential.TokenText(),
@@ -86,6 +97,9 @@ func (t TLS) RoundTripper() http.RoundTripper {
 			DialContext:       dial.dial,
 			TLSClientConfig:   pinnedConfig(t.Credential.Fingerprint),
 			ForceAttemptHTTP2: true,
+			// A connection lost without a close, as when a network drops, must
+			// fail its open event streams rather than leave them silent.
+			HTTP2: &http.HTTP2Config{SendPingTimeout: pingEvery, PingTimeout: pingTimeout},
 			// A dead host must not hold requests for the default 10 s.
 			TLSHandshakeTimeout: 5 * time.Second,
 			IdleConnTimeout:     90 * time.Second,
