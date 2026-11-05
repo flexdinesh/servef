@@ -26,6 +26,7 @@ const engine = "servef-validation-engine-v0.21.10"
 const engineImage = "registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334"
 
 type options struct {
+	Suite   string
 	Group   string
 	Task    string
 	Force   bool
@@ -33,12 +34,13 @@ type options struct {
 	Args    []string
 }
 type result struct {
-	Group    string
-	Key      string
-	Status   string
-	Origin   string
-	ExitCode int
-	Manifest inputManifest
+	Group      string
+	Key        string
+	Status     string
+	Origin     string
+	ExitCode   int
+	DurationMS int64
+	Manifest   inputManifest
 }
 type record struct {
 	ID        string
@@ -104,6 +106,7 @@ func run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	var o options
 	o.Working = command == "working"
+	flags.StringVar(&o.Suite, "suite", "correctness", "check suite: correctness, extended, full")
 	flags.StringVar(&o.Group, "group", "", "check group")
 	flags.StringVar(&o.Task, "task", "", "specific hidden mise task")
 	flags.BoolVar(&o.Force, "force", false, "execute checks and builds again")
@@ -111,6 +114,9 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	o.Args = flags.Args()
+	if !knownSuite(o.Suite) {
+		return fmt.Errorf("unknown suite %q", o.Suite)
+	}
 	if o.Group != "" && !knownGroup(o.Group) {
 		return fmt.Errorf("unknown group %q", o.Group)
 	}
@@ -178,11 +184,22 @@ func chosen(o options) []string {
 	if o.Group != "" {
 		return []string{o.Group}
 	}
-	return groups
+	switch o.Suite {
+	case "extended":
+		return extendedGroups
+	case "full":
+		return append(append([]string{}, groups...), extendedGroups...)
+	default:
+		return groups
+	}
 }
 
 func (a app) status(o options) error {
 	s, err := readSnapshot(a.Root)
+	if err != nil {
+		return err
+	}
+	host, err := discoverHostProfile(s.Entries, chosen(o))
 	if err != nil {
 		return err
 	}
@@ -194,7 +211,7 @@ func (a app) status(o options) error {
 		}
 	}()
 	for _, group := range chosen(o) {
-		_, key, err := manifest(s, group, o.Task, o.Args)
+		_, key, err := manifest(s, group, o.Task, o.Args, host)
 		if err != nil {
 			return err
 		}
@@ -213,6 +230,11 @@ func (a app) status(o options) error {
 	}
 	if !complete {
 		return errors.New("required successful validation is missing")
+	}
+	if host != nil {
+		if err := host.Tools.unchanged(); err != nil {
+			return err
+		}
 	}
 	if err := unchangedSnapshot(a.Root, s); err != nil {
 		return err
@@ -233,6 +255,10 @@ func (a app) validate(ctx context.Context, o options) (record, error) {
 		return record{}, err
 	}
 	if err = ctx.Err(); err != nil {
+		return record{}, err
+	}
+	host, err := discoverHostProfile(s.Entries, chosen(o))
+	if err != nil {
 		return record{}, err
 	}
 	r := record{ID: newID(), Head: s.Head, Tree: s.Tree, Started: time.Now().UTC(), Status: "running", Committed: !o.Working}
@@ -288,7 +314,7 @@ func (a app) validate(ctx context.Context, o options) (record, error) {
 		if err = ctx.Err(); err != nil {
 			return fail(err)
 		}
-		m, key, err := manifest(s, group, o.Task, o.Args)
+		m, key, err := manifest(s, group, o.Task, o.Args, host)
 		if err != nil {
 			return fail(err)
 		}
@@ -306,6 +332,11 @@ func (a app) validate(ctx context.Context, o options) (record, error) {
 	}
 	if !o.Working {
 		if err = unchangedSnapshot(a.Root, s); err != nil {
+			return fail(err)
+		}
+	}
+	if host != nil {
+		if err = host.Tools.unchanged(); err != nil {
 			return fail(err)
 		}
 	}
@@ -379,11 +410,13 @@ func (a app) checkGroup(ctx context.Context, o options, s snapshot, m inputManif
 	if keyLock != nil {
 		files = append(files, keyLock)
 	}
+	started := time.Now()
 	if isHostGroup(m.Group) {
 		err = a.executeHost(ctx, source, out, filepath.Join(private, "host-"+m.Group), m, files)
 	} else {
 		err = a.executeDagger(ctx, o, source, out, private, moduleDir, m.Group, files)
 	}
+	v.DurationMS = time.Since(started).Milliseconds()
 	if err != nil {
 		return v, fmt.Errorf("%w; artifacts: %s", err, out)
 	}

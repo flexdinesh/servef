@@ -3,21 +3,24 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-const policy = "servef-validation-v2-host-and-linux-amd64-dagger-0.21.10"
+const policy = "servef-validation-v3-suites-host-and-linux-amd64-dagger-0.21.10"
 
 type entry struct {
 	Path    string
@@ -74,6 +77,7 @@ func readSnapshot(root string) (snapshot, error) {
 	if err != nil {
 		return s, err
 	}
+	var blobs []string
 	for _, record := range bytes.Split(raw, []byte{0}) {
 		if len(record) == 0 {
 			continue
@@ -92,15 +96,71 @@ func readSnapshot(root string) (snapshot, error) {
 		if filepath.IsAbs(name) || strings.HasPrefix(name, "../") || excluded(name) {
 			continue
 		}
-		cmd := exec.Command("git", "-C", root, "cat-file", "blob", parts[2])
-		cmd.Env = gitEnvironment()
-		content, err := cmd.Output()
-		if err != nil {
-			return s, err
-		}
-		s.Entries = append(s.Entries, entry{name, parts[0], contentIdentity(content), content})
+		blobs = append(blobs, parts[2])
+		s.Entries = append(s.Entries, entry{Path: name, Mode: parts[0]})
 	}
-	return s, nil
+	err = readCommittedBlobs(root, blobs, s.Entries)
+	return s, err
+}
+
+// Request object IDs, never paths: filenames may contain newlines or tabs.
+// Stream output while Git consumes requests to avoid pipe backpressure and
+// retaining a second full copy of the snapshot in memory.
+func readCommittedBlobs(root string, blobs []string, entries []entry) error {
+	if len(blobs) == 0 {
+		return nil
+	}
+	cmd := exec.Command("git", "-C", root, "cat-file", "--batch")
+	cmd.Env = gitEnvironment()
+	cmd.Stdin = strings.NewReader(strings.Join(blobs, "\n") + "\n")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	waited := false
+	defer func() {
+		if !waited {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+		}
+	}()
+	reader := bufio.NewReader(stdout)
+	for i, blob := range blobs {
+		header, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("read git blob %s: %w", blob, err)
+		}
+		fields := strings.Fields(header)
+		if len(fields) != 3 || fields[0] != blob || fields[1] != "blob" {
+			return fmt.Errorf("invalid git batch header: %q", header)
+		}
+		size, err := strconv.Atoi(fields[2])
+		if err != nil || size < 0 {
+			return fmt.Errorf("invalid git blob size: %q", fields[2])
+		}
+		content := make([]byte, size)
+		if _, err := io.ReadFull(reader, content); err != nil {
+			return fmt.Errorf("read git blob %s content: %w", blob, err)
+		}
+		if delimiter, err := reader.ReadByte(); err != nil || delimiter != '\n' {
+			return fmt.Errorf("invalid git blob %s delimiter", blob)
+		}
+		entries[i].Content, entries[i].Blob = content, contentIdentity(content)
+	}
+	if _, err := reader.ReadByte(); err != io.EOF {
+		return fmt.Errorf("unexpected git batch output: %v", err)
+	}
+	err = cmd.Wait()
+	waited = true
+	if err != nil {
+		return fmt.Errorf("git cat-file --batch: %w: %s", err, &stderr)
+	}
+	return nil
 }
 
 func contentIdentity(content []byte) string {
@@ -234,6 +294,25 @@ func excluded(name string) bool {
 }
 
 func selected(group, name string) bool {
+	// Extended groups consume the same application and fixture inputs, while
+	// their distinct group names keep certificates separate.
+	switch group {
+	case "browser-extended", "webkit":
+		group = "browser"
+	case "desktop-extended":
+		group = "desktop"
+	}
+	if strings.HasPrefix(name, "tools/validate/") && strings.HasSuffix(name, "_test.go") {
+		return group == "go" || group == "repo"
+	}
+	if group == "go" || group == "browser" || group == "desktop" {
+		if strings.HasPrefix(name, "apps/web/") && (strings.HasSuffix(name, ".test.ts") || strings.HasSuffix(name, ".test.tsx")) {
+			return false
+		}
+	}
+	if (group == "browser" || group == "desktop") && strings.HasSuffix(name, "_test.go") && !strings.HasPrefix(name, "apps/desktop/") {
+		return false
+	}
 	if group == "frontend" && name == "apps/servef/internal/walkthrough/schema.json" {
 		return true
 	}
@@ -281,9 +360,10 @@ type inputManifest struct {
 	Task      string
 	Args      []string
 	Files     []entry
+	host      *hostProfile
 }
 
-func manifest(s snapshot, group, task string, args []string) (inputManifest, string, error) {
+func manifest(s snapshot, group, task string, args []string, host *hostProfile) (inputManifest, string, error) {
 	// Flag parsing and programmatic PR calls can represent no arguments as
 	// either nil or an empty slice. They describe identical check coverage.
 	if len(args) == 0 {
@@ -300,10 +380,10 @@ func manifest(s snapshot, group, task string, args []string) (inputManifest, str
 		}
 	}
 	if isHostGroup(group) {
-		var err error
-		m.HostTools, err = hostToolIdentity(m.Files)
-		if err != nil {
-			return m, "", err
+		if host != nil {
+			m.HostTools, m.host = host.Identity, host
+		} else if len(lockedHostVersions(m.Files)) != 0 {
+			return m, "", fmt.Errorf("host tool profile required")
 		}
 	}
 	raw, err := json.Marshal(m)

@@ -6,8 +6,9 @@ formatting, transport validation, and exhaustive input combinations belong in
 Go or Node tests. Cosmetic dimensions and exhaustive theme sweeps do not gate
 pushes.
 
-This audit reduces 224 browser cases to 87. It removes tests rather than hiding
-them behind a second browser suite. No product behavior changes.
+The original audit reduced 224 browser cases to 87. The follow-up below deletes
+low-value assertions and separates useful stress coverage from correctness
+(decision 0096). No product behavior changes.
 
 ## Coverage decisions
 
@@ -44,8 +45,8 @@ Counts include parameterized cases. Paths below are relative to `tests/browser/`
   formatting, escaping, malformed input, binary/size boundaries.
 - `apps/servef/internal/web/*_test.go`: scoped access, HTTP contracts, images, navigation,
   git comparisons, walkthroughs, and live-event transport.
-- `apps/web/src/features/documents/document-view.test.ts`, `image-zoom.test.ts`, and
-  `diagram.test.ts`: capabilities, mode policy, loading/failure decisions, zoom,
+- `apps/web/src/features/documents/document-view.test.ts` and
+  `diagram.test.ts`: capabilities, mode policy, loading/failure decisions, diagram zoom,
   and diagram errors.
 - `apps/web/src/features/search/*.test.ts` and
   `apps/web/src/features/explorer/filename-filter.test.ts`: matching, globs, scopes,
@@ -64,3 +65,31 @@ test. The table distinguishes retained integration coverage, existing cheaper
 policy coverage, and intentionally omitted cosmetic/secondary checks. Add a
 browser regression only when its failure depends on browser behavior that
 these lower layers cannot exercise.
+
+## Correctness and extended suites (0096)
+
+Correctness retains user workflows, transport and generated-shape contracts,
+confinement, persistence, cancellation, and recovery. It uses a compact changed
+file for real review anchors, hunk navigation, and collapsed gaps. The large
+virtualized-diff scenario is tagged `@extended`; its full-size fixture is built
+only for extended runs. Playwright WebKit compatibility also belongs to
+extended. These cases remain useful and are moved rather than deleted.
+
+Deleted standalone unit files, relative to `apps/web/src/`:
+
+| File | Reason |
+| --- | --- |
+| `api/source-control-messages.test.ts` | Punctuation and repeated message prefixes; HTTP failure handling remains covered. |
+| `features/source-control/diff-metrics.test.ts` | Restates a font-size multiplier and default metrics. |
+| `highlighting/highlight-thread.test.ts` | Restates a threshold comparison; source-highlighter tests cover actual worker selection and recovery. |
+| `workspace/use-sidebar.test.ts` | Simple stored enum fallback; sidebar interactions remain covered in browser workflows. |
+| `features/documents/image-zoom.test.ts` | Simple zoom arithmetic; production image fit/zoom remains covered in the browser. |
+| `workspace/empty-workspace.test.ts` | Static empty-state copy and low-risk action combinations. |
+
+Trim welcome entry/label snapshots, static command ordering, LSP summary copy,
+and exact file-decoration colors/CSS. Keep project grouping/filtering, command
+matching/ranking, status polling/query behavior, and hostile-path escaping.
+Delete `scrollbars.spec.ts`'s cosmetic width comparison and incidental pixel
+assertions in feature tests. Keep mobile reachability and browser interaction
+assertions; accessibility, focus, navigation, and functional overflow remain
+correctness concerns.

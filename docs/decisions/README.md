@@ -63,7 +63,7 @@ rewriting history; update `Status` on the old record.
 | [0055](0055-scrollbars.md) | Thin, hover-revealed scrollbars with reserved gutters | Accepted |
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
-| [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted; groups revised by 0095 |
+| [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted; groups revised by 0095; suites and inputs by 0096 |
 | [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
 | [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
 | [0062](0062-desktop-app.md) | Desktop app | Electron shell superseded by 0095 |
@@ -99,4 +99,5 @@ rewriting history; update `Status` on the old record.
 | [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
 | [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
-| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096 |
+| [0096](0096-correctness-and-extended-validation.md) | Correctness checks and optional extended validation | Accepted |

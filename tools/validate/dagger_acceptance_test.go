@@ -269,7 +269,7 @@ func TestDaggerBrowserArtifactsAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputs, _, err := manifest(snapshot, "browser", "", nil)
+	inputs, _, err := manifest(snapshot, "browser", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

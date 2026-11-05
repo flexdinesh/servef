@@ -16,8 +16,8 @@ No repository secrets are needed; publishing uses the workflow's
 `GITHUB_TOKEN`.
 
 1. Merge release-ready code to `main`. Ordinary checks run locally before
-   push; run `mise run check:full` before releasing for race tests and docs
-   validation too.
+   push; run `mise run check:full` before releasing for correctness and extended
+   stress, resource, and compatibility validation.
 2. Pick the tag: `go run ./tools/release-version` prints the next patch in
    the `.release-version` series (or the tag already on `HEAD`).
 3. Tag a `main` commit and push the tag:

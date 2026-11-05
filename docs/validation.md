@@ -29,7 +29,7 @@ mise run contracts:check
 ```
 
 Before creating or updating a PR, commit changes and validate clean committed
-HEAD across all ten groups. Verify status immediately before the separate
+HEAD across all ten correctness groups. Verify status immediately before the separate
 push/PR operation:
 
 ```sh
@@ -44,10 +44,28 @@ or engine startup. Validation never creates or updates a PR. Local conventions
 are bypassable; Git has no standard pre-PR hook and no remote enforcement is
 introduced. There is no mandatory pre-push suite.
 
-`check`, `check:full`, and `validate` alias `check:pr`. Select a committed group
+`check` and `validate` alias `check:pr`. Select a committed group
 with `mise run check:pr -- --group docs`. Use `mise run check:pr -- --force` to
 execute checks and prerequisite builds again. `mise run check:prune` manages
 completed artifacts.
+
+Run extended checks when the change affects performance, stress behavior,
+resource use, or browser compatibility:
+
+```sh
+mise run check:extended       # stress, desktop RSS, Playwright WebKit
+mise run check:full           # correctness plus extended
+mise run check:status -- --suite extended
+mise run test:browser:extended
+mise run test:desktop:extended
+```
+
+Diff virtualization, large-document responsiveness, worker/process lifecycle,
+memory, browser-engine dependencies, and desktop rendering changes warrant the
+relevant extended checks. Ordinary copy or unrelated backend changes do not.
+`--suite correctness|extended|full` selects aggregate validation/status coverage.
+Extended groups have separate certificates; they cannot certify correctness.
+Report extended failures even when correctness passes.
 
 Public mise tasks invoke the coordinator. Hidden `_host:*` and `_container:*`
 tasks contain leaf commands and never invoke public wrappers. This prevents
@@ -59,12 +77,17 @@ container execution from recursively launching the host coordinator.
 | web-static | Host | Web typecheck, oxlint, stylelint |
 | tooling-static | Host | Root TypeScript check for scripts and tests |
 | site-static | Host | Site TypeScript check |
-| go | Dagger | Vet, ordinary Go tests, race tests |
+| go | Dagger | Vet and one race-enabled Go test pass |
 | frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
 | tooling | Dagger | Release, runner, and browser harness tests |
 | docs | Dagger | Production site build and internal-link validation |
 | browser | Dagger | Chromium integration tests and fixture servers (WebKit opt-in) |
 | desktop | Dagger | Desktop app unit tests on Go 1.27, then the built app under Xvfb |
+
+Extended groups: `browser-extended` (Chromium stress with the large diff
+fixture), `desktop-extended` (RSS scenarios), and `webkit` (browser compatibility).
+The correctness browser suite excludes `@extended` tests and uses compact
+fixtures that retain hunk navigation and collapsed-gap reveal.
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
 architecture or validation tooling remain tests and run there too. Git, Ruby,
@@ -75,7 +98,7 @@ preparation rather than silently skip formula or navigation coverage.
 
 `mise run test:browser:webkit` runs the browser suite on Playwright's WebKit
 project. It reports UI compatibility with WebKit-based shells and Safari; it is
-not part of `check:pr`, and failures do not block PRs. Only this task installs
+not part of `check:pr`; it is included in `check:extended`. Only this group installs
 WebKit and its system libraries; the gate prepares Chromium alone. Playwright's
 WebKit tracks recent WebKit, so passing here is an upper bound: distribution
 WebKitGTK builds can lag it.
@@ -91,7 +114,7 @@ shellcheck on `apps/desktop/scripts`, `go mod tidy -diff`, `go vet`, and
 
 The e2e half builds the app with `-tags e2e` (mygo's automation plugin) and drives
 its page under Xvfb with WebKitGTK from the Debian snapshot, against the real
-`servef` binary with its web app embedded; screenshots, `rss.txt`, and
+`servef` binary with its web app embedded; screenshots and
 `report.json` land in the artifact directory under `desktop-e2e/`. It also runs
 `servef <dir>` against a `servef://` handler registered with real `xdg-utils`. Each
 launch gets its own socket, roots file, and XDG directories; nothing reaches the
@@ -99,6 +122,10 @@ user's daemon. The group reads `apps/desktop/`, `apps/servef/` (the module it
 replaces and the binary it runs), `apps/web/`, and `packages/contracts/`.
 `fmt:check` covers `apps/desktop`; `tidy:check` does not. Linux only: macOS is
 built and smoke-tested by `build.yml`.
+
+Correctness selects `TestWebViewApp`. `test:desktop:extended` selects only
+`TestWebViewResources`, measuring a document session and a fresh single-document
+profile. RSS files and their settling waits belong to extended artifacts.
 
 ## Engine ownership
 
@@ -179,7 +206,11 @@ are platform-specific. Commit and branch names record provenance, not validity.
 A history-only rebase can reuse matching certificates; relevant upstream changes
 invalidate affected groups. No elapsed-time or small-diff rule establishes success.
 
-Dagger caches immutable preparation/build layers. Debian packages also keep a
+Dagger caches immutable preparation/build layers. Persistent Go compilation
+caches retain unchanged packages across source edits and compatible binary/test
+builds; desktop Go/cgo preparation uses a separate cache identity. Frozen pnpm
+installs reuse a download-store cache when the lockfile changes. Compilation
+and download caches never substitute for successful test evidence. Debian packages also keep a
 download cache volume, named for the pinned snapshot: a step that fails on a
 mirror error fetches only what is missing on the next attempt, and apt verifies
 each cached package against the snapshot's signed indexes. `apt-get update` and
@@ -193,7 +224,7 @@ while waiting does not revoke prior proof. Older concurrent work cannot restore
 stale success.
 
 `--force` bypasses certificates and cached check/build execution; Go tests use
-`-count=1`. Dependency download preparation may remain reusable. Reusable build
+`-count=1`. Compiler caches and dependency download preparation remain reusable. Reusable build
 outputs are not successful test evidence. Aggregate success requires every
 complete group plus a final cancellation, HEAD, and tracked-cleanliness check.
 

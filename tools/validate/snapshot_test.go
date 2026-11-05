@@ -3,10 +3,83 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestCommittedBatchSnapshotPreservesBytesPathsAndModes(t *testing.T) {
+	root := repository(t)
+	contents := map[string]string{
+		" leading and trailing ": "",
+		"tab\tand\nnewline":      "\x00binary\nheader blob 123\n\xff",
+		"unicode-日":              strings.Repeat("large\x00blob\n", 20000),
+		"executable":             "#!/bin/sh\nprintf original\\n\n",
+	}
+	// More requests and output than typical pipe buffers. A writer that sends
+	// every request before reading responses would deadlock this capture.
+	for i := range 1700 {
+		contents[fmt.Sprintf("many/%04d", i)] = fmt.Sprintf("blob %d\n%s", i, strings.Repeat("x", 100))
+	}
+	for name, content := range contents {
+		put(t, root, name, content)
+	}
+	if err := os.Chmod(filepath.Join(root, "executable"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("tab\tand\nnewline", filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	commit(t, root, "batch fixture")
+	s := snap(t, root)
+	if len(s.Entries) != len(contents)+1 {
+		t.Fatalf("captured %d entries, want %d", len(s.Entries), len(contents)+1)
+	}
+	working, err := readWorkingSnapshot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(s.Entries, working.Entries) {
+		t.Fatal("batch and working snapshots disagree on paths, modes, or content")
+	}
+	out := t.TempDir()
+	if err := materialize(out, s.Entries); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range s.Entries {
+		if e.Blob != contentIdentity(e.Content) {
+			t.Fatalf("wrong content identity for %q", e.Path)
+		}
+	}
+	for name, want := range contents {
+		got, err := os.ReadFile(filepath.Join(out, name))
+		if err != nil || string(got) != want {
+			t.Fatalf("batch changed %q: %v", name, err)
+		}
+	}
+	info, err := os.Stat(filepath.Join(out, "executable"))
+	if err != nil || info.Mode().Perm() != 0755 {
+		t.Fatalf("batch lost executable mode: %v", err)
+	}
+	link, err := os.Readlink(filepath.Join(out, "link"))
+	if err != nil || link != "tab\tand\nnewline" {
+		t.Fatalf("batch changed symlink: %q %v", link, err)
+	}
+}
+
+func TestCommittedBatchSnapshotRejectsEscapingSymlinkOnMaterialization(t *testing.T) {
+	root := repository(t)
+	if err := os.Symlink("../outside", filepath.Join(root, "escape")); err != nil {
+		t.Fatal(err)
+	}
+	commit(t, root, "escape")
+	if err := materialize(t.TempDir(), snap(t, root).Entries); err == nil {
+		t.Fatal("escaping committed symlink accepted")
+	}
+}
 
 func TestWorkingSnapshotCapturesEditsNewFilesAndDeletion(t *testing.T) {
 	root := repository(t)
@@ -72,7 +145,7 @@ func TestWorkingAndCommittedContentsHaveSameIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, group := range groups {
+	for _, group := range chosen(options{Suite: "full"}) {
 		if key(t, committed, group) != key(t, working, group) {
 			t.Fatalf("identical contents have different %s input identity", group)
 		}
