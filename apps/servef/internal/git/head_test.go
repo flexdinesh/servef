@@ -21,7 +21,7 @@ func TestReadHeadOnBranch(t *testing.T) {
 	second := f.empty("Second subject\n\nBody line.\n", 1700000100, first)
 	f.ref("refs/heads/master", second)
 
-	want := Head{Branch: "master", Commit: second.String(), Subject: "Second subject"}
+	want := Head{Branch: "master", Commit: second.String(), Parent: first.String(), Subject: "Second subject"}
 	if got := readHead(t, f.dir); got != want {
 		t.Fatalf("ReadHead() = %+v, want %+v", got, want)
 	}
@@ -71,7 +71,7 @@ func TestReadHeadInLinkedWorktree(t *testing.T) {
 	writeFile(t, filepath.Join(f.dir, ".git", "refs", "heads", "feature"), feature.String()+"\n")
 	writeFile(t, filepath.Join(worktree, ".git"), "gitdir: "+admin+"\n")
 
-	want := Head{Branch: "feature", Commit: feature.String(), Subject: "Feature work"}
+	want := Head{Branch: "feature", Commit: feature.String(), Parent: main.String(), Subject: "Feature work"}
 	if got := readHead(t, worktree); got != want {
 		t.Fatalf("worktree ReadHead() = %+v, want %+v", got, want)
 	}

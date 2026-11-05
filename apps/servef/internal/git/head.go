@@ -17,6 +17,8 @@ type Head struct {
 	Branch string
 	// Commit is HEAD's full commit hash; empty on an unborn branch.
 	Commit string
+	// Parent is the commit's first parent's full hash; empty without one.
+	Parent string
 	// Subject is the first line of the commit's message.
 	Subject string
 }
@@ -50,6 +52,9 @@ func ReadHead(dir string) (Head, error) {
 		return Head{}, fmt.Errorf("read HEAD commit: %w", err)
 	}
 	head.Commit = commit.Hash.String()
+	if len(commit.ParentHashes) > 0 {
+		head.Parent = commit.ParentHashes[0].String()
+	}
 	subject, _, _ := strings.Cut(commit.Message, "\n")
 	head.Subject = strings.TrimSpace(subject)
 	return head, nil

@@ -4,7 +4,9 @@ import { isRecord } from "./http.ts"
 // stream of one project's live updates. "status" says how the project is
 // followed, first and whenever that changes; "change" is one debounced batch.
 // A checkout's stream also sends "head" after the first status and after a
-// git change that moves HEAD (decision 0066); the browser ignores it.
+// git change that moves HEAD (decision 0066), and every stream sends
+// "walkthrough" for one published for its project (decision 0099); the browser
+// ignores both.
 
 export type LiveMode = "watching" | "polling" | "off"
 
@@ -33,6 +35,8 @@ export interface LiveHeadRef {
 }
 
 export interface LiveHead extends LiveHeadRef {
+  // parent is the commit's first parent's full hash; "" without one.
+  parent: string
   // subject is the first line of the commit's message.
   subject: string
   // previous is the stream's last head; null for the first.
@@ -63,6 +67,7 @@ function isLiveHeadRef(value: unknown): value is LiveHeadRef {
 export function isLiveHead(value: unknown): value is LiveHead {
   return isRecord(value)
     && isLiveHeadRef(value)
+    && typeof value.parent === "string"
     && typeof value.subject === "string"
     && (value.previous === null || isLiveHeadRef(value.previous))
 }

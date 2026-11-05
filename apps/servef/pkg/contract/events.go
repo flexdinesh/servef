@@ -6,6 +6,9 @@ const (
 	EventStatus = "status"
 	EventChange = "change"
 	EventHead   = "head"
+	// EventWalkthrough announces a walkthrough published for the stream's
+	// project (decision 0099). Its body is the control stream's WalkthroughEvent.
+	EventWalkthrough = "walkthrough"
 )
 
 // CodeInvalidLease rejects an events request whose lease is neither open nor
@@ -29,11 +32,14 @@ type ChangeEvent struct {
 }
 
 // HeadEvent is the stream's "head": what a checkout has checked out. Branch
-// is empty when detached and Commit when unborn. Previous is the stream's
-// last head, null for the first.
+// is empty when detached and Commit when unborn. Parent is the commit's first
+// parent, empty without one, so a client can tell a new commit from any other
+// move of HEAD (decision 0099). Previous is the stream's last head, null for
+// the first.
 type HeadEvent struct {
 	Branch   string   `json:"branch"`
 	Commit   string   `json:"commit"`
+	Parent   string   `json:"parent"`
 	Subject  string   `json:"subject"`
 	Previous *HeadRef `json:"previous"`
 }
@@ -46,10 +52,11 @@ type HeadRef struct {
 
 // Event is one event of a project stream: Name says which field is set.
 type Event struct {
-	Name   string
-	Status *StatusEvent
-	Change *ChangeEvent
-	Head   *HeadEvent
+	Name        string
+	Status      *StatusEvent
+	Change      *ChangeEvent
+	Head        *HeadEvent
+	Walkthrough *WalkthroughEvent
 }
 
 // Payload is the event's body, encoded as the stream's data.
@@ -61,6 +68,8 @@ func (e Event) Payload() any {
 		return e.Change
 	case EventHead:
 		return e.Head
+	case EventWalkthrough:
+		return e.Walkthrough
 	}
 	return nil
 }

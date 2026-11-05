@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -303,6 +304,33 @@ func TestEventsParityAcrossTransports(t *testing.T) {
 				}
 				if event.Name == contract.EventChange && event.Change != nil && containsString(event.Change.Paths, name) {
 					break
+				}
+			}
+			// A walkthrough published for the project reaches its streams, at
+			// either lease.
+			watched, err := transport.client.Events(ctx, contract.EventsRequest{Project: f.root, Lease: "watched"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer watched.Close()
+			id := "live" + strings.ReplaceAll(transport.name, "-", "")
+			if _, err := transport.client.PublishWalkthrough(ctx, contract.WalkthroughDraft{Project: f.root, ID: id, Title: "Tour", Summary: "Start.", Steps: []contract.WalkthroughDraftStep{{Title: "Intro", Body: "Hello."}}}); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = transport.client.DeleteWalkthrough(ctx, f.root, id) }()
+			want := contract.WalkthroughEvent{Project: f.root, ID: id, Title: "Tour", Created: true}
+			for _, following := range []*client.Stream[contract.Event]{stream, watched} {
+				for {
+					event, err := following.Next()
+					if err != nil {
+						t.Fatal(err)
+					}
+					if event.Name == contract.EventWalkthrough {
+						if event.Walkthrough == nil || *event.Walkthrough != want {
+							t.Errorf("walkthrough event = %+v, want %+v", event.Walkthrough, want)
+						}
+						break
+					}
 				}
 			}
 			stream.Close()
