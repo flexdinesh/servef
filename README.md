@@ -24,6 +24,7 @@ Run a script again to update. Latest `main` builds: see [development](docs/devel
 ```sh
 servef .            # open in the desktop app (falls back to the browser)
 servef browser .    # always serve in the browser
+servef . --remote   # serve to another machine; run the printed `servef connect ...` there
 servef --help
 ```
 

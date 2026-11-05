@@ -17,9 +17,9 @@ servef path/to/markdown
 With the [desktop app](/docs/desktop) installed, `servef [path]` opens the
 directory in it and exits. Without it, or with `--host` or `--port`, it serves
 in a browser, as `servef browser [path]` does. On a machine without a UI (an
-SSH session, or Linux without a display) it serves on that machine's address
-and prints `web:` and `desktop:` links to open from your computer; that server
-has no authentication ([Remote hosts](/docs/remote)).
+SSH session, or Linux without a display) it tells you to run
+`servef [path] --remote`, which prints a `servef connect` command to run on your
+computer ([Remote hosts](/docs/remote)).
 
 `servef browser [path]` always serves in a browser and takes the same flags.
 Subcommand names take precedence over directories, so open a directory named

@@ -31,10 +31,18 @@ servef --scan-depth 4 ~/code   # depth to search for git repositories (default 1
 ## Remote
 
 ```sh
-ssh host 'servef ~/code/foo'   # no-UI machine: serves on its address, prints web: and desktop: links
+servef ~/code/foo --remote          # on the server: serve over TLS, print a servef connect string
+servef ~/code/foo --remote --web    # also print a browser link
+servef --remote --host 10.0.0.5     # one address (default every interface)
+servef connect <string>             # on your computer: open it in the desktop app
+servef connect --host localhost <string>   # through your own ssh -L tunnel
+servef connect --no-open <string>   # save it and print the servef:// link
+servef remote status                # print the state and the string again
+servef remote stop                  # stop serving over TCP now
+servef remote rotate                # new identity; old strings stop working
 ```
 
-Desktop app: File > Connect... opens folders on ssh hosts from `~/.ssh/config`.
+Bare `servef` on a machine with no UI prints this advice and exits.
 
 ## Walkthroughs
 

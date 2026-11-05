@@ -5,7 +5,7 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 
 ## System boundaries
 
-- `apps/servef/main.go` and `apps/servef/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), serving no-UI machines on their address with `web:` and `desktop:` links (decision 0076).
+- `apps/servef/main.go` and `apps/servef/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), `servef --remote`, `servef connect`, and `servef remote` (decision 0098).
 - `apps/servef/internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
 - `apps/servef/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API (typed `Controller` operations and their HTTP handler), roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
 - `apps/servef/internal/app/`: transport-agnostic application layer (decision 0080); domain services (projects, documents, events, source control) return `pkg/contract` types or typed errors; no `net/http`.

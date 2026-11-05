@@ -79,8 +79,8 @@ servef serves in a browser instead, as `servef browser` does, when:
 - the daemon cannot start or speaks another protocol (prints why).
 
 `servef browser [path]` always serves in a browser. On a machine without a UI
-(an SSH session, or Linux without a display), `servef [path]` serves on that
-machine's address ([Remote hosts](/docs/remote)).
+(an SSH session, or Linux without a display), `servef [path]` tells you to use
+`--remote` ([Remote hosts](/docs/remote)).
 
 ## Tabs
 
@@ -96,8 +96,9 @@ when no tabs are open.
 [path]`, and **File › Open Folder…** do. `servef walkthrough publish` prints a
 `servef://` link when the app can show the walkthrough.
 
-`servef://<host>:<port>/…` opens the servef server at that address in your
-browser: the window shows this computer's daemon only.
+`servef://r-<id>/…` opens a server you connected to with `servef connect`
+([Remote hosts](/docs/remote)), with the same routes. Links carry no address and
+no secret; the app looks up a connection saved on this computer.
 
 ## File context menus
 
@@ -111,8 +112,8 @@ the project.
 
 These went with the earlier Electron app and are not coming back as they were:
 
-- ssh connections, the Connect page, and windows for servers started in a
-  terminal or on other hosts. Open those in a browser ([Remote hosts](/docs/remote)).
+- ssh connections and the Connect page. `servef connect` opens other machines
+  ([Remote hosts](/docs/remote)).
 - Open at Login, notifications, recent folders, the Dock menu, and dropping
   folders on the window or the Dock.
 - **Open in servef** in file managers, and deb and AppImage packages.

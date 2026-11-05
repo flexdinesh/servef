@@ -1,9 +1,8 @@
 # Remote hosts
 
-servef runs beside the files. To browse another machine, serve it over http from
-that machine and open its link in a browser. The [desktop app](/docs/desktop)
-shows this computer's projects only: it has no ssh connections, and it opens
-server links in your browser.
+servef runs beside the files. To browse another machine, start it there with
+`--remote`, then run the command it prints on your computer. The
+[desktop app](/docs/desktop) opens that machine in a window of its own.
 
 ## Install servef on the host
 
@@ -18,42 +17,93 @@ The script needs no sudo and puts `servef` in `~/.local/bin` (or `~/bin`).
 Release archives (`servef_<version>_linux_<amd64|arm64>.tar.gz`) work too;
 put `servef` in `~/.local/bin`.
 
-## Serve over http from the host
-
-On a machine without a UI (inside an SSH session, or Linux without a
-display), `servef [path]` serves in browser mode on the machine's own
-address instead of opening anything:
+## Serve from the host
 
 ```sh
-servef ~/code/foo
+servef ~/code/foo --remote
 ```
 
 ```text
   servef 1.4.0
   serving directory:  /home/dee/code/foo
-  web:      http://10.0.0.5:7971/
-  desktop:  servef://10.0.0.5:7971/
-  no authentication: anyone who can reach this address can read the served files.
+
+  on your computer, run:
+  servef connect 10.0.0.5:7971/<credential>
+
+  stops 10 min after this if nothing connects, and 5 min after the last UI closes. `servef remote stop` stops it now.
 ```
 
-Open the `web:` URL in a browser on your computer (terminals that support
-hyperlinks make both clickable). The `desktop:` link does the same through the
-desktop app, which hands it to your browser. The address is the server side of
-your SSH connection, else the machine's outbound address; it binds that one
-address, never all interfaces.
+It returns to your shell and keeps serving in the background, so you can close
+the SSH session. It binds every interface unless `--host` names one, on the
+first free port from 7971 to 7980 unless `--port` sets it. It serves every
+directory servef already serves on that machine, and prints them all.
+
+Without `--remote`, `servef` on a machine with no UI (an SSH session, or Linux
+without a display) prints a reminder and exits. It never opens a port by itself.
+
+## Connect from your computer
+
+```sh
+servef connect 10.0.0.5:7971/<credential>
+```
+
+The desktop app opens that machine in its own window, with its own tabs and
+settings. Connect to several machines and each gets a window. servef saves the
+connection, so `servef://<id>/` links reopen it. `--no-open` saves it and prints
+the link instead.
+
+The printed addresses are a guess at what your computer can reach. If they are
+wrong, edit the string, or pass `--host`:
+
+```sh
+ssh -L 7971:localhost:7971 <host>
+servef connect --host localhost 10.0.0.5:7971/<credential>
+```
+
+## Security
+
+The string is a password: anyone who has it and can reach the port can read the
+served files. Traffic uses TLS with a certificate pinned by the string, so a
+machine pretending to be the server is refused, and every request carries the
+string's token. The string has no expiry. It keeps working across restarts until
+you replace it:
+
+```sh
+servef remote rotate    # old strings stop working
+```
+
+Pages from a remote server cannot reach your computer: they get no folder dialog
+and no Reveal in File Manager, and cannot read another window's data.
+
+## When it stops
+
+The server stops 10 minutes after starting if no window or browser connects, and
+5 minutes after the last one closes. A hidden or minimized window still counts.
+
+```sh
+servef remote status    # state, clients, and the string again
+servef remote stop      # stop now
+```
+
+## Browser
+
+```sh
+servef ~/code/foo --remote --web
+```
+
+also prints a `web:` link. Open it in any browser; it signs in with a cookie and
+removes the token from the address bar. Browsers warn about the self-signed
+certificate, because they cannot pin it. That link is a password too.
 
 :::warning
-These servers have **no authentication**. Anyone who can reach the address
-can read the served files. Use them only on networks you trust. For a
-private server, run `servef browser` (it binds `localhost`) and forward its
-port yourself, for example `ssh -L 7971:localhost:7971 <host>`.
+`servef browser --host <address>` is a different thing: plain http with **no
+authentication**. Anyone who can reach the address can read the served files. Use
+it only on networks you trust, or run `servef browser` (it binds `localhost`) and
+forward its port yourself, for example `ssh -L 7971:localhost:7971 <host>`.
 :::
-
-`--host` and `--port` choose the address yourself. `servef browser` keeps
-its `localhost` default everywhere and never opens anything over SSH.
 
 ## Walkthroughs
 
 Agents on the host publish with `servef walkthrough publish`
-([Walkthroughs](/docs/walkthroughs)). When a servef server on the host shows
-the project, it prints the web URL and the `servef://` desktop link.
+([Walkthroughs](/docs/walkthroughs)). While the host serves with `--remote`, it
+prints a `servef://` link that opens on the connected computer.

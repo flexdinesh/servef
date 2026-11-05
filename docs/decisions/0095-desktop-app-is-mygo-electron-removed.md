@@ -1,7 +1,7 @@
 # 0095: Desktop app is mygo in web views; Electron removed
 
 - Status: Accepted
-- Revised by: [0096](0096-correctness-and-extended-validation.md) (desktop resource checks move to extended)
+- Revised by: [0096](0096-correctness-and-extended-validation.md) (desktop resource checks move to extended), [0098](0098-remote-connections.md) (server connections return, one window each)
 - Date: 2026-11-05
 - Supersedes: [0062](0062-desktop-app.md) (the Electron shell),
   [0064](0064-ssh-remotes.md), [0067](0067-desktop-shell-and-protocol-proxy.md),

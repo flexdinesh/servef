@@ -1,6 +1,6 @@
 # 0061: Daemon, runtime roots, and project leases
 
-- Status: Accepted (leases via [0066](0066-lease-levels-and-desktop-events.md))
+- Status: Accepted (leases via [0066](0066-lease-levels-and-desktop-events.md); optional TCP listener via [0098](0098-remote-connections.md))
 - Date: 2026-11-01
 
 ## Context
