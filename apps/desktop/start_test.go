@@ -82,14 +82,20 @@ func TestStartURLReportsWhatItCouldNotOpen(t *testing.T) {
 	}
 }
 
-// macOS's Window role has no Close, so Cmd+W needs its own entry there.
-func TestWindowMenuCanCloseOnMacOS(t *testing.T) {
-	item := windowMenu("darwin")
-	found := false
-	for _, entry := range item.Submenu {
-		found = found || entry.Role == mygo.RoleClose
-	}
-	if !found {
-		t.Fatal("no Close entry in the macOS Window menu")
+func TestWindowMenuClosesTabsInsteadOfTheWindow(t *testing.T) {
+	for _, goos := range []string{"darwin", "linux"} {
+		t.Run(goos, func(t *testing.T) {
+			item := (&host{}).windowMenu(goos)
+			found := false
+			for _, entry := range item.Submenu {
+				if entry.Role == mygo.RoleClose {
+					t.Fatal("native Close bypasses the workspace")
+				}
+				found = found || (entry.Accelerator == "CmdOrCtrl+W" && entry.Click != nil)
+			}
+			if !found {
+				t.Fatal("no Cmd/Ctrl+W tab action")
+			}
+		})
 	}
 }

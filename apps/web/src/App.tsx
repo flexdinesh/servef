@@ -90,6 +90,7 @@ import { useDocumentWorkspace } from "./workspace/use-document-workspace.ts"
 import { useImageViewer } from "./features/documents/use-image-viewer.ts"
 import { usePreviewPreference } from "./features/documents/use-preview-preference.ts"
 import { useProjectMemory } from "./workspace/use-project-memory.ts"
+import { useDesktopCloseTab } from "./workspace/use-desktop-close-tab.ts"
 import { useSearchSession } from "./features/search/use-search-session.ts"
 import type { LiveChange } from "./api/events-contract.ts"
 import { liveTargets } from "./features/live-updates/live-updates.ts"
@@ -588,6 +589,8 @@ export function App({ project }: AppProps) {
   function closeTab(tab: WorkspaceTab) {
     closeTabs([tab])
   }
+
+  useDesktopCloseTab(activeTab, workspace.tabs, closeTab)
 
   function closeTabs(tabs: readonly WorkspaceTab[]) {
     const closed = workspace.closeTabs(tabs, activeTab)

@@ -20,9 +20,11 @@ export type NativeMenuItem =
 // macOS, decision 0075) pops the app menu at a window point; revealPath shows
 // a project file in the OS file manager; showContextMenu pops a native menu
 // and resolves the chosen id, or null when dismissed (decision 0081).
+// closeWindow closes the native window after the final tab (decision 0097).
 export interface DesktopBridge {
   version: number
   openFolder(): void
+  closeWindow: (() => void) | null
   showAppMenu: ((x: number, y: number) => void) | null
   revealPath: ((project: string, path: string) => void) | null
   showContextMenu: ((items: readonly NativeMenuItem[], x: number, y: number) => Promise<string | null>) | null
@@ -33,13 +35,18 @@ export interface DesktopBridge {
 // are null.
 export function readDesktopBridge(value: unknown): DesktopBridge | null {
   if (!isRecord(value) || typeof value.version !== "number" || !Number.isInteger(value.version) || value.version < 1) return null
-  const { openFolder, showAppMenu, revealPath, showContextMenu } = value
+  const { openFolder, closeWindow, showAppMenu, revealPath, showContextMenu } = value
   if (typeof openFolder !== "function") return null
   return {
     version: value.version,
     openFolder() {
       openFolder.call(value)
     },
+    closeWindow: typeof closeWindow === "function"
+      ? () => {
+        closeWindow.call(value)
+      }
+      : null,
     showAppMenu: typeof showAppMenu === "function"
       ? (x, y) => {
         showAppMenu.call(value, x, y)
