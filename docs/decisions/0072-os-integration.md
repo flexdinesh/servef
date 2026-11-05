@@ -1,6 +1,6 @@
 # 0072: OS integration: open folders from the OS, open at login
 
-- Status: Accepted; revised by [0081](0081-desktop-bridge-v2-native-features.md) (Deferred: reveal, recent folders, Dock menu)
+- Status: Accepted; revised by [0081](0081-desktop-bridge-v2-native-features.md) (Deferred: reveal, recent folders, Dock menu); login entry name and one move revised by [0092](0092-electron-app-name.md)
 - Date: 2026-11-02
 - Implements: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   deferred OS context menus and login item

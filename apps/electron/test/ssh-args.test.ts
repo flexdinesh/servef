@@ -5,7 +5,7 @@ import {
 } from "../src/main/ssh-args.ts"
 
 const target = { id: "ssh-devbox", destination: "devbox", port: null }
-const cp = "/run/user/1000/servef-desktop-0123abcd/c-0123456789ab"
+const cp = "/run/user/1000/servef-electron-0123abcd/c-0123456789ab"
 
 test("REMOTE_ENSURE and REMOTE_STOP are the exact remote command lines", () => {
   const prefix = "sh -c 'PATH=\"$PATH:$HOME/.local/bin:${GOPATH:-$HOME/go}/bin:$HOME/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin\"; export PATH; command -v servef >/dev/null 2>&1 || { echo \"servef-missing $(uname -s) $(uname -m)\" >&2; exit 127; }; "
@@ -49,7 +49,7 @@ test("muxControlArgs: check and exit never use the user's config", () => {
 })
 
 test("muxControlArgs: forward and cancel carry -L local:remote", () => {
-  const local = "/run/user/1000/servef-desktop-0123abcd/f-0123456789ab.sock"
+  const local = "/run/user/1000/servef-electron-0123abcd/f-0123456789ab.sock"
   const remote = "/home/dee/.cache/servef/daemon.sock"
   assert.deepEqual(muxControlArgs(target, cp, { op: "forward", local, remote }), ["-O", "forward", "-L", `${local}:${remote}`, ...muxOptions, "--", "devbox"])
   assert.deepEqual(muxControlArgs({ ...target, port: 2222 }, cp, { op: "cancel", local, remote }), ["-O", "cancel", "-L", `${local}:${remote}`, ...muxOptions, "-p", "2222", "--", "devbox"])

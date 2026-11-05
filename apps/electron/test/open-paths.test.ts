@@ -3,9 +3,9 @@ import { test } from "node:test"
 import { droppedPathsOf, MAX_DROPPED_PATHS, openPathsOf, parseOpenPaths, projectLanding } from "../src/main/open-paths.ts"
 
 test("parseOpenPaths reads arguments after --open-path only", () => {
-  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-desktop"], "/home/u"), [])
-  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-desktop", "servef://local/"], "/home/u"), [])
-  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-desktop", "--open-path"], "/home/u"), [])
+  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-electron"], "/home/u"), [])
+  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-electron", "servef://local/"], "/home/u"), [])
+  assert.deepEqual(parseOpenPaths(["/opt/servef/servef-electron", "--open-path"], "/home/u"), [])
   assert.deepEqual(parseOpenPaths(["electron", "desktop", "--open-path", "/src/a", "/src/b"], "/home/u"), ["/src/a", "/src/b"])
 })
 

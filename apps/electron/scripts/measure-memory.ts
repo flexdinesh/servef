@@ -15,7 +15,7 @@ import {
 // PSS (RSS for reference) from /proc. Linux only; needs a display. Under a
 // virtual Wayland compositor:
 //   dbus-run-session -- kwin_wayland --virtual --width 1280 --height 800 --exit-with-session \
-//     'mise run measure:desktop -- --display-args=--ozone-platform=wayland'
+//     'mise run measure:electron -- --display-args=--ozone-platform=wayland'
 
 const { values } = parseArgs({
   options: {
@@ -128,7 +128,7 @@ async function waitForText(page: Page, text: string): Promise<void> {
 }
 
 if (process.platform !== "linux") {
-  console.log("measure:desktop reads /proc and runs on Linux only; on macOS use Activity Monitor's Memory column for Electron Helper processes and servef.")
+  console.log("measure:electron reads /proc and runs on Linux only; on macOS use Activity Monitor's Memory column for Electron Helper processes and servef.")
   process.exit(0)
 }
 

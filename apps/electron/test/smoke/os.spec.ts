@@ -1,9 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 import { expect, test, type ElectronApplication } from "@playwright/test"
 
-import { AUTOSTART_FILE, autostartEntry } from "../../src/main/autostart.ts"
+import { AUTOSTART_FILE, autostartEntry, LEGACY_AUTOSTART_FILE } from "../../src/main/autostart.ts"
 import {
   createRepository, createSession, ensureDaemon, keepDiagnostics, launchAppWith, launchSecondWith, removeSession, stopDaemon, type Session,
 } from "./harness.ts"
@@ -144,7 +144,7 @@ test("a cold launch with only a refused file still shows a window, and a seeded 
   await current().app.close()
   app = undefined
   mkdirSync(session.autostart, { recursive: true })
-  writeFileSync(path.join(session.autostart, AUTOSTART_FILE), autostartEntry(["/opt/servef/servef-desktop"]))
+  writeFileSync(path.join(session.autostart, AUTOSTART_FILE), autostartEntry(["/opt/servef/servef-electron"]))
   app = await launchAppWith(session, ["--open-path", file], extra())
   const page = await app.firstWindow()
   await page.waitForURL("servef-app://local/")
@@ -152,4 +152,20 @@ test("a cold launch with only a refused file still shows a window, and a seeded 
   expect(app.windows()).toHaveLength(1)
   expect(roots()).toEqual([alpha, beta].sort())
   expect(await openAtLoginChecked()).toBe(true)
+})
+
+test("an entry the app wrote before the rename moves to the current id at launch", async () => {
+  const { session } = current()
+  await current().app.close()
+  app = undefined
+  const entry = path.join(session.autostart, AUTOSTART_FILE)
+  const legacy = path.join(session.autostart, LEGACY_AUTOSTART_FILE)
+  rmSync(entry, { force: true })
+  writeFileSync(legacy, autostartEntry(["/opt/servef/servef-desktop"]).replace("Icon=servef-electron", "Icon=servef-desktop"))
+  app = await launchAppWith(session, [], extra())
+  await app.firstWindow()
+  await expect.poll(openAtLoginChecked).toBe(true)
+  const command = await app.evaluate(({ app: electron }) => [process.execPath, electron.getAppPath()])
+  expect(readFileSync(entry, "utf8")).toBe(autostartEntry(command))
+  expect(existsSync(legacy)).toBe(false)
 })

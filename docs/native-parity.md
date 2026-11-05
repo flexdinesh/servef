@@ -31,8 +31,8 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Resizable sidebar; hide and show | `workspace/SidebarResizer.tsx`, `workspace/use-sidebar-resize.ts`, `workspace/use-sidebar.ts` | 0020 | partial (keyboard step is mygo's 10 DIPs, not 16; no double-click reset) | M2 | sidebar-resize | |
 | Tabs: open, switch, close (document, review, walkthrough, Welcome) | `workspace/TabBar.tsx`, `workspace/workspace-tabs.ts` | 0035, 0056 | partial (documents and one Uncommitted review tab; Welcome in M2b, snapshots and other reviews in M8, walkthroughs in M9) | M2 | tabs | |
 | Tab menu (Close, Close Others, Close to the Right, Close All) | `workspace/tab-menu.ts`, `workspace/TabBar.tsx` | 0081 | done (Reveal in M10) | M2 | tab-menu | |
-| Window title (document, project, connection) | `workspace/TitleBar.tsx`, `apps/desktop/src/main/titles.ts` | 0075 | done | M0/0082 | projects | #145 |
-| Title band with app menu button | `workspace/TitleBar.tsx`, `apps/desktop/src/main/titlebar.ts` | 0075 | missing | M2 | _title-bar_ | |
+| Window title (document, project, connection) | `workspace/TitleBar.tsx`, `apps/electron/src/main/titles.ts` | 0075 | done | M0/0082 | projects | #145 |
+| Title band with app menu button | `workspace/TitleBar.tsx`, `apps/electron/src/main/titlebar.ts` | 0075 | missing | M2 | _title-bar_ | |
 | Status bar: connection, branch, language, live state | `workspace/StatusBar.tsx` | 0050 | done | M0/0082 | source-view | #145 |
 | Status bar: path, copy path, Find in files, Settings, process info | `workspace/StatusBar.tsx`, `workspace/process-metrics.ts` | 0008, 0013, 0080 | missing | M2 | _status-bar_ | |
 | Welcome tab (start entries, guides, projects) | `features/welcome/WelcomeTab.tsx`, `features/welcome/welcome-model.ts` | 0052 | missing | M2 | _welcome_ | |
@@ -57,9 +57,9 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 
 | Feature | Web files | Decision | Native status | Milestone | Scenario | PR |
 | --- | --- | --- | --- | --- | --- | --- |
-| Connect page: this computer (daemon ensure), CLI servers, disconnect | `apps/desktop/src/main/app-pages.ts`, `apps/desktop/src/main/cli-servers.ts`, `apps/desktop/src/main/daemon.ts` | 0061, 0071, 0082 | done | M0/0082 | connect-page | #145 |
-| Open a server by address or pasted link | `apps/desktop/src/main/location.ts`, `apps/desktop/src/main/app-pages.ts` | 0071, 0076 | done | M0/0082 | connect-page | #145 |
-| Links (`servef-native://` mirrors `servef://`); single instance | `apps/desktop/src/main/scheme.ts`, `apps/desktop/src/main/main.ts` | 0063, 0072, 0082 | done | M0/0082 | _links_ | #145 |
+| Connect page: this computer (daemon ensure), CLI servers, disconnect | `apps/electron/src/main/app-pages.ts`, `apps/electron/src/main/cli-servers.ts`, `apps/electron/src/main/daemon.ts` | 0061, 0071, 0082 | done | M0/0082 | connect-page | #145 |
+| Open a server by address or pasted link | `apps/electron/src/main/location.ts`, `apps/electron/src/main/app-pages.ts` | 0071, 0076 | done | M0/0082 | connect-page | #145 |
+| Links (`servef-native://` mirrors `servef://`); single instance | `apps/electron/src/main/scheme.ts`, `apps/electron/src/main/main.ts` | 0063, 0072, 0082 | done | M0/0082 | _links_ | #145 |
 | Project list (name, branch, path, availability, warnings) | `features/projects/ProjectPicker.tsx`, `features/projects/project-picker.ts` | 0007 | done | M0/0082 | projects | #145 |
 | Repository names and worktree header | `features/explorer/FileTree.tsx`, `features/projects/project-picker.ts` | 0012 | partial (root name and branch only) | M2 | projects | |
 | Project picker filter, remembered projects (Cmd/Ctrl+O) | `features/projects/ProjectPicker.tsx`, `features/projects/project-picker.ts` | 0007, 0019 | missing | M2 | _project-picker_ | |
@@ -162,7 +162,7 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 | Step targets (file lines, diff selections) and line drift | `features/walkthrough/walkthrough-steps.ts`, `features/walkthrough/use-walkthrough-session.ts` | 0047 | missing | M9 | _walkthrough-steps_ | |
 | Step bar: previous, next (Cmd/Ctrl+Left, Right), remembered step | `features/walkthrough/WalkthroughStepBar.tsx`, `features/walkthrough/walkthrough-memory.ts` | 0047 | missing | M9 | _walkthrough-steps_ | |
 | Present mode | `features/walkthrough/WalkthroughStepBar.tsx` | 0047 | missing | M9 | _walkthrough-present_ | |
-| Announcements (notification opens the walkthrough) | `apps/desktop/src/main/notifications.ts`, `apps/desktop/src/main/subscriptions.ts` | 0065, 0066 | missing | M9 | _walkthrough-announce_ | |
+| Announcements (notification opens the walkthrough) | `apps/electron/src/main/notifications.ts`, `apps/electron/src/main/subscriptions.ts` | 0065, 0066 | missing | M9 | _walkthrough-announce_ | |
 
 ## Live updates
 
@@ -178,22 +178,22 @@ Web files are under `apps/web/src/` unless a path starts with `apps/`. Scenarios
 
 | Feature | Web files | Decision | Native status | Milestone | Scenario | PR |
 | --- | --- | --- | --- | --- | --- | --- |
-| Open Folder dialog; folders from argv and the OS | `lib/desktop-bridge.ts`, `apps/desktop/src/main/folder-opener.ts`, `apps/desktop/src/main/open-paths.ts` | 0072, 0081 | done | M0/0082 | _open-folder_ | #145 |
-| Reveal in File Manager (explorer rows, tabs) | `apps/desktop/src/main/reveal.ts`, `features/explorer/tree-menu.ts` | 0081 | missing | M10 | _reveal_ | |
-| Native context menus (tabs, explorer rows) | `apps/desktop/src/main/context-menu.ts`, `apps/desktop/src/main/electron-context-menu.ts` | 0081 | missing | M10 | _context-menus_ | |
-| Recent folders (Open Recent, clear, system recents, Dock) | `apps/desktop/src/main/recent-folders.ts` | 0081 | missing | M10 | _recent-folders_ | |
-| Folder drop on a window | `apps/desktop/src/preload/preload.ts`, `apps/desktop/src/main/open-paths.ts` | 0081 | missing | M10 | _folder-drop_ | |
-| Notices: branch switch, commit, settled | `apps/desktop/src/main/notifications.ts`, `apps/desktop/src/main/subscriptions.ts` | 0066 | missing | M10 | _notifications_ | |
-| Watched lease for background projects | `apps/desktop/src/main/subscriptions.ts`, `apps/desktop/src/main/sse.ts` | 0066 | missing | M10 | _notifications_ | |
+| Open Folder dialog; folders from argv and the OS | `lib/desktop-bridge.ts`, `apps/electron/src/main/folder-opener.ts`, `apps/electron/src/main/open-paths.ts` | 0072, 0081 | done | M0/0082 | _open-folder_ | #145 |
+| Reveal in File Manager (explorer rows, tabs) | `apps/electron/src/main/reveal.ts`, `features/explorer/tree-menu.ts` | 0081 | missing | M10 | _reveal_ | |
+| Native context menus (tabs, explorer rows) | `apps/electron/src/main/context-menu.ts`, `apps/electron/src/main/electron-context-menu.ts` | 0081 | missing | M10 | _context-menus_ | |
+| Recent folders (Open Recent, clear, system recents, Dock) | `apps/electron/src/main/recent-folders.ts` | 0081 | missing | M10 | _recent-folders_ | |
+| Folder drop on a window | `apps/electron/src/preload/preload.ts`, `apps/electron/src/main/open-paths.ts` | 0081 | missing | M10 | _folder-drop_ | |
+| Notices: branch switch, commit, settled | `apps/electron/src/main/notifications.ts`, `apps/electron/src/main/subscriptions.ts` | 0066 | missing | M10 | _notifications_ | |
+| Watched lease for background projects | `apps/electron/src/main/subscriptions.ts`, `apps/electron/src/main/sse.ts` | 0066 | missing | M10 | _notifications_ | |
 
 ## ssh and remote
 
 | Feature | Web files | Decision | Native status | Milestone | Scenario | PR |
 | --- | --- | --- | --- | --- | --- | --- |
-| Remote http servers over TCP, confirmed once per host and port | `apps/desktop/src/main/remote-hosts.ts`, `apps/desktop/src/main/electron-dialogs.ts` | 0076 | done | M0/0082 | _links_ | #145 |
-| Connect page ssh hosts, config aliases, host pages | `apps/desktop/src/main/app-pages.ts`, `apps/desktop/src/main/connection-store.ts`, `apps/desktop/src/main/ssh-config.ts` | 0070, 0076 | missing | M11 | _ssh-hosts_ | |
-| App-owned ControlMaster (argv only, BatchMode) | `apps/desktop/src/main/ssh-args.ts`, `apps/desktop/src/main/ssh-connection.ts`, `apps/desktop/src/main/runtime-dir.ts` | 0070 | missing | M11 | _ssh-connect_ | |
-| Remote daemon and servers over Unix-socket forwards (direct http fallback) | `apps/desktop/src/main/forward.ts`, `apps/desktop/src/main/proxy.ts`, `apps/desktop/src/main/remote-hosts.ts` | 0070, 0076 | missing | M11 | _ssh-connect_ | |
-| Remote folder picker (`/_daemon/directories`) | `apps/desktop/src/main/app-pages.ts`, `features/projects/project-picker.ts` | 0076 | missing | M11 | _remote-folder-picker_ | |
-| Failure pages, reconnecting state, titles | `apps/desktop/src/main/ssh-errors.ts`, `apps/desktop/src/main/pages.ts`, `apps/desktop/src/main/titles.ts` | 0070 | missing | M11 | _ssh-failures_ | |
-| ssh links and first-contact confirm | `apps/desktop/src/main/scheme.ts`, `apps/desktop/src/main/electron-dialogs.ts` | 0070, 0076 | missing | M11 | _ssh-links_ | |
+| Remote http servers over TCP, confirmed once per host and port | `apps/electron/src/main/remote-hosts.ts`, `apps/electron/src/main/electron-dialogs.ts` | 0076 | done | M0/0082 | _links_ | #145 |
+| Connect page ssh hosts, config aliases, host pages | `apps/electron/src/main/app-pages.ts`, `apps/electron/src/main/connection-store.ts`, `apps/electron/src/main/ssh-config.ts` | 0070, 0076 | missing | M11 | _ssh-hosts_ | |
+| App-owned ControlMaster (argv only, BatchMode) | `apps/electron/src/main/ssh-args.ts`, `apps/electron/src/main/ssh-connection.ts`, `apps/electron/src/main/runtime-dir.ts` | 0070 | missing | M11 | _ssh-connect_ | |
+| Remote daemon and servers over Unix-socket forwards (direct http fallback) | `apps/electron/src/main/forward.ts`, `apps/electron/src/main/proxy.ts`, `apps/electron/src/main/remote-hosts.ts` | 0070, 0076 | missing | M11 | _ssh-connect_ | |
+| Remote folder picker (`/_daemon/directories`) | `apps/electron/src/main/app-pages.ts`, `features/projects/project-picker.ts` | 0076 | missing | M11 | _remote-folder-picker_ | |
+| Failure pages, reconnecting state, titles | `apps/electron/src/main/ssh-errors.ts`, `apps/electron/src/main/pages.ts`, `apps/electron/src/main/titles.ts` | 0070 | missing | M11 | _ssh-failures_ | |
+| ssh links and first-contact confirm | `apps/electron/src/main/scheme.ts`, `apps/electron/src/main/electron-dialogs.ts` | 0070, 0076 | missing | M11 | _ssh-links_ | |

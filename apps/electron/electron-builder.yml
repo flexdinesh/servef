@@ -19,8 +19,8 @@ npmRebuild: false
 extraMetadata:
   # app.name (menus, notifications); the package name is the scoped npm name.
   productName: servef
-  # Electron's Linux app_id; matches the deb's servef-desktop.desktop entry.
-  desktopName: servef-desktop.desktop
+  # Electron's Linux app_id; matches the deb's servef-electron.desktop entry.
+  desktopName: servef-electron.desktop
 # Registers servef:// with the OS on install (Info.plist CFBundleURLTypes; Linux
 # MimeType). The app never calls setAsDefaultProtocolClient.
 protocols:
@@ -34,13 +34,13 @@ protocols:
 # adds Dolphin and Nemo actions (scripts/linux-files.ts, via scripts/package.ts).
 linux:
   # No clash with the servef CLI on PATH.
-  executableName: servef-desktop
+  executableName: servef-electron
   category: Development
   maintainer: Dinesh Pandiyan <flexdinesh@users.noreply.github.com>
   target: [AppImage, deb]
 deb:
   # The scoped npm name is not a valid Debian package name.
-  packageName: servef-desktop
+  packageName: servef-electron
 
 # Signing and notarization are deferred: builds are ad-hoc signed and users
 # clear Gatekeeper by hand (docs). Signing needs an Apple Developer ID

@@ -1,5 +1,5 @@
 {
-  "name": "@servef/desktop",
+  "name": "@servef/electron",
   "private": true,
   "version": "0.0.0",
   "description": "Browse local files with servef",

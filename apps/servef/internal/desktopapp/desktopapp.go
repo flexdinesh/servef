@@ -122,7 +122,7 @@ const (
 	releasesURL = "https://github.com/flexdinesh/servef/releases"
 	docsURL     = "https://github.com/flexdinesh/servef/blob/main/apps/site/src/pages/docs/desktop.mdx"
 	// installScript installs the app and CLI from the latest release (decision 0073).
-	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh"
+	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-electron.sh | sh"
 )
 
 // InstallHint returns install instructions for the desktop app on goos.
@@ -134,7 +134,7 @@ func InstallHint(goos string) string {
 		return "  install the servef desktop app:\n" +
 			"    " + installScript + "\n" +
 			"  or by hand:\n" +
-			"    1. download servef-desktop_<version>_darwin_<arm64|amd64>.dmg from " + releasesURL + "\n" +
+			"    1. download servef-electron_<version>_darwin_<arm64|amd64>.dmg from " + releasesURL + "\n" +
 			"    2. drag servef to Applications\n" +
 			"    3. preview builds are ad-hoc signed: on first launch right-click servef and choose Open\n" +
 			"       (or run: xattr -dr com.apple.quarantine /Applications/servef.app)\n" +
@@ -143,7 +143,7 @@ func InstallHint(goos string) string {
 		return "  install the servef desktop app:\n" +
 			"    " + installScript + "\n" +
 			"  or, on Debian and Ubuntu, from " + releasesURL + ":\n" +
-			"    sudo apt install ./servef-desktop_<version>_linux_<amd64|arm64>.deb\n" +
+			"    sudo apt install ./servef-electron_<version>_linux_<amd64|arm64>.deb\n" +
 			"  a hand-installed AppImage registers servef:// only with desktop integration (e.g. AppImageLauncher).\n" +
 			footer
 	default:

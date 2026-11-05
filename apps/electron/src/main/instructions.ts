@@ -18,8 +18,8 @@ export function failureInstructions(failure: EnsureFailure, packaged: boolean): 
         title: "servef is not available",
         paragraphs: packaged
           ? [failure.detail, "The app's bundled servef binary is missing. Reinstall the servef app."]
-          : [failure.detail, "Build servef with mise run dev:desktop, or set SERVEF_DESKTOP_BINARY to a servef binary."],
-        commands: packaged ? [] : ["mise run dev:desktop"],
+          : [failure.detail, "Build servef with mise run dev:electron, or set SERVEF_DESKTOP_BINARY to a servef binary."],
+        commands: packaged ? [] : ["mise run dev:electron"],
         stopAndRetry: false,
       }
     case "mismatch": {

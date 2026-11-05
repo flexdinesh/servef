@@ -661,13 +661,13 @@ test("preflight: OpenSSH older than 6.7 is sshTooOld; other clients proceed", as
 })
 
 test("a refused runtime directory is a permanent runtimeDir failure", async () => {
-  const h = harness({ ok: false, dir: "/run/user/1000/servef-desktop-0123abcd", detail: "it is a symbolic link" })
+  const h = harness({ ok: false, dir: "/run/user/1000/servef-electron-0123abcd", detail: "it is a symbolic link" })
   const session = createSshConnector(h.deps).connect(target)
   const failure = failureOf(await settle(session))
   assert.deepEqual(failure, {
     kind: "runtimeDir",
     destination: "devbox",
-    detail: "Cannot use the private runtime directory /run/user/1000/servef-desktop-0123abcd: it is a symbolic link.",
+    detail: "Cannot use the private runtime directory /run/user/1000/servef-electron-0123abcd: it is a symbolic link.",
   })
   assert.equal(session.state().kind, "failed")
   assert.equal(h.children.length, 0)

@@ -52,7 +52,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function servefBinary(): string {
   const binary = process.env.SERVEF_DESKTOP_BINARY
-  if (!binary) throw new Error("SERVEF_DESKTOP_BINARY must name a servef binary built from this checkout (mise run build:desktop builds .dev/desktop/servef)")
+  if (!binary) throw new Error("SERVEF_DESKTOP_BINARY must name a servef binary built from this checkout (mise run build:electron builds .dev/electron/servef)")
   const resolved = path.resolve(binary)
   if (!existsSync(resolved)) throw new Error(`SERVEF_DESKTOP_BINARY does not exist: ${resolved}`)
   return resolved
@@ -64,7 +64,7 @@ export function electronExecutable(): string {
   const pkg = path.dirname(require.resolve("electron/package.json"))
   const pathFile = path.join(pkg, "path.txt")
   const executable = existsSync(pathFile) ? path.join(pkg, "dist", readFileSync(pathFile, "utf8")) : ""
-  if (!executable || !existsSync(executable)) throw new Error("Electron binary missing: run node apps/desktop/node_modules/electron/install.js")
+  if (!executable || !existsSync(executable)) throw new Error("Electron binary missing: run node apps/electron/node_modules/electron/install.js")
   return executable
 }
 

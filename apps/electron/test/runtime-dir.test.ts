@@ -24,36 +24,36 @@ test("runtime paths hash the id", () => {
 })
 
 test("Linux uses an absolute XDG_RUNTIME_DIR, else tmpdir", () => {
-  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "/run/user/1000" } })), `/run/user/1000/servef-desktop-${h8}`)
-  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "relative/dir" }, tmpdir: "/var/tmp" })), `/var/tmp/servef-desktop-${h8}`)
-  assert.equal(chooseRuntimeDir(input({ tmpdir: "/var/tmp/" })), `/var/tmp/servef-desktop-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "/run/user/1000" } })), `/run/user/1000/servef-electron-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "relative/dir" }, tmpdir: "/var/tmp" })), `/var/tmp/servef-electron-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ tmpdir: "/var/tmp/" })), `/var/tmp/servef-electron-${h8}`)
 })
 
 test("macOS uses TMPDIR and ignores XDG_RUNTIME_DIR", () => {
-  assert.equal(chooseRuntimeDir(input({ platform: "darwin", env: { XDG_RUNTIME_DIR: "/run/user/501" }, tmpdir: "/var/folders/ab/T" })), `/var/folders/ab/T/servef-desktop-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ platform: "darwin", env: { XDG_RUNTIME_DIR: "/run/user/501" }, tmpdir: "/var/folders/ab/T" })), `/var/folders/ab/T/servef-electron-${h8}`)
 })
 
 test("SERVEF_DESKTOP_RUNTIME_DIR overrides", () => {
   assert.equal(chooseRuntimeDir(input({ env: { SERVEF_DESKTOP_RUNTIME_DIR: "/tmp/test-run", XDG_RUNTIME_DIR: "/run/user/1000" } })), "/tmp/test-run")
 })
 
-test("falls back to /tmp/servef-desktop-<uid>-<h8> when the ControlPath would not fit sun_path", () => {
-  const fallback = `/tmp/servef-desktop-501-${h8}`
+test("falls back to /tmp/servef-electron-<uid>-<h8> when the ControlPath would not fit sun_path", () => {
+  const fallback = `/tmp/servef-electron-501-${h8}`
   // macOS limit 103: dir + "/c-" + 12 hex + 17 must fit.
   const macBase = "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T"
-  const macDir = `${macBase}/servef-desktop-${h8}`
+  const macDir = `${macBase}/servef-electron-${h8}`
   assert.ok(macDir.length + 15 + 17 > 103)
   assert.equal(chooseRuntimeDir(input({ platform: "darwin", tmpdir: macBase, uid: 501 })), fallback)
   // Exactly at the Linux limit fits; one byte more falls back.
-  const name = `/servef-desktop-${h8}`
+  const name = `/servef-electron-${h8}`
   const fitting = `/${"a".repeat(107 - 17 - 15 - name.length - 1)}`
   assert.equal(chooseRuntimeDir(input({ tmpdir: fitting, uid: 501 })), `${fitting}${name}`)
   assert.equal(chooseRuntimeDir(input({ tmpdir: `${fitting}b`, uid: 501 })), fallback)
 })
 
 test("falls back when the path contains % or :", () => {
-  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "/run/user/100%" } })), `/tmp/servef-desktop-1000-${h8}`)
-  assert.equal(chooseRuntimeDir(input({ tmpdir: "/tmp/a:b" })), `/tmp/servef-desktop-1000-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ env: { XDG_RUNTIME_DIR: "/run/user/100%" } })), `/tmp/servef-electron-1000-${h8}`)
+  assert.equal(chooseRuntimeDir(input({ tmpdir: "/tmp/a:b" })), `/tmp/servef-electron-1000-${h8}`)
 })
 
 function withDir(run: (dir: string) => void | Promise<void>): Promise<void> {

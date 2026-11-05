@@ -23,7 +23,7 @@ one Go binary, plus desktop packages that bundle it (decision 0068).
 - `apps/servef/internal/web/`: HTTP adapter (`routes.go`, kind-to-status mapping, server-sent events, raw bytes), shell/static delivery, embedded assets, and the domains not yet moved to `internal/app` (navigation, walkthroughs, metrics).
 - `packages/contracts/`: generated TypeScript types and runtime guards (`@servef/contracts`); never edited by hand.
 - `apps/web/`: React UI, Vite build, frontend tests and development tooling.
-- `apps/desktop/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
+- `apps/electron/`: Electron app (decision 0067); a client of the daemon socket that proxies `servef-app://` to it; never reads project files. Pure modules stay Electron-free.
 - `tools/`: validation, release, and contract-generation tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
@@ -77,7 +77,7 @@ web source -> Vite -> apps/servef/internal/web/dist -> go:embed -> servef binary
 
 Go and pnpm retain their native dependency graphs. The repository-level
 `package.json` is a command facade; `apps/web/package.json` owns browser dependencies;
-`apps/desktop/package.json` owns the Electron app's build-time dependencies.
+`apps/electron/package.json` owns the Electron app's build-time dependencies.
 Add another Go module or pnpm package only for an independently consumed unit.
 
 ## Development and tests

@@ -110,7 +110,7 @@ NDJSON over a Unix socket; `windows`, `tree`, `act`, `input`, `menu`,
 - Native app: `apps/native` (Go 1.27.3 module outside `go.work`; run Go
   with `GOWORK=off go -C apps/native ...`). Tooling module:
   `packages/mygo`. Web app: `apps/web/src`. Desktop bridge and ssh:
-  `apps/desktop/src/main`.
+  `apps/electron/src/main`.
 - Matrix: `docs/native-parity.md`. Decisions: `docs/decisions/0082`
   (the native app), `0086` (this tooling and the port plan).
 - Host: `apps/native/internal/agenthost` (`cmd/native-agent`, tag `agent`)

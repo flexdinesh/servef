@@ -2,7 +2,7 @@ name: Build
 
 # Builds every distribution asset for one commit (decision 0079); release.yml
 # (stable tags) and ci.yml (the edge prerelease) call it and publish the
-# result. cli (Go archives, archive smoke) -> desktop-linux, desktop-macos,
+# result. cli (Go archives, archive smoke) -> electron-linux, electron-macos,
 # native-linux, and native-macos (packages bundling those binaries, smoke
 # checks) -> assets (the expected set, checksums.txt). Every job uploads an assets-* artifact; callers
 # download them all with pattern assets-*. Nothing is committed or pushed.
@@ -118,7 +118,7 @@ jobs:
           compression-level: 0
 
   # Packages bundle the archives' Go binary as resources/bin/servef.
-  desktop-linux:
+  electron-linux:
     needs: cli
     runs-on: ubuntu-latest
     steps:
@@ -139,8 +139,8 @@ jobs:
             ~/.local/share/pnpm/store
             ~/.cache/electron
             ~/.cache/electron-builder
-          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-desktop-
+          key: ${{ runner.os }}-electron-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -158,15 +158,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          rm -rf desktop-dist
-          mkdir -p desktop-dist
+          rm -rf electron-dist
+          mkdir -p electron-dist
           for arch in amd64 arm64; do
             name="servef_${VERSION}_linux_${arch}"
             bin_dir="$(mktemp -d)"
             tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
+            node apps/electron/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
             for ext in AppImage deb; do
-              mv "apps/desktop/dist/servef-desktop_${VERSION}_linux_${arch}.${ext}" desktop-dist/
+              mv "apps/electron/dist/servef-electron_${VERSION}_linux_${arch}.${ext}" electron-dist/
             done
           done
 
@@ -206,7 +206,7 @@ jobs:
             asar_has "$1/app.asar" build/main.mjs
           }
 
-          package="$PWD/desktop-dist/servef-desktop_${VERSION}_linux_amd64"
+          package="$PWD/electron-dist/servef-electron_${VERSION}_linux_amd64"
 
           appimage_dir="$(mktemp -d)"
           chmod +x "${package}.AppImage"
@@ -232,16 +232,20 @@ jobs:
             echo "the desktop entry must not claim inode/directory" >&2
             exit 1
           fi
-          test -x "$deb_dir/opt/servef/servef-desktop"
-          for action in usr/share/kio/servicemenus/servef-desktop.desktop usr/share/nemo/actions/servef-desktop.nemo_action; do
-            grep -Fx 'Exec=/opt/servef/servef-desktop --open-path %F' "$deb_dir/$action"
+          test -x "$deb_dir/opt/servef/servef-electron"
+          for action in usr/share/kio/servicemenus/servef-electron.desktop usr/share/nemo/actions/servef-electron.nemo_action; do
+            grep -Fx 'Exec=/opt/servef/servef-electron --open-path %F' "$deb_dir/$action"
+          done
+          # Installing it takes over the servef-desktop deb (decision 0092).
+          for field in Replaces Conflicts Provides; do
+            test "$(dpkg-deb -f "${package}.deb" "$field")" = servef-desktop
           done
 
       - name: Upload desktop packages
         uses: actions/upload-artifact@v7
         with:
-          name: assets-desktop-linux
-          path: desktop-dist/*
+          name: assets-electron-linux
+          path: electron-dist/*
           if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
@@ -252,7 +256,7 @@ jobs:
   # APPLE_API_KEY_ID, APPLE_API_ISSUER), hardened runtime with
   # com.apple.security.cs.allow-jit, the bundled servef signed (mac.binaries),
   # and a notarized, stapled dmg.
-  desktop-macos:
+  electron-macos:
     needs: cli
     runs-on: macos-latest
     steps:
@@ -273,8 +277,8 @@ jobs:
             ~/Library/pnpm/store
             ~/Library/Caches/electron
             ~/Library/Caches/electron-builder
-          key: ${{ runner.os }}-desktop-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-desktop-
+          key: ${{ runner.os }}-electron-${{ hashFiles('mise.lock', 'pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-electron-
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -292,15 +296,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          rm -rf desktop-dist
-          mkdir -p desktop-dist
+          rm -rf electron-dist
+          mkdir -p electron-dist
           for arch in amd64 arm64; do
             name="servef_${VERSION}_darwin_${arch}"
             bin_dir="$(mktemp -d)"
             tar -C "$bin_dir" -xzf "release-dist/${name}.tar.gz"
-            node apps/desktop/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
+            node apps/electron/scripts/package.ts --arch "$arch" --servef "$bin_dir/${name}/servef" --version "$VERSION"
             for ext in dmg zip; do
-              mv "apps/desktop/dist/servef-desktop_${VERSION}_darwin_${arch}.${ext}" desktop-dist/
+              mv "apps/electron/dist/servef-electron_${VERSION}_darwin_${arch}.${ext}" electron-dist/
             done
           done
 
@@ -313,7 +317,7 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          ditto -x -k "desktop-dist/servef-desktop_${VERSION}_darwin_arm64.zip" "$dir"
+          ditto -x -k "electron-dist/servef-electron_${VERSION}_darwin_arm64.zip" "$dir"
           app="$dir/servef.app/Contents"
           "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
           scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
@@ -332,8 +336,8 @@ jobs:
       - name: Upload desktop packages
         uses: actions/upload-artifact@v7
         with:
-          name: assets-desktop-macos
-          path: desktop-dist/*
+          name: assets-electron-macos
+          path: electron-dist/*
           if-no-files-found: error
           retention-days: ${{ inputs.retention-days }}
           compression-level: 0
@@ -455,7 +459,7 @@ jobs:
           compression-level: 0
 
   assets:
-    needs: [cli, desktop-linux, desktop-macos, native-linux, native-macos]
+    needs: [cli, electron-linux, electron-macos, native-linux, native-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Download assets
@@ -480,10 +484,10 @@ jobs:
           done
           for arch in amd64 arm64; do
             expected+=(
-              "servef-desktop_${VERSION}_darwin_${arch}.dmg"
-              "servef-desktop_${VERSION}_darwin_${arch}.zip"
-              "servef-desktop_${VERSION}_linux_${arch}.AppImage"
-              "servef-desktop_${VERSION}_linux_${arch}.deb"
+              "servef-electron_${VERSION}_darwin_${arch}.dmg"
+              "servef-electron_${VERSION}_darwin_${arch}.zip"
+              "servef-electron_${VERSION}_linux_${arch}.AppImage"
+              "servef-electron_${VERSION}_linux_${arch}.deb"
             )
           done
           for arch in amd64 arm64; do

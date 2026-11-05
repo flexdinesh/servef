@@ -18,10 +18,10 @@ mise run test:race
 mise run test:web
 mise run test:release
 mise run test:browser -- tests/browser/live-updates.spec.ts
-mise run test:desktop
-mise run test:desktop -- test/smoke/app.spec.ts
+mise run test:electron
+mise run test:electron -- test/smoke/app.spec.ts
 mise run lint
-mise run lint:desktop
+mise run lint:electron
 mise run typecheck
 mise run fmt:check
 mise run tidy:check
@@ -60,13 +60,13 @@ container execution from recursively launching the host coordinator.
 | web-static | Host | Web typecheck, oxlint, stylelint |
 | tooling-static | Host | Root TypeScript check for scripts and tests |
 | site-static | Host | Site TypeScript check |
-| desktop-static | Host | Desktop TypeScript check and oxlint |
+| electron-static | Host | Desktop TypeScript check and oxlint |
 | go | Dagger | Vet, ordinary Go tests, race tests |
 | frontend | Dagger | Frontend, mock-server, and fixture-contract tests |
 | tooling | Dagger | Release, runner, and browser harness tests |
 | docs | Dagger | Production site build and internal-link validation |
 | browser | Dagger | Chromium integration tests and fixture servers (WebKit opt-in) |
-| desktop | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
+| electron | Dagger | Desktop unit tests, bundle, and Electron smoke under Xvfb |
 | native (opt-in) | Dagger | Native app tests on Go 1.27; not in `check:pr` |
 
 Go vet stays in Dagger because it needs the embedded frontend build. Tests of
@@ -98,25 +98,25 @@ fixtures in `testdata/api/default/`, and `apps/web/src/styles/tokens.css`). `pkg
 (decision 0084), so no web build is needed. `fmt:check` covers
 `apps/native`; `tidy:check` does not.
 
-### Desktop
+### Electron
 
-`desktop-static` reads `apps/desktop/` and the shared `apps/web/src/api/` contracts.
-`desktop` also reads the server sources (`apps/servef/`),
+`electron-static` reads `apps/electron/` and the shared `apps/web/src/api/` contracts.
+`electron` also reads the server sources (`apps/servef/`),
 `apps/web/`, and `testdata/`: its smoke drives the real daemon. pnpm never downloads
 Electron (`allowBuilds: electron: false`). Desktop preparation alone runs
-`apps/desktop/node_modules/electron/install.js`, which verifies the archive against
+`apps/electron/node_modules/electron/install.js`, which verifies the archive against
 the package's checksums, installs Xvfb and Electron's shared libraries from the
 pinned Debian snapshot, and fails if `ldd` reports a missing library. It builds
 the embedded UI and the servef binary as the browser group does.
 
-`_container:test:desktop` runs the unit tests, the ssh integration tests, bundles
+`_container:test:electron` runs the unit tests, the ssh integration tests, bundles
 the app, then runs the Playwright `_electron` smoke under `xvfb-run -a` with `--no-sandbox` (the
 container runs as root). Each run gets its own short temporary socket, roots
 file, user data, walkthrough cache, notification log, and git fixtures; nothing
 reaches the user's daemon. Traces, window screenshots, and daemon, app, and
 notification logs survive failures under the group's `playwright/` output.
 
-The ssh tests (`apps/desktop/test/ssh/`, `pnpm --filter @servef/desktop test:ssh`)
+The ssh tests (`apps/electron/test/ssh/`, `pnpm --filter @servef/electron test:ssh`)
 and `remote.spec.ts` start a private `/usr/sbin/sshd` on 127.0.0.1 from
 OpenSSH in the same pinned snapshot. Each run owns a short temp dir with host
 and client keys, known hosts, and a client `ssh_config` (passed to the app as
@@ -134,8 +134,8 @@ The smoke covers Linux only. Headless Chromium reports hidden pages and closes
 the UI's live stream, so the smoke always needs a display: Xvfb in Dagger, or a
 real or virtual compositor on a host (`SERVEF_DESKTOP_BINARY`, plus
 `SERVEF_DESKTOP_ELECTRON_ARGS=--ozone-platform=wayland` under Wayland). macOS
-shell behavior stays a manual check (`mise run dev:desktop`), as does
-`mise run measure:desktop`, which prints Electron, daemon, and language-server
+shell behavior stays a manual check (`mise run dev:electron`), as does
+`mise run measure:electron`, which prints Electron, daemon, and language-server
 memory for decision 0067 and gates nothing.
 
 ## Engine ownership

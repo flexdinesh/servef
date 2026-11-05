@@ -1,10 +1,17 @@
 // Linux Open at Login (decision 0072): an XDG autostart entry the app writes
-// or removes only when the user clicks the menu checkbox.
-import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs"
+// or removes only when the user clicks the menu checkbox, or moves once from
+// the id before the rename (decision 0092).
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 // AUTOSTART_FILE is the package entry's desktop id, so desktops show one app.
-export const AUTOSTART_FILE = "servef-desktop.desktop"
+export const AUTOSTART_FILE = "servef-electron.desktop"
+
+// LEGACY_AUTOSTART_FILE is the entry's id before the rename (decision 0092).
+export const LEGACY_AUTOSTART_FILE = "servef-desktop.desktop"
+
+// LEGACY_ENTRY matches exactly what the app wrote under that id; only Exec varied.
+const LEGACY_ENTRY = /^\[Desktop Entry\]\nType=Application\nName=servef\nComment=Open servef at login\nExec=[^\n]*\nIcon=servef-desktop\nTerminal=false\nX-GNOME-Autostart-enabled=true\n$/
 
 export interface AutostartPlan {
   dir: string
@@ -55,7 +62,7 @@ export function autostartEntry(argv: readonly string[]): string {
     "Name=servef",
     "Comment=Open servef at login",
     `Exec=${desktopExec(argv)}`,
-    "Icon=servef-desktop",
+    "Icon=servef-electron",
     "Terminal=false",
     "X-GNOME-Autostart-enabled=true",
     "",
@@ -129,6 +136,20 @@ export function createXdgAutostart(plan: AutostartPlan): Autostart {
     }
   }
   return { enabled, set, file }
+}
+
+// migrateLegacyAutostart carries an opt-in made under the old id to the current
+// id and executable. An old entry anything else wrote or edited stays; an entry
+// already under the current id is kept. A failure retries on the next launch.
+export function migrateLegacyAutostart(plan: AutostartPlan, autostart: Autostart): void {
+  const legacy = path.join(plan.dir, LEGACY_AUTOSTART_FILE)
+  try {
+    if (!LEGACY_ENTRY.test(readFileSync(legacy, "utf8"))) return
+    if (!existsSync(autostart.file)) autostart.set(true)
+    unlinkSync(legacy)
+  } catch {
+    // No old entry, or it cannot be moved now.
+  }
 }
 
 function isNotFound(error: unknown): boolean {
