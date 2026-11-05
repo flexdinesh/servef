@@ -256,8 +256,9 @@ app data, recent folders, and connections stay where they are.
   handler.
 - Deb: `sudo apt install ./servef-electron_<version>_linux_amd64.deb` removes
   the `servef-desktop` package and installs the new one.
-- Open at Login moves to the new name the next time the app starts, unless the
-  old entry was edited: then delete
+- Open at Login moves to the new name the next time the app starts, so open the
+  app once after upgrading: until then the old entry runs nothing at login. If
+  the old entry was edited, it does not move: delete
   `~/.config/autostart/servef-desktop.desktop` and check **Open at Login**.
 - If `servef .` falls back to the browser after a deb upgrade, run
   `xdg-mime default servef-electron.desktop x-scheme-handler/servef`.

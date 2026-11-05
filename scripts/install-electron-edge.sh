@@ -213,10 +213,13 @@ desktop_exec() {
 # remove_old_install deletes what the scripts installed as servef-desktop
 # (decision 0092). The login entry stays: the app moves it when it starts.
 remove_old_install() {
-  if [ -e "$OLD_APP_HOME" ] || [ -e "$DATA_HOME/applications/$OLD_DESKTOP_ID" ]; then
+  if [ -e "$OLD_APP_HOME/servef-desktop.AppImage" ] || [ -e "$OLD_APP_HOME/app" ] || [ -e "$DATA_HOME/applications/$OLD_DESKTOP_ID" ]; then
     ok "replaced the earlier servef-desktop install"
   fi
-  rm -rf "$OLD_APP_HOME" "$DATA_HOME/applications/$OLD_DESKTOP_ID" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION"
+  # Only what the scripts put there: with XDG_DATA_HOME equal to XDG_CONFIG_HOME,
+  # this directory is also the app's user data.
+  rm -rf "$OLD_APP_HOME/servef-desktop.AppImage" "$OLD_APP_HOME/app" "$DATA_HOME/applications/$OLD_DESKTOP_ID" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION"
+  rmdir "$OLD_APP_HOME" 2>/dev/null || true
 }
 
 # register_linux_app EXEC ICON writes the desktop entry, icon, and file

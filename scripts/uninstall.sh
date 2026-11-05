@@ -219,8 +219,11 @@ if [ "$OS" = linux ]; then
   remove_appimage_of "$old_entry"
   remove_appimage_of "$old_autostart"
   remove "$APP_HOME" "$entry" "$autostart" "$ICON_PATH" "$DOLPHIN_ACTION" "$NEMO_ACTION" \
-    "$OLD_APP_HOME" "$old_entry" "$old_autostart" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION" \
+    "$OLD_APP_HOME/servef-desktop.AppImage" "$OLD_APP_HOME/app" "$old_entry" "$old_autostart" "$OLD_ICON_PATH" "$OLD_DOLPHIN_ACTION" "$OLD_NEMO_ACTION" \
     "$DATA_HOME/nautilus/scripts/Open in servef"
+  # Only what the scripts put there: with XDG_DATA_HOME equal to XDG_CONFIG_HOME,
+  # this directory is also the app's user data.
+  rmdir "$OLD_APP_HOME" 2>/dev/null || true
   if has update-desktop-database; then
     update-desktop-database "$DATA_HOME/applications" >/dev/null 2>&1 || true
   fi

@@ -4,6 +4,9 @@
 - Date: 2026-11-05
 - Supersedes: the package and executable names in
   [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) Packages only
+- Revises: the names in [0073](0073-install-scripts.md) and
+  [0079](0079-releases-edge-prerelease-and-install-scripts.md); "only a click
+  registers" in [0072](0072-os-integration.md), for the login entry move
 
 ## Context
 
@@ -61,6 +64,9 @@ written with.
   as the handler. Generic `xdg-mime` skips the missing entry (checked on Ubuntu
   24.04); desktop-specific lookups are unverified, so the docs give the
   `xdg-mime default` command.
+- After an upgrade removes the old executable, the old login entry runs nothing
+  until the user opens the app once, which moves it. Scripts and debs cannot
+  move it: Open at Login stays the app's own write.
 - An edited old login entry stays and fails silently at login until removed.
 - A runtime directory from an old run (`servef-desktop-<h8>`) is not swept. It is
   private to the user and goes away with `$XDG_RUNTIME_DIR` or tmp cleaning.

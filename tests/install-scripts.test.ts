@@ -650,7 +650,26 @@ void test('install-electron.sh replaces a servef-desktop install and leaves its 
   assert.match(await readFile(sandbox.log, 'utf8'), /^xdg-mime default servef-electron\.desktop x-scheme-handler\/servef$/m)
   assert.ok(await exists(autostart), 'the app moves the login entry when it starts')
   assert.ok(await exists(appData), 'app data keeps its name')
+  assert.equal(await exists(join(share, 'servef-desktop')), false, 'the emptied install directory goes')
 })
+
+for (const script of ['install-electron.sh', 'uninstall.sh']) {
+  void test(`${script} keeps app data when XDG_DATA_HOME equals XDG_CONFIG_HOME`, async (t) => {
+    const sandbox = await createSandbox(t.after.bind(t))
+    await createRelease(sandbox, { desktop: true })
+    const same = join(sandbox.root, 'xdg')
+    const appImage = join(same, 'servef-desktop', 'servef-desktop.AppImage')
+    const appData = join(same, 'servef-desktop', 'recent-folders.json')
+    await writeExecutable(appImage, 'old')
+    await writeExecutable(appData, '[]')
+
+    const result = await run(script, sandbox, { XDG_DATA_HOME: same, XDG_CONFIG_HOME: same })
+
+    assertOk(result)
+    assert.equal(await exists(appImage), false, 'the old AppImage is removed')
+    assert.ok(await exists(appData), 'app data shares the directory and stays')
+  })
+}
 
 for (const [moved, target] of HANDOVERS) {
   for (const tool of ['curl', 'wget']) {
