@@ -217,7 +217,11 @@ are platform-specific. Commit and branch names record provenance, not validity.
 A history-only rebase can reuse matching certificates; relevant upstream changes
 invalidate affected groups. No elapsed-time or small-diff rule establishes success.
 
-Dagger caches immutable preparation/build layers. Local certificates record
+Dagger caches immutable preparation/build layers. Debian packages also keep a
+download cache volume, named for the pinned snapshot: a step that fails on a
+mirror error fetches only what is missing on the next attempt, and apt verifies
+each cached package against the snapshot's signed indexes. `apt-get update` and
+a package not yet cached still need the mirror. Local certificates record
 successful complete check coverage. A per-input execution lock coordinates
 concurrent certification and rechecks reuse before doing work. Starting a real
 rerun invalidates old success and marks the input pending. Only completed checks,

@@ -14,6 +14,10 @@ type ServefValidation struct{}
 
 const baseImage = "debian:bookworm-slim@sha256:a3bba7dc7dbcc1f37c2856c51fc9a7fac96608f50cb87b1b4e4d8b8c85ae988e"
 
+// aptSnapshot pins Debian packages. It names the download cache, so changing
+// it starts an empty one.
+const aptSnapshot = "20261031T000000Z"
+
 // Run returns diagnostics and status.json even for failed checks. The caller
 // must inspect exitCode before issuing a successful validation receipt.
 func (m *ServefValidation) Run(ctx context.Context,
@@ -78,7 +82,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	}
 	if group == "electron" {
 		// The app reaches the UI through the binary's daemon; it needs no dist.
-		runner = electronRuntime(prepared).WithDirectory("/src", source).
+		runner = electronRuntime(tools, source).WithDirectory("/src", source).
 			WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef").
 			WithEnvVariable("SERVEF_DESKTOP_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("SERVEF_DESKTOP_ELECTRON_ARGS", "--disable-dev-shm-usage --disable-gpu").
@@ -90,7 +94,9 @@ func (m *ServefValidation) Run(ctx context.Context,
 		if task == "test:browser:webkit" {
 			engine = "webkit"
 		}
-		browser := prepared.WithExec([]string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", engine})
+		// Playwright chooses its packages from the locked version, so this step
+		// stays after dependencies; the download cache keeps a rerun cheap.
+		browser := withApt(prepared, []string{"mise", "exec", "--", "pnpm", "exec", "playwright", "install", "--with-deps", engine})
 		runner = browser.WithDirectory("/src", source).WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithFile("/opt/servef", binary).
 			WithEnvVariable("SERVEF_BROWSER_BINARY", "/opt/servef").WithEnvVariable("SERVEF_BROWSER_ISOLATED", "1").
@@ -100,7 +106,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	if group == "native" {
 		// Opt-in (decision 0082): apps/native is its own module on Go 1.27,
 		// outside go.work.
-		native := tools.WithExec([]string{"sh", "-ec", nativeGo}).WithExec([]string{"sh", "-ec", nativeTextPackages}).
+		native := withApt(tools.WithExec([]string{"sh", "-ec", nativeGo}), []string{"sh", "-ec", nativeTextPackages}).
 			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_NATIVE_GOROOT", "/usr/local/go1.27")
 		// packages/mygo (decision 0086) is apps/native's agent tooling, a
 		// module of its own that apps/native replaces.
@@ -110,7 +116,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "packages/mygo", "mod", "download"})
 		if task == "test:native:e2e" {
 			// The built app needs a display, GTK 3, and Mesa's GL (llvmpipe).
-			native = native.WithExec([]string{"sh", "-ec", nativeE2EPackages})
+			native = withApt(native, []string{"sh", "-ec", nativeE2EPackages})
 		}
 		runner = native.WithDirectory("/src", source).
 			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
@@ -126,6 +132,17 @@ func (m *ServefValidation) Run(ctx context.Context,
 	command := []string{"bash", "-c", capture, "capture", "mise", "run", "--force", "--skip-deps", "_container:" + task}
 	command = append(command, args...)
 	return runner.WithExec(command).Directory("/out"), nil
+}
+
+// withApt runs a step that installs Debian packages with one download cache
+// mounted, so a retry after a mirror failure fetches only what is missing. apt
+// verifies what it finds there against the snapshot's signed indexes, so the
+// cache cannot change what is installed. Steps take turns (apt locks the
+// directory), and the mount ends with the step, so it never reaches an image.
+func withApt(c *dagger.Container, step []string) *dagger.Container {
+	const archives = "/var/cache/apt/archives"
+	return c.WithMountedCache(archives, dag.CacheVolume("servef-apt-archives-"+aptSnapshot), dagger.ContainerWithMountedCacheOpts{Sharing: dagger.CacheSharingModeLocked}).
+		WithExec(step).WithoutMount(archives)
 }
 
 func subset(source *dagger.Directory, patterns []string) *dagger.Directory {
@@ -146,7 +163,7 @@ func toolchain(ctx context.Context, source *dagger.Directory) (*dagger.Container
 	for _, entry := range env {
 		c = c.WithEnvVariable(entry[0], entry[1])
 	}
-	return c.WithEnvVariable("MISE_JOBS", "1").WithExec([]string{"sh", "-ec", installBase}).WithWorkdir("/src").
+	return withApt(c.WithEnvVariable("MISE_JOBS", "1"), []string{"sh", "-ec", installBase}).WithWorkdir("/src").
 		WithNewFile("/src/mise.toml", config).WithNewFile("/src/mise.lock", installLock).
 		WithExec([]string{"mise", "install", "go", "node", "pnpm"}), nil
 }
@@ -205,9 +222,10 @@ func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Con
 // electronRuntime adds Xvfb, Electron's shared libraries and OpenSSH (the ssh
 // tests' sshd and client) from the pinned snapshot, and the checksum-verified
 // Electron binary. ldd fails preparation on a missing library instead of a
-// later opaque launch failure.
-func electronRuntime(prepared *dagger.Container) *dagger.Container {
-	return prepared.WithExec([]string{"sh", "-ec", electronPackages}).
+// later opaque launch failure. Packages come before dependencies, so a lockfile
+// change does not install them again.
+func electronRuntime(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
+	return dependencies(withApt(tools, []string{"sh", "-ec", electronPackages}), source).
 		WithExec([]string{"mise", "exec", "--", "node", "apps/electron/node_modules/electron/install.js"}).
 		WithExec([]string{"sh", "-ec", `electron="apps/electron/node_modules/electron/dist/$(cat apps/electron/node_modules/electron/path.txt)"; if ldd "$electron" | grep 'not found'; then exit 1; fi`})
 }
@@ -254,14 +272,22 @@ rm /tmp/go.tar.gz
 /usr/local/go1.27/bin/go version
 `
 
+// installBase also keeps downloads for the cache withApt mounts (the image's
+// docker-clean deletes them after each install, which is the rest of what that
+// file does) and retries the mirror's brief failures.
 const installBase = `
 set -eu
 mkdir -p /home/runner /out
-rm -f /etc/apt/sources.list.d/debian.sources
+rm -f /etc/apt/sources.list.d/debian.sources /etc/apt/apt.conf.d/docker-clean
 printf '%s\n' \
-  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20261031T000000Z bookworm main' \
-  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20261031T000000Z bookworm-updates main' \
-  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20261031T000000Z bookworm-security main' > /etc/apt/sources.list
+  'Acquire::Retries "5";' \
+  'Acquire::http::Timeout "30";' \
+  'Dir::Cache::pkgcache "";' \
+  'Dir::Cache::srcpkgcache "";' > /etc/apt/apt.conf.d/80servef-validation
+printf '%s\n' \
+  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/` + aptSnapshot + ` bookworm main' \
+  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/` + aptSnapshot + ` bookworm-updates main' \
+  'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/` + aptSnapshot + ` bookworm-security main' > /etc/apt/sources.list
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ca-certificates curl git shellcheck gcc libc6-dev xz-utils unzip
 curl -fsSL https://github.com/jdx/mise/releases/download/v2026.10.18/mise-v2026.10.18-linux-x64.tar.xz -o /tmp/mise.tar.xz
