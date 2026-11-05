@@ -1,42 +1,32 @@
 // Package link parses what opens servef-desktop: servef:// links and
 // command-line arguments. It is pure: no I/O.
 //
-// The CLI prints these links (decisions 0063, 0076):
+// The CLI prints these links (decisions 0063, 0098):
 //
-//	servef://local/?project=<abs>&path=<rel>     the local daemon
-//	servef://<host>:<port>/?project=…&path=…     an http server
+//	servef://local/?project=<abs>&path=<rel>   the local daemon
+//	servef://<id>/?project=<abs>&path=<rel>    a saved connection
 //
-// The route is "/" or "/view". The query and fragment are the web app's.
+// A link names a connection and carries no secret: `servef connect` saves the
+// credential. The route is "/" or "/view". The query and fragment are the web
+// app's.
 package link
 
 import (
 	"errors"
-	"net"
 	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	"github.com/flexdinesh/servef/pkg/connection"
 )
 
 // Scheme is the URL scheme servef-desktop registers.
 const Scheme = "servef"
 
-// Kind is the connection a target names.
-type Kind int
-
-const (
-	// Local is the per-user daemon, shown in the window.
-	Local Kind = iota
-	// Server is a servef http server, opened in the browser.
-	Server
-)
-
 // Target is a parsed link: where it points and what it shows there.
 type Target struct {
-	Kind Kind
-	// Host and Port name a Server; empty and 0 for Local.
-	Host string
-	Port int
+	// Connection is connection.Local or a saved connection's id.
+	Connection string
 	// Route, RawQuery, and Fragment are the link's, for the web app. Fragment
 	// stays percent-encoded: the web app decodes it itself.
 	Route    string
@@ -60,29 +50,10 @@ func Parse(raw string) (Target, error) {
 	if route != "/" && route != "/view" {
 		return Target{}, ErrInvalid
 	}
-	target := Target{Route: route, RawQuery: u.RawQuery, Fragment: u.EscapedFragment()}
-	if u.Host == "local" {
-		return target, nil
-	}
-	host, port, err := splitHostPort(u.Host)
-	if err != nil || strings.EqualFold(host, "local") {
+	if u.Host != connection.Local && !connection.IsID(u.Host) {
 		return Target{}, ErrInvalid
 	}
-	target.Kind, target.Host, target.Port = Server, host, port
-	return target, nil
-}
-
-// splitHostPort requires an explicit port from 1 to 65535.
-func splitHostPort(hostport string) (string, int, error) {
-	host, portText, err := net.SplitHostPort(hostport)
-	if err != nil || host == "" {
-		return "", 0, ErrInvalid
-	}
-	port, err := strconv.Atoi(portText)
-	if err != nil || port < 1 || port > 65535 || strconv.Itoa(port) != portText {
-		return "", 0, ErrInvalid
-	}
-	return strings.ToLower(host), port, nil
+	return Target{Connection: u.Host, Route: route, RawQuery: u.RawQuery, Fragment: u.EscapedFragment()}, nil
 }
 
 // AppPath is the link's route, query, and fragment on the web app.
@@ -92,11 +63,6 @@ func (t Target) AppPath() string {
 		return u.String()
 	}
 	return u.String() + "#" + t.Fragment
-}
-
-// Origin is a Server target's http origin, as the server prints it.
-func (t Target) Origin() string {
-	return "http://" + net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
 }
 
 // Request is what one launch, or a second instance, asks for.

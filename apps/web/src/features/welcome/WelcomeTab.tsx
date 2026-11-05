@@ -66,7 +66,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
   const lines = projectLines(facts)
   const bridge = desktopBridge()
   const run = (action: WelcomeAction) => {
-    if (action === "open-folder") bridge?.openFolder()
+    if (action === "open-folder") bridge?.openFolder?.()
     else onAction(action)
   }
   return (
@@ -80,7 +80,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
         <div className="welcome-column">
           <section className="welcome-section" aria-labelledby="welcome-start">
             <h2 id="welcome-start">Start</h2>
-            <EntryList entries={startEntries(mac, bridge !== null)} onAction={run} />
+            <EntryList entries={startEntries(mac, bridge?.openFolder != null)} onAction={run} />
           </section>
           {lines.length > 0 && (
             <section className="welcome-section" aria-labelledby="welcome-project">

@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flexdinesh/servef/pkg/connection"
 )
 
 // fakeDaemon answers Socket with a real Unix socket a test server listens on.
@@ -66,9 +68,37 @@ func newProxy(t *testing.T, handler http.Handler) (*Proxy, *fakeDaemon) {
 	socket, _ := serve(t, handler)
 	daemon := &fakeDaemon{}
 	daemon.socket.Store(&socket)
-	p := New(daemon)
+	p := New(NewConnections(daemon, &fakeStore{}))
 	t.Cleanup(p.Close)
 	return p, daemon
+}
+
+// fakeStore is the saved connections.
+type fakeStore struct {
+	mu    sync.Mutex
+	saved map[string]connection.Saved
+	err   error
+	reads int
+}
+
+func (s *fakeStore) Lookup(id string) (connection.Saved, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reads++
+	if s.err != nil {
+		return connection.Saved{}, false, s.err
+	}
+	saved, found := s.saved[id]
+	return saved, found, nil
+}
+
+func (s *fakeStore) put(saved connection.Saved) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.saved == nil {
+		s.saved = map[string]connection.Saved{}
+	}
+	s.saved[saved.ID] = saved
 }
 
 func request(method, target string, body io.Reader) *http.Request {
@@ -351,7 +381,7 @@ func TestDaemonGone(t *testing.T) {
 		stop()
 		daemon := &fakeDaemon{}
 		daemon.socket.Store(&socket)
-		p := New(daemon)
+		p := New(NewConnections(daemon, &fakeStore{}))
 		t.Cleanup(p.Close)
 		return p, daemon
 	}
@@ -390,7 +420,7 @@ func TestDaemonGone(t *testing.T) {
 	})
 	t.Run("a page load gets an escaped failure page and forces an ensure", func(t *testing.T) {
 		daemon := &fakeDaemon{err: errors.New("<script>x</script>")}
-		p := New(daemon)
+		p := New(NewConnections(daemon, &fakeStore{}))
 		r := request(http.MethodGet, Origin+"/", nil)
 		r.Header.Set("Accept", "text/html")
 		recorder := httptest.NewRecorder()

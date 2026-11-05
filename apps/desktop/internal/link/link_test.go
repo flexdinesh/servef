@@ -8,12 +8,12 @@ import (
 
 func TestParse(t *testing.T) {
 	for raw, want := range map[string]Target{
-		"servef://local/":                          {Route: "/"},
-		"servef://local":                           {Route: "/"},
-		"servef://local/view?project=%2Fa&path=b":  {Route: "/view", RawQuery: "project=%2Fa&path=b"},
-		"servef://local/?review=working#L12-L20":   {Route: "/", RawQuery: "review=working", Fragment: "L12-L20"},
-		"servef://LOCALHOST:7971/view?project=%2F": {Kind: Server, Host: "localhost", Port: 7971, Route: "/view", RawQuery: "project=%2F"},
-		"servef://[::1]:80/":                       {Kind: Server, Host: "::1", Port: 80, Route: "/"},
+		"servef://local/":                         {Connection: "local", Route: "/"},
+		"servef://local":                          {Connection: "local", Route: "/"},
+		"servef://local/view?project=%2Fa&path=b": {Connection: "local", Route: "/view", RawQuery: "project=%2Fa&path=b"},
+		"servef://local/?review=working#L12-L20":  {Connection: "local", Route: "/", RawQuery: "review=working", Fragment: "L12-L20"},
+		"servef://r-0123456789ab/":                {Connection: "r-0123456789ab", Route: "/"},
+		"servef://r-0123456789ab/view?wt=tour#L3": {Connection: "r-0123456789ab", Route: "/view", RawQuery: "wt=tour", Fragment: "L3"},
 	} {
 		got, err := Parse(raw)
 		if err != nil || got != want {
@@ -22,8 +22,10 @@ func TestParse(t *testing.T) {
 	}
 	for _, raw := range []string{
 		"servef-mygo://local/", "http://local/", "servef:local", "servef://user@local/",
-		"servef://local/other", "servef://local/_daemon/status", "servef://host/", "servef://host:0/",
-		"servef://host:70000/", "servef://host:07/", "servef://local:80/", "%zz",
+		"servef://local/other", "servef://local/_daemon/status", "servef://host/", "servef://local:80/", "%zz",
+		// Addresses and secrets do not belong in a link (decision 0098).
+		"servef://10.0.0.5:7971/", "servef://localhost:4173/", "servef://[::1]:80/",
+		"servef://r-0123456789ab:7971/", "servef://R-0123456789AB/", "servef://r-012345/", "servef://r-0123456789ab/_daemon/status",
 	} {
 		if _, err := Parse(raw); !errors.Is(err, ErrInvalid) {
 			t.Errorf("Parse(%q) = %v, want ErrInvalid", raw, err)
@@ -59,34 +61,18 @@ func TestAppPathKeepsAnEncodedFragment(t *testing.T) {
 	}
 }
 
-func TestServerOrigin(t *testing.T) {
-	for raw, want := range map[string]string{
-		"servef://localhost:7971/": "http://localhost:7971",
-		"servef://[::1]:80/":       "http://[::1]:80",
-	} {
-		target, err := Parse(raw)
-		if err != nil || target.Origin() != want {
-			t.Errorf("Origin of %q = %q, %v", raw, target.Origin(), err)
-		}
-	}
-}
-
-// The CLI builds these (apps/servef/cmd: app.go, walkthrough.go, and
-// address.go; app_test.go and address_test.go pin the same URLs): the app
-// must open each one, query intact.
+// The CLI builds these (apps/servef/cmd: app.go, connect.go, walkthrough.go;
+// their tests pin the same URLs): the app must open each one, query intact.
 func TestCLIURLs(t *testing.T) {
 	for raw, want := range map[string]struct {
-		kind    Kind
-		path    string
-		project string
-		origin  string
+		connection string
+		path       string
+		project    string
 	}{
-		"servef://local/?project=%2Fwork%2Fmy+repo":           {Local, "/?project=%2Fwork%2Fmy+repo", "/work/my repo", ""},
-		"servef://local/view?project=%2Fwork&wt=tour":         {Local, "/view?project=%2Fwork&wt=tour", "/work", ""},
-		"servef://localhost:4173/":                            {Server, "/", "", "http://localhost:4173"},
-		"servef://10.0.0.5:7971/":                             {Server, "/", "", "http://10.0.0.5:7971"},
-		"servef://[2001:db8::5]:7971/view?wt=tour":            {Server, "/view?wt=tour", "", "http://[2001:db8::5]:7971"},
-		"servef://10.0.0.5:7971/view?project=%2Fwork&wt=tour": {Server, "/view?project=%2Fwork&wt=tour", "/work", "http://10.0.0.5:7971"},
+		"servef://local/?project=%2Fwork%2Fmy+repo":            {"local", "/?project=%2Fwork%2Fmy+repo", "/work/my repo"},
+		"servef://local/view?project=%2Fwork&wt=tour":          {"local", "/view?project=%2Fwork&wt=tour", "/work"},
+		"servef://r-0123456789ab/":                             {"r-0123456789ab", "/", ""},
+		"servef://r-0123456789ab/view?project=%2Fwork&wt=tour": {"r-0123456789ab", "/view?project=%2Fwork&wt=tour", "/work"},
 	} {
 		target, err := Parse(raw)
 		if err != nil {
@@ -97,11 +83,8 @@ func TestCLIURLs(t *testing.T) {
 		if err != nil {
 			t.Errorf("query of %q: %v", raw, err)
 		}
-		if target.Kind != want.kind || target.AppPath() != want.path || query.Get("project") != want.project {
+		if target.Connection != want.connection || target.AppPath() != want.path || query.Get("project") != want.project {
 			t.Errorf("Parse(%q) = %+v, AppPath %q, project %q; want %+v", raw, target, target.AppPath(), query.Get("project"), want)
-		}
-		if want.kind == Server && target.Origin() != want.origin {
-			t.Errorf("Origin of %q = %q, want %q", raw, target.Origin(), want.origin)
 		}
 	}
 }

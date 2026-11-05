@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -9,7 +10,37 @@ import (
 
 	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
 	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
+	"github.com/flexdinesh/servef/pkg/connection"
 )
+
+func TestWindowIdentityFollowsTheConnection(t *testing.T) {
+	if got := windowStateKey(proxy.Host); got != "main" {
+		t.Errorf("local state key = %q: its remembered bounds would be lost", got)
+	}
+	if windowStateKey("r-0123456789ab") == windowStateKey("r-000000000000") {
+		t.Error("two connections share remembered bounds")
+	}
+	if got := windowTitle(proxy.Host, ""); got != "servef" {
+		t.Errorf("local title = %q", got)
+	}
+	if got := windowTitle("r-0123456789ab", "box"); got != "servef: box" {
+		t.Errorf("remote title = %q", got)
+	}
+}
+
+func TestOnlyNamesConnection(t *testing.T) {
+	for raw, want := range map[string]bool{
+		"servef-app://r-0123456789ab/":              true,
+		"servef-app://r-0123456789ab":               true,
+		"servef-app://r-0123456789ab/?project=%2Fa": false,
+		"servef-app://r-0123456789ab/view":          false,
+		"servef-app://r-0123456789ab/#L1":           false,
+	} {
+		if got := onlyNamesConnection(raw); got != want {
+			t.Errorf("onlyNamesConnection(%q) = %v", raw, got)
+		}
+	}
+}
 
 func TestFirstPageOpensOnTheStartPage(t *testing.T) {
 	var first firstPage
@@ -64,13 +95,16 @@ func TestStartURLReportsWhatItCouldNotOpen(t *testing.T) {
 	}{
 		{"unknown link", []string{"servef://nope:x/"}, "Not a servef link."},
 		{"folder", []string{"/no/such/folder"}, "Could not open folder"},
+		{"connection not saved here", []string{"servef://r-0123456789ab/"}, "This computer has no such servef connection"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var reported []string
+			daemon := connect.NewDaemon("", errors.New("no daemon"), nil, nil)
 			h := &host{
-				daemon: connect.NewDaemon("", errors.New("no daemon"), nil, nil),
-				notify: func(message, _ string) { reported = append(reported, message) },
+				daemon:      daemon,
+				connections: proxy.NewConnections(daemon, connection.NewStore(filepath.Join(t.TempDir(), "connections.json"))),
+				notify:      func(message, _ string) { reported = append(reported, message) },
 			}
 			if got := h.startURL(c.args, "/"); got != proxy.Origin+"/" {
 				t.Errorf("start page %q", got)

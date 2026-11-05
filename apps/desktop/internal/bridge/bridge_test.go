@@ -27,9 +27,15 @@ func TestIsAppPage(t *testing.T) {
 		"app://local.evil.example/":        false,
 		"javascript:alert(1)//app://local": false,
 	} {
-		if got := IsAppPage(raw, "app", "local"); got != want {
+		if got := IsAppPage(raw, "app", func(host string) bool { return host == "local" }); got != want {
 			t.Errorf("IsAppPage(%q) = %v", raw, got)
 		}
+	}
+	// What a remote window's page may call and what a local one may are
+	// separate questions: the caller says which hosts it accepts.
+	remote := func(host string) bool { return host == "r-0123456789ab" }
+	if !IsAppPage("app://r-0123456789ab/view", "app", remote) || IsAppPage("app://local/", "app", remote) {
+		t.Error("a host check did not decide the page")
 	}
 }
 

@@ -11,11 +11,12 @@ import (
 )
 
 // The app is a client of servef (decision 0094): from the servef module it
-// imports only the transport contract and the Go client. Its module path
-// sits under servef's, so Go's internal rule would not stop it.
+// imports only the transport contract, the connection model, and the Go
+// client. Its module path sits under servef's, so Go's internal rule would not
+// stop it.
 func TestImportsOnlyServefContractAndClient(t *testing.T) {
 	const servef = "github.com/flexdinesh/servef/"
-	allowed := map[string]bool{servef + "pkg/contract": true, servef + "pkg/client": true}
+	allowed := map[string]bool{servef + "pkg/contract": true, servef + "pkg/connection": true, servef + "pkg/client": true}
 	files := 0
 	err := filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -38,7 +39,7 @@ func TestImportsOnlyServefContractAndClient(t *testing.T) {
 				return err
 			}
 			if strings.HasPrefix(imported, servef) && !strings.HasPrefix(imported, servef+"apps/desktop/") && !allowed[imported] {
-				t.Errorf("%s imports %s; the app imports only pkg/contract and pkg/client from servef", path, imported)
+				t.Errorf("%s imports %s; the app imports only pkg/contract, pkg/connection, and pkg/client from servef", path, imported)
 			}
 		}
 		return nil

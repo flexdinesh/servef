@@ -1,7 +1,7 @@
-// Command servef-desktop is the servef desktop app (decisions 0094, 0095):
-// one window whose page is the web app, served from the daemon through a
-// custom scheme. It runs once per user: links (servef://) and
-// `servef-desktop [path]` reach the first instance.
+// Command servef-desktop is the servef desktop app (decisions 0094, 0095, 0098):
+// one window per connection, whose page is the web app, served through a custom
+// scheme from the local daemon or a saved remote server. It runs once per user:
+// links (servef://) and `servef-desktop [path]` reach the first instance.
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -22,6 +22,7 @@ import (
 	"github.com/flexdinesh/servef/apps/desktop/internal/link"
 	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
 	"github.com/flexdinesh/servef/pkg/client"
+	"github.com/flexdinesh/servef/pkg/connection"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
@@ -31,14 +32,21 @@ var (
 	commit  = ""
 )
 
-// host is the running app: the daemon, its window, and what opens in it.
+// host is the running app: the daemon, its connections, their windows, and
+// what opens in them.
 type host struct {
-	daemon *connect.Daemon
-	window atomic.Pointer[mygo.Window]
-	// first holds what links ask for until the window exists.
+	daemon      *connect.Daemon
+	connections *proxy.Connections
+
+	// mu guards windows: one per connection, by its scheme host.
+	mu      sync.Mutex
+	windows map[string]*mygo.Window
+	// opening serializes looking for a window and creating it, so two links to
+	// one connection cannot open two windows. It is separate from mu because
+	// creating a window waits for the main thread, where OnClosed takes mu.
+	opening sync.Mutex
+	// first holds what links ask for until a window exists.
 	first firstPage
-	// reloads limits reloading a page that keeps crashing.
-	reloads reloadLimiter
 	// notify shows a failure to the user.
 	notify func(message, detail string)
 }
@@ -53,10 +61,15 @@ func main() {
 	}
 	resources, _ := mygo.App.Path(mygo.PathResources)
 	binary, binaryErr := connect.Locate(mygo.App.IsPackaged(), resources, os.Getenv, exec.LookPath)
-	app := &host{daemon: connect.NewDaemon(binary, binaryErr, connect.DevFlags(os.Getenv), connect.Exec)}
+	app := &host{daemon: connect.NewDaemon(binary, binaryErr, connect.DevFlags(os.Getenv), connect.Exec), windows: map[string]*mygo.Window{}}
 	app.notify = app.showWarning
+	storePath, err := connection.DefaultStorePath()
+	if err != nil {
+		log.Printf("servef-desktop: %v", err)
+	}
+	app.connections = proxy.NewConnections(app.daemon, connection.NewStore(storePath))
 
-	pages := proxy.New(app.daemon)
+	pages := proxy.New(app.connections)
 	if err := mygo.Protocol.Handle(proxy.Scheme, pages); err != nil {
 		log.Fatal(err)
 	}
@@ -80,14 +93,6 @@ func main() {
 		// The first page opens what the arguments ask for; ensuring the
 		// daemon can take seconds, off the main thread.
 		go func() {
-			// A server link belongs to the browser: no window, no daemon.
-			if target, ok := serverLink(os.Args[1:], workingDir); ok {
-				if err := openServer(target); err != nil {
-					log.Printf("servef-desktop: open %s: %v", target.Origin(), err)
-				}
-				mygo.App.Quit()
-				return
-			}
 			app.first.open(app.startURL(os.Args[1:], workingDir), app.openWindow)
 		}()
 	})
@@ -97,60 +102,120 @@ func main() {
 	}
 }
 
-// raise brings the window to the front for what just asked for it.
+// raise brings a window to the front for what just asked for it.
 func (h *host) raise() {
-	if w := h.window.Load(); w != nil {
+	if w := h.frontWindow(); w != nil {
 		w.Restore()
 		w.Focus()
 	}
 }
 
+// frontWindow is the focused window, else the local one, else any.
+func (h *host) frontWindow() *mygo.Window {
+	if focused := mygo.FocusedWindow(); focused != nil {
+		return focused
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if local := h.windows[proxy.Host]; local != nil {
+		return local
+	}
+	for _, window := range h.windows {
+		return window
+	}
+	return nil
+}
+
+// openWindow opens the window of start's connection.
 func (h *host) openWindow(start string) {
+	connectionHost := hostOf(start)
 	window := mygo.NewWindow(mygo.WindowOptions{
-		Title:           "servef",
+		Title:           windowTitle(connectionHost, h.connections.Label(connectionHost)),
 		Width:           1200,
 		Height:          800,
 		MinWidth:        640,
 		MinHeight:       400,
-		StateKey:        "main",
+		StateKey:        windowStateKey(connectionHost),
 		URL:             start,
 		BackgroundColor: "light-dark(#d7d8dc, #101116)",
 		Page:            mygo.PageOptions{PreloadScript: preloadScript},
 	})
-	h.window.Store(window)
+	h.mu.Lock()
+	h.windows[connectionHost] = window
+	h.mu.Unlock()
+	window.OnClosed(func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.windows[connectionHost] == window {
+			delete(h.windows, connectionHost)
+		}
+	})
 	page := window.Page()
 	// Pages get nothing the web app does not use.
 	page.SetPermissionHandler(func(mygo.PermissionRequest) bool { return false })
 	page.OnWillNavigate(func(event *mygo.NavigateEvent) {
-		if !h.staysInApp(event.URL) {
+		if !h.staysInApp(connectionHost, event.URL) {
 			event.PreventDefault()
 		}
 	})
 	page.SetWindowOpenHandler(func(request mygo.WindowOpenRequest) *mygo.WindowOptions {
-		h.staysInApp(request.URL)
+		h.staysInApp(connectionHost, request.URL)
 		return nil
 	})
 	// A crashed page comes back where it was, unless it just did that.
+	var reloads reloadLimiter
 	page.OnRenderProcessGone(func(string) {
-		if h.reloads.allow(time.Now()) {
+		if reloads.allow(time.Now()) {
 			page.Reload()
 			return
 		}
-		h.load(proxy.Origin + proxy.CrashedPath)
+		if err := page.LoadURL(proxy.OriginOf(connectionHost) + proxy.CrashedPath); err != nil {
+			log.Printf("servef-desktop: %v", err)
+		}
 	})
 }
 
-// staysInApp reports navigation the page may do on its own: its origin.
-// Links to the app's scheme route here; http(s) and mailto open outside;
-// the rest is denied (decision 0067).
-func (h *host) staysInApp(raw string) bool {
+// windowStateKey keeps "main" for the local window: its remembered bounds
+// predate connections.
+func windowStateKey(connectionHost string) string {
+	if connectionHost == proxy.Host {
+		return "main"
+	}
+	return "connection-" + connectionHost
+}
+
+func windowTitle(connectionHost, label string) string {
+	if connectionHost == proxy.Host || label == "" {
+		return "servef"
+	}
+	return "servef: " + label
+}
+
+// hostOf is a page URL's connection.
+func hostOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+// staysInApp reports navigation a connection's page may do on its own: its
+// origin. The app's other links route to their own windows; http(s) and mailto
+// open outside; the rest is denied (decision 0067).
+func (h *host) staysInApp(connectionHost, raw string) bool {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return false
 	}
 	switch u.Scheme {
 	case proxy.Scheme:
-		return u.Host == proxy.Host
+		if u.Host == connectionHost {
+			return true
+		}
+		if h.connections.Known(u.Host) {
+			go h.load(raw)
+		}
 	case link.Scheme:
 		go h.openLink(raw)
 	case "http", "https", "mailto":
@@ -168,7 +233,11 @@ func (h *host) startURL(args []string, workingDir string) string {
 		return start
 	}
 	if request.Link != nil {
-		return localURL(*request.Link)
+		if !h.connections.Known(request.Link.Connection) {
+			h.reportNotPaired()
+			return start
+		}
+		return appURL(*request.Link)
 	}
 	if request.Path != "" {
 		landing, err := h.openFolder(request.Path)
@@ -187,10 +256,8 @@ func (h *host) handleArgs(args []string, workingDir string) {
 		return
 	}
 	switch {
-	case request.Link != nil && request.Link.Kind == link.Server:
-		openServerInBrowser(*request.Link)
 	case request.Link != nil:
-		h.load(localURL(*request.Link))
+		h.loadLink(*request.Link)
 	case request.Path != "":
 		h.openAndLoad(request.Path)
 	}
@@ -202,11 +269,21 @@ func (h *host) openLink(raw string) {
 		h.report("Not a servef link.", raw)
 		return
 	}
-	if target.Kind == link.Server {
-		openServerInBrowser(target)
+	h.loadLink(target)
+}
+
+// loadLink opens a link in its connection's window; a connection this computer
+// has not saved opens nothing.
+func (h *host) loadLink(target link.Target) {
+	if !h.connections.Known(target.Connection) {
+		h.reportNotPaired()
 		return
 	}
-	h.load(localURL(target))
+	h.load(appURL(target))
+}
+
+func (h *host) reportNotPaired() {
+	h.report("This computer has no such servef connection", "Run `servef connect` with the string `servef <path> --remote` prints on the server.")
 }
 
 func (h *host) openAndLoad(folder string) {
@@ -235,15 +312,35 @@ func (h *host) openFolder(folder string) (string, error) {
 	return proxy.Origin + "/?" + query.Encode(), nil
 }
 
+// load shows target in its connection's window, opening one if none is open.
+// Connecting again only brings the window forward: what it shows stays.
 func (h *host) load(target string) {
 	if h.first.request(target) {
 		return
 	}
-	if w := h.window.Load(); w != nil {
-		if err := w.Page().LoadURL(target); err != nil {
-			log.Printf("servef-desktop: %v", err)
-		}
+	h.opening.Lock()
+	defer h.opening.Unlock()
+	h.mu.Lock()
+	window := h.windows[hostOf(target)]
+	h.mu.Unlock()
+	if window == nil {
+		h.openWindow(target)
+		return
 	}
+	window.Restore()
+	window.Focus()
+	if onlyNamesConnection(target) {
+		return
+	}
+	if err := window.Page().LoadURL(target); err != nil {
+		log.Printf("servef-desktop: %v", err)
+	}
+}
+
+// onlyNamesConnection reports a link that asks for no page in particular.
+func onlyNamesConnection(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Path == "" || u.Path == "/") && u.RawQuery == "" && u.Fragment == ""
 }
 
 // report tells the user something failed without blocking anything.
@@ -254,31 +351,13 @@ func (h *host) report(message, detail string) {
 
 func (h *host) showWarning(message, detail string) {
 	go func() {
-		_, _ = mygo.Dialog.Message(mygo.MessageOptions{Parent: h.window.Load(), Type: mygo.MessageWarning, Message: message, Detail: detail})
+		_, _ = mygo.Dialog.Message(mygo.MessageOptions{Parent: h.frontWindow(), Type: mygo.MessageWarning, Message: message, Detail: detail})
 	}()
 }
 
-func localURL(target link.Target) string {
-	return proxy.Origin + target.AppPath()
-}
-
-// serverLink returns the http server link a launch's arguments name.
-func serverLink(args []string, workingDir string) (link.Target, bool) {
-	request, err := link.FromArgs(args, workingDir)
-	if err != nil || request.Link == nil || request.Link.Kind != link.Server {
-		return link.Target{}, false
-	}
-	return *request.Link, true
-}
-
-// openServer opens an http server's link in the browser: the window shows the
-// local daemon only.
-func openServer(target link.Target) error {
-	return mygo.Shell.OpenExternal(target.Origin() + target.AppPath())
-}
-
-func openServerInBrowser(target link.Target) {
-	go func() { _ = openServer(target) }()
+// appURL is a link's page on its connection's origin.
+func appURL(target link.Target) string {
+	return proxy.OriginOf(target.Connection) + target.AppPath()
 }
 
 func versionLine() string {

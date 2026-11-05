@@ -5,10 +5,10 @@ import (
 	"time"
 )
 
-// firstPage decides the window's first page. Links can arrive before the
-// window exists: macOS delivers one at launch, and a second instance can
-// send one while the daemon is still starting. The latest wins over what the
-// arguments asked for.
+// firstPage decides the first window's page. Links can arrive before any window
+// exists: macOS delivers one at launch, and a second instance can send one
+// while the daemon is still starting. The latest wins over what the arguments
+// asked for; once a window exists, each connection opens its own.
 type firstPage struct {
 	mu      sync.Mutex
 	opened  bool

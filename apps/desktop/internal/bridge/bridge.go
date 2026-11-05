@@ -47,11 +47,12 @@ var (
 	accelerator = regexp.MustCompile("^(?:(?:CommandOrControl|CmdOrCtrl|Command|Cmd|Control|Ctrl|Alt|Option|AltGr|Shift|Super|Meta)\\+)*(?:[A-Z0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Plus|Space|Tab|Backspace|Delete|Insert|Return|Enter|Up|Down|Left|Right|Home|End|PageUp|PageDown|Escape|Esc|[,./;'`=\\[\\]\\\\-])$")
 )
 
-// IsAppPage reports the app's own page: the origin and the routes the web
-// app runs on. Bytes served from the same origin (/api/raw) get no bridge.
-func IsAppPage(raw, scheme, host string) bool {
+// IsAppPage reports the app's own page: an origin known says is the app's, and
+// the routes the web app runs on. Bytes served from the same origin (/api/raw)
+// get no bridge.
+func IsAppPage(raw, scheme string, known func(host string) bool) bool {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != scheme || u.Host != host || u.User != nil {
+	if err != nil || u.Scheme != scheme || u.User != nil || !known(u.Host) {
 		return false
 	}
 	return u.Path == "" || u.Path == "/" || u.Path == "/view"
