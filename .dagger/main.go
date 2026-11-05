@@ -79,7 +79,9 @@ func (m *ServefValidation) Run(ctx context.Context,
 		}
 		web = web.WithExec([]string{"mise", "run", "--force", "build:web"})
 		runner = runner.WithDirectory("/src/apps/servef/internal/web/dist", web.Directory("/src/apps/servef/internal/web/dist"))
-		modules := tools.WithDirectory("/src", subset(source, []string{"go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
+		// Include transitive/test dependencies in immutable preparation rather
+		// than downloading them again inside each writable check container.
+		modules := tools.WithDirectory("/src", subset(source, []string{"go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download", "all"})
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
@@ -117,7 +119,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_DESKTOP_GOROOT", "/usr/local/go1.27")
 		modules := desktop.WithDirectory("/src", subset(source, []string{"apps/desktop/go.mod", "apps/desktop/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
 			WithEnvVariable("GOROOT", "/usr/local/go1.27").
-			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/desktop", "mod", "download"})
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/desktop", "mod", "download", "all"})
 		systemLibraries := ""
 		if desktopE2E {
 			// The built app needs a display, GTK 3, and WebKitGTK.

@@ -176,7 +176,9 @@ own independent repositories.
 
 Dagger prepares immutable toolchains, frozen pnpm dependencies, Go modules,
 frontend assets, and the application binary. Consumers receive private writable
-container state. Browser clients, Vite, application servers, and mutable fixture
+container state. Go module preparation downloads the full dependency graph so
+tidy and tests reuse transitive modules without downloading them per execution.
+Browser clients, Vite, application servers, and mutable fixture
 repositories run together inside the execution container. Mutating browser
 tests retain their own fixtures. No application ports are published, and runners
 receive no host networking, host-service tunnels, or host Docker socket. Future
