@@ -96,6 +96,7 @@ import type { LiveChange } from "./api/events-contract.ts"
 import { liveTargets } from "./features/live-updates/live-updates.ts"
 import { useLiveUpdates } from "./features/live-updates/use-live-updates.ts"
 import { usePresence } from "./features/live-updates/use-presence.ts"
+import { useNotificationSync } from "./features/notifications/use-notification-sync.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
 import { Narration } from "./features/walkthrough/Narration.tsx"
 import { WalkthroughsView } from "./features/walkthrough/WalkthroughsView.tsx"
@@ -510,6 +511,7 @@ export function App({ project }: AppProps) {
   }, [liveDocument, markSearchStale, refreshChanges, refreshCommits, refreshStack, reread, searchShown])
   const liveStatus = useLiveUpdates(project, applyLiveChange)
   usePresence()
+  const notificationStatus = useNotificationSync(project, settings)
   const languageServers = settings.languageServers === "on"
   // Snapshots do not navigate: language servers see the working tree.
   const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary && !page.at, languageServers)
@@ -794,7 +796,7 @@ export function App({ project }: AppProps) {
         onSettings={() => openSettings.current()}
         onHome={openWelcome} />
       <ProjectPicker project={project} registerOpen={registerProjects} onOpen={switchProject} />
-      <SettingsDialog registerOpen={registerSettings} />
+      <SettingsDialog registerOpen={registerSettings} notificationStatus={notificationStatus} />
       <CommandPalette registerOpen={registerCommands} onRun={runCommand} />
       <ColorThemePicker registerOpen={registerColorTheme} />
       <NavigationDialog panel={codeNavigation.panel} onClose={closeNavigation} onOpen={openNavigationResult} />

@@ -1,6 +1,7 @@
 # 0098: Remote connections: `servef --remote` and `servef connect`
 
 - Status: Accepted
+- Revised by: [0099](0099-desktop-notifications.md) (a remote page's bridge also has `configureNotifications`)
 - Date: 2026-11-05
 - Supersedes: [0076](0076-remote-servers-over-http.md) (no-UI serving, printed
   `web:` and `desktop:` links, the `servef://<host>:<port>` grammar),

@@ -99,6 +99,7 @@ rewriting history; update `Status` on the old record.
 | [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
 | [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
-| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098 |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098; notifications return in 0099 |
 | [0096](0096-correctness-and-extended-validation.md) | Correctness checks and optional extended validation | Accepted |
-| [0098](0098-remote-connections.md) | Remote connections: `servef --remote` and `servef connect` | Accepted |
+| [0098](0098-remote-connections.md) | Remote connections: `servef --remote` and `servef connect` | Accepted; bridge revised by 0099 |
+| [0099](0099-desktop-notifications.md) | Desktop notifications | Accepted |

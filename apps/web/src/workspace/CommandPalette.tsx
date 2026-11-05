@@ -5,7 +5,9 @@ import { DialogShell } from "../components/ui/dialog-shell.tsx"
 import { Kbd } from "../components/ui/kbd.tsx"
 import { ListRow } from "../components/ui/list-row.tsx"
 import { TextField } from "../components/ui/text-field.tsx"
-import { commands, matchCommands, type CommandAction } from "./commands.ts"
+import { notificationsAvailable } from "../lib/desktop-bridge.ts"
+
+import { availableCommands, matchCommands, type CommandAction } from "./commands.ts"
 import type { HighlightRange } from "../features/search/search-engine.ts"
 import { highlightedParts } from "../features/search/search-highlights.ts"
 import { settingsShortcutLabel } from "../settings/SettingsDialog.tsx"
@@ -32,7 +34,7 @@ export function CommandPalette({ registerOpen, onRun }: CommandPaletteProps) {
   const returnFocus = useRef<HTMLElement | null>(null)
   const [query, setQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
-  const matches = matchCommands(commands, query)
+  const matches = matchCommands(availableCommands(notificationsAvailable()), query)
   const active = matches[Math.min(activeIndex, matches.length - 1)]
 
   const show = useCallback(() => {

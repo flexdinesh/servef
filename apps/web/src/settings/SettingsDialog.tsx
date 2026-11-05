@@ -5,12 +5,16 @@ import { Button } from "../components/ui/button.tsx"
 import { DialogShell } from "../components/ui/dialog-shell.tsx"
 import { IconButton } from "../components/ui/icon-button.tsx"
 import { ListButton } from "../components/ui/list-row.tsx"
+import { Notice } from "../components/ui/notice.tsx"
 import { Select } from "../components/ui/select.tsx"
 import { TextField } from "../components/ui/text-field.tsx"
 import { ToggleButton } from "../components/ui/toggle-button.tsx"
 import { ViewHeader } from "../components/ui/view-header.tsx"
 
-import { matchSettings, settingDefinitions, type SettingId } from "./settings.ts"
+import { notificationProblem } from "../features/notifications/notifications.ts"
+import { notificationsAvailable, type NotificationStatus } from "../lib/desktop-bridge.ts"
+
+import { availableSettings, matchSettings, NOTIFICATIONS_CATEGORY, type SettingId } from "./settings.ts"
 import { useSettingValues, type SettingValue } from "./use-setting-values.ts"
 
 export const settingsShortcutLabel = navigator.platform.includes("Mac") ? "⌘," : "Ctrl+,"
@@ -112,9 +116,10 @@ export type OpenSettings = (setting?: SettingId) => void
 
 interface SettingsDialogProps {
   registerOpen(open: OpenSettings | null): void
+  notificationStatus: NotificationStatus | null
 }
 
-export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
+export function SettingsDialog({ registerOpen, notificationStatus }: SettingsDialogProps) {
   const { values, modifiedCount, resetAll } = useSettingValues()
   const dialog = useRef<HTMLDialogElement>(null)
   const search = useRef<HTMLInputElement>(null)
@@ -126,10 +131,12 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
   const [resetKey, setResetKey] = useState(0)
   // token re-runs the reveal when the same setting is opened again.
   const [revealed, setRevealed] = useState<{ setting: SettingId; token: number } | null>(null)
-  const matches = matchSettings(query).filter((definition) => !onlyModified || values[definition.id].modified)
+  const definitions = availableSettings(notificationsAvailable())
+  const matches = matchSettings(query, definitions).filter((definition) => !onlyModified || values[definition.id].modified)
   const results = matches.filter((definition) => category === null || definition.category === category)
   const categories = [...new Set(results.map((definition) => definition.category))]
-  const allCategories = [...new Set(settingDefinitions.map((definition) => definition.category))]
+  const allCategories = [...new Set(definitions.map((definition) => definition.category))]
+  const problem = notificationProblem(notificationStatus)
 
   function clearFilters() {
     setQuery("")
@@ -243,6 +250,7 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
             {results.length ? categories.map((category) => (
               <section key={category} aria-label={category}>
                 <h3 className="settings-group-title">{category}</h3>
+                {category === NOTIFICATIONS_CATEGORY && problem && <Notice tone="warning">{problem}</Notice>}
                 {results.filter((definition) => definition.category === category).map((definition) => (
                   <SettingItem key={`${definition.id}-${resetKey}`} setting={values[definition.id]}
                     revealed={revealed?.setting === definition.id}
@@ -258,7 +266,7 @@ export function SettingsDialog({ registerOpen }: SettingsDialogProps) {
           </div>
         </div>
         <footer className="settings-footer">
-          <span>Saved in this browser. Changes apply immediately.</span>
+          <span>{notificationsAvailable() ? "Saved for this connection." : "Saved in this browser."} Changes apply immediately.</span>
           <Button
             variant="ghost"
             className="settings-reset-all"

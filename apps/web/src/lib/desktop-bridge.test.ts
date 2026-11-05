@@ -64,6 +64,28 @@ test("native menu answers other than a string, and failures, are no choice", asy
   assert.doesNotThrow(() => throwing?.revealPath?.("/a", "b"))
 })
 
+test("configuring notifications passes the config and validates the status", async () => {
+  const config = { project: "/code/a", commits: true, branches: false, edits: false, walkthroughs: true }
+  const calls: unknown[][] = []
+  const exposed = {
+    version: 2,
+    configureNotifications(this: unknown, sent: unknown) {
+      calls.push([this, sent])
+      return Promise.resolve({ supported: true, denied: false, extra: "dropped" })
+    },
+  }
+  assert.deepEqual(await readDesktopBridge(exposed)?.configureNotifications?.(config), { supported: true, denied: false })
+  assert.deepEqual(calls, [[exposed, config]])
+  for (const answer of [null, undefined, true, { supported: true }, { supported: "yes", denied: false }]) {
+    const bridge = readDesktopBridge({ version: 2, configureNotifications: () => Promise.resolve(answer) })
+    assert.equal(await bridge?.configureNotifications?.(config), null)
+  }
+  const refused = readDesktopBridge({ version: 2, configureNotifications: () => Promise.reject(new Error("refused")) })
+  assert.equal(await refused?.configureNotifications?.(config), null)
+  assert.equal(readDesktopBridge({ version: 2, configureNotifications: "configure" })?.configureNotifications, null)
+  assert.equal(readDesktopBridge({ version: 1 })?.configureNotifications, null)
+})
+
 test("each later method is feature-detected: a version 1 bridge or non-functions are null", () => {
   const v1 = readDesktopBridge({ version: 1, openFolder() {} })
   assert.equal(v1?.revealPath, null)

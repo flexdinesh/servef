@@ -28,6 +28,10 @@ type Daemon struct {
 	socket   string
 	failure  error
 	failedAt time.Time
+
+	// streamClient and streamSocket are StreamClient's.
+	streamClient client.Client
+	streamSocket string
 }
 
 // NewDaemon returns a Daemon that ensures with binary; binaryErr is the

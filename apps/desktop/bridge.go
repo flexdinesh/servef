@@ -27,6 +27,7 @@ const preloadScript = `(() => {
     closeWindow() { void call("CloseWindow").catch(() => undefined) },
     showAppMenu(x, y) { void call("ShowAppMenu", x, y).catch(() => undefined) },
     showContextMenu(items, x, y) { return call("ShowContextMenu", items, x, y) },
+    configureNotifications(config) { return call("ConfigureNotifications", config) },
   }
   window.servefDesktop = Object.freeze(location.host === "` + proxy.Host + `" ? {
     version: 2,
@@ -77,6 +78,22 @@ func (b *bridgeService) CloseWindow(ctx context.Context) error {
 	}
 	window.Close()
 	return nil
+}
+
+// ConfigureNotifications takes the project the sender's page shows and the
+// user's settings, for the sender's own connection, which comes from its URL and
+// never from the payload (decision 0099). It answers whether notices can reach
+// the user.
+func (b *bridgeService) ConfigureNotifications(ctx context.Context, value any) (bridge.NotificationStatus, error) {
+	window, ok := callerWindow(ctx, b.anyConnection)
+	if !ok {
+		return bridge.NotificationStatus{}, errRefused
+	}
+	config, ok := bridge.ParseNotifications(value)
+	if !ok {
+		return bridge.NotificationStatus{}, errRefused
+	}
+	return b.host.configureNotifications(hostOf(mygo.CallerPage(ctx).URL()), window, config), nil
 }
 
 // OpenFolder asks for a directory and opens it as a project.
