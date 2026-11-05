@@ -25,9 +25,10 @@ export const gitFixtureBaseWorktree = `${gitFixtureRoot}-main`
 
 export const gitFixtureChanges = 8
 
-// largeText is a ~1.6 MB file; the working copy changes every twentieth line.
+// Correctness needs separated hunks and collapsed gaps. Extended runs retain
+// the ~1.6 MB stress fixture with 1,200 changed lines.
 function largeText(changed: boolean): string {
-  const lines = Array.from({ length: 24_000 }, (_, index) => {
+  const lines = Array.from({ length: process.env.SERVEF_BROWSER_EXTENDED === "1" ? 24_000 : 400 }, (_, index) => {
     const fox = changed && index % 20 === 0 ? "slow" : "quick"
     return `Line ${index}: the ${fox} brown fox jumps over the lazy dog, step ${index}.`
   })

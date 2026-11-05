@@ -3,11 +3,77 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestHostToolObservationRejectsChangedExecutables(t *testing.T) {
+	for _, change := range []string{"edit", "replace", "retarget", "mode"} {
+		t.Run(change, func(t *testing.T) {
+			root := t.TempDir()
+			put(t, root, "original", "original")
+			put(t, root, "other", "other")
+			path := filepath.Join(root, "tool")
+			if err := os.Symlink("original", path); err != nil {
+				t.Fatal(err)
+			}
+			tools := hostTools{Paths: map[string]string{"tool": path}, Files: map[string]hostToolFile{}}
+			if err := tools.observe("tool", path); err != nil {
+				t.Fatal(err)
+			}
+			if err := tools.unchanged(); err != nil {
+				t.Fatal(err)
+			}
+			switch change {
+			case "edit":
+				put(t, root, "original", "edited executable")
+			case "replace":
+				if err := os.Rename(filepath.Join(root, "other"), filepath.Join(root, "original")); err != nil {
+					t.Fatal(err)
+				}
+			case "retarget":
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink("other", path); err != nil {
+					t.Fatal(err)
+				}
+			case "mode":
+				if err := os.Chmod(filepath.Join(root, "original"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := tools.unchanged(); err == nil {
+				t.Fatal("changed toolchain accepted")
+			}
+		})
+	}
+}
+
+func TestHostManifestsReuseInvocationProfile(t *testing.T) {
+	s := snapshot{Entries: []entry{{Path: "mise.lock", Content: []byte("[[tools.go]]\nversion = \"1.26.10\"\n")}}}
+	profile := &hostProfile{Identity: "observed tools"}
+	for _, group := range []string{"repo", "web-static", "tooling-static", "site-static"} {
+		m, first, err := manifest(s, group, "", nil, profile)
+		if err != nil || m.HostTools != profile.Identity || m.host != profile {
+			t.Fatalf("%s did not reuse profile: %v", group, err)
+		}
+		raw, err := json.Marshal(m)
+		if err != nil || strings.Contains(string(raw), "\"host\"") || strings.Contains(string(raw), "\"Tools\"") {
+			t.Fatalf("execution profile leaked into manifest: %s %v", raw, err)
+		}
+		_, second, err := manifest(s, group, "", nil, &hostProfile{Identity: "changed tools"})
+		if err != nil || first == second {
+			t.Fatalf("%s ignored changed tool identity: %v", group, err)
+		}
+		if _, _, err := manifest(s, group, "", nil, nil); err == nil {
+			t.Fatal("locked host manifest accepted missing profile")
+		}
+	}
+}
 
 func TestPrivateDependencyCopiesDoNotShareWritableFiles(t *testing.T) {
 	source := t.TempDir()

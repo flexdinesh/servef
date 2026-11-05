@@ -6,7 +6,8 @@
 //
 //	xvfb-run -a dbus-run-session -- sh apps/desktop/scripts/e2e.sh
 //
-// It writes screenshots, rss.txt, and report.json to SERVEF_DESKTOP_E2E_OUT.
+// It writes screenshots and report.json to SERVEF_DESKTOP_E2E_OUT. Resource
+// scenarios additionally write RSS files when SERVEF_DESKTOP_EXTENDED=1.
 package e2e
 
 import (
@@ -59,7 +60,8 @@ type world struct {
 	report  map[string]any
 }
 
-func TestWebViewApp(t *testing.T) {
+func newWorld(t *testing.T) (*world, string) {
+	t.Helper()
 	binary := os.Getenv("SERVEF_DESKTOP_BINARY")
 	if binary == "" {
 		t.Fatal("SERVEF_DESKTOP_BINARY must name the servef binary")
@@ -80,11 +82,15 @@ func TestWebViewApp(t *testing.T) {
 	w := &world{t: t, out: out, report: map[string]any{}, sock: filepath.Join(base, "a.sock"), daemon: filepath.Join(base, "d.sock")}
 	w.project = filepath.Join(base, "project")
 	writeFixture(t, w.project)
-	w.bin = filepath.Join(base, "servef-desktop")
-	build := exec.Command("go", "build", "-tags", "e2e", "-o", w.bin, ".")
-	build.Dir = ".."
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("building the app: %v\n%s", err, output)
+	// Dagger may supply the app built from the same immutable source snapshot.
+	w.bin = os.Getenv("SERVEF_DESKTOP_APP_BINARY")
+	if w.bin == "" {
+		w.bin = filepath.Join(base, "servef-desktop")
+		build := exec.Command("go", "build", "-tags", "e2e", "-o", w.bin, ".")
+		build.Dir = ".."
+		if output, err := build.CombinedOutput(); err != nil {
+			t.Fatalf("building the app: %v\n%s", err, output)
+		}
 	}
 	home := filepath.Join(base, "home")
 	w.env = append(os.Environ(),
@@ -105,6 +111,13 @@ func TestWebViewApp(t *testing.T) {
 		data, _ := json.MarshalIndent(w.report, "", "  ")
 		_ = os.WriteFile(filepath.Join(out, "report.json"), data, 0o644)
 	})
+	return w, base
+}
+
+func TestWebViewApp(t *testing.T) {
+	w, base := newWorld(t)
+	binary := os.Getenv("SERVEF_DESKTOP_BINARY")
+	home := filepath.Join(base, "home")
 
 	app := w.launch(w.project)
 	app.waitEval("the project's tree", treeShows("README.md"))
@@ -234,25 +247,7 @@ func TestWebViewApp(t *testing.T) {
 	})
 
 	run("document, highlighting, diagram, links", func(t *testing.T) {
-		// A second launch hands its link to the first instance.
-		second := exec.Command(w.bin, "servef://local/view?project="+urlEscape(w.project)+"&path=main.go")
-		second.Env = w.env
-		if output, err := second.CombinedOutput(); err != nil {
-			t.Errorf("second instance: %v\n%s", err, output)
-		}
-		app.waitEval("a highlighted keyword", `return Array.from(document.querySelectorAll(".hl-keyword")).some((span) => span.textContent.trim() === "package")`)
-		app.capture("source.png")
-		// A large source highlights in the worker, whose failure leaves plain text.
-		app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=big.go"; return true`)
-		app.waitEval("a large source highlighted in the worker", `return document.body.innerText.includes("Value0") && document.querySelector(".hl-keyword") !== null`)
-		app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=README.md"; return true`)
-		app.waitEval("the document's Preview button", `const preview = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim() === "Preview"); preview?.click(); return preview !== undefined`)
-		app.waitEval("a Mermaid diagram", `return document.querySelector(".mermaid-diagram svg.ondine") !== null`)
-		app.waitEval("a Markdown image", `const image = document.querySelector("main img"); return image !== null && image.complete && image.naturalWidth === 4`)
-		app.capture("diagram.png")
-		app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=pic.png"; return true`)
-		app.waitEval("the image viewer", `const image = document.querySelector("main img"); return image !== null && image.complete && image.naturalWidth === 4`)
-		w.report["wasm"] = app.eval(`return performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => /wasm|worker/.test(name))`)
+		w.exerciseDocuments(app)
 	})
 
 	run("live update reaches the page", func(t *testing.T) {
@@ -305,11 +300,6 @@ func TestWebViewApp(t *testing.T) {
 		if got := app.eval(`return window.__chosen`); got != "first" {
 			t.Errorf("chosen = %v, want first", got)
 		}
-	})
-
-	run("memory after the session", func(t *testing.T) {
-		time.Sleep(10 * time.Second)
-		w.writeMemory(app.cmd.Process.Pid, "rss-session.txt")
 	})
 
 	readme := `"/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=README.md"`
@@ -410,25 +400,6 @@ func TestWebViewApp(t *testing.T) {
 		}
 		app.waitEval("the restored tabs", `return Array.from(document.querySelectorAll("[role=tab]")).some((tab) => tab.textContent.includes("main.go"))`)
 		app.capture("restored.png")
-	})
-
-	// A fresh profile on the same daemon: Explorer and one Markdown document
-	// with its highlighted fence and diagram, nothing else this page loaded.
-	t.Run("memory with one document", func(t *testing.T) {
-		w.t = t
-		home := filepath.Join(base, "fresh")
-		if err := os.MkdirAll(home, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		w.env = append(w.env, "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"))
-		app := w.launch("servef://local/view?project=" + urlEscape(w.project) + "&path=README.md")
-		defer app.stop()
-		app.waitEval("the document's Preview button", `const preview = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim() === "Preview"); preview?.click(); return preview !== undefined`)
-		app.waitEval("a Mermaid diagram", `return document.querySelector(".mermaid-diagram svg.ondine") !== null`)
-		w.report["memoryTabs"] = app.eval(`return document.querySelectorAll("[role=tab]").length`)
-		time.Sleep(10 * time.Second)
-		w.writeMemory(app.cmd.Process.Pid, "rss.txt")
-		app.capture("one-document.png")
 	})
 
 	// servefGate runs the real binary, failing or slow at `daemon ensure` while
@@ -575,6 +546,69 @@ func TestWebViewApp(t *testing.T) {
 		app.eval(`document.querySelector("a").click(); return true`)
 		app.waitEval("the app after Try again", `const text = document.body.innerText; return text.includes("Files") && !text.includes("can't reach its daemon")`)
 	})
+}
+
+// TestWebViewResources measures a document session and a fresh single-document
+// profile without repeating the correctness suite.
+func TestWebViewResources(t *testing.T) {
+	if os.Getenv("SERVEF_DESKTOP_EXTENDED") != "1" {
+		t.Skip("resource scenarios require SERVEF_DESKTOP_EXTENDED=1")
+	}
+	w, base := newWorld(t)
+	t.Run("memory after the session", func(t *testing.T) {
+		w.t = t
+		app := w.launch(w.project)
+		defer app.stop()
+		app.waitEval("the project's tree", treeShows("README.md"))
+		w.report["userAgent"] = app.eval(`return navigator.userAgent`)
+		w.report["origin"] = app.eval(`return location.origin`)
+		w.exerciseDocuments(app)
+		time.Sleep(10 * time.Second)
+		w.writeMemory(app.cmd.Process.Pid, "rss-session.txt")
+	})
+
+	// A fresh profile on the same daemon: Explorer and one Markdown document
+	// with its highlighted fence and diagram, nothing else this page loaded.
+	t.Run("memory with one document", func(t *testing.T) {
+		w.t = t
+		home := filepath.Join(base, "fresh")
+		if err := os.MkdirAll(home, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		w.env = append(w.env, "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"))
+		app := w.launch("servef://local/view?project=" + urlEscape(w.project) + "&path=README.md")
+		defer app.stop()
+		app.waitEval("the document's Preview button", `const preview = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim() === "Preview"); preview?.click(); return preview !== undefined`)
+		app.waitEval("a Mermaid diagram", `return document.querySelector(".mermaid-diagram svg.ondine") !== null`)
+		w.report["memoryTabs"] = app.eval(`return document.querySelectorAll("[role=tab]").length`)
+		time.Sleep(10 * time.Second)
+		w.writeMemory(app.cmd.Process.Pid, "rss.txt")
+		app.capture("one-document.png")
+	})
+}
+
+// exerciseDocuments also supplies the representative resource workload.
+func (w *world) exerciseDocuments(app *session) {
+	app.t.Helper()
+	// A second launch hands its link to the first instance.
+	second := exec.Command(w.bin, "servef://local/view?project="+urlEscape(w.project)+"&path=main.go")
+	second.Env = w.env
+	if output, err := second.CombinedOutput(); err != nil {
+		app.t.Errorf("second instance: %v\n%s", err, output)
+	}
+	app.waitEval("a highlighted keyword", `return Array.from(document.querySelectorAll(".hl-keyword")).some((span) => span.textContent.trim() === "package")`)
+	app.capture("source.png")
+	// A large source highlights in the worker, whose failure leaves plain text.
+	app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=big.go"; return true`)
+	app.waitEval("a large source highlighted in the worker", `return document.body.innerText.includes("Value0") && document.querySelector(".hl-keyword") !== null`)
+	app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=README.md"; return true`)
+	app.waitEval("the document's Preview button", `const preview = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim() === "Preview"); preview?.click(); return preview !== undefined`)
+	app.waitEval("a Mermaid diagram", `return document.querySelector(".mermaid-diagram svg.ondine") !== null`)
+	app.waitEval("a Markdown image", `const image = document.querySelector("main img"); return image !== null && image.complete && image.naturalWidth === 4`)
+	app.capture("diagram.png")
+	app.eval(`location.href = "/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=pic.png"; return true`)
+	app.waitEval("the image viewer", `const image = document.querySelector("main img"); return image !== null && image.complete && image.naturalWidth === 4`)
+	w.report["wasm"] = app.eval(`return performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => /wasm|worker/.test(name))`)
 }
 
 // killWebProcess crashes the page's web process, as a page that breaks it does.

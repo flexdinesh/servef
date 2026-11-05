@@ -53,7 +53,7 @@ func snap(t *testing.T, root string) snapshot {
 }
 func key(t *testing.T, s snapshot, group string) string {
 	t.Helper()
-	_, key, err := manifest(s, group, "", nil)
+	_, key, err := manifest(s, group, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 	if history.Head == original.Head {
 		t.Fatal("HEAD unchanged")
 	}
-	for _, g := range groups {
+	for _, g := range chosen(options{Suite: "full"}) {
 		if key(t, original, g) != key(t, history, g) {
 			t.Fatalf("history invalidated %s", g)
 		}
@@ -130,7 +130,7 @@ func TestHistoryOnlyChangesReuseButRelevantInputsInvalidate(t *testing.T) {
 		put(t, root, name, "changed "+name)
 		commit(t, root, name)
 		after := snap(t, root)
-		for _, g := range groups {
+		for _, g := range chosen(options{Suite: "full"}) {
 			if key(t, before, g) == key(t, after, g) {
 				t.Fatalf("%s did not invalidate %s", name, g)
 			}
@@ -164,7 +164,7 @@ func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T
 	if before.Head == history.Head || before.Tree != history.Tree {
 		t.Fatal("expected new history with identical source tree")
 	}
-	for _, group := range groups {
+	for _, group := range chosen(options{Suite: "full"}) {
 		if key(t, before, group) != key(t, history, group) {
 			t.Fatalf("history-only rebase invalidated %s", group)
 		}
@@ -192,12 +192,12 @@ func TestRebaseReusesHistoryOnlyInputsAndInvalidatesUpstreamContent(t *testing.T
 
 func TestPartialProofCannotQualifyFullGroup(t *testing.T) {
 	s := snapshot{Entries: []entry{{Path: "apps/web/a.ts", Mode: "100644", Blob: "abc"}}}
-	_, full, _ := manifest(s, "frontend", "", nil)
-	_, empty, _ := manifest(s, "frontend", "", []string{})
+	_, full, _ := manifest(s, "frontend", "", nil, nil)
+	_, empty, _ := manifest(s, "frontend", "", []string{}, nil)
 	if full != empty {
 		t.Fatal("equivalent empty selections have different identities")
 	}
-	_, partial, _ := manifest(s, "frontend", "_container:test:web", []string{"filter"})
+	_, partial, _ := manifest(s, "frontend", "_container:test:web", []string{"filter"}, nil)
 	if full == partial {
 		t.Fatal("partial and full identities match")
 	}
@@ -225,12 +225,14 @@ func TestTargetedTasksRequireTheirCompleteSourceGroup(t *testing.T) {
 	}
 }
 
-func TestWebKitBrowserTaskBelongsToBrowserGroup(t *testing.T) {
-	if !taskBelongsToGroup("_container:test:browser:webkit", "browser") {
-		t.Fatal("WebKit browser task rejected for browser group")
+func TestWebKitBrowserTaskBelongsToWebKitGroup(t *testing.T) {
+	if !taskBelongsToGroup("_container:test:browser:webkit", "webkit") {
+		t.Fatal("WebKit browser task rejected for WebKit group")
 	}
-	if taskBelongsToGroup("_container:test:browser:webkit", "desktop") {
-		t.Fatal("WebKit browser task accepted for desktop group")
+	for _, group := range []string{"browser", "desktop", "browser-extended"} {
+		if taskBelongsToGroup("_container:test:browser:webkit", group) {
+			t.Fatalf("WebKit browser task accepted for %s group", group)
+		}
 	}
 }
 
@@ -265,7 +267,7 @@ func TestDesktopGroupIsPartOfCheckPR(t *testing.T) {
 		}
 	}
 	// Every group installs the whole workspace from the frozen lockfile.
-	for _, group := range groups {
+	for _, group := range chosen(options{Suite: "full"}) {
 		if !selected(group, "packages/contracts/package.json") {
 			t.Fatalf("%s lacks the workspace manifest", group)
 		}

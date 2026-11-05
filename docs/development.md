@@ -60,6 +60,7 @@ mise run dev:desktop                                 # build, then run against a
 .dev/desktop/servef daemon stop --socket $PWD/.dev/desktop/daemon.sock   # stop its daemon
 mise run test:desktop                                # unit tests
 mise run test:desktop:e2e                            # built app (-tags e2e) under Xvfb in Dagger
+mise run test:desktop:extended                       # desktop resource measurements
 ```
 
 ## Remote
@@ -85,6 +86,7 @@ mise run test:race            # Go with race detector
 mise run test:web             # frontend
 mise run test:browser -- tests/browser/<spec>.ts   # browser (omit spec for all)
 mise run test:browser:webkit -- tests/browser/<spec>.ts   # WebKit (opt-in)
+mise run test:browser:extended # large-diff stress (opt-in)
 mise run test:desktop         # desktop app unit tests
 mise run test:desktop:e2e     # built desktop app under Xvfb
 mise run test:release         # install scripts and release tooling
@@ -97,8 +99,10 @@ mise run contracts:generate && mise run contracts:check   # after pkg/contract e
 ## Before a PR
 
 ```sh
-mise run check:pr             # full validation of committed HEAD (--force reruns)
+mise run check:pr             # correctness of committed HEAD (--force reruns)
 mise run check:status         # right before push; HEAD must match
+mise run check:extended       # performance/resources/compatibility when relevant
+mise run check:full           # explicitly run both suites
 mise run check:prune          # prune old artifacts
 ```
 

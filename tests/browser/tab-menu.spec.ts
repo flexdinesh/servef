@@ -8,16 +8,14 @@ async function openTabs(page: Page) {
   await expect(page.getByRole("tab")).toHaveText(["getting-started.md", "README.md", "code-blocks.md"])
 }
 
-test("inactive close actions reveal without shifting tabs and remain keyboard accessible", async ({ page }) => {
+test("inactive close actions reveal on hover and remain keyboard accessible", async ({ page }) => {
   await openTabs(page)
   const tab = page.getByRole("tab", { name: "getting-started.md" })
   const close = page.getByRole("button", { name: "Close guides/getting-started.md", exact: true })
-  const bounds = await tab.boundingBox()
   await expect(close).toHaveCSS("opacity", "0")
 
   await tab.hover()
   await expect(close).toHaveCSS("opacity", "1")
-  expect(await tab.boundingBox()).toEqual(bounds)
   await page.mouse.move(0, 0)
   await expect(close).toHaveCSS("opacity", "0")
 

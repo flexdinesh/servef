@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"dagger/servef-validation/internal/dagger"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 type ServefValidation struct{}
 
 const baseImage = "debian:bookworm-slim@sha256:a3bba7dc7dbcc1f37c2856c51fc9a7fac96608f50cb87b1b4e4d8b8c85ae988e"
+
+const containerPlatform = "linux/amd64"
 
 // aptSnapshot pins Debian packages. It names the download cache, so changing
 // it starts an empty one.
@@ -31,7 +34,7 @@ func (m *ServefValidation) Run(ctx context.Context,
 	// +optional
 	task string,
 ) (*dagger.Directory, error) {
-	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true}
+	groups := map[string]bool{"go": true, "frontend": true, "tooling": true, "docs": true, "browser": true, "desktop": true, "browser-extended": true, "desktop-extended": true, "webkit": true}
 	if !groups[group] || attempt == "" {
 		return nil, fmt.Errorf("valid group and nonempty attempt required")
 	}
@@ -39,8 +42,8 @@ func (m *ServefValidation) Run(ctx context.Context,
 		"vet": "go", "test:go": "go", "test:race": "go",
 		"test:web": "frontend", "test:release": "tooling",
 		"build:site": "docs", "test:browser": "browser",
-		"test:browser:webkit": "browser",
-		"test:desktop":        "desktop", "test:desktop:e2e": "desktop",
+		"test:browser:extended": "browser-extended", "test:browser:webkit": "webkit",
+		"test:desktop": "desktop", "test:desktop:e2e": "desktop", "test:desktop:extended": "desktop-extended",
 	}
 	task = strings.TrimPrefix(task, "_container:")
 	if task != "" && owners[task] != group {
@@ -50,15 +53,22 @@ func (m *ServefValidation) Run(ctx context.Context,
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return nil, fmt.Errorf("args-json: %w", err)
 	}
-	tools, err := toolchain(ctx, source)
+	tools, goCache, err := toolchain(ctx, source)
 	if err != nil {
 		return nil, err
 	}
 	prepared := dependencies(tools, source)
 	runner := prepared.WithDirectory("/src", source)
+	preparationGroup := group
+	switch group {
+	case "browser-extended", "webkit":
+		preparationGroup = "browser"
+	case "desktop-extended":
+		preparationGroup = "desktop"
+	}
 	// The desktop e2e runs the real servef binary, whose daemon serves the UI.
-	desktopE2E := group == "desktop" && task != "test:desktop"
-	if group == "go" || group == "browser" || desktopE2E {
+	desktopE2E := preparationGroup == "desktop" && task != "test:desktop"
+	if preparationGroup == "go" || preparationGroup == "browser" || desktopE2E {
 		webSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
 			Include: []string{"apps/web/**", "packages/**", "patches/**", "mise.toml", "mise.lock", ".node-version", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "apps/site/package.json"},
 			Exclude: []string{"apps/web/**/*.test.ts", "apps/web/**/*.test.tsx", "apps/web/test-fixtures/**"},
@@ -69,12 +79,18 @@ func (m *ServefValidation) Run(ctx context.Context,
 		}
 		web = web.WithExec([]string{"mise", "run", "--force", "build:web"})
 		runner = runner.WithDirectory("/src/apps/servef/internal/web/dist", web.Directory("/src/apps/servef/internal/web/dist"))
-		modules := tools.WithDirectory("/src", subset(source, []string{"go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download"})
+		// Include transitive/test dependencies in immutable preparation rather
+		// than downloading them again inside each writable check container.
+		modules := tools.WithDirectory("/src", subset(source, []string{"go.work", "apps/servef/go.mod", "apps/servef/go.sum", "tools/go.mod"})).WithExec([]string{"mise", "exec", "--", "go", "mod", "download", "all"})
 		runner = runner.WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
 	}
 	var binary *dagger.File
-	if group == "browser" || desktopE2E {
-		build := prepared.WithDirectory("/src", subset(source, []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"})).
+	if preparationGroup == "browser" || desktopE2E {
+		buildSource := dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{
+			Include: []string{"mise.toml", "mise.lock", ".node-version", "go.work", "tools/go.mod", "apps/servef/go.mod", "apps/servef/go.sum", "apps/servef/*.go", "apps/servef/cmd/**", "apps/servef/internal/**", "apps/servef/pkg/**"},
+			Exclude: []string{"**/*_test.go"},
+		})
+		build := withGoBuildCache(prepared, goCache).WithDirectory("/src", buildSource).
 			WithDirectory("/src/apps/servef/internal/web/dist", runner.Directory("/src/apps/servef/internal/web/dist")).
 			WithDirectory("/home/runner/go/pkg/mod", runner.Directory("/home/runner/go/pkg/mod"))
 		if force {
@@ -82,10 +98,10 @@ func (m *ServefValidation) Run(ctx context.Context,
 		}
 		binary = build.WithExec([]string{"mise", "run", "--force", "_container:binary"}).File("/out/servef")
 	}
-	if group == "browser" {
-		// WebKit installs only for its opt-in task; the gate prepares Chromium alone.
+	if preparationGroup == "browser" {
+		// WebKit installs only for its opt-in group; the gate prepares Chromium alone.
 		engine := "chromium"
-		if task == "test:browser:webkit" {
+		if group == "webkit" {
 			engine = "webkit"
 		}
 		// Playwright chooses its packages from the locked version, so this step
@@ -97,20 +113,32 @@ func (m *ServefValidation) Run(ctx context.Context,
 			WithEnvVariable("SERVEF_BROWSER_ARTIFACT_DIR", "/out/fixtures").WithEnvVariable("SERVEF_BROWSER_OUTPUT_DIR", "/out/playwright").
 			WithEnvVariable("PORT", "18090").WithEnvVariable("SERVEF_BROWSER_WEB_PORT", "15183")
 	}
-	if group == "desktop" {
+	if preparationGroup == "desktop" {
 		// apps/desktop is its own module on Go 1.27, outside go.work.
 		desktop := tools.WithExec([]string{"sh", "-ec", desktopGo}).
 			WithEnvVariable("GOWORK", "off").WithEnvVariable("SERVEF_DESKTOP_GOROOT", "/usr/local/go1.27")
 		modules := desktop.WithDirectory("/src", subset(source, []string{"apps/desktop/go.mod", "apps/desktop/go.sum", "apps/servef/go.mod", "apps/servef/go.sum"})).
 			WithEnvVariable("GOROOT", "/usr/local/go1.27").
-			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/desktop", "mod", "download"})
+			WithExec([]string{"/usr/local/go1.27/bin/go", "-C", "apps/desktop", "mod", "download", "all"})
+		systemLibraries := ""
 		if desktopE2E {
 			// The built app needs a display, GTK 3, and WebKitGTK.
+			systemLibraries = desktopE2EPackages
 			desktop = withApt(desktop, []string{"sh", "-ec", desktopE2EPackages}).
 				WithFile("/opt/servef", binary).WithEnvVariable("SERVEF_DESKTOP_BINARY", "/opt/servef")
 		}
 		runner = desktop.WithDirectory("/src", source).
 			WithDirectory("/home/runner/go/pkg/mod", modules.Directory("/home/runner/go/pkg/mod"))
+		goCache = goBuildCache(desktopGo, systemLibraries)
+	}
+	if preparationGroup == "go" || preparationGroup == "desktop" {
+		runner = withGoBuildCache(runner, goCache)
+	}
+	if group == "browser-extended" {
+		runner = runner.WithEnvVariable("SERVEF_BROWSER_EXTENDED", "1")
+	}
+	if group == "desktop-extended" {
+		runner = runner.WithEnvVariable("SERVEF_DESKTOP_EXTENDED", "1")
 	}
 	// The baseline index is private and independent of host Git metadata.
 	baseline := tools.WithDirectory("/src", source).WithExec([]string{"sh", "-ec", "git init -q; git add --force --all; git -c user.name=validation -c user.email=validation@example.invalid commit -qm baseline"})
@@ -140,23 +168,36 @@ func subset(source *dagger.Directory, patterns []string) *dagger.Directory {
 	return dag.Directory().WithDirectory("/", source, dagger.DirectoryWithDirectoryOpts{Include: patterns})
 }
 
-func toolchain(ctx context.Context, source *dagger.Directory) (*dagger.Container, error) {
+// Only compiler outputs are mutable. Go supports concurrent access to this
+// cache; source, module downloads, and prepared assets remain immutable.
+func withGoBuildCache(c *dagger.Container, cache *dagger.CacheVolume) *dagger.Container {
+	const path = "/home/runner/.cache/go-build"
+	return c.WithEnvVariable("GOCACHE", path).
+		WithMountedCache(path, cache, dagger.ContainerWithMountedCacheOpts{Sharing: dagger.CacheSharingModeShared})
+}
+
+func goBuildCache(toolchain, systemLibraries string) *dagger.CacheVolume {
+	key := sha256.Sum256([]byte(strings.Join([]string{"github.com/flexdinesh/servef", containerPlatform, toolchain, baseImage, aptSnapshot, installBase, systemLibraries}, "\x00")))
+	return dag.CacheVolume(fmt.Sprintf("servef-validation-go-build-%x", key))
+}
+
+func toolchain(ctx context.Context, source *dagger.Directory) (*dagger.Container, *dagger.CacheVolume, error) {
 	lock, err := source.File("mise.lock").Contents(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	config, installLock, err := preparationTools(lock)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	c := dag.Container(dagger.ContainerOpts{Platform: "linux/amd64"}).From(baseImage)
+	c := dag.Container(dagger.ContainerOpts{Platform: containerPlatform}).From(baseImage)
 	env := [][2]string{{"HOME", "/home/runner"}, {"XDG_CACHE_HOME", "/home/runner/.cache"}, {"XDG_CONFIG_HOME", "/home/runner/.config"}, {"XDG_DATA_HOME", "/home/runner/.local/share"}, {"TMPDIR", "/tmp"}, {"LANG", "C.UTF-8"}, {"TZ", "UTC"}, {"CI", "1"}, {"GOMAXPROCS", "2"}, {"GOFLAGS", "-p=2 -buildvcs=false"}, {"GOTOOLCHAIN", "local"}, {"MISE_JOBS", "2"}, {"MISE_YES", "1"}, {"MISE_TRUSTED_CONFIG_PATHS", "/src"}, {"GIT_CONFIG_GLOBAL", "/dev/null"}, {"GIT_CONFIG_NOSYSTEM", "1"}, {"GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z"}, {"GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z"}}
 	for _, entry := range env {
 		c = c.WithEnvVariable(entry[0], entry[1])
 	}
 	return withApt(c.WithEnvVariable("MISE_JOBS", "1"), []string{"sh", "-ec", installBase}).WithWorkdir("/src").
 		WithNewFile("/src/mise.toml", config).WithNewFile("/src/mise.lock", installLock).
-		WithExec([]string{"mise", "install", "go", "node", "pnpm"}), nil
+		WithExec([]string{"mise", "install", "go", "node", "pnpm"}), goBuildCache(installLock, ""), nil
 }
 
 // Preparation depends on locked tools, not unrelated task definitions. Preserve
@@ -206,8 +247,12 @@ func preparationTools(lock string) (string, string, error) {
 }
 
 func dependencies(tools *dagger.Container, source *dagger.Directory) *dagger.Container {
+	const store = "/home/runner/.cache/pnpm/store"
+	// Copy packages into the immutable layer before removing the download store.
 	return tools.WithDirectory("/src", subset(source, []string{"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".npmrc", ".pnpmfile.cjs", "apps/web/package.json", "apps/site/package.json", "packages/contracts/package.json", "patches/**"})).
-		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile"})
+		WithMountedCache(store, dag.CacheVolume("servef-validation-pnpm-store-"+containerPlatform), dagger.ContainerWithMountedCacheOpts{Sharing: dagger.CacheSharingModeShared}).
+		WithExec([]string{"mise", "exec", "--", "pnpm", "install", "--frozen-lockfile", "--store-dir=" + store, "--package-import-method=copy"}).
+		WithoutMount(store)
 }
 
 // desktopE2EPackages are the desktop e2e's display, session bus, GTK 3,
@@ -267,7 +312,7 @@ set +e
   mise exec -- node --version
   mise exec -- pnpm --version
   mise exec -- pnpm exec playwright --version
-  printf 'HOME=%s\nLANG=%s\nTZ=%s\nGOFLAGS=%s\nGOMAXPROCS=%s\nMISE_JOBS=%s\n' "$HOME" "$LANG" "$TZ" "$GOFLAGS" "$GOMAXPROCS" "$MISE_JOBS"
+  printf 'HOME=%s\nLANG=%s\nTZ=%s\nGOFLAGS=%s\nGOMAXPROCS=%s\nMISE_JOBS=%s\nGOCACHE=%s\n' "$HOME" "$LANG" "$TZ" "$GOFLAGS" "$GOMAXPROCS" "$MISE_JOBS" "$GOCACHE"
 } > /out/environment.txt 2>&1
 "$@" 2>&1 | tee /out/check.log
 codes=("${PIPESTATUS[@]}")

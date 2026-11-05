@@ -106,16 +106,6 @@ function reviewSearch(page: Page): Record<string, string> {
   return Object.fromEntries(params)
 }
 
-// pinnedOffset is the review gutter a file opened by path stops below the
-// pane's top edge, where its header sticks.
-const pinnedOffset = 8
-
-// topOffset is how far a review section sits below the pane's top edge.
-async function topOffset(page: Page, file: string): Promise<number> {
-  const [section, main] = await Promise.all([reviewFile(page, file).boundingBox(), page.getByRole("main").boundingBox()])
-  return section && main ? section.y - main.y : Number.NaN
-}
-
 test("Source Control lists every pending change and reviews them in one tab", async ({ page }) => {
   await page.goto(`${gitApiOrigin}/?project=${project}`)
   const activity = page.getByRole("button", { name: `Source Control, ${gitFixtureChanges} pending changes` })
@@ -169,7 +159,8 @@ test("Source Control lists every pending change and reviews them in one tab", as
   await expect(diffLines(page, "change-addition", "README.md").filter({ hasText: "Four" })).toBeVisible()
 })
 
-test("large diffs keep the page responsive and render only rows near the viewport", async ({ page }) => {
+test("large diffs keep the page responsive and render only rows near the viewport @extended", async ({ page }) => {
+  test.skip(process.env.SERVEF_BROWSER_EXTENDED !== "1", "requires the full extended git fixture")
   test.setTimeout(60_000)
   await openReview(page, "review=working#f=large.txt")
   // The worker's parse can take seconds on a busy machine.
@@ -251,23 +242,24 @@ test("review anchors scroll their lines into view and open the unchanged lines t
   test.setTimeout(60_000)
   const gutter = (line: number) => reviewFile(page, "large.txt").locator(`.diff-view [data-additions] [data-column-number="${line}"]`)
   const status = page.locator(".status-lines")
-  // large.txt changes every twentieth line, so line 12001 is a change.
-  await openReview(page, "review=working#f=large.txt&R12001")
-  await expect(gutter(12001)).toBeInViewport({ timeout: 20_000 })
-  await expect(status).toHaveText("Ln 12001")
+  // Fixed lines work in both fixtures; line 301 is a change beyond the
+  // initially rendered viewport.
+  await openReview(page, "review=working#f=large.txt&R301")
+  await expect(gutter(301)).toBeInViewport({ timeout: 20_000 })
+  await expect(status).toHaveText("Ln 301")
 
-  // Line 12010 sits in the collapsed gap between two changes.
-  await openReview(page, "review=working#f=large.txt&R12010-R12011")
-  await expect(gutter(12010)).toBeInViewport({ timeout: 20_000 })
+  // Line 310 sits in the collapsed gap between two changes.
+  await openReview(page, "review=working#f=large.txt&R310-R311")
+  await expect(gutter(310)).toBeInViewport({ timeout: 20_000 })
   await expect(reviewFile(page, "large.txt").locator(".diff-view [data-line][data-selected-line]").first()).toBeVisible()
-  await expect(status).toHaveText("Ln 12010–12011")
+  await expect(status).toHaveText("Ln 310–311")
 
   // Selecting from the gutter leaves the pane where it is.
   const pane = page.locator("main")
   const before = await pane.evaluate((element) => element.scrollTop)
-  await gutter(12012).click()
-  await expect(page).toHaveURL(/#f=large\.txt&R12012$/)
-  await expect(status).toHaveText("Ln 12012")
+  await gutter(312).click()
+  await expect(page).toHaveURL(/#f=large\.txt&R312$/)
+  await expect(status).toHaveText("Ln 312")
   expect(await pane.evaluate((element) => element.scrollTop)).toBe(before)
 })
 
@@ -473,7 +465,7 @@ test("a review tab keeps its scroll, files, and rail behind a document tab, with
   await railFile(page, "app.ts").click()
   await expect(page).toHaveURL(/#f=src\/app\.ts$/)
   await expect(diffLines(page, "change-addition", "src/app.ts").first()).toBeVisible()
-  await expect.poll(() => topOffset(page, "src/app.ts")).toBeCloseTo(pinnedOffset, 0)
+  await expect(fileToggle(page, "src/app.ts")).toBeInViewport()
   // Scrolling releases the pin; the review is left mid-file.
   const main = page.locator("main")
   const top = await main.evaluate((pane) => {

@@ -20,6 +20,50 @@ import (
 type hostTools struct {
 	Paths    map[string]string
 	Versions map[string]string
+	Files    map[string]hostToolFile
+}
+
+type hostToolFile struct {
+	Target string
+	Info   os.FileInfo
+}
+
+type hostProfile struct {
+	Tools    hostTools
+	Identity string
+}
+
+func (t hostTools) observe(name, path string) error {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	t.Files[name] = hostToolFile{target, info}
+	return nil
+}
+
+// Reuse discovery and version reads within one invocation, but reject replaced,
+// edited, or retargeted executables before execution and before certification.
+func (t hostTools) unchanged() error {
+	for name, previous := range t.Files {
+		path := t.Paths[name]
+		target, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return fmt.Errorf("host toolchain changed: %s: %w", name, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("host toolchain changed: %s: %w", name, err)
+		}
+		if target != previous.Target || !os.SameFile(previous.Info, info) || info.Size() != previous.Info.Size() || info.ModTime() != previous.Info.ModTime() || info.Mode() != previous.Info.Mode() {
+			return fmt.Errorf("host toolchain changed: %s", name)
+		}
+	}
+	return nil
 }
 
 func lockedHostVersions(entries []entry) map[string]string {
@@ -45,7 +89,7 @@ func lockedHostVersions(entries []entry) map[string]string {
 }
 
 func installedHostTools(entries []entry) (hostTools, error) {
-	t := hostTools{Paths: map[string]string{}, Versions: map[string]string{}}
+	t := hostTools{Paths: map[string]string{}, Versions: map[string]string{}, Files: map[string]hostToolFile{}}
 	locked := lockedHostVersions(entries)
 	for _, name := range []string{"go", "node", "pnpm"} {
 		version := locked[name]
@@ -62,6 +106,9 @@ func installedHostTools(entries []entry) (hostTools, error) {
 			path = filepath.Join(base, name)
 		}
 		t.Paths[name] = path
+		if err := t.observe(name, path); err != nil {
+			return t, err
+		}
 		args := []string{"--version"}
 		if name == "go" {
 			args = []string{"version"}
@@ -91,6 +138,9 @@ func installedHostTools(entries []entry) (hostTools, error) {
 		if err != nil {
 			return t, err
 		}
+		if err := t.observe(name, path); err != nil {
+			return t, err
+		}
 		cmd := exec.Command(path, "--version")
 		cmd.Env = []string{"PATH=/usr/bin:/bin", "HOME=/nonexistent"}
 		output, err := cmd.Output()
@@ -99,18 +149,25 @@ func installedHostTools(entries []entry) (hostTools, error) {
 		}
 		t.Paths[name], t.Versions[name] = path, strings.TrimSpace(string(output))
 	}
-	return t, nil
+	return t, t.unchanged()
 }
 
 // The status path reads versions only, without installing dependencies or
 // starting an engine. Fixture-only manifests without a lock have no tool profile.
-func hostToolIdentity(entries []entry) (string, error) {
+func discoverHostProfile(entries []entry, selectedGroups []string) (*hostProfile, error) {
+	needed := false
+	for _, group := range selectedGroups {
+		needed = needed || isHostGroup(group)
+	}
+	if !needed {
+		return nil, nil
+	}
 	if len(lockedHostVersions(entries)) == 0 {
-		return "", nil
+		return nil, nil
 	}
 	t, err := installedHostTools(entries)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	identity := map[string]interface{}{"tools": t.Versions, "os": runtime.GOOS, "arch": runtime.GOARCH}
 	if release, err := os.ReadFile("/etc/os-release"); err == nil {
@@ -118,12 +175,15 @@ func hostToolIdentity(entries []entry) (string, error) {
 	} else if runtime.GOOS == "darwin" {
 		release, err := exec.Command("/usr/bin/sw_vers", "-productVersion").Output()
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		identity["os-release"] = strings.TrimSpace(string(release))
 	}
 	raw, err := json.Marshal(identity)
-	return string(raw), err
+	if err != nil {
+		return nil, err
+	}
+	return &hostProfile{Tools: t, Identity: string(raw)}, nil
 }
 
 func hostEnvironment(private, source string, tools hostTools) []string {
@@ -165,16 +225,12 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 		return err
 	}
 	defer log.Close()
-	tools, err := installedHostTools(m.Files)
-	if err != nil {
-		return err
-	}
-	identity, err := hostToolIdentity(m.Files)
-	if err != nil {
-		return err
-	}
-	if identity != m.HostTools {
+	if m.host == nil || m.host.Identity != m.HostTools {
 		return errors.New("host toolchain changed after input capture")
+	}
+	tools, identity := m.host.Tools, m.host.Identity
+	if err := tools.unchanged(); err != nil {
+		return err
 	}
 	env := append(hostEnvironment(private, source, tools), "SERVEF_CHECK_LOG_DIR="+filepath.Join(output, "logs"))
 	if err := os.WriteFile(filepath.Join(output, "environment.txt"), []byte(identity+"\n"+strings.Join(env, "\n")+"\n"), 0600); err != nil {
@@ -224,6 +280,9 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 	if len(untracked) != 0 {
 		fmt.Fprintf(log, "Validation created unexpected source files:\n%s", untracked)
 		status = 1
+	}
+	if err := tools.unchanged(); err != nil {
+		return err
 	}
 	return writeJSON(filepath.Join(output, "status.json"), struct {
 		ExitCode int `json:"exitCode"`
