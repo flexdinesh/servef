@@ -65,7 +65,7 @@ rewriting history; update `Status` on the old record.
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted; groups revised by 0095; suites and inputs by 0096 |
 | [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
-| [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066) |
+| [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066; optional TCP listener via 0098) |
 | [0062](0062-desktop-app.md) | Desktop app | Electron shell superseded by 0095 |
 | [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted (0065, 0068, 0071); revised by 0076 |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Superseded by 0095 |
@@ -80,7 +80,7 @@ rewriting history; update `Status` on the old record.
 | [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 and 0095 (names, what the desktop script installs) |
 | [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted; revised by 0079 (install tabs) |
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Superseded by 0095 |
-| [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted; ssh and the desktop app's server windows superseded by 0095; no-UI serving and links stay |
+| [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Superseded by 0095 (ssh, server windows) and 0098 (no-UI serving, links) |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Superseded by 0095 |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
 | [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 and 0095 (names, assets), 0093 (edge assets) |
@@ -99,5 +99,6 @@ rewriting history; update `Status` on the old record.
 | [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
 | [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
-| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096 |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098 |
 | [0096](0096-correctness-and-extended-validation.md) | Correctness checks and optional extended validation | Accepted |
+| [0098](0098-remote-connections.md) | Remote connections: `servef --remote` and `servef connect` | Accepted |
