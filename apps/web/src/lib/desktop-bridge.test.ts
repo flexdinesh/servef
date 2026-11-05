@@ -73,14 +73,23 @@ test("each later method is feature-detected: a version 1 bridge or non-functions
   assert.equal(odd?.showContextMenu, null)
 })
 
-test("invalid versions, missing functions, and non-objects are no bridge", () => {
+test("a remote window's bridge has its window's methods and nothing of this machine", () => {
+  const remote = readDesktopBridge({ version: 2, closeWindow() {}, showAppMenu() {}, showContextMenu: () => Promise.resolve(null) })
+  assert.notEqual(remote, null)
+  assert.equal(remote?.openFolder, null)
+  assert.equal(remote?.revealPath, null)
+  assert.equal(typeof remote?.closeWindow, "function")
+  assert.equal(typeof remote?.showAppMenu, "function")
+  assert.equal(typeof remote?.showContextMenu, "function")
+  assert.equal(readDesktopBridge({ version: 1, openFolder: "open" })?.openFolder, null)
+})
+
+test("invalid versions and non-objects are no bridge", () => {
   const openFolder = () => {}
   assert.equal(readDesktopBridge({ version: 0, openFolder }), null)
   assert.equal(readDesktopBridge({ version: 1.5, openFolder }), null)
   assert.equal(readDesktopBridge({ version: "1", openFolder }), null)
   assert.equal(readDesktopBridge({ openFolder }), null)
-  assert.equal(readDesktopBridge({ version: 1 }), null)
-  assert.equal(readDesktopBridge({ version: 1, openFolder: "open" }), null)
   for (const value of [undefined, null, 1, "bridge", [1, openFolder], openFolder]) assert.equal(readDesktopBridge(value), null)
 })
 

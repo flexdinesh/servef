@@ -13,13 +13,11 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"hash/crc32"
 	"io/fs"
@@ -27,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -47,6 +46,60 @@ type session struct {
 	conn   net.Conn
 	reader *bufio.Reader
 	nextID int
+	// target is the window evals run in; 0 is the focused window.
+	target int
+}
+
+// connectionLink finds the link `servef connect` prints.
+var connectionLink = regexp.MustCompile(`desktop: servef://(r-[0-9a-f]{12})/`)
+
+func proxyOrigin(host string) string { return "servef-app://" + host }
+
+type windowListing struct {
+	Windows []struct {
+		ID  int    `json:"id"`
+		URL string `json:"url"`
+	} `json:"windows"`
+}
+
+func (s *session) listWindows() windowListing {
+	s.t.Helper()
+	var listing windowListing
+	if err := s.call("windows", nil, &listing); err != nil {
+		s.t.Fatal(err)
+	}
+	return listing
+}
+
+func (s *session) windowCount() int {
+	s.t.Helper()
+	return len(s.listWindows().Windows)
+}
+
+// windowOn returns the window showing origin, or 0.
+func (s *session) windowOn(origin string) int {
+	s.t.Helper()
+	for _, window := range s.listWindows().Windows {
+		if strings.HasPrefix(window.URL, origin) {
+			return window.ID
+		}
+	}
+	return 0
+}
+
+// waitWindow waits for a window showing origin.
+func (s *session) waitWindow(origin string) int {
+	s.t.Helper()
+	deadline := time.Now().Add(pageTimeout)
+	for {
+		if id := s.windowOn(origin); id != 0 {
+			return id
+		}
+		if time.Now().After(deadline) {
+			s.t.Fatalf("no window on %s: %+v", origin, s.listWindows())
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 type world struct {
@@ -425,11 +478,11 @@ func TestWebViewApp(t *testing.T) {
 		})
 	}
 
-	// The way users get here: `servef <dir>` asks the OS for the servef://
-	// handler (real xdg-mime and xdg-open) and the running app takes the link.
-	t.Run("servef opens a folder through the servef handler", func(t *testing.T) {
-		w.t = t
-		home := filepath.Join(base, "handler")
+	// useHandler makes w a home where the built app handles servef:// links
+	// (real xdg-mime and xdg-open), with the CLI's default socket and roots.
+	useHandler := func(t *testing.T, name string) {
+		t.Helper()
+		home := filepath.Join(base, name)
 		dataHome := filepath.Join(home, "data")
 		if err := os.MkdirAll(filepath.Join(dataHome, "applications"), 0o700); err != nil {
 			t.Fatal(err)
@@ -439,7 +492,7 @@ func TestWebViewApp(t *testing.T) {
 			t.Fatal(err)
 		}
 		// The CLI knows only the default socket and roots: so must the app here.
-		run := filepath.Join(base, "hrun")
+		run := filepath.Join(base, name+"-r")
 		if err := os.MkdirAll(run, 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -461,6 +514,13 @@ func TestWebViewApp(t *testing.T) {
 		if output, err := query.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "servef-desktop.desktop" {
 			t.Fatalf("xdg-mime query = %q, %v", output, err)
 		}
+	}
+
+	// The way users get here: `servef <dir>` asks the OS for the servef://
+	// handler and the running app takes the link.
+	t.Run("servef opens a folder through the servef handler", func(t *testing.T) {
+		w.t = t
+		useHandler(t, "handler")
 		app := w.launch()
 		defer app.stop()
 		other := filepath.Join(base, "handler project")
@@ -543,18 +603,163 @@ func TestWebViewApp(t *testing.T) {
 		waitForExit(app)
 	})
 
-	t.Run("a server link opens without a window or a daemon", func(t *testing.T) {
+	// The whole remote flow (decision 0098): one machine runs --remote, this
+	// computer runs the printed string, and the app shows it in a window of its
+	// own. The two share nothing but that string.
+	t.Run("servef connect opens a remote server in its own window", func(t *testing.T) {
 		w.t = t
-		isolate("serverlink")
-		ctx, cancel := context.WithTimeout(context.Background(), pageTimeout)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, w.bin, "servef://127.0.0.1:9/")
-		cmd.Env = w.env
-		if output, err := cmd.CombinedOutput(); err != nil || ctx.Err() != nil {
-			t.Fatalf("server link: %v, context %v\n%s", err, ctx.Err(), output)
+		useHandler(t, "connect")
+		serverHome, serverRun := filepath.Join(base, "connect-server"), filepath.Join(base, "csrun")
+		for _, dir := range []string{serverHome, serverRun} {
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
 		}
-		if _, err := os.Stat(w.daemon); !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("a server link started a daemon: stat %s: %v", w.daemon, err)
+		serverEnv := append(append([]string(nil), w.env...), "HOME="+serverHome, "XDG_DATA_HOME="+filepath.Join(serverHome, "data"), "XDG_CONFIG_HOME="+filepath.Join(serverHome, "config"),
+			"XDG_CACHE_HOME="+filepath.Join(serverHome, "cache"), "XDG_RUNTIME_DIR="+serverRun)
+		onServer := func(args ...string) (string, error) {
+			command := exec.Command(binary, args...)
+			command.Env = serverEnv
+			output, err := command.CombinedOutput()
+			return string(output), err
+		}
+		t.Cleanup(func() { _, _ = onServer("daemon", "stop") })
+		served := filepath.Join(base, "connect project")
+		writeFixture(t, served)
+		printed, err := onServer(served, "--remote", "--host", "127.0.0.1", "--port", "0", "--remote-grace", "2s")
+		if err != nil {
+			t.Fatalf("servef --remote: %v\n%s", err, printed)
+		}
+		text := ""
+		for line := range strings.Lines(printed) {
+			if found, ok := strings.CutPrefix(strings.TrimSpace(line), "servef connect "); ok {
+				text = found
+			}
+		}
+		if text == "" {
+			t.Fatalf("no connect string in %q", printed)
+		}
+
+		app := w.launch()
+		defer app.stop()
+		app.waitEval("the local window", `return location.origin === "servef-app://local"`)
+		app.eval(`localStorage.setItem("connect-marker", "local"); return true`)
+		local := app.windowOn(proxyOrigin("local"))
+
+		connect := func() string {
+			t.Helper()
+			command := exec.Command(binary, "connect", text)
+			command.Env = w.env
+			output, err := command.CombinedOutput()
+			if err != nil {
+				t.Fatalf("servef connect: %v\n%s", err, output)
+			}
+			return string(output)
+		}
+		output := connect()
+		match := connectionLink.FindStringSubmatch(output)
+		if match == nil || !strings.Contains(output, "connected to ") || strings.Contains(output, text[strings.LastIndex(text, "/")+1:]) {
+			t.Fatalf("servef connect printed %q", output)
+		}
+		id := match[1]
+		remote := app.waitWindow(proxyOrigin(id))
+		if remote == local {
+			t.Fatal("the connection opened in the local window")
+		}
+		app.target = remote
+		app.waitEval("the remote project's tree", treeShows("README.md"))
+		app.capture("remote-window.png")
+
+		if got := app.eval(`return localStorage.getItem("connect-marker")`); got != nil {
+			t.Errorf("the remote page reads the local page's storage: %v", got)
+		}
+		// Nothing of this machine: not on the bridge, and not by calling mygo.
+		if got := app.eval(`const b = window.servefDesktop; return [b.version, typeof b.closeWindow, typeof b.showContextMenu, typeof b.showAppMenu, typeof b.openFolder, typeof b.revealPath]`); fmt.Sprint(got) != "[2 function function function undefined undefined]" {
+			t.Errorf("remote bridge = %v", got)
+		}
+		for _, method := range []string{`"Bridge.RevealPath", ` + strconv.Quote(w.project) + `, "README.md"`, `"Bridge.OpenFolder"`} {
+			if got := app.eval(`try { await window.mygo.call(` + method + `); return "resolved" } catch { return "refused" }`); got != "refused" {
+				t.Errorf("a remote page called %s: %v", method, got)
+			}
+		}
+		// No secret reaches the page, the control API stays out of reach, and
+		// neither the daemon nor another origin answers it.
+		if got := app.eval(`return [document.cookie, (await fetch("/_servef/remote")).status, (await fetch("/_daemon/status")).status]`); fmt.Sprint(got) != "[ 403 403]" {
+			t.Errorf("cookie and control answers = %v", got)
+		}
+		if got := app.eval(`try { await fetch("servef-app://local/api/projects"); return "read" } catch { return "blocked" }`); got != "blocked" {
+			t.Errorf("a remote page reached the local daemon: %v", got)
+		}
+		if strings.Contains(fmt.Sprint(app.eval(`return document.documentElement.outerHTML`)), text[strings.LastIndex(text, "/")+1:]) {
+			t.Error("the credential is in the page")
+		}
+
+		// The server counts this window as a UI, though the page holds it open
+		// through the app.
+		clients := func() string {
+			t.Helper()
+			status, err := onServer("remote", "status", "--json")
+			if err != nil {
+				t.Fatalf("remote status: %v\n%s", err, status)
+			}
+			return status
+		}
+		deadline := time.Now().Add(pageTimeout)
+		for !strings.Contains(clients(), `"clients":1`) {
+			if time.Now().After(deadline) {
+				t.Fatalf("the window never counted as a UI: %s", clients())
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+		// Past the grace, a window left open keeps the server.
+		time.Sleep(3 * time.Second)
+		if status := clients(); !strings.Contains(status, `"listening":true`) {
+			t.Fatalf("the server closed under an open window: %s", status)
+		}
+
+		// Connecting again brings the window forward and keeps what it shows.
+		app.eval(`window.__stamp = 1; return true`)
+		connect()
+		time.Sleep(time.Second)
+		if got := app.eval(`return window.__stamp`); got != float64(1) {
+			t.Errorf("connecting again reloaded the window: %v", got)
+		}
+		if got := app.windowCount(); got != 2 {
+			t.Errorf("%d windows after connecting again, want 2", got)
+		}
+
+		// The last UI closes: the server stops by itself, and the local window
+		// is unaffected.
+		app.eval(`window.servefDesktop.closeWindow(); return true`)
+		app.target = local
+		for app.windowCount() != 1 {
+			if time.Now().After(deadline.Add(pageTimeout)) {
+				t.Fatal("the remote window did not close")
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		app.waitEval("the local window still answering", `return location.origin === "servef-app://local"`)
+		stopBy := time.Now().Add(pageTimeout)
+		for {
+			if _, err := onServer("daemon", "status"); err != nil {
+				break
+			}
+			if time.Now().After(stopBy) {
+				status, _ := onServer("remote", "status", "--json")
+				t.Fatalf("the server outlived its last UI: %s", status)
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		// A link to a connection this computer does not have opens nothing.
+		unknown := exec.Command(w.bin, "servef://r-000000000000/")
+		unknown.Env = w.env
+		if output, err := unknown.CombinedOutput(); err != nil {
+			t.Fatalf("an unknown connection's link: %v\n%s", err, output)
+		}
+		time.Sleep(time.Second)
+		if got := app.windowCount(); got != 1 {
+			t.Errorf("%d windows after an unknown connection's link", got)
 		}
 	})
 
@@ -825,7 +1030,11 @@ func (s *session) evalErr(script string) (any, error) {
 	var result struct {
 		Value any `json:"value"`
 	}
-	err := s.call("eval", map[string]any{"script": script}, &result)
+	params := map[string]any{"script": script}
+	if s.target != 0 {
+		params["window"] = s.target
+	}
+	err := s.call("eval", params, &result)
 	return result.Value, err
 }
 

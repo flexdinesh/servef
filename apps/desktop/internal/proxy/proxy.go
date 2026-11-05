@@ -1,31 +1,30 @@
-// Package proxy serves the app's custom scheme from the daemon's Unix socket
-// (decisions 0067, 0094): pages reach /api and the web app, never the control
-// endpoints, and the daemon sees what its checks expect.
+// Package proxy serves the app's custom scheme (decisions 0067, 0094, 0098):
+// servef-app://local from the daemon's Unix socket, servef-app://<id> from a
+// saved remote server. Pages reach /api and the web app, never the control
+// endpoints or a credential, and servers see what their checks expect.
 package proxy
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io"
-	"net"
 	"net/http"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 const (
-	// Scheme is the custom scheme pages load from; Host its only host.
+	// Scheme is the custom scheme pages load from; Host the local connection.
 	Scheme = "servef-app"
 	Host   = "local"
-	// Origin is the only origin the app's pages have.
+	// Origin is the local connection's origin.
 	Origin = Scheme + "://" + Host
 	// CrashedPath is the page shown when the web process keeps crashing. It
 	// is the proxy's own, so it loads whatever the page or the daemon does.
@@ -47,67 +46,34 @@ var forwardedRequestHeaders = []string{
 
 var hopByHop = map[string]bool{"Connection": true, "Keep-Alive": true, "Transfer-Encoding": true, "Upgrade": true}
 
-// Daemon is where requests go: the ensured daemon's socket.
-type Daemon interface {
-	// Socket returns the socket, ensuring when needed; force retries now
-	// after a recent failure.
-	Socket(ctx context.Context, force bool) (string, error)
-	// Reensure ensures again after the daemon stopped answering.
-	Reensure(ctx context.Context) (string, error)
-}
+// OriginOf is a connection's origin.
+func OriginOf(host string) string { return Scheme + "://" + host }
 
-// Proxy is the http.Handler of the scheme.
+// Proxy is the http.Handler of the scheme: each host is one connection, and
+// its own origin, so what a page stores and reaches stays with its server.
 type Proxy struct {
-	daemon Daemon
+	resolver Resolver
 	// keepalive is KeepaliveEvery, shorter in tests.
 	keepalive time.Duration
-
-	mu        sync.Mutex
-	socket    string
-	transport *http.Transport
 }
 
-// New returns a Proxy to daemon.
-func New(daemon Daemon) *Proxy {
-	p := &Proxy{daemon: daemon, keepalive: KeepaliveEvery}
-	p.transport = &http.Transport{
-		// The socket can change when the daemon restarts.
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", p.currentSocket())
-		},
-		MaxIdleConnsPerHost: 16,
-		IdleConnTimeout:     90 * time.Second,
-		// Bytes pass through as the daemon sent them.
-		DisableCompression: true,
-	}
-	return p
+// New returns a Proxy to resolver's connections.
+func New(resolver Resolver) *Proxy {
+	return &Proxy{resolver: resolver, keepalive: KeepaliveEvery}
 }
 
-// Close drops idle connections to the daemon.
-func (p *Proxy) Close() { p.transport.CloseIdleConnections() }
+// Close drops idle connections to every server.
+func (p *Proxy) Close() { p.resolver.Close() }
 
-func (p *Proxy) currentSocket() string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.socket
-}
-
-func (p *Proxy) setSocket(socket string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.socket = socket
-}
-
-// ServeHTTP refuses what pages may not reach, then forwards to the daemon.
+// ServeHTTP refuses what pages may not reach, then forwards to the connection.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// WebKit omits Origin on same-origin requests, so the guard applies only
 	// when present.
-	if origin := r.Header.Get("Origin"); origin != "" && origin != Origin {
+	if origin := r.Header.Get("Origin"); origin != "" && origin != OriginOf(r.URL.Host) {
 		writeError(w, http.StatusForbidden, "crossOrigin", "Cross-origin requests are refused.")
 		return
 	}
-	if r.URL.Host != Host || r.URL.User != nil {
+	if r.URL.User != nil {
 		writeError(w, http.StatusNotFound, "unknownConnection", "Unknown servef connection.")
 		return
 	}
@@ -122,9 +88,13 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	document := isDocument(r, name)
+	upstream, failure := p.resolver.Resolve(r.URL.Host, document)
+	if failure != nil {
+		fail(w, document, failure)
+		return
+	}
 	var body []byte
-	readOnly := r.Method == http.MethodGet || r.Method == http.MethodHead
-	if !readOnly && r.Body != nil {
+	if !readOnly(r) && r.Body != nil {
 		// mygo holds the body in memory already; WebKit sends no
 		// Content-Length, so the length is known only here.
 		data, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
@@ -139,30 +109,13 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body = data
 	}
 
-	// A reload of a failure page retries at once.
-	socket, err := p.daemon.Socket(r.Context(), document)
+	response, err := upstream.Send(r, body, document)
 	if err != nil {
-		p.fail(w, document, err)
-		return
-	}
-	p.setSocket(socket)
-	response, err := p.send(r, body)
-	if err != nil && connect.IsGone(err) && r.Context().Err() == nil {
-		// One re-ensure, and a retry for reads only (decision 0067).
-		socket, ensureErr := p.daemon.Reensure(r.Context())
-		if ensureErr != nil {
-			p.fail(w, document, ensureErr)
-			return
+		var failure *Failure
+		if !errors.As(err, &failure) {
+			failure = &Failure{Status: http.StatusBadGateway, Code: "upstreamFailed", Title: "servef can't reach this server", Detail: err.Error()}
 		}
-		p.setSocket(socket)
-		if !readOnly {
-			writeError(w, http.StatusServiceUnavailable, "daemonRestarted", "The servef daemon restarted; the request was not sent. Try again.")
-			return
-		}
-		response, err = p.send(r, nil)
-	}
-	if err != nil {
-		p.fail(w, document, err)
+		fail(w, document, failure)
 		return
 	}
 	defer response.Body.Close()
@@ -182,28 +135,6 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, _ = io.Copy(w, response.Body)
-}
-
-// send makes one upstream request with the allowlisted headers, Host for the
-// daemon's Host check, and the Sec-Fetch-Site that keeps its control API
-// refusing whatever arrives through a proxy.
-func (p *Proxy) send(r *http.Request, body []byte) (*http.Response, error) {
-	var reader io.Reader
-	if body != nil {
-		reader = bytes.NewReader(body)
-	}
-	upstream, err := http.NewRequestWithContext(r.Context(), r.Method, "http://localhost"+r.URL.RequestURI(), reader)
-	if err != nil {
-		return nil, err
-	}
-	for _, name := range forwardedRequestHeaders {
-		if values, ok := r.Header[name]; ok {
-			upstream.Header[name] = values
-		}
-	}
-	upstream.Header.Set("Sec-Fetch-Site", "same-origin")
-	upstream.Host = "localhost"
-	return p.transport.RoundTrip(upstream)
 }
 
 // controlAPI names the control API a decoded path reaches, resolving dot
@@ -293,12 +224,12 @@ func (p *Proxy) copyStream(w http.ResponseWriter, ctx context.Context, body io.R
 	}
 }
 
-func (p *Proxy) fail(w http.ResponseWriter, document bool, err error) {
+func fail(w http.ResponseWriter, document bool, failure *Failure) {
 	if !document {
-		writeError(w, http.StatusServiceUnavailable, "daemonUnavailable", err.Error())
+		writeError(w, failure.Status, failure.Code, failure.message())
 		return
 	}
-	writePage(w, http.StatusServiceUnavailable, "servef can't reach its daemon", err.Error())
+	writePage(w, failure.Status, failure.Title, failure.Detail)
 }
 
 // isDocument reports a page load, which gets a page rather than JSON.

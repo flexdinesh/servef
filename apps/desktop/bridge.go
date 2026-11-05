@@ -16,19 +16,24 @@ import (
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
-// preloadScript is window.servefDesktop (decision 0081) over mygo's IPC, on
-// the app's origin only. The UI feature-detects every method.
+// preloadScript is window.servefDesktop (decisions 0081, 0098) over mygo's IPC,
+// on the app's origins only. The UI feature-detects every method. A remote
+// server's page gets what its window needs, nothing of this machine: its files
+// are elsewhere. The methods check again, since a page can call mygo directly.
 const preloadScript = `(() => {
-  if (location.protocol !== "` + proxy.Scheme + `:" || location.host !== "` + proxy.Host + `") return
+  if (location.protocol !== "` + proxy.Scheme + `:") return
   const call = (method, ...args) => window.mygo.call("Bridge." + method, ...args)
-  window.servefDesktop = Object.freeze({
-    version: 2,
-    openFolder() { void call("OpenFolder").catch(() => undefined) },
+  const window_ = {
     closeWindow() { void call("CloseWindow").catch(() => undefined) },
     showAppMenu(x, y) { void call("ShowAppMenu", x, y).catch(() => undefined) },
-    revealPath(project, path) { return call("RevealPath", project, path) },
     showContextMenu(items, x, y) { return call("ShowContextMenu", items, x, y) },
-  })
+  }
+  window.servefDesktop = Object.freeze(location.host === "` + proxy.Host + `" ? {
+    version: 2,
+    ...window_,
+    openFolder() { void call("OpenFolder").catch(() => undefined) },
+    revealPath(project, path) { return call("RevealPath", project, path) },
+  } : { version: 2, ...window_ })
 })()`
 
 // errRefused answers a sender that is not the app's page or a payload that
@@ -44,19 +49,29 @@ type bridgeService struct {
 	menus sync.Mutex
 }
 
-// callerWindow returns the sender's window, if the sender is the app's page.
-func callerWindow(ctx context.Context) (*mygo.Window, bool) {
+// callerWindow returns the sender's window, if the sender is the app's page on
+// a host known accepts.
+func callerWindow(ctx context.Context, known func(host string) bool) (*mygo.Window, bool) {
 	page := mygo.CallerPage(ctx)
-	if page == nil || !bridge.IsAppPage(page.URL(), proxy.Scheme, proxy.Host) {
+	if page == nil || !bridge.IsAppPage(page.URL(), proxy.Scheme, known) {
 		return nil, false
 	}
 	window := mygo.CallerWindow(ctx)
 	return window, window != nil
 }
 
+// isLocal accepts the local connection's page, the only one the methods that
+// touch this machine's files answer: a remote server is not trusted with them.
+func isLocal(host string) bool { return host == proxy.Host }
+
+// anyConnection accepts a page of the local connection or a saved one.
+func (b *bridgeService) anyConnection(host string) bool {
+	return b.host.connections.Known(host)
+}
+
 // CloseWindow closes the sender's window after the UI closes its final tab.
 func (b *bridgeService) CloseWindow(ctx context.Context) error {
-	window, ok := callerWindow(ctx)
+	window, ok := callerWindow(ctx, b.anyConnection)
 	if !ok {
 		return errRefused
 	}
@@ -66,7 +81,7 @@ func (b *bridgeService) CloseWindow(ctx context.Context) error {
 
 // OpenFolder asks for a directory and opens it as a project.
 func (b *bridgeService) OpenFolder(ctx context.Context) error {
-	window, ok := callerWindow(ctx)
+	window, ok := callerWindow(ctx, isLocal)
 	if !ok {
 		return errRefused
 	}
@@ -81,7 +96,7 @@ func (b *bridgeService) OpenFolder(ctx context.Context) error {
 // RevealPath shows a project file in the file manager; false when refused,
 // with a report. Only real paths inside a daemon root are revealed.
 func (b *bridgeService) RevealPath(ctx context.Context, project, relative any) (bool, error) {
-	if _, ok := callerWindow(ctx); !ok {
+	if _, ok := callerWindow(ctx, isLocal); !ok {
 		return false, errRefused
 	}
 	projectPath, relativePath, ok := bridge.ParseReveal(project, relative)
@@ -111,7 +126,7 @@ func (b *bridgeService) RevealPath(ctx context.Context, project, relative any) (
 // ShowContextMenu pops a native menu at a point in the page and answers the
 // chosen id, or null when dismissed.
 func (b *bridgeService) ShowContextMenu(ctx context.Context, items, x, y any) (*string, error) {
-	window, ok := callerWindow(ctx)
+	window, ok := callerWindow(ctx, b.anyConnection)
 	if !ok {
 		return nil, errRefused
 	}
@@ -142,7 +157,7 @@ func (b *bridgeService) ShowContextMenu(ctx context.Context, items, x, y any) (*
 
 // ShowAppMenu pops the app menu at a point in the page (decision 0075).
 func (b *bridgeService) ShowAppMenu(ctx context.Context, x, y any) error {
-	window, ok := callerWindow(ctx)
+	window, ok := callerWindow(ctx, b.anyConnection)
 	if !ok {
 		return errRefused
 	}
@@ -204,7 +219,7 @@ func (h *host) closeTab(window *mygo.Window) {
 }
 
 func (h *host) chooseFolder() {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.window.Load(), Title: "Open a folder in servef", Directory: true})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.frontWindow(), Title: "Open a folder in servef", Directory: true})
 	if err == nil && len(paths) > 0 {
 		h.openAndLoad(paths[0])
 	}

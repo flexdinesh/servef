@@ -182,7 +182,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
   const listedGroup = followCurrent ? projectList ? currentGroup(projectList, project) : "" : group
   const folderLoad = directories.get(folder) ?? null
   const bridge = desktopBridge()
-  const openFolderOffered = mode === "projects" && projectList !== null && offersOpenFolder(projectList, bridge !== null)
+  const openFolderOffered = mode === "projects" && projectList !== null && offersOpenFolder(projectList, bridge?.openFolder != null)
   const sections: PickerSection[] = useMemo(() => {
     if (mode === "browse") return browseRows(folder, partial, loaded(folderLoad)?.directories ?? [])
     if (openFolderOffered) return []
@@ -205,7 +205,7 @@ export function ProjectPicker({ project, registerOpen, onOpen }: ProjectPickerPr
 
   function openFolder() {
     close()
-    bridge?.openFolder()
+    bridge?.openFolder?.()
   }
 
   function startBrowse() {
