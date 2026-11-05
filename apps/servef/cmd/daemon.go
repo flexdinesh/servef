@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flexdinesh/servef/internal/daemon"
+	"github.com/flexdinesh/servef/internal/remote"
 	"github.com/spf13/cobra"
 )
 
@@ -129,7 +130,12 @@ func runDaemon(ctx context.Context, opts daemonOptions, _, stderr io.Writer) err
 			return err
 		}
 	}
-	err := daemon.Run(ctx, daemon.Config{Socket: opts.socket, RootsFile: rootsFile, Depth: opts.depth, ScanDepth: opts.scanDepth, IdleExit: opts.idleExit, Log: stderr})
+	// Local use must not depend on this: no config directory only means no TCP.
+	identityFile, err := remote.DefaultIdentityFile()
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "cannot serve over TCP: %v\n", err)
+	}
+	err = daemon.Run(ctx, daemon.Config{Socket: opts.socket, RootsFile: rootsFile, Depth: opts.depth, ScanDepth: opts.scanDepth, IdleExit: opts.idleExit, Log: stderr, IdentityFile: identityFile})
 	if errors.Is(err, daemon.ErrRunning) {
 		return fmt.Errorf("%w at %s", err, opts.socket)
 	}

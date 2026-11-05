@@ -257,8 +257,8 @@ func TestPublishWalkthroughFindsRunningViewer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish: %v\n%s", err, stderr)
 	}
-	if wantOut := "web: " + want + "\ndesktop: " + desktopURL(want) + "\n"; !strings.Contains(stdout, wantOut) {
-		t.Errorf("stdout = %q, want %q", stdout, wantOut)
+	if wantOut := "web: " + want + "\n"; !strings.Contains(stdout, wantOut) || strings.Contains(stdout, "desktop:") {
+		t.Errorf("stdout = %q, want only %q", stdout, wantOut)
 	}
 	select {
 	case target := <-opened:
@@ -302,7 +302,7 @@ func TestPublishWalkthroughFindsRunningViewer(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil || strings.Count(stdout, "\n") != 1 || !strings.Contains(stdout, want) {
 		t.Fatalf("json output = %q: %v", stdout, err)
 	}
-	if result["id"] != "tour" || result["project"] != root || result["created"] != false || result["url"] != want || result["desktopUrl"] != desktopURL(want) || len(result) != 5 {
+	if result["id"] != "tour" || result["project"] != root || result["created"] != false || result["url"] != want || len(result) != 4 {
 		t.Errorf("json = %v", result)
 	}
 }
@@ -349,6 +349,7 @@ type fakeDaemon struct {
 	mu       sync.Mutex
 	status   int
 	code     string
+	remote   string // the answer to GET /_daemon/remote, when set
 }
 
 func (f *fakeDaemon) answer(status int, code string) {
@@ -373,9 +374,13 @@ func serveFakeDaemon(t *testing.T) *fakeDaemon {
 		body, _ := io.ReadAll(r.Body)
 		fake.requests <- r.Method + " " + r.URL.Path + " " + string(body)
 		fake.mu.Lock()
-		status, code := fake.status, fake.code
+		status, code, remote := fake.status, fake.code, fake.remote
 		fake.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
+		if remote != "" && r.URL.Path == "/_daemon/remote" {
+			_, _ = io.WriteString(w, remote)
+			return
+		}
 		w.WriteHeader(status)
 		if status == http.StatusAccepted {
 			_, _ = io.WriteString(w, `{"announced":true}`)
@@ -411,6 +416,10 @@ func TestPublishWalkthroughAnnouncesToTheDaemon(t *testing.T) {
 	default:
 		t.Fatal("publish did not announce to the daemon")
 	}
+	// With nothing here to show it, publish asks about a connected computer.
+	if got := <-fake.requests; !strings.HasPrefix(got, "GET /_daemon/remote") {
+		t.Errorf("daemon request = %s, want the remote status", got)
+	}
 	if stderr != "" || !strings.HasPrefix(stdout, "published tour (created) for "+root+"\n") {
 		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
 	}
@@ -430,6 +439,49 @@ func TestPublishWalkthroughAnnouncesToTheDaemon(t *testing.T) {
 	}
 	if len(fake.requests) != 2 {
 		t.Errorf("daemon got %d more requests, want 2", len(fake.requests))
+	}
+}
+
+// A machine serving remotely links the connected app by the connection's id;
+// the daemon's secret never reaches the output.
+func TestPublishWalkthroughLinksTheConnectedComputer(t *testing.T) {
+	if daemonSupported() != nil {
+		t.Skip("no daemon on this platform")
+	}
+	root, hash := publishRepo(t)
+	opts, opened := testPublishOptions(t, "-")
+	opts.getenv = sshEnv
+	opts.goos = "linux"
+	fake := serveFakeDaemon(t)
+	fake.remote = `{"listening":true,"port":7971,"id":"r-0123456789ab","credential":"the-secret","clients":1}`
+	opts.socket = fake.socket
+	draft := tourDraft(root, hash)
+	draft.Open = true
+	want := "servef://r-0123456789ab/view?" + url.Values{"project": {root}, "wt": {"tour"}}.Encode()
+
+	stdout, stderr, err := runPublish(t, opts, publishDraft(t, draft))
+	if err != nil {
+		t.Fatalf("publish: %v\n%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "desktop: "+want+"\n") || strings.Contains(stdout, "web:") || strings.Contains(stdout, "the-secret") {
+		t.Errorf("stdout = %q, want the link %s", stdout, want)
+	}
+	if len(opened) != 0 {
+		t.Errorf("opened %s on a machine with no UI", <-opened)
+	}
+
+	asJSON := opts
+	asJSON.json = true
+	stdout, _, err = runPublish(t, asJSON, publishDraft(t, draft))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["desktopUrl"] != want || result["url"] != nil {
+		t.Errorf("json = %v", result)
 	}
 }
 
@@ -585,8 +637,8 @@ func TestPublishWalkthroughWithoutAUIOnlyUsesServers(t *testing.T) {
 			if err != nil {
 				t.Fatalf("publish: %v\n%s", err, stderr)
 			}
-			if wantOut := "web: " + want + "\ndesktop: " + desktopURL(want) + "\n"; !strings.Contains(stdout, wantOut) {
-				t.Errorf("stdout = %q, want %q", stdout, wantOut)
+			if wantOut := "web: " + want + "\n"; !strings.Contains(stdout, wantOut) || strings.Contains(stdout, "desktop:") {
+				t.Errorf("stdout = %q, want only %q", stdout, wantOut)
 			}
 			if len(opened) != 0 {
 				t.Errorf("opened %s without a UI", <-opened)

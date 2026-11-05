@@ -95,6 +95,7 @@ import { useSearchSession } from "./features/search/use-search-session.ts"
 import type { LiveChange } from "./api/events-contract.ts"
 import { liveTargets } from "./features/live-updates/live-updates.ts"
 import { useLiveUpdates } from "./features/live-updates/use-live-updates.ts"
+import { usePresence } from "./features/live-updates/use-presence.ts"
 import { useSidebar } from "./workspace/use-sidebar.ts"
 import { Narration } from "./features/walkthrough/Narration.tsx"
 import { WalkthroughsView } from "./features/walkthrough/WalkthroughsView.tsx"
@@ -508,6 +509,7 @@ export function App({ project }: AppProps) {
     if (targets.search) markSearchStale(searchShown)
   }, [liveDocument, markSearchStale, refreshChanges, refreshCommits, refreshStack, reread, searchShown])
   const liveStatus = useLiveUpdates(project, applyLiveChange)
+  usePresence()
   const languageServers = settings.languageServers === "on"
   // Snapshots do not navigate: language servers see the working tree.
   const navigationStatus = useNavigationStatus(project, page.selected, page.hasFile && !page.binary && !page.at, languageServers)

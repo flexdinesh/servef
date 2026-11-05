@@ -35,6 +35,8 @@ type Config struct {
 	// SessionKey names the session whose browser memory a page reads; empty
 	// uses the roots joined by newlines.
 	SessionKey string
+	// Presence reports that pages should hold /api/presence while open.
+	Presence bool
 	// OpenFile opens indexed files; nil uses os.Open.
 	OpenFile func(name string) (fs.File, error)
 	// Watches follows projects for live updates; Events requires it.

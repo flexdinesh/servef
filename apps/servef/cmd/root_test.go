@@ -243,7 +243,6 @@ func TestWriteStartup(t *testing.T) {
 	want := "  servef 1.2.3\n" +
 		"  serving directory:  /tmp/notes\n" +
 		"  web:      http://localhost:4173/\n" +
-		"  desktop:  servef://localhost:4173/\n" +
 		"\n" +
 		"  projects discovered: 12  (42ms)\n" +
 		"  ctrl-c to stop.\n"
@@ -260,7 +259,6 @@ func TestWriteStartup(t *testing.T) {
 	output.Reset()
 	writeStartup(&output, startupInfo{Version: "servef 1.2.3", Directories: []string{"/tmp/a"}, URL: "http://10.0.0.5:7971/", Exposed: true, Links: true})
 	want = "  web:      " + hyperlink("http://10.0.0.5:7971/", true) + "\n" +
-		"  desktop:  " + hyperlink("servef://10.0.0.5:7971/", true) + "\n" +
 		"  no authentication: anyone who can reach this address can read the served files.\n"
 	if got := output.String(); !strings.Contains(got, want) {
 		t.Fatalf("exposed output = %q, want it to contain %q", got, want)
@@ -471,6 +469,8 @@ func TestBrowserCommandMatchesRoot(t *testing.T) {
 		if rootErr != nil || browserErr != nil {
 			t.Fatalf("Execute(%v) errors = %v, %v", args, rootErr, browserErr)
 		}
+		// Only the root command has the remote flags.
+		root.remoteFirstWait, root.remoteGrace = 0, 0
 		if !reflect.DeepEqual(root, browser) {
 			t.Errorf("Execute(%v) root = %+v, browser = %+v", args, root, browser)
 		}

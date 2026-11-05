@@ -35,6 +35,8 @@ type Config struct {
 	IdleExit time.Duration
 	// Log receives startup, skipped roots, and the stop reason; nil discards.
 	Log io.Writer
+	// IdentityFile holds the identity for serving over TCP; "" never does.
+	IdentityFile string
 }
 
 var (
@@ -71,7 +73,7 @@ func Run(ctx context.Context, config Config) error {
 		return err
 	}
 	defer func() { _ = listener.Close() }()
-	rt, err := runtime.New(runtime.Config{Roots: roots, Depth: config.Depth, ScanDepth: config.ScanDepth, SessionKey: "daemon"})
+	rt, err := runtime.New(runtime.Config{Roots: roots, Depth: config.Depth, ScanDepth: config.ScanDepth, SessionKey: "daemon", Presence: true})
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,16 @@ func Run(ctx context.Context, config Config) error {
 
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
+	idle := newIdleTracker(config.IdleExit, func() { cancel(errIdle) })
+	defer idle.stop()
+	var remoteControl RemoteControl
+	if config.IdentityFile != "" {
+		server := newRemoteServer(rt, rt.Handler(), config.IdentityFile, idle, func() { cancel(errIdle) }, log)
+		defer server.shutdown()
+		remoteControl = server
+	}
 	control := NewController(ControllerConfig{
+		Remote:    remoteControl,
 		Roots:     roots,
 		Skipped:   skipped,
 		RootsFile: config.RootsFile,
@@ -97,8 +108,6 @@ func Run(ctx context.Context, config Config) error {
 			StartedAt: time.Now().UTC().Truncate(time.Second),
 		},
 	})
-	idle := newIdleTracker(config.IdleExit, func() { cancel(errIdle) })
-	defer idle.stop()
 	_, _ = fmt.Fprintf(log, "servef daemon %s (protocol %d) listening on %s with %d roots\n", version.Number(), ProtocolVersion, config.Socket, len(roots.List()))
 	err = rt.Serve(ctx, listener, idle.wrap(control.Handler(rt.Handler())))
 	_, _ = fmt.Fprintf(log, "servef daemon stopped: %v\n", context.Cause(ctx))

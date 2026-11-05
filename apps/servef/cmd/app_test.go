@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -59,7 +58,6 @@ func newAppFake() (*appFake, *appDeps) {
 			return nil
 		},
 		terminal: func(io.Writer) bool { return false },
-		route:    func() net.IP { return net.ParseIP("192.168.1.20") },
 	}
 }
 
@@ -360,53 +358,68 @@ func sshEnv(name string) string {
 	return ""
 }
 
-func TestAppWithoutAUIServesOnThisMachinesAddress(t *testing.T) {
-	root := appRoot(t)
+func TestChooseLaunch(t *testing.T) {
+	noEnv := func(string) string { return "" }
 	for _, test := range []struct {
 		name   string
+		opts   options
 		goos   string
 		getenv func(string) string
-		route  net.IP
-		host   string
-		notice string
+		want   launch
 	}{
-		{name: "SSH connection address", goos: "linux", getenv: sshEnv, route: net.ParseIP("192.168.1.20"), host: "10.0.0.5"},
-		{name: "SSH on macOS", goos: "darwin", getenv: sshEnv, host: "10.0.0.5"},
-		{name: "SSH TTY uses the route", goos: "darwin", getenv: func(name string) string {
-			if name == "SSH_TTY" {
-				return "/dev/pts/1"
-			}
-			return ""
-		}, route: net.ParseIP("192.168.1.20"), host: "192.168.1.20"},
-		{name: "Linux without a display", goos: "linux", getenv: func(string) string { return "" }, route: net.ParseIP("fd00::5"), host: "fd00::5"},
-		{name: "unparsable SSH address", goos: "linux", getenv: func(name string) string {
-			if name == "SSH_CONNECTION" {
-				return "10.0.0.9 51234 fe80::1 22"
-			}
-			return ""
-		}, route: net.ParseIP("192.168.1.20"), host: "192.168.1.20"},
-		{name: "no address", goos: "linux", getenv: func(string) string { return "" }, route: net.ParseIP("127.0.0.1"), host: defaultHost, notice: "could not detect this machine's address; serving on localhost\n"},
+		{"desktop session", options{}, "linux", desktopEnv, launchDesktop},
+		{"macOS", options{}, "darwin", noEnv, launchDesktop},
+		{"windows", options{}, "windows", noEnv, launchBrowser},
+		{"explicit host", options{hostSet: true}, "linux", desktopEnv, launchBrowser},
+		{"explicit port over SSH", options{portSet: true}, "linux", sshEnv, launchBrowser},
+		{"SSH", options{}, "linux", sshEnv, launchNoUI},
+		{"SSH on macOS", options{}, "darwin", sshEnv, launchNoUI},
+		{"Linux without a display", options{}, "linux", noEnv, launchNoUI},
+		{"remote over SSH", options{remote: true}, "linux", sshEnv, launchRemote},
+		{"remote on a desktop", options{remote: true}, "darwin", noEnv, launchRemote},
+		{"remote with an address", options{remote: true, hostSet: true, portSet: true}, "linux", sshEnv, launchRemote},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fake, deps := newAppFake()
-			deps.goos, deps.getenv = test.goos, test.getenv
-			deps.route = func() net.IP { return test.route }
-			stdout, stderr, err := runAppWith(appOptions(root), deps)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if stdout != "" || stderr != test.notice {
-				t.Errorf("stdout = %q, stderr = %q; want notice %q", stdout, stderr, test.notice)
-			}
-			want := appOptions(root)
-			want.host, want.noOpen = test.host, true
-			if !reflect.DeepEqual(fake.served, []options{want}) {
-				t.Errorf("served %+v, want %+v", fake.served, want)
-			}
-			if fake.installedCalls != 0 || len(fake.ensured) != 0 || len(fake.openedURLs) != 0 {
-				t.Errorf("fake = %+v; want the app and daemon untouched", fake)
+			if got := chooseLaunch(test.opts, test.goos, test.getenv); got != test.want {
+				t.Errorf("chooseLaunch() = %d, want %d", got, test.want)
 			}
 		})
+	}
+}
+
+// No UI here must never quietly open a port: the old default did.
+func TestAppWithoutAUIGivesAdviceAndServesNothing(t *testing.T) {
+	root := appRoot(t)
+	fake, deps := newAppFake()
+	deps.getenv = sshEnv
+	stdout, stderr, err := runAppWith(appOptions(root), deps)
+	if !errors.Is(err, errNoUI) || !strings.Contains(err.Error(), "--remote") {
+		t.Errorf("err = %v", err)
+	}
+	if stdout != "" || stderr != "" {
+		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
+	}
+	if len(fake.served) != 0 || len(fake.ensured) != 0 || len(fake.openedURLs) != 0 {
+		t.Errorf("fake = %+v; want nothing started", fake)
+	}
+}
+
+func TestAppHandsRemoteToTheRemoteFlow(t *testing.T) {
+	root := appRoot(t)
+	fake, deps := newAppFake()
+	deps.getenv = sshEnv
+	var got []options
+	deps.remote = func(_ context.Context, opts options, _, _ io.Writer) error {
+		got = append(got, opts)
+		return nil
+	}
+	opts := appOptions(root)
+	opts.remote = true
+	if _, _, err := runAppWith(opts, deps); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []options{opts}) || len(fake.served) != 0 {
+		t.Errorf("remote got %+v, fake = %+v", got, fake)
 	}
 }
 

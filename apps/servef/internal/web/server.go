@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/flexdinesh/servef/internal/app"
 	"github.com/flexdinesh/servef/internal/document"
@@ -44,6 +45,9 @@ type Config struct {
 	// SessionKey names the session whose browser memory a page reads
 	// (/api/projects sessionKey); empty uses the roots joined by newlines.
 	SessionKey string
+	// Presence serves /api/presence and asks pages to hold it while open,
+	// for a server whose lifetime follows its UIs (decision 0098).
+	Presence bool
 }
 
 // App adapts the application layer (internal/app) to the HTTP API.
@@ -59,6 +63,9 @@ type App struct {
 	servers  *lsp.Manager
 	watches  *watch.Hub
 	routes   *http.ServeMux
+	// stopping ends presence streams, which follow no subscription.
+	stopping     chan struct{}
+	stoppingOnce sync.Once
 }
 
 // errorResponse is every JSON error body (contract.ErrorResponse). Code,
@@ -93,7 +100,7 @@ func New(config Config) (*App, error) {
 	if config.LiveUpdates == nil {
 		config.LiveUpdates = watch.NewHub(watch.DefaultOptions())
 	}
-	a := &App{config: config, roots: config.Roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates}
+	a := &App{config: config, roots: config.Roots, openFile: openFile, shell: string(shell), servers: config.LanguageServers, watches: config.LiveUpdates, stopping: make(chan struct{})}
 	a.app, err = app.New(app.Config{
 		Roots:           config.Roots,
 		ScanDepth:       config.ScanDepth,
@@ -101,6 +108,7 @@ func New(config Config) (*App, error) {
 		Types:           config.Types,
 		LanguageServers: config.LanguageServers,
 		SessionKey:      config.SessionKey,
+		Presence:        config.Presence,
 		// Reads go through the App's openFile, which tests replace.
 		OpenFile:             func(name string) (fs.File, error) { return a.openFile(name) },
 		Watches:              config.LiveUpdates,
@@ -180,6 +188,7 @@ func (a *App) Close() {
 func (a *App) StopLiveUpdates() {
 	a.watches.Close()
 	a.app.Walkthroughs.CloseNotices()
+	a.stoppingOnce.Do(func() { close(a.stopping) })
 }
 
 func openFile(name string) (fs.File, error) { return os.Open(name) }

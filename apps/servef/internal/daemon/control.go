@@ -83,6 +83,7 @@ type Controller struct {
 	stop      func()
 	done      <-chan struct{}
 	notices   WalkthroughNotices
+	remote    RemoteControl
 }
 
 // ControllerConfig configures NewController.
@@ -101,6 +102,8 @@ type ControllerConfig struct {
 	Done <-chan struct{}
 	// Notices announces walkthroughs, required.
 	Notices WalkthroughNotices
+	// Remote serves over TCP on request; nil answers remoteUnavailable.
+	Remote RemoteControl
 }
 
 // NewController returns the control operations over config.
@@ -109,7 +112,7 @@ func NewController(config ControllerConfig) *Controller {
 	if stop == nil {
 		stop = func() {}
 	}
-	return &Controller{roots: config.Roots, skipped: config.Skipped, rootsFile: config.RootsFile, status: config.Status, stop: stop, done: config.Done, notices: config.Notices}
+	return &Controller{roots: config.Roots, skipped: config.Skipped, rootsFile: config.RootsFile, status: config.Status, stop: stop, done: config.Done, notices: config.Notices, remote: config.Remote}
 }
 
 func pid() int { return os.Getpid() }
@@ -143,6 +146,8 @@ func (c *Controller) Handler(next http.Handler) http.Handler {
 		case name == "stop" && r.Method == http.MethodPost:
 			writeJSON(w, http.StatusAccepted, stopResponse{Stopping: true})
 			c.stop()
+		case name == "remote", name == "remote/rotate":
+			c.serveRemote(w, r, name)
 		case name == "status", name == "events":
 			methodNotAllowed(w, http.MethodGet)
 		case name == "roots":
@@ -153,6 +158,41 @@ func (c *Controller) Handler(next http.Handler) http.Handler {
 			writeJSON(w, http.StatusNotFound, errorResponse{Error: "Unknown daemon endpoint."})
 		}
 	})
+}
+
+// serveRemote answers /_daemon/remote and /_daemon/remote/rotate.
+func (c *Controller) serveRemote(w http.ResponseWriter, r *http.Request, name string) {
+	if c.remote == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "This daemon does not serve over TCP.", Code: contract.CodeRemoteUnavailable})
+		return
+	}
+	switch {
+	case name == "remote/rotate" && r.Method == http.MethodPost:
+		answerRemote(w)(c.remote.Rotate())
+	case name == "remote/rotate":
+		methodNotAllowed(w, http.MethodPost)
+	case r.Method == http.MethodGet:
+		writeJSON(w, http.StatusOK, c.remote.Status())
+	case r.Method == http.MethodDelete:
+		writeJSON(w, http.StatusOK, c.remote.Stop())
+	case r.Method == http.MethodPost:
+		var request contract.DaemonRemoteRequest
+		if decodeRequest(w, r, &request, `{"host": "", "port": 7971}`) {
+			answerRemote(w)(c.remote.Start(request))
+		}
+	default:
+		methodNotAllowed(w, "GET, POST, DELETE")
+	}
+}
+
+func answerRemote(w http.ResponseWriter) func(contract.DaemonRemote, error) {
+	return func(remote contract.DaemonRemote, err error) {
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, remote)
+	}
 }
 
 // Status is the daemon's status with the current roots.

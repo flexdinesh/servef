@@ -16,6 +16,7 @@ import (
 
 	"github.com/flexdinesh/servef/internal/browser"
 	"github.com/flexdinesh/servef/internal/control"
+	"github.com/flexdinesh/servef/internal/daemon"
 	"github.com/flexdinesh/servef/internal/projects"
 	"github.com/flexdinesh/servef/internal/runtime"
 	"github.com/flexdinesh/servef/internal/version"
@@ -34,6 +35,11 @@ type options struct {
 	portSet    bool
 	noOpen     bool
 	controlDir string
+	// Root command only (decision 0098).
+	remote          bool
+	web             bool
+	remoteFirstWait time.Duration
+	remoteGrace     time.Duration
 }
 
 type runner func(context.Context, options, io.Reader, io.Writer, io.Writer) error
@@ -48,22 +54,35 @@ func Execute() error {
 // newRootCommandWith builds servef: bare, it opens the desktop app with
 // runApp; `servef browser` serves in a web browser with runBrowser.
 func newRootCommandWith(runApp, runBrowser runner) *cobra.Command {
-	command := newBrowserCommand("servef [path]", runApp)
+	command := newServeCommand("servef [path]", runApp, addRemoteFlags)
 	command.Short = "Open local files in the servef desktop app, falling back to a web browser"
 	command.Flags().Lookup("no-open").Usage = "print the desktop app URL instead of opening it (in browser mode, do not open the browser)"
 	command.Version = version.String()
 	command.SetVersionTemplate("{{.Version}}\n")
 	command.CompletionOptions.DisableDefaultCmd = true
-	command.AddCommand(newBrowserCommand("browser [path]", runBrowser))
+	command.AddCommand(newServeCommand("browser [path]", runBrowser, nil))
+	command.AddCommand(newConnectCommand())
+	command.AddCommand(newRemoteCommand())
 	command.AddCommand(newWalkthroughCommand(publishWalkthrough))
 	command.AddCommand(newDaemonCommand())
 	return command
 }
 
-// newBrowserCommand builds a command that serves directories in a web browser.
-// The root command and the browser subcommand share it so both accept the
-// same flags and run the same validation.
-func newBrowserCommand(use string, runCommand runner) *cobra.Command {
+// addRemoteFlags adds what only the root command accepts.
+func addRemoteFlags(command *cobra.Command, opts *options) {
+	flags := command.Flags()
+	flags.BoolVar(&opts.remote, "remote", false, "serve to other machines over TLS and print a servef connect string")
+	flags.BoolVar(&opts.web, "web", false, "with --remote, also print a browser link")
+	flags.DurationVar(&opts.remoteFirstWait, "remote-first-wait", daemon.DefaultRemoteFirstWait, "how long --remote waits for a first UI")
+	flags.DurationVar(&opts.remoteGrace, "remote-grace", daemon.DefaultRemoteGrace, "how long --remote outlives its last UI")
+	_ = flags.MarkHidden("remote-first-wait")
+	_ = flags.MarkHidden("remote-grace")
+}
+
+// newServeCommand builds a command that serves directories. The root command
+// and the browser subcommand share it so both accept the same flags and run
+// the same validation; addFlags adds a command's own.
+func newServeCommand(use string, runCommand runner, addFlags func(*cobra.Command, *options)) *cobra.Command {
 	var opts options
 	command := &cobra.Command{
 		Use:           use,
@@ -89,12 +108,18 @@ func newBrowserCommand(use string, runCommand runner) *cobra.Command {
 			if opts.host != defaultHost && net.ParseIP(opts.host) == nil {
 				return errors.New("--host must be a valid IP address")
 			}
+			if opts.web && !opts.remote {
+				return errors.New("--web needs --remote")
+			}
 			opts.hostSet = command.Flags().Changed("host")
 			opts.portSet = command.Flags().Changed("port")
 			return runCommand(command.Context(), opts, command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	}
 	addBrowserFlags(command, &opts)
+	if addFlags != nil {
+		addFlags(command, &opts)
+	}
 	return command
 }
 

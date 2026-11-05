@@ -52,6 +52,14 @@ func (t *idleTracker) end() {
 	}
 }
 
+// quiet reports no request in flight on a daemon that may exit when idle; a
+// tracker with no duration was asked never to stop.
+func (t *idleTracker) quiet() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.active == 0 && t.d > 0
+}
+
 func (t *idleTracker) stop() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
