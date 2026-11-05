@@ -8,21 +8,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/flexdinesh/servef/pkg/connection"
 	"github.com/flexdinesh/servef/pkg/contract"
 )
 
 // maxResponse bounds a JSON answer; search documents are the largest.
 const maxResponse = 512 << 20
 
-// HTTP is the HTTP transport: TCP to a CLI server (NewTCP) or a Unix socket
-// to the daemon (NewUnix).
+// HTTP is the HTTP transport: TCP to a CLI server (NewTCP), a Unix socket to
+// the daemon (NewUnix), or TLS to a remote server (NewRemote).
 type HTTP struct {
 	base   string
 	http   *http.Client
@@ -40,17 +39,17 @@ func NewTCP(base string) *HTTP {
 // NewUnix returns a client for the daemon at socket, sending Host
 // "localhost" as the daemon's web routes require.
 func NewUnix(socket string) *HTTP {
-	dialer := &net.Dialer{Timeout: 2 * time.Second}
-	transport := &http.Transport{
-		Proxy: nil,
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return dialer.DialContext(ctx, "unix", socket)
-		},
-	}
-	return &HTTP{base: "http://localhost", http: newHTTPClient(transport), daemon: true}
+	endpoint := connection.Unix{Socket: socket}
+	return &HTTP{base: endpoint.BaseURL(), http: newHTTPClient(endpoint.RoundTripper()), daemon: true}
 }
 
-func newHTTPClient(transport *http.Transport) *http.Client {
+// NewRemote returns a client for a remote server. Its control API is not
+// reachable over TCP: daemon calls return ErrNoDaemon.
+func NewRemote(endpoint connection.TLS) *HTTP {
+	return &HTTP{base: endpoint.BaseURL(), http: newHTTPClient(endpoint.RoundTripper())}
+}
+
+func newHTTPClient(transport http.RoundTripper) *http.Client {
 	return &http.Client{
 		Transport:     transport,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },

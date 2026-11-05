@@ -13,6 +13,29 @@ const (
 	CodeWalkthroughUnavailable = "walkthroughUnavailable"
 )
 
+// Remote serving (decision 0098) error codes.
+const (
+	// CodeUnauthorized: a TCP request without the connection string's token.
+	CodeUnauthorized = "unauthorized"
+	// CodePortBusy: the port asked for, or every default port, is taken.
+	CodePortBusy = "portBusy"
+	// CodeRemoteUnavailable: this daemon does not serve over TCP.
+	CodeRemoteUnavailable = "remoteUnavailable"
+)
+
+// RemoteInfoPath answers RemoteInfo over TCP, after authentication. The
+// desktop app's pages cannot reach it: /_servef is refused there.
+const RemoteInfoPath = "/_servef/remote"
+
+// RemoteInfo describes a remote server to a client checking a connection
+// string.
+type RemoteInfo struct {
+	Protocol int    `json:"protocol"`
+	Version  string `json:"version"`
+	// Name labels the connection: the machine's host name.
+	Name string `json:"name"`
+}
+
 // Daemon control stream event names, GET /_daemon/events.
 const (
 	DaemonEventStatus      = "status"
