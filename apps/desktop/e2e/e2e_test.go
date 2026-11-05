@@ -717,6 +717,30 @@ func TestWebViewApp(t *testing.T) {
 			t.Fatalf("the server closed under an open window: %s", status)
 		}
 
+		// Files changed on the server reach the window: first over the stream
+		// already open, then after the server went away and came back, when the
+		// page has to open a new one (the proxy answers errors while it is gone).
+		writeServed := func(name string) {
+			t.Helper()
+			if err := os.WriteFile(filepath.Join(served, name), []byte("# "+name+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		writeServed("live-remote.md")
+		app.waitEval("a file created on the server", treeShows("live-remote.md"))
+		if output, err := onServer("daemon", "stop"); err != nil {
+			t.Fatalf("daemon stop: %v\n%s", err, output)
+		}
+		app.waitEval("the window noticing the server left", `return document.querySelector('.status-live[data-mode="off"]') !== null`)
+		// Seconds of errors, so the browser has given up on the stream.
+		time.Sleep(3 * time.Second)
+		if output, err := onServer(served, "--remote", "--host", "127.0.0.1", "--remote-grace", "2s"); err != nil {
+			t.Fatalf("servef --remote again: %v\n%s", err, output)
+		}
+		app.waitEval("the window following the server again", `return document.querySelector('.status-live[data-mode="watching"]') !== null`)
+		writeServed("live-remote-again.md")
+		app.waitEval("a file created after the server came back", treeShows("live-remote-again.md"))
+
 		// Connecting again brings the window forward and keeps what it shows.
 		app.eval(`window.__stamp = 1; return true`)
 		connect()

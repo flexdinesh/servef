@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flexdinesh/servef/pkg/connection"
 )
@@ -294,5 +295,47 @@ func TestKnownAndLabel(t *testing.T) {
 	}
 	if got := connections.Label("r-0123456789ab"); got != "box" {
 		t.Errorf("Label = %q", got)
+	}
+}
+
+// A remote server lost mid-stream ends the page's stream, so the page opens
+// another and says it is reconnecting rather than showing "Live" over nothing.
+func TestRemoteStreamEndsWithItsConnection(t *testing.T) {
+	sent := make(chan struct{})
+	lost := make(chan struct{})
+	remote := startPinned(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "event: status\ndata: {}\n\n")
+		w.(http.Flusher).Flush()
+		close(sent)
+		<-lost
+		panic(http.ErrAbortHandler)
+	}))
+	p, _ := remoteProxy(t, remote.saved)
+	p.keepalive = time.Hour
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	writer := &streamWriter{header: http.Header{}, cancel: cancel, chunks: make(chan string, 16)}
+	r := request(http.MethodGet, OriginOf(remote.saved.ID)+"/api/events?project=x", nil).WithContext(ctx)
+	r.Header.Set("Accept", "text/event-stream")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		p.ServeHTTP(writer, r)
+	}()
+	<-sent
+	select {
+	case chunk := <-writer.chunks:
+		if !strings.Contains(chunk, "event: status") {
+			t.Errorf("first chunk = %q", chunk)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no event reached the page")
+	}
+	close(lost)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the page's stream outlived the server's")
 	}
 }
