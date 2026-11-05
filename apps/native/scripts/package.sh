@@ -1,9 +1,10 @@
 #!/bin/sh
-# Packages the experimental native app (decision 0082) for one OS, both
-# architectures, bundling the servef binary of the matching CLI archive.
+# Packages the experimental native app (decision 0082) for one OS, per
+# architecture, bundling the servef binary of the matching CLI archive.
 #
-#   apps/native/scripts/package.sh linux|darwin VERSION ARCHIVES OUT
+#   apps/native/scripts/package.sh linux|darwin VERSION ARCHIVES OUT [ARCHES]
 #
+# ARCHES is a space-separated list, amd64 and arm64 by default.
 # ARCHIVES holds servef_<VERSION>_<os>_<arch>.tar.gz (build.yml's cli job).
 # Writes servef-native_<VERSION>_linux_<arch>.tar.gz (mygo's archive) or
 # servef-native_<VERSION>_darwin_<arch>.zip (the ad-hoc signed app) to OUT,
@@ -16,6 +17,7 @@ version="$2"
 archives="$(cd "$3" && pwd)"
 mkdir -p "$4"
 out="$(cd "$4" && pwd)"
+arches="${5:-amd64 arm64}"
 commit="$(git rev-parse --short=12 HEAD)"
 
 # apps/native is its own module, outside go.work.
@@ -33,7 +35,7 @@ printf '%s\n' "$config" >mygo.json
 # in every package.
 sh scripts/notices.sh resources/THIRD_PARTY_NOTICES.txt
 
-for arch in amd64 arm64; do
+for arch in $arches; do
   name="servef_${version}_${os}_${arch}"
   tmp="$(mktemp -d)"
   tar -xzf "$archives/$name.tar.gz" -C "$tmp"

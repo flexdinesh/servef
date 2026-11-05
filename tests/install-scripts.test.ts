@@ -280,6 +280,27 @@ void test('shared blocks are identical in every script that carries them', async
 
 const EDGE_DOWNLOAD = 'https://github.com/flexdinesh/servef/releases/download/edge/'
 
+void test('edge install scripts stop on macOS Intel before downloading', async (t) => {
+  for (const script of ['install-edge.sh', 'install-electron-edge.sh', 'install-native-edge.sh']) {
+    const sandbox = await createSandbox(t.after.bind(t))
+
+    const result = await run(script, sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'x86_64' })
+
+    assert.notEqual(result.code, 0, script)
+    assert.match(result.stderr, /edge has no macOS Intel builds; use the stable install script/, script)
+    assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /releases\/download/, script)
+    assert.equal(await exists(join(sandbox.home, '.local')), false, script)
+  }
+})
+
+void test('stable install.sh still targets macOS Intel', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+
+  await run('install.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'x86_64' })
+
+  assert.ok((await readFile(sandbox.log, 'utf8')).includes('/releases/download/v0.1.7/servef_0.1.7_darwin_amd64.tar.gz'))
+})
+
 void test('install-edge.sh installs the CLI from the edge prerelease on PATH', async (t) => {
   for (const [machine, arch] of [['x86_64', 'amd64'], ['aarch64', 'arm64']] as const) {
     const sandbox = await createSandbox(t.after.bind(t))

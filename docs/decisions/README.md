@@ -83,7 +83,7 @@ rewriting history; update `Status` on the old record.
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Accepted |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Accepted |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
-| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 (names) |
+| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 (names), 0093 (edge assets) |
 | [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085; walkthroughs by 0087 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted |
 | [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Accepted (experimental); image reads by 0085; known gaps scheduled by 0086; Highlights and Ondine by 0088; review rendering by 0089 |
@@ -97,3 +97,4 @@ rewriting history; update `Status` on the old record.
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Accepted |
 | [0091](0091-native-workspace-shell-and-memory.md) | Native workspace shell and memory | Accepted (experimental) |
 | [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Accepted (experimental); supersedes the names in 0068; revises 0072, 0073, 0079 |
+| [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |

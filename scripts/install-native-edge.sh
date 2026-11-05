@@ -284,7 +284,11 @@ install_native_release() {
 # shared:edge:begin
 # edge_release selects the edge prerelease: after every green push to main, CI
 # replaces its assets with that commit's build, named for version 0.0.0-edge.
+# Decision 0093: macOS Intel is stable only.
 edge_release() {
+  if [ "$OS" = darwin ] && [ "$ARCH" = amd64 ]; then
+    fail "edge has no macOS Intel builds; use the stable install script (the name without -edge)"
+  fi
   TAG=edge
   VERSION=0.0.0-edge
 }
