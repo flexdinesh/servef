@@ -5,7 +5,7 @@ export default defineConfig({
   description:
     'Browse any file in a local directory: rendered Markdown, image previews, formatted data, and highlighted source.',
   renderStrategy: 'full-static',
-  accentColor: 'light-dark(#2563eb, #78a8ff)',
+  accentColor: 'light-dark(#325dc8, #74ade8)',
   sidebar: [
     { text: 'Introduction', link: '/docs' },
     { text: 'Getting started', link: '/docs/getting-started' },

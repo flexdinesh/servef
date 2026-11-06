@@ -56,6 +56,10 @@ Inter. No new font ships.
 
 Keyboard conventions and behavior stay VS Code's. Only the visual language moves.
 
+**The site follows.** The landing and docs take the same slate values and square
+corners. Vocs loads `apps/site/src/pages/_root.css` on every page: it remaps
+Vocs' grey ramp and zeroes its radii, which come from utility classes.
+
 ## Consequences
 
 - Stored theme choices keep working: ids stay `light` and `dark`, under the

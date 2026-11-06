@@ -1,0 +1,29 @@
+/*
+ * The docs site takes the app's sharp slate language (decision 0102). Vocs
+ * loads this file on every page, after its own styles. Its ramp runs dark to
+ * light: gray2 and gray14 are the page, gray6 and gray12 borders and text.
+ */
+
+:root {
+  --vocs-color-gray1: #1d2026;
+  --vocs-color-gray2: #272b32;
+  --vocs-color-gray3: #2e323b;
+  --vocs-color-gray4: #343944;
+  --vocs-color-gray5: #383e49;
+  --vocs-color-gray6: #3e444f;
+  --vocs-color-gray7: #5a616e;
+  --vocs-color-gray8: #6b7280;
+  --vocs-color-gray9: #868d9a;
+  --vocs-color-gray10: #a2a8b4;
+  --vocs-color-gray11: #c9ccd1;
+  --vocs-color-gray12: #dce0e5;
+  --vocs-color-gray13: #eceef0;
+  --vocs-color-gray14: #fafafa;
+}
+
+/* Vocs rounds through utility classes in many components, so one rule covers them. */
+*,
+::before,
+::after {
+  border-radius: 0 !important;
+}
