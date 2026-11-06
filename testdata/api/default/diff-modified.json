@@ -16,13 +16,13 @@
   },
   "original": {
     "content": "// Package main is a source-only sample for srcz.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\") // go-search-token\n}\n",
-    "size": 137,
+    "size": 135,
     "binary": false,
     "tooLarge": false
   },
   "modified": {
     "content": "// Package main is a source-only sample for srcz.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello from srcz\") // go-search-token\n}\n",
-    "size": 149,
+    "size": 145,
     "binary": false,
     "tooLarge": false
   },

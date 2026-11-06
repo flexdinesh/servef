@@ -431,8 +431,8 @@ func TestResolveCommitRejectsAmbiguousAbbreviations(t *testing.T) {
 	f := newFixture(t)
 	// These two commits share a four-digit prefix without searching for a
 	// collision and writing hundreds of unnecessary objects on every run.
-	first := f.empty("commit 112", 1700000112)
-	second := f.empty("commit 176", 1700000176)
+	first := f.empty("commit 400", 1700000400)
+	second := f.empty("commit 416", 1700000416)
 	shared := first.String()[:4]
 	if first == second || shared != second.String()[:4] {
 		t.Fatalf("fixture commits %s and %s must differ but share a four-digit prefix", first, second)
