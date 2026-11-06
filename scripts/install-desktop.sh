@@ -8,8 +8,8 @@
 # Linux: the app goes to ~/.local/share/srcz-desktop/app with a desktop entry
 # for srcz:// links and an icon. macOS: srcz-desktop.app in /Applications
 # (or ~/Applications). srcz-desktop goes on PATH in ~/.local/bin (or ~/bin
-# when that is on PATH). Replaces an Electron install and keeps its data. Latest
-# main: scripts/install-desktop-edge.sh. Remove with scripts/uninstall.sh.
+# when that is on PATH). Latest main:
+# scripts/install-desktop-edge.sh. Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
@@ -155,41 +155,13 @@ esac
 DESKTOP_HOME="$DESKTOP_DATA/srcz-desktop/app"
 DESKTOP_ID="srcz-desktop.desktop"
 DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/srcz-desktop.png"
-# The Electron app (decision 0095) installed its deb here, as srcz-desktop or
-# srcz-electron, and on macOS as srcz.app.
-ELECTRON_DEB_DIR="${SRCZ_ELECTRON_DEB_DIR:-/opt/srcz}"
 
 desktop_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
-    pgrep -f 'srcz-desktop\.app/Contents/MacOS/srcz-desktop|srcz\.app/Contents/MacOS/srcz' >/dev/null 2>&1
+    pgrep -f 'srcz-desktop\.app/Contents/MacOS/srcz-desktop' >/dev/null 2>&1
   else
-    pgrep -x -u "$(id -u)" 'srcz-(desktop|electron)' >/dev/null 2>&1
-  fi
-}
-
-# electron_paths CMD runs CMD with what the Electron app's scripts and its Open
-# at Login left on Linux. Never its user data; with XDG_DATA_HOME equal to
-# XDG_CONFIG_HOME, that shares srcz-desktop/ with the AppImage.
-electron_paths() {
-  "$1" "$DESKTOP_DATA/srcz-electron" \
-    "$DESKTOP_DATA/srcz-desktop/srcz-desktop.AppImage" \
-    "$DESKTOP_DATA/applications/srcz-electron.desktop" \
-    "$DESKTOP_DATA/icons/hicolor/512x512/apps/srcz-electron.png" \
-    "$DESKTOP_DATA/kio/servicemenus/srcz-electron.desktop" \
-    "$DESKTOP_DATA/kio/servicemenus/srcz-desktop.desktop" \
-    "$DESKTOP_DATA/nemo/actions/srcz-electron.nemo_action" \
-    "$DESKTOP_DATA/nemo/actions/srcz-desktop.nemo_action" \
-    "$DESKTOP_DATA/nautilus/scripts/Open in srcz" \
-    "$DESKTOP_CONFIG/autostart/srcz-electron.desktop" \
-    "$DESKTOP_CONFIG/autostart/srcz-desktop.desktop"
-}
-
-# warn_thunar_action reports a hand-added Thunar action, which lives in Thunar's
-# own settings file.
-warn_thunar_action() {
-  if [ -f "$DESKTOP_CONFIG/Thunar/uca.xml" ] && grep -Eq 'srcz-(electron|desktop)' "$DESKTOP_CONFIG/Thunar/uca.xml"; then
-    warn "Thunar still has an Open in srcz custom action; remove it in Edit > Configure custom actions"
+    pgrep -x -u "$(id -u)" srcz-desktop >/dev/null 2>&1
   fi
 }
 # shared:desktop:end
@@ -211,13 +183,6 @@ check_webkit() {
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 check_desktop_conflicts() {
-  if [ "$OS" = linux ]; then
-    for deb in srcz-desktop srcz-electron; do
-      if [ -e "$ELECTRON_DEB_DIR/$deb" ]; then
-        fail "the $deb deb (the Electron app) is installed; remove it first: sudo apt remove $deb"
-      fi
-    done
-  fi
   if desktop_running; then
     fail "the srcz desktop app is running; quit it, then run this again"
   fi
@@ -257,19 +222,6 @@ link_desktop() {
   fi
 }
 
-# remove_electron PATH... deletes each existing PATH of an Electron install.
-remove_electron() {
-  found=0
-  for path in "$@"; do
-    if [ -e "$path" ] || [ -L "$path" ]; then
-      rm -rf "$path"
-      found=1
-    fi
-  done
-  if [ "$found" = 1 ]; then ok "removed the earlier Electron app"; fi
-  warn_thunar_action
-}
-
 # warn_running_daemon SRCZ warns about a daemon from an earlier build: the app
 # reuses it, and shows its web UI, until it stops.
 warn_running_daemon() {
@@ -289,7 +241,6 @@ install_desktop_linux() {
   replace_path "$1" "$DESKTOP_HOME"
   version="$("$DESKTOP_HOME/srcz-desktop" --version 2>/dev/null | head -n 1 || true)"
   ok "installed $DESKTOP_HOME ($version)"
-  electron_paths remove_electron
   exec_arg="$(desktop_exec "$DESKTOP_HOME/srcz-desktop")"
   mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")" "$DESKTOP_CONFIG"
   cp "$DESKTOP_HOME/srcz-desktop.png" "$DESKTOP_ICON"
@@ -317,8 +268,7 @@ EOF2
 }
 
 # install_desktop_macos APP installs srcz-desktop.app into /Applications, or
-# ~/Applications when /Applications is not writable, and removes the Electron
-# app's srcz.app, which also claims srcz:// links.
+# ~/Applications when /Applications is not writable.
 install_desktop_macos() {
   apps="/Applications"
   if ! [ -d "$apps" ] || ! [ -w "$apps" ]; then
@@ -326,16 +276,6 @@ install_desktop_macos() {
     mkdir -p "$apps"
   fi
   replace_path "$1" "$apps/srcz-desktop.app"
-  for dir in /Applications "$HOME/Applications"; do
-    [ -e "$dir/srcz.app" ] || continue
-    if [ -w "$dir" ]; then
-      rm -rf "$dir/srcz.app"
-      ok "removed the earlier Electron app $dir/srcz.app"
-    else
-      warn "$dir/srcz.app is the earlier Electron app and may take srcz:// links; remove it with:"
-      note "sudo rm -rf \"$dir/srcz.app\""
-    fi
-  done
   if [ -x "$LSREGISTER" ]; then
     "$LSREGISTER" -f "$apps/srcz-desktop.app" >/dev/null 2>&1 || true
   fi

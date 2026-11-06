@@ -430,18 +430,13 @@ void test('install-desktop.sh installs the latest release for the machine', asyn
   assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_linux_arm64.tar.gz'), log)
 })
 
-void test('install-desktop.sh installs srcz-desktop.app on macOS, links it, and removes the Electron srcz.app', async (t) => {
+void test('install-desktop.sh installs srcz-desktop.app on macOS and links it', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox)
   const apps = (await exists('/Applications')) ? '/Applications' : join(sandbox.home, 'Applications')
   t.after(async () => {
     if (apps === '/Applications') await rm('/Applications/srcz-desktop.app', { recursive: true, force: true })
   })
-  const electron = join(sandbox.home, 'Applications', 'srcz.app', 'Contents', 'MacOS', 'srcz')
-  await writeExecutable(electron, 'electron')
-  const support = join(sandbox.home, 'Library', 'Application Support', 'srcz-desktop', 'recent-folders.json')
-  await writeExecutable(support, '[]')
-
   const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
   assertOk(result)
@@ -449,9 +444,6 @@ void test('install-desktop.sh installs srcz-desktop.app on macOS, links it, and 
   assert.equal(await readFile(executable, 'utf8'), 'app')
   assert.equal(await readFile(join(sandbox.home, '.local', 'bin', 'srcz-desktop'), 'utf8'), 'app')
   assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
-  assert.equal(await exists(join(sandbox.home, 'Applications', 'srcz.app')), false, 'two bundles would both claim srcz://')
-  assert.match(result.stdout, /removed the earlier Electron app/)
-  assert.ok(await exists(support), 'the Electron app data stays')
   const log = await readFile(sandbox.log, 'utf8')
   assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_darwin_arm64.zip'), log)
   assert.doesNotMatch(log, /xdg-mime/)
@@ -461,14 +453,14 @@ void test('install-desktop.sh explains a release without the desktop app and cha
   for (const [os, machine, asset] of [['Linux', 'x86_64', 'srcz-desktop_0\\.1\\.7_linux_amd64\\.tar\\.gz'], ['Darwin', 'arm64', 'srcz-desktop_0\\.1\\.7_darwin_arm64\\.zip']] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
     await createRelease(sandbox)
-    const old = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'srcz-desktop.AppImage')
+    const old = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')
     await writeExecutable(old, 'old')
 
     const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: os, STUB_UNAME_M: machine })
 
     assert.notEqual(result.code, 0)
     assert.match(result.stderr, new RegExp(`srcz v0\\.1\\.7 has no ${asset}; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel`))
-    assert.ok(await exists(old), 'a failed install leaves the Electron app alone')
+    assert.ok(await exists(old), 'a failed install leaves the installed app alone')
   }
 })
 
@@ -483,71 +475,18 @@ void test('install-desktop scripts stop while the app runs', async (t) => {
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
-void test('install-desktop.sh stops on an Electron deb and names the command that removes it', async (t) => {
-  for (const deb of ['srcz-desktop', 'srcz-electron']) {
-    const sandbox = await createSandbox(t.after.bind(t))
-    await createDesktopRelease(sandbox)
-    const debs = join(sandbox.root, 'opt-srcz')
-    await writeExecutable(join(debs, deb), 'deb')
-
-    const result = await run('install-desktop.sh', sandbox, { SRCZ_ELECTRON_DEB_DIR: debs })
-
-    assert.notEqual(result.code, 0, deb)
-    assert.ok(result.stderr.includes(`sudo apt remove ${deb}`), result.stderr)
-    assert.equal(await exists(join(sandbox.home, '.local')), false, 'nothing is installed')
-  }
-})
-
-// What an Electron install left on Linux: never user data.
-function electronLeftovers(sandbox: Sandbox, share: string): string[] {
-  const config = join(sandbox.home, '.config')
-  return [
-    join(share, 'srcz-desktop', 'srcz-desktop.AppImage'),
-    join(share, 'srcz-electron', 'srcz-electron.AppImage'),
-    join(share, 'applications', 'srcz-electron.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-electron.png'),
-    join(share, 'kio', 'servicemenus', 'srcz-desktop.desktop'),
-    join(share, 'kio', 'servicemenus', 'srcz-electron.desktop'),
-    join(share, 'nemo', 'actions', 'srcz-desktop.nemo_action'),
-    join(share, 'nemo', 'actions', 'srcz-electron.nemo_action'),
-    join(share, 'nautilus', 'scripts', 'Open in srcz'),
-    join(config, 'autostart', 'srcz-desktop.desktop'),
-    join(config, 'autostart', 'srcz-electron.desktop'),
-  ]
-}
-
-void test('install-desktop.sh replaces an Electron install and keeps its data', async (t) => {
+void test('install-desktop.sh overwrites an earlier desktop entry', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox)
   const share = join(sandbox.home, '.local', 'share')
-  const left = electronLeftovers(sandbox, share)
-  for (const path of left) await writeExecutable(path, 'old')
   const oldEntry = join(share, 'applications', 'srcz-desktop.desktop')
   await writeExecutable(oldEntry, 'old')
-  const appData = join(sandbox.home, '.config', 'srcz-desktop', 'recent-folders.json')
-  await writeExecutable(appData, '[]')
 
   const result = await run('install-desktop.sh', sandbox)
 
   assertOk(result)
-  assert.match(result.stdout, /removed the earlier Electron app/)
-  for (const path of left) assert.equal(await exists(path), false, `${path} is removed`)
   assert.match(await readFile(oldEntry, 'utf8'), /srcz-desktop\/app\/srcz-desktop %U/, 'the desktop entry is overwritten')
   assert.ok(await isExecutable(join(share, 'srcz-desktop', 'app', 'srcz-desktop')))
-  assert.ok(await exists(appData), 'app data stays')
-})
-
-void test('install-desktop.sh reports a hand-added Thunar action', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox)
-  const uca = join(sandbox.home, '.config', 'Thunar', 'uca.xml')
-  await writeExecutable(uca, '<command>/opt/srcz/srcz-electron %F</command>')
-
-  const result = await run('install-desktop.sh', sandbox)
-
-  assertOk(result)
-  assert.match(result.stdout, /Thunar still has an Open in srcz custom action/)
-  assert.ok(await exists(uca), 'Thunar owns its settings')
 })
 
 // --- install.sh ---
@@ -609,22 +548,16 @@ void test('install.sh stops when the latest release or its archive is missing', 
 })
 
 for (const script of ['install-desktop.sh', 'uninstall.sh']) {
-  void test(`${script} keeps the Electron app's data and page state when XDG_DATA_HOME equals XDG_CONFIG_HOME`, async (t) => {
+  void test(`${script} keeps page state when XDG_DATA_HOME equals XDG_CONFIG_HOME`, async (t) => {
     const sandbox = await createSandbox(t.after.bind(t))
     await createDesktopRelease(sandbox)
     const same = join(sandbox.root, 'xdg')
-    const appImage = join(same, 'srcz-desktop', 'srcz-desktop.AppImage')
-    const appData = join(same, 'srcz-desktop', 'recent-folders.json')
     const pageState = join(same, 'srcz-desktop', 'localstorage', 'page.localstorage')
-    await writeExecutable(appImage, 'old')
-    await writeExecutable(appData, '[]')
     await writeExecutable(pageState, 'tabs')
 
     const result = await run(script, sandbox, { XDG_DATA_HOME: same, XDG_CONFIG_HOME: same })
 
     assertOk(result)
-    assert.equal(await exists(appImage), false, 'the old AppImage is removed')
-    assert.ok(await exists(appData), 'app data shares the directory and stays')
     assert.ok(await exists(pageState), 'page state shares the directory and stays')
     assert.equal(await exists(join(same, 'srcz-desktop', 'app', 'srcz-desktop')), script === 'install-desktop.sh')
   })
@@ -632,29 +565,18 @@ for (const script of ['install-desktop.sh', 'uninstall.sh']) {
 
 // --- uninstall.sh ---
 
-void test('uninstall.sh removes the desktop app and every Electron leftover, reports package-managed copies, and keeps user data', async (t) => {
+void test('uninstall.sh removes the desktop app, reports package-managed copies, and keeps user data', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
   assertOk(await run('install-desktop-edge.sh', sandbox))
   const share = join(sandbox.home, '.local', 'share')
-  const left = electronLeftovers(sandbox, share)
-  for (const path of left) await writeExecutable(path, 'old')
-  const manual = join(sandbox.home, 'Applications', 'srcz-electron_0.1.7_linux_amd64.AppImage')
-  await writeExecutable(manual, 'appimage')
-  const oldManual = join(sandbox.home, 'Applications', 'srcz-desktop_0.0.0-edge_linux_amd64.AppImage')
-  await writeExecutable(oldManual, 'appimage')
-  const unrelated = join(sandbox.home, 'Applications', 'other.AppImage')
-  await writeExecutable(unrelated, 'other')
   const config = join(sandbox.home, '.config')
-  await writeFile(join(config, 'autostart', 'srcz-electron.desktop'), `[Desktop Entry]\nExec=${manual}\n`)
-  await writeFile(join(config, 'autostart', 'srcz-desktop.desktop'), `[Desktop Entry]\nExec=${oldManual}\n`)
   const pageState = join(share, 'srcz-desktop', 'localstorage')
   await mkdir(pageState, { recursive: true })
   await writeExecutable(join(sandbox.home, 'go', 'bin', 'srcz'), fakeSrcz('0.1.6'))
   await writeExecutable(join(sandbox.home, '.local', 'bin', 'srcz'), fakeSrcz('0.1.6'))
   await mkdir(join(config, 'srcz'), { recursive: true })
   await writeFile(join(config, 'srcz', 'roots.json'), '[]')
-  await mkdir(join(config, 'srcz-desktop'), { recursive: true })
   await mkdir(join(sandbox.home, '.cache', 'srcz'), { recursive: true })
   const shims = join(sandbox.root, 'mise', 'shims')
   await writeExecutable(join(shims, 'srcz'), fakeSrcz('0.1.6'))
@@ -663,80 +585,36 @@ void test('uninstall.sh removes the desktop app and every Electron leftover, rep
 
   assertOk(result)
   for (const path of [
-    ...left,
     join(sandbox.home, '.local', 'bin', 'srcz'),
     join(sandbox.home, '.local', 'bin', 'srcz-desktop'),
     join(sandbox.home, 'go', 'bin', 'srcz'),
     join(share, 'srcz-desktop', 'app'),
-    join(share, 'srcz-electron'),
     join(share, 'applications', 'srcz-desktop.desktop'),
     join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-desktop.png'),
-    manual,
-    oldManual,
   ]) {
     assert.equal(await exists(path), false, `${path} is removed`)
   }
-  assert.ok(await exists(unrelated), 'only srcz-electron and srcz-desktop AppImages are removed')
-  for (const path of [join(config, 'srcz', 'roots.json'), join(config, 'srcz-desktop'), join(sandbox.home, '.cache', 'srcz'), pageState]) {
+  for (const path of [join(config, 'srcz', 'roots.json'), join(sandbox.home, '.cache', 'srcz'), pageState]) {
     assert.ok(await exists(path), `${path} is kept`)
   }
   assert.match(result.stdout, /mise\/shims\/srcz is installed by mise/)
   assert.match(result.stdout, /kept your data/)
   assert.ok(result.stdout.includes(join(config, 'srcz')))
   assert.ok(result.stdout.includes(join(share, 'srcz-desktop')), 'page state is reported')
-  assert.ok(result.stdout.includes(join(config, 'srcz-desktop')), 'Electron app data is reported')
 })
 
-void test('uninstall.sh names the command for each Electron deb', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
-  const debs = join(sandbox.root, 'opt-srcz')
-  await writeExecutable(join(debs, 'srcz-desktop'), 'deb')
-  await writeExecutable(join(debs, 'srcz-electron'), 'deb')
-
-  const result = await run('uninstall.sh', sandbox, { SRCZ_ELECTRON_DEB_DIR: debs })
-
-  assertOk(result)
-  assert.ok(result.stdout.includes('sudo apt remove srcz-desktop'), result.stdout)
-  assert.ok(result.stdout.includes('sudo apt remove srcz-electron'), result.stdout)
-})
-
-void test('uninstall.sh removes srcz-mygo and keeps its data', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
-  const share = join(sandbox.home, '.local', 'share')
-  const installed = [
-    join(sandbox.home, '.local', 'bin', 'srcz-mygo'),
-    join(share, 'srcz-mygo', 'app', 'srcz-mygo'),
-    join(share, 'applications', 'srcz-mygo.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-mygo.png'),
-  ]
-  for (const path of installed) await writeExecutable(path, 'old')
-  const config = join(sandbox.home, '.config', 'srcz-mygo')
-  await mkdir(config, { recursive: true })
-  const pageData = join(share, 'srcz-mygo')
-  await mkdir(join(pageData, 'localstorage'), { recursive: true })
-
-  const result = await run('uninstall.sh', sandbox)
-
-  assertOk(result)
-  for (const path of installed) assert.equal(await exists(path), false, `${path} is removed`)
-  assert.ok(await exists(config), 'its app data is kept')
-  assert.ok(result.stdout.includes(config))
-  assert.ok(await exists(join(pageData, 'localstorage')), 'its page state is kept')
-  assert.ok(result.stdout.includes(pageData))
-})
-
-void test('uninstall.sh removes every macOS bundle and keeps page state', async (t) => {
+void test('uninstall.sh removes the macOS bundle and keeps page state', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   const applications = join(sandbox.home, 'Applications')
-  const bundles = ['srcz-desktop.app', 'srcz.app', 'srcz-mygo.app'].map((name) => join(applications, name))
-  for (const bundle of bundles) await writeExecutable(join(bundle, 'Contents', 'MacOS', 'app'), 'app')
+  const bundle = join(applications, 'srcz-desktop.app')
+  await writeExecutable(join(bundle, 'Contents', 'MacOS', 'app'), 'app')
   const webkit = join(sandbox.home, 'Library', 'WebKit', 'io.github.flexdinesh.srcz.desktop')
   await mkdir(webkit, { recursive: true })
 
   const result = await run('uninstall.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
   assertOk(result)
-  for (const bundle of bundles) assert.equal(await exists(bundle), false, `${bundle} is removed`)
+  assert.equal(await exists(bundle), false, `${bundle} is removed`)
   assert.ok(await exists(webkit), 'page state is kept')
   assert.ok(result.stdout.includes(webkit))
 })

@@ -151,28 +151,12 @@ WebKit in a browser but not yet in this app. Known differences from a browser:
 - Text shifts slightly when a document gains a scrollbar.
 - A review link to a line deep in a very large diff may not reach it.
 
-## Moving from the Electron app
-
-Run the install script. Your Electron app data (recent folders, ssh connections)
-stays where it was, unused; open tabs and other page state start fresh, because
-WebKit keeps its own, and the saved window size resets.
-
-- Linux, script install: the script removes the old AppImage, desktop entry, icon,
-  file manager actions, and login entry, and makes the new entry the `srcz://`
-  handler.
-- Linux, deb: the script stops until you remove it: `sudo apt remove srcz-desktop`
-  or `sudo apt remove srcz-electron`.
-- macOS: the script removes `srcz.app`. Remove a Quick Action you made, and a
-  Login Item in **System Settings › General**.
-- A Thunar action you made stays: the script reports it. Remove it in **Edit ›
-  Configure custom actions…**.
-
 ## Uninstall
 
 The uninstall script removes the app and CLI however you installed them in your
-home directory, along with what the Electron app and `srcz-mygo` left. Quit the
+home directory. Quit the
 app first; if a daemon is running, the script stops and prints the command to end
-it. It prints the command for a deb or a copy
+it. It prints the command for a copy
 another tool installed, and keeps and lists your data:
 
 ```sh
