@@ -1,7 +1,7 @@
 # 0073: Install scripts
 
 - Status: Accepted; paths revised by [0078](0078-apps-and-packages-layout.md); edge scripts (prebuilt `edge` prerelease assets) and Homebrew and `go install` (dropped) revised by [0079](0079-releases-edge-prerelease-and-install-scripts.md); script, path, and asset names revised by [0092](0092-electron-app-name.md)
-- Revised by: [0095](0095-desktop-app-is-mygo-electron-removed.md) (scripts, asset names; the desktop script installs the app only)
+- Revised by: [0095](0095-desktop-app-is-mygo-electron-removed.md) (scripts, asset names; the desktop script installs the app only), [0100](0100-rename-to-srcz.md) (uninstall covers srcz only)
 - Date: 2026-11-02
 - Revises: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   Packages (an AppImage registers `srcz://` through `install-desktop.sh`)
