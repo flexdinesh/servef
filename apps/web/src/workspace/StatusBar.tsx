@@ -57,11 +57,11 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
   return (
     <footer className="status-bar">
       <div className="status-explorer" role="group" aria-label="File tree status">
-        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="Source Zero home" onClick={(event) => {
+        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="srcz home" onClick={(event) => {
           if (!onHome || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
           event.preventDefault()
           onHome()
-        }}>Source Zero</a>
+        }}>srcz</a>
         <details className="status-process" onKeyDown={(event) => {
           if (event.key === "Escape") event.currentTarget.open = false
         }}>

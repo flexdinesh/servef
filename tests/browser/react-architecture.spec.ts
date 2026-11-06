@@ -80,7 +80,7 @@ for (const entry of [
     await page.goForward()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 
-    await page.getByRole("link", { name: "Source Zero home" }).click()
+    await page.getByRole("link", { name: "srcz home" }).click()
     await expect(page.getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
     await page.goBack()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)

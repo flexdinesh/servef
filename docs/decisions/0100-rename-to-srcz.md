@@ -15,7 +15,9 @@ The product is now Source Zero, with the command `srcz`. The repository becomes
 
 - **Display name:** Source Zero in window titles, themes, the site, and user
   docs. `srcz` is the command, every identifier and path, CLI output, code
-  comments, and contributor docs. The desktop launcher stays `srcz-desktop`.
+  comments, and contributor docs. The desktop launcher stays `srcz-desktop`. The
+  status bar's home link says `srcz`: the full name pushes Settings off a 320 px
+  screen.
 - **Everything renamed, no aliases:**
 
   | Was | Now |

@@ -74,7 +74,7 @@ test("remembered tabs restore instead of Welcome; with nothing to restore it ret
   await expect(tabs(page).getByRole("tab")).toHaveText(["README.md"])
 
   // A closed Welcome stays closed while other tabs restore.
-  await page.getByRole("link", { name: "Source Zero home" }).click()
+  await page.getByRole("link", { name: "srcz home" }).click()
   await page.getByRole("button", { name: "Close Welcome" }).click()
   await expect(tabs(page).getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
   await page.reload()
