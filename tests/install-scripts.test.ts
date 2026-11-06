@@ -155,16 +155,18 @@ async function createSandbox(
   }
 }
 
-// createRelease writes a release's assets for linux/<arch>, named for version
-// (0.1.7 by default; the edge prerelease uses 0.0.0-edge): the CLI archive.
+// createRelease writes a release's assets for <os>/<arch> (linux/amd64 by
+// default), named for version (0.1.7 by default; the edge prerelease uses
+// 0.0.0-edge): the CLI archive.
 async function createRelease(
   sandbox: Sandbox,
-  options: { arch?: string; version?: string } = {},
+  options: { arch?: string; os?: string; version?: string } = {},
 ): Promise<void> {
   const arch = options.arch ?? 'amd64'
+  const os = options.os ?? 'linux'
   const version = options.version ?? '0.1.7'
   const release = sandbox.env.STUB_RELEASE_DIR ?? ''
-  const name = `srcz_${version}_linux_${arch}`
+  const name = `srcz_${version}_${os}_${arch}`
   await writeExecutable(join(release, name, 'srcz'), fakeSrcz(`${version} (abc123)`))
   await new Promise<void>((resolve, reject) => {
     execFile('tar', ['-czf', join(release, `${name}.tar.gz`), '-C', release, name], (error) => {
@@ -196,9 +198,15 @@ async function createDesktopRelease(sandbox: Sandbox, options: { arch?: string; 
   await writeFile(join(release, `srcz-desktop_${version}_darwin_arm64.zip`), 'zip')
 }
 
-function run(script: string, sandbox: Sandbox, env: Record<string, string> = {}): Promise<Result> {
+// createFullRelease writes everything a default install downloads on Linux.
+async function createFullRelease(sandbox: Sandbox, options: { arch?: string; version?: string } = {}): Promise<void> {
+  await createRelease(sandbox, options)
+  await createDesktopRelease(sandbox, options)
+}
+
+function run(script: string, sandbox: Sandbox, env: Record<string, string> = {}, args: string[] = []): Promise<Result> {
   return new Promise((resolve) => {
-    execFile('/bin/sh', [join(scriptsDir, script)], { env: { ...sandbox.env, ...env } }, (error, stdout, stderr) => {
+    execFile('/bin/sh', [join(scriptsDir, script), ...args], { env: { ...sandbox.env, ...env } }, (error, stdout, stderr) => {
       const code = error === null ? 0 : typeof error.code === 'number' ? error.code : 1
       resolve({ code, stdout, stderr })
     })
@@ -253,17 +261,18 @@ void test('shared blocks are identical in every script that carries them', async
 // --- install-edge.sh ---
 
 const EDGE_DOWNLOAD = 'https://github.com/flexdinesh/srcz/releases/download/edge/'
+const CLI_ONLY = ['--cli-only']
 
-void test('edge install scripts stop on macOS Intel before downloading', async (t) => {
-  for (const script of ['install-edge.sh', 'install-desktop-edge.sh']) {
+void test('install-edge.sh stops on macOS Intel before downloading', async (t) => {
+  for (const args of [[], CLI_ONLY]) {
     const sandbox = await createSandbox(t.after.bind(t))
 
-    const result = await run(script, sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'x86_64' })
+    const result = await run('install-edge.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'x86_64' }, args)
 
-    assert.notEqual(result.code, 0, script)
-    assert.match(result.stderr, /edge has no macOS Intel builds; use the stable install script/, script)
-    assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /releases\/download/, script)
-    assert.equal(await exists(join(sandbox.home, '.local')), false, script)
+    assert.notEqual(result.code, 0)
+    assert.match(result.stderr, /edge has no macOS Intel builds; use the stable install script/)
+    assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /releases\/download/)
+    assert.equal(await exists(join(sandbox.home, '.local')), false)
   }
 })
 
@@ -275,12 +284,12 @@ void test('stable install.sh still targets macOS Intel', async (t) => {
   assert.ok((await readFile(sandbox.log, 'utf8')).includes('/releases/download/v0.1.7/srcz_0.1.7_darwin_amd64.tar.gz'))
 })
 
-void test('install-edge.sh installs the CLI from the edge prerelease on PATH', async (t) => {
+void test('install-edge.sh --cli-only installs only the CLI from the edge prerelease on PATH', async (t) => {
   for (const [machine, arch] of [['x86_64', 'amd64'], ['aarch64', 'arm64']] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
-    await createRelease(sandbox, { arch, version: '0.0.0-edge' })
+    await createFullRelease(sandbox, { arch, version: '0.0.0-edge' })
 
-    const result = await run('install-edge.sh', sandbox, { STUB_UNAME_M: machine })
+    const result = await run('install-edge.sh', sandbox, { STUB_UNAME_M: machine }, CLI_ONLY)
 
     assertOk(result)
     const bin = join(sandbox.home, '.local', 'bin', 'srcz')
@@ -288,22 +297,69 @@ void test('install-edge.sh installs the CLI from the edge prerelease on PATH', a
     assert.match(result.stdout, /downloading srcz edge \(linux\/(amd64|arm64)\)/)
     assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.0\.0-edge \(abc123\)\)/)
     assert.doesNotMatch(result.stdout, /not on PATH/)
+    assert.doesNotMatch(result.stdout, /WebKitGTK/)
     const log = await readFile(sandbox.log, 'utf8')
     assert.ok(log.includes(`${EDGE_DOWNLOAD}srcz_0.0.0-edge_linux_${arch}.tar.gz`), log)
+    assert.doesNotMatch(log, /srcz-desktop_/)
+    assert.doesNotMatch(log, /xdg-mime/)
     assert.doesNotMatch(log, /releases\/latest/)
     assert.doesNotMatch(log, /api\.github\.com/)
+    assert.equal(await exists(join(sandbox.home, '.local', 'share')), false, 'no app files')
+    assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz-desktop')), false)
+  }
+})
+
+void test('--cli-only updates the CLI and leaves a running desktop app alone', async (t) => {
+  for (const script of ['install.sh', 'install-edge.sh']) {
+    const sandbox = await createSandbox(t.after.bind(t))
+    const version = script === 'install.sh' ? '0.1.7' : '0.0.0-edge'
+    await createFullRelease(sandbox, { version })
+    const app = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')
+    await writeExecutable(app, 'old')
+
+    const result = await run(script, sandbox, { STUB_PGREP: '0' }, CLI_ONLY)
+
+    assertOk(result)
+    assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'srcz')), script)
+    assert.equal(await readFile(app, 'utf8'), 'old', script)
+  }
+})
+
+void test('install scripts stop on an unknown option before downloading', async (t) => {
+  for (const script of ['install.sh', 'install-edge.sh']) {
+    const sandbox = await createSandbox(t.after.bind(t))
+
+    const result = await run(script, sandbox, {}, ['--desktop-only'])
+
+    assert.notEqual(result.code, 0, script)
+    assert.match(result.stderr, /unknown option --desktop-only; the only option is --cli-only/, script)
+    assert.equal(await readFile(sandbox.log, 'utf8'), '', script)
+    assert.equal(await exists(join(sandbox.home, '.local')), false, script)
   }
 })
 
 void test('install-edge.sh prefers ~/bin when only it is on PATH', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  await createRelease(sandbox, { version: '0.0.0-edge' })
+  await createFullRelease(sandbox, { version: '0.0.0-edge' })
 
   const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, 'bin')}:${SYSTEM_PATH}` })
 
   assertOk(result)
   assert.ok(await exists(join(sandbox.home, 'bin', 'srcz')))
+  assert.ok(await exists(join(sandbox.home, 'bin', 'srcz-desktop')))
   assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false)
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz-desktop')), false)
+})
+
+void test('install-edge.sh prints the PATH line once when installing the CLI and the app', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createFullRelease(sandbox, { version: '0.0.0-edge' })
+
+  const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${SYSTEM_PATH}` })
+
+  assertOk(result)
+  assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'srcz')))
+  assert.equal(result.stdout.match(/not on PATH/g)?.length, 1, result.stdout)
 })
 
 void test('install-edge.sh prints the PATH line for the shell and never edits rc files', async (t) => {
@@ -316,7 +372,7 @@ void test('install-edge.sh prints the PATH line for the shell and never edits rc
     const sandbox = await createSandbox(t.after.bind(t))
     await createRelease(sandbox, { version: '0.0.0-edge' })
 
-    const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${SYSTEM_PATH}`, SHELL: shell })
+    const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${SYSTEM_PATH}`, SHELL: shell }, CLI_ONLY)
 
     assertOk(result)
     assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'srcz')))
@@ -326,9 +382,9 @@ void test('install-edge.sh prints the PATH line for the shell and never edits rc
   }
 })
 
-void test('install-edge.sh reports an update, a shadowing srcz, and a running daemon', async (t) => {
+void test('install-edge.sh reports an update, a shadowing srcz, and a running daemon once', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  await createRelease(sandbox, { version: '0.0.0-edge' })
+  await createFullRelease(sandbox, { version: '0.0.0-edge' })
   await writeExecutable(join(sandbox.home, '.local', 'bin', 'srcz'), fakeSrcz('0.1.6'))
   const earlier = join(sandbox.root, 'brew-bin')
   await writeExecutable(join(earlier, 'srcz'), fakeSrcz('0.1.5'))
@@ -341,12 +397,12 @@ void test('install-edge.sh reports an update, a shadowing srcz, and a running da
   assertOk(result)
   assert.match(result.stdout, /updated .*\/\.local\/bin\/srcz \(srcz 0\.1\.6 -> srcz 0\.0\.0-edge/)
   assert.match(result.stdout, /brew-bin\/srcz comes first on PATH and is not the srcz just installed/)
-  assert.match(result.stdout, /srcz daemon stop/)
+  assert.equal(result.stdout.match(/daemon stop/g)?.length, 1, result.stdout)
 })
 
 void test('install-edge.sh stops without its archive or on an unsupported platform', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  const missing = await run('install-edge.sh', sandbox)
+  const missing = await run('install-edge.sh', sandbox, {}, CLI_ONLY)
   assert.notEqual(missing.code, 0)
   assert.match(missing.stderr, /could not download srcz_0\.0\.0-edge_linux_amd64\.tar\.gz from srcz edge/)
 
@@ -359,18 +415,18 @@ void test('install-edge.sh stops without its archive or on an unsupported platfo
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
-// --- install-desktop.sh, install-desktop-edge.sh ---
+// --- default install: the CLI and the desktop app ---
 
-void test('install-desktop-edge.sh installs the Linux app, registers srcz://, and links it on PATH', async (t) => {
+void test('install-edge.sh installs the CLI and the Linux app, registers srcz://, and links both on PATH', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t), { homeName: 'home 50%' })
-  await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
+  await createFullRelease(sandbox, { version: '0.0.0-edge' })
   const share = join(sandbox.home, '.local', 'share')
   await writeExecutable(join(share, 'srcz-desktop', 'app', 'stale'), 'earlier build')
   const storage = join(share, 'srcz-desktop', 'localstorage', 'page.localstorage')
   await mkdir(dirname(storage), { recursive: true })
   await writeFile(storage, 'tabs')
 
-  const result = await run('install-desktop-edge.sh', sandbox)
+  const result = await run('install-edge.sh', sandbox)
 
   assertOk(result)
   const app = join(share, 'srcz-desktop', 'app')
@@ -381,7 +437,8 @@ void test('install-desktop-edge.sh installs the Linux app, registers srcz://, an
   assert.match(result.stdout, /installed .*srcz-desktop\/app \(srcz-desktop 0\.0\.0-edge abc123\)/)
   const link = join(sandbox.home, '.local', 'bin', 'srcz-desktop')
   assert.equal((await readFile(link, 'utf8')).includes('srcz-desktop 0.0.0-edge'), true)
-  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false, 'the CLI is not installed')
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'srcz')), 'the CLI goes on PATH')
+  assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.0\.0-edge \(abc123\)\)/)
 
   const exec = `"${join(app, 'srcz-desktop').replaceAll('%', '%%')}"`
   const entry = await readFile(join(share, 'applications', 'srcz-desktop.desktop'), 'utf8')
@@ -393,96 +450,122 @@ void test('install-desktop-edge.sh installs the Linux app, registers srcz://, an
 
   const log = await readFile(sandbox.log, 'utf8')
   assert.ok(log.includes(`${EDGE_DOWNLOAD}srcz-desktop_0.0.0-edge_linux_amd64.tar.gz`), log)
-  assert.doesNotMatch(log, /srcz_0\.0\.0-edge_linux_amd64\.tar\.gz/)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}srcz_0.0.0-edge_linux_amd64.tar.gz`), log)
   assert.doesNotMatch(log, /releases\/latest/)
   assert.match(log, /^xdg-mime default srcz-desktop\.desktop x-scheme-handler\/srcz$/m)
   assert.ok(await exists(join(sandbox.home, '.config')), 'xdg-mime writes mimeapps.list there and does not create it')
   assert.match(log, /^update-desktop-database .*\/applications$/m)
-  assert.match(result.stdout, /srcz-desktop \./)
-  assert.match(result.stdout, /scripts\/install\.sh/)
+  assert.match(result.stdout, /srcz \./)
 })
 
-void test('install-desktop.sh warns without WebKitGTK and installs anyway', async (t) => {
+void test('install.sh warns without WebKitGTK and installs anyway', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox)
+  await createFullRelease(sandbox)
 
-  const missing = await run('install-desktop.sh', sandbox)
+  const missing = await run('install.sh', sandbox)
   assertOk(missing)
   assert.match(missing.stdout, /WebKitGTK 4\.1 not found/)
   assert.match(missing.stdout, /apt install libwebkit2gtk-4\.1-0/)
   assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')))
 
-  const present = await run('install-desktop.sh', sandbox, { STUB_LDCONFIG: 'libwebkit2gtk-4.1.so.0 (libc6,x86-64) => /usr/lib/libwebkit2gtk-4.1.so.0' })
+  const present = await run('install.sh', sandbox, { STUB_LDCONFIG: 'libwebkit2gtk-4.1.so.0 (libc6,x86-64) => /usr/lib/libwebkit2gtk-4.1.so.0' })
   assertOk(present)
   assert.doesNotMatch(present.stdout, /WebKitGTK/)
 })
 
-void test('install-desktop.sh installs the latest release for the machine', async (t) => {
+void test('install.sh installs the CLI and the app of the latest release for the machine', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox, { arch: 'arm64' })
+  await createFullRelease(sandbox, { arch: 'arm64' })
 
-  const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_M: 'aarch64' })
+  const result = await run('install.sh', sandbox, { STUB_UNAME_M: 'aarch64' })
 
   assertOk(result)
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'srcz')))
   assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')))
   const log = await readFile(sandbox.log, 'utf8')
   assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
+  assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz_0.1.7_linux_arm64.tar.gz'), log)
   assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_linux_arm64.tar.gz'), log)
 })
 
-void test('install-desktop.sh installs srcz-desktop.app on macOS and links it', async (t) => {
+void test('install.sh installs the CLI and srcz-desktop.app on macOS and links both', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
+  await createRelease(sandbox, { arch: 'arm64', os: 'darwin' })
   await createDesktopRelease(sandbox)
   const apps = (await exists('/Applications')) ? '/Applications' : join(sandbox.home, 'Applications')
   t.after(async () => {
     if (apps === '/Applications') await rm('/Applications/srcz-desktop.app', { recursive: true, force: true })
   })
-  const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
+  const result = await run('install.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
   assertOk(result)
   const executable = join(apps, 'srcz-desktop.app', 'Contents', 'MacOS', 'srcz-desktop')
   assert.equal(await readFile(executable, 'utf8'), 'app')
   assert.equal(await readFile(join(sandbox.home, '.local', 'bin', 'srcz-desktop'), 'utf8'), 'app')
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'bin', 'srcz')))
   assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
   const log = await readFile(sandbox.log, 'utf8')
   assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_darwin_arm64.zip'), log)
   assert.doesNotMatch(log, /xdg-mime/)
 })
 
-void test('install-desktop.sh explains a release without the desktop app and changes nothing', async (t) => {
-  for (const [os, machine, asset] of [['Linux', 'x86_64', 'srcz-desktop_0\\.1\\.7_linux_amd64\\.tar\\.gz'], ['Darwin', 'arm64', 'srcz-desktop_0\\.1\\.7_darwin_arm64\\.zip']] as const) {
+void test('install.sh without the desktop asset names --cli-only and changes nothing', async (t) => {
+  for (const [os, assetOs, machine, arch, asset] of [
+    ['Linux', 'linux', 'x86_64', 'amd64', 'srcz-desktop_0\\.1\\.7_linux_amd64\\.tar\\.gz'],
+    ['Darwin', 'darwin', 'arm64', 'arm64', 'srcz-desktop_0\\.1\\.7_darwin_arm64\\.zip'],
+  ] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
-    await createRelease(sandbox)
-    const old = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')
-    await writeExecutable(old, 'old')
+    await createRelease(sandbox, { arch, os: assetOs })
+    const oldApp = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')
+    await writeExecutable(oldApp, 'old')
+    const oldCli = join(sandbox.home, '.local', 'bin', 'srcz')
+    await writeExecutable(oldCli, fakeSrcz('0.1.6'))
 
-    const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: os, STUB_UNAME_M: machine })
+    const result = await run('install.sh', sandbox, { STUB_UNAME_S: os, STUB_UNAME_M: machine })
 
     assert.notEqual(result.code, 0)
-    assert.match(result.stderr, new RegExp(`srcz v0\\.1\\.7 has no ${asset}; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel`))
-    assert.ok(await exists(old), 'a failed install leaves the installed app alone')
+    assert.match(result.stderr, new RegExp(`srcz v0\\.1\\.7 has no ${asset}; install the CLI alone with --cli-only`))
+    assert.equal(await readFile(oldApp, 'utf8'), 'old', 'a failed install leaves the installed app alone')
+    assert.equal(await readFile(oldCli, 'utf8'), fakeSrcz('0.1.6'), 'a failed install leaves the installed CLI alone')
   }
 })
 
-void test('install-desktop scripts stop while the app runs', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
-
-  const running = await run('install-desktop-edge.sh', sandbox, { STUB_PGREP: '0' })
-
-  assert.notEqual(running.code, 0)
-  assert.match(running.stderr, /the srcz desktop app is running; quit it, then run this again/)
-  assert.equal(await exists(join(sandbox.home, '.local')), false)
-})
-
-void test('install-desktop.sh overwrites an earlier desktop entry', async (t) => {
+void test('install.sh without the CLI archive leaves the installed app alone', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox)
+  const oldApp = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')
+  await writeExecutable(oldApp, 'old')
+
+  const result = await run('install.sh', sandbox)
+
+  assert.notEqual(result.code, 0)
+  assert.match(result.stderr, /could not download srcz_0\.1\.7_linux_amd64\.tar\.gz from srcz v0\.1\.7/)
+  assert.equal(await readFile(oldApp, 'utf8'), 'old')
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false)
+})
+
+void test('install scripts stop while the app runs and change nothing', async (t) => {
+  for (const [script, version] of [['install.sh', '0.1.7'], ['install-edge.sh', '0.0.0-edge']] as const) {
+    const sandbox = await createSandbox(t.after.bind(t))
+    await createFullRelease(sandbox, { version })
+
+    const running = await run(script, sandbox, { STUB_PGREP: '0' })
+
+    assert.notEqual(running.code, 0, script)
+    assert.match(running.stderr, /the srcz desktop app is running; quit it, then run this again/, script)
+    assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /releases\/download/, script)
+    assert.equal(await exists(join(sandbox.home, '.local')), false, script)
+  }
+})
+
+void test('install.sh overwrites an earlier desktop entry', async (t) => {
+  const sandbox = await createSandbox(t.after.bind(t))
+  await createFullRelease(sandbox)
   const share = join(sandbox.home, '.local', 'share')
   const oldEntry = join(share, 'applications', 'srcz-desktop.desktop')
   await writeExecutable(oldEntry, 'old')
 
-  const result = await run('install-desktop.sh', sandbox)
+  const result = await run('install.sh', sandbox)
 
   assertOk(result)
   assert.match(await readFile(oldEntry, 'utf8'), /srcz-desktop\/app\/srcz-desktop %U/, 'the desktop entry is overwritten')
@@ -491,19 +574,23 @@ void test('install-desktop.sh overwrites an earlier desktop entry', async (t) =>
 
 // --- install.sh ---
 
-void test('install.sh installs the CLI from the release the latest page redirects to', async (t) => {
+void test('install.sh --cli-only installs only the CLI from the release the latest page redirects to', async (t) => {
   for (const [machine, arch] of [['x86_64', 'amd64'], ['aarch64', 'arm64']] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
-    await createRelease(sandbox, { arch })
+    await createFullRelease(sandbox, { arch })
 
-    const result = await run('install.sh', sandbox, { STUB_UNAME_M: machine })
+    const result = await run('install.sh', sandbox, { STUB_UNAME_M: machine }, CLI_ONLY)
 
     assertOk(result)
     assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.1\.7 \(abc123\)\)/)
+    assert.doesNotMatch(result.stdout, /WebKitGTK/)
     const log = await readFile(sandbox.log, 'utf8')
     assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
     assert.ok(log.includes(`https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz_0.1.7_linux_${arch}.tar.gz`), log)
+    assert.doesNotMatch(log, /srcz-desktop_/)
     assert.doesNotMatch(log, /api\.github\.com/)
+    assert.equal(await exists(join(sandbox.home, '.local', 'share')), false, 'no app files')
+    assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz-desktop')), false)
   }
 })
 
@@ -523,7 +610,7 @@ async function systemPathWithout(sandbox: Sandbox, names: string[]): Promise<str
 
 void test('install.sh resolves the latest release with wget when curl is missing', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t), { without: ['curl'] })
-  await createRelease(sandbox)
+  await createFullRelease(sandbox)
   const system = await systemPathWithout(sandbox, ['curl'])
 
   const result = await run('install.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${system}` })
@@ -547,10 +634,10 @@ void test('install.sh stops when the latest release or its archive is missing', 
   assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false)
 })
 
-for (const script of ['install-desktop.sh', 'uninstall.sh']) {
+for (const script of ['install.sh', 'uninstall.sh']) {
   void test(`${script} keeps page state when XDG_DATA_HOME equals XDG_CONFIG_HOME`, async (t) => {
     const sandbox = await createSandbox(t.after.bind(t))
-    await createDesktopRelease(sandbox)
+    await createFullRelease(sandbox)
     const same = join(sandbox.root, 'xdg')
     const pageState = join(same, 'srcz-desktop', 'localstorage', 'page.localstorage')
     await writeExecutable(pageState, 'tabs')
@@ -559,7 +646,7 @@ for (const script of ['install-desktop.sh', 'uninstall.sh']) {
 
     assertOk(result)
     assert.ok(await exists(pageState), 'page state shares the directory and stays')
-    assert.equal(await exists(join(same, 'srcz-desktop', 'app', 'srcz-desktop')), script === 'install-desktop.sh')
+    assert.equal(await exists(join(same, 'srcz-desktop', 'app', 'srcz-desktop')), script === 'install.sh')
   })
 }
 
@@ -567,8 +654,8 @@ for (const script of ['install-desktop.sh', 'uninstall.sh']) {
 
 void test('uninstall.sh removes the desktop app, reports package-managed copies, and keeps user data', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
-  assertOk(await run('install-desktop-edge.sh', sandbox))
+  await createFullRelease(sandbox, { version: '0.0.0-edge' })
+  assertOk(await run('install-edge.sh', sandbox))
   const share = join(sandbox.home, '.local', 'share')
   const config = join(sandbox.home, '.config')
   const pageState = join(share, 'srcz-desktop', 'localstorage')
@@ -617,17 +704,6 @@ void test('uninstall.sh removes the macOS bundle and keeps page state', async (t
   assert.equal(await exists(bundle), false, `${bundle} is removed`)
   assert.ok(await exists(webkit), 'page state is kept')
   assert.ok(result.stdout.includes(webkit))
-})
-
-void test('install-desktop-edge.sh warns about a running daemon with the bundled srcz', async (t) => {
-  const sandbox = await createSandbox(t.after.bind(t))
-  await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
-
-  const result = await run('install-desktop-edge.sh', sandbox, { STUB_DAEMON_STATUS: '0' })
-
-  assertOk(result)
-  const bundled = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'bin', 'srcz')
-  assert.ok(result.stdout.includes(`"${bundled}" daemon stop`), result.stdout)
 })
 
 void test('uninstall.sh stops for a running daemon when only the app is installed', async (t) => {

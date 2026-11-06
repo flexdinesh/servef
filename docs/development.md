@@ -12,10 +12,10 @@ mise tasks                                     # list every task
 CI publishes the `edge` prerelease after every green push to `main`; `srcz --version` prints `0.0.0-edge` and the commit. Edge has no macOS Intel builds.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-edge.sh | sh           # CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop-edge.sh | sh   # desktop app
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh                # back to stable
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh              # remove all
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-edge.sh | sh                  # CLI and desktop app
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-edge.sh | sh -s -- --cli-only   # CLI only
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh                       # back to stable
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh                     # remove all
 ```
 
 Run it:

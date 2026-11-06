@@ -97,7 +97,7 @@ func TestOpenPerOS(t *testing.T) {
 
 func TestInstallHintPerOS(t *testing.T) {
 	footer := []string{
-		"curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh",
+		"curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh",
 		"`srcz browser` serves in a web browser",
 		"https://github.com/flexdinesh/srcz/blob/main/apps/site/src/pages/docs/desktop.mdx",
 	}

@@ -1,10 +1,14 @@
 #!/bin/sh
-# Installs the srcz CLI from the latest release. Decision 0073.
+# Installs the srcz CLI and desktop app from the latest release. Decisions 0073
+# and 0101.
 #
 #   curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh -s -- --cli-only
 #
-# Writes only the srcz binary to ~/.local/bin (or ~/bin when that is on
-# PATH). The desktop app: scripts/install-desktop.sh. Latest main:
+# srcz and srcz-desktop go on PATH in ~/.local/bin (or ~/bin when that is on
+# PATH). Linux: the app goes to ~/.local/share/srcz-desktop/app with a desktop
+# entry for srcz:// links and an icon. macOS: srcz-desktop.app in /Applications
+# (or ~/Applications). --cli-only writes only the srcz binary. Latest main:
 # scripts/install-edge.sh. Remove with scripts/uninstall.sh.
 
 # shared:base:begin
@@ -135,6 +139,184 @@ install_cli() {
 }
 # shared:cli:end
 
+# shared:args:begin
+CLI_ONLY=0
+
+# parse_args sets CLI_ONLY from the script's arguments.
+parse_args() {
+  for arg in "$@"; do
+    case "$arg" in
+      --cli-only) CLI_ONLY=1 ;;
+      *) fail "unknown option $arg; the only option is --cli-only" ;;
+    esac
+  done
+}
+# shared:args:end
+
+# shared:desktop:begin
+DESKTOP_DATA="${XDG_DATA_HOME:-}"
+case "$DESKTOP_DATA" in
+  /*) ;;
+  *) DESKTOP_DATA="$HOME/.local/share" ;;
+esac
+DESKTOP_CONFIG="${XDG_CONFIG_HOME:-}"
+case "$DESKTOP_CONFIG" in
+  /*) ;;
+  *) DESKTOP_CONFIG="$HOME/.config" ;;
+esac
+# The app has a directory of its own: WebKit keeps the page's localStorage
+# beside it in srcz-desktop/, which updates and uninstall leave alone.
+DESKTOP_HOME="$DESKTOP_DATA/srcz-desktop/app"
+DESKTOP_ID="srcz-desktop.desktop"
+DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/srcz-desktop.png"
+
+desktop_running() {
+  has pgrep || return 1
+  if [ "$OS" = darwin ]; then
+    pgrep -f 'srcz-desktop\.app/Contents/MacOS/srcz-desktop' >/dev/null 2>&1
+  else
+    pgrep -x -u "$(id -u)" srcz-desktop >/dev/null 2>&1
+  fi
+}
+# shared:desktop:end
+
+# shared:desktop-install:begin
+# check_webkit warns on Linux without WebKitGTK 4.1, which the app's window
+# needs. The app still installs: the check cannot see every library path.
+check_webkit() {
+  [ "$OS" = linux ] || return 0
+  finder="$(command -v ldconfig 2>/dev/null || true)"
+  if [ -z "$finder" ] && [ -x /sbin/ldconfig ]; then finder=/sbin/ldconfig; fi
+  [ -n "$finder" ] || return 0
+  if ! "$finder" -p 2>/dev/null | grep -q 'libwebkit2gtk-4\.1\.so\.0'; then
+    warn "WebKitGTK 4.1 not found; the app needs it to open a window. Debian, Ubuntu:"
+    note "sudo apt install libwebkit2gtk-4.1-0"
+  fi
+}
+
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+check_desktop_conflicts() {
+  if desktop_running; then
+    fail "the srcz desktop app is running; quit it, then run this again"
+  fi
+}
+
+# desktop_exec PATH renders PATH as one desktop entry Exec argument.
+desktop_exec() {
+  value="$(printf '%s' "$1" | sed 's/%/%%/g')"
+  case "$value" in
+    *[!A-Za-z0-9_./+,:@=-]*)
+      # shellcheck disable=SC2016 # sed expression, not shell expansion
+      value="\"$(printf '%s' "$value" | sed 's/[\\"`$]/\\&/g')\""
+      ;;
+  esac
+  printf '%s' "$value" | sed 's/\\/\\\\/g'
+}
+
+# replace_path SRC DEST copies SRC over DEST, swapping it in once copied.
+replace_path() {
+  rm -rf "$2.new"
+  if has ditto; then
+    ditto "$1" "$2.new"
+  else
+    cp -R "$1" "$2.new"
+  fi
+  rm -rf "$2"
+  mv "$2.new" "$2"
+}
+
+# link_desktop TARGET links BIN_DIR/srcz-desktop to TARGET.
+link_desktop() {
+  choose_bin_dir
+  ln -sfn "$1" "$BIN_DIR/srcz-desktop"
+  ok "linked $BIN_DIR/srcz-desktop"
+}
+
+# install_desktop_linux DIR installs the unpacked Linux archive DIR, its
+# desktop entry and icon, and makes it the srcz:// handler.
+install_desktop_linux() {
+  if ! [ -x "$1/srcz-desktop" ] || ! [ -x "$1/bin/srcz" ]; then
+    fail "$package has no srcz-desktop app"
+  fi
+  mkdir -p "$DESKTOP_DATA/srcz-desktop"
+  replace_path "$1" "$DESKTOP_HOME"
+  version="$("$DESKTOP_HOME/srcz-desktop" --version 2>/dev/null | head -n 1 || true)"
+  ok "installed $DESKTOP_HOME ($version)"
+  exec_arg="$(desktop_exec "$DESKTOP_HOME/srcz-desktop")"
+  mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")" "$DESKTOP_CONFIG"
+  cp "$DESKTOP_HOME/srcz-desktop.png" "$DESKTOP_ICON"
+  cat >"$DESKTOP_DATA/applications/$DESKTOP_ID" <<EOF2
+[Desktop Entry]
+Type=Application
+Name=srcz
+Comment=Browse local files with Source Zero
+Exec=$exec_arg %U
+Icon=srcz-desktop
+Terminal=false
+Categories=Development;
+MimeType=x-scheme-handler/srcz;
+EOF2
+  if has update-desktop-database; then
+    update-desktop-database "$DESKTOP_DATA/applications" >/dev/null 2>&1 || true
+  fi
+  if has xdg-mime && xdg-mime default "$DESKTOP_ID" x-scheme-handler/srcz; then
+    ok "registered srcz:// links"
+  else
+    warn "could not set the srcz:// handler (xdg-mime); srcz . may serve in a browser instead"
+  fi
+  link_desktop "$DESKTOP_HOME/srcz-desktop"
+}
+
+# install_desktop_macos APP installs srcz-desktop.app into /Applications, or
+# ~/Applications when /Applications is not writable.
+install_desktop_macos() {
+  apps="/Applications"
+  if ! [ -d "$apps" ] || ! [ -w "$apps" ]; then
+    apps="$HOME/Applications"
+    mkdir -p "$apps"
+  fi
+  replace_path "$1" "$apps/srcz-desktop.app"
+  if [ -x "$LSREGISTER" ]; then
+    "$LSREGISTER" -f "$apps/srcz-desktop.app" >/dev/null 2>&1 || true
+  fi
+  ok "installed $apps/srcz-desktop.app"
+  link_desktop "$apps/srcz-desktop.app/Contents/MacOS/srcz-desktop"
+}
+
+# download_desktop unpacks the desktop app of release TAG into TMP/desktop.
+download_desktop() {
+  if [ "$OS" = linux ]; then
+    package="srcz-desktop_${VERSION}_linux_${ARCH}.tar.gz"
+  else
+    package="srcz-desktop_${VERSION}_darwin_${ARCH}.zip"
+  fi
+
+  step "downloading the srcz desktop app $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$package")" "$TMP/$package" ||
+    fail "srcz $TAG has no $package; install the CLI alone with --cli-only"
+
+  mkdir -p "$TMP/desktop"
+  if [ "$OS" = linux ]; then
+    tar -xzf "$TMP/$package" -C "$TMP/desktop"
+  elif has ditto; then
+    ditto -x -k "$TMP/$package" "$TMP/desktop"
+  else
+    unzip -q "$TMP/$package" -d "$TMP/desktop"
+  fi
+}
+
+# install_desktop installs the app download_desktop unpacked.
+install_desktop() {
+  if [ "$OS" = linux ]; then
+    install_desktop_linux "$TMP/desktop"
+  else
+    [ -d "$TMP/desktop/srcz-desktop.app" ] || fail "$package has no srcz-desktop.app"
+    install_desktop_macos "$TMP/desktop/srcz-desktop.app"
+  fi
+}
+# shared:desktop-install:end
+
 # shared:latest:begin
 # latest_release sets TAG and VERSION (TAG without its leading v) from the tag
 # the releases/latest page redirects to; the GitHub API is rate limited.
@@ -177,10 +359,17 @@ download_cli() {
 }
 # shared:release:end
 
+parse_args "$@"
 detect_platform
+if [ "$CLI_ONLY" = 0 ]; then check_desktop_conflicts; fi
 make_tmp
 latest_release
 download_cli
+if [ "$CLI_ONLY" = 0 ]; then
+  download_desktop
+  install_desktop
+fi
 install_cli "$CLI"
+if [ "$CLI_ONLY" = 0 ]; then check_webkit; fi
 ok "done; open the current directory with:"
 note "srcz ."
