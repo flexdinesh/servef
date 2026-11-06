@@ -1,6 +1,6 @@
-# 0065: `servef walkthrough publish` without a server
+# 0065: `srcz walkthrough publish` without a server
 
-- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (`servef://` URL when the app shows the walkthrough) and [0069](0069-servef-remote-and-ssh-links.md) (`servef://ssh` URL inside SSH); shared checks moved to `internal/app` by [0087](0087-walkthroughs-in-the-application-layer.md)
+- Status: Accepted; revised by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) (`srcz://` URL when the app shows the walkthrough) and [0069](0069-srcz-remote-and-ssh-links.md) (`srcz://ssh` URL inside SSH); shared checks moved to `internal/app` by [0087](0087-walkthroughs-in-the-application-layer.md)
 - Date: 2026-11-01
 - Extends: [0047](0047-walkthroughs.md), [0049](0049-copyable-agent-instructions.md)
 - Implements in part: [0063](0063-cli-commands-and-url-scheme.md) (the
@@ -18,11 +18,11 @@ list, so a server is needed only to check targets, not to store or show them.
 
 ### Commands
 
-- `servef walkthrough publish <file|->` reads one draft from a file, or
+- `srcz walkthrough publish <file|->` reads one draft from a file, or
   standard input for `-`, within the 1 MiB request limit. It decodes strictly,
   normalizes, checks targets, and writes the same store. Flags: `--depth`
-  (default 5, as `servef browser`), `--no-open`, `--json`.
-- `servef walkthrough schema` prints the JSON Schema, so agents need no server
+  (default 5, as `srcz browser`), `--no-open`, `--json`.
+- `srcz walkthrough schema` prints the JSON Schema, so agents need no server
   to read the format.
 - Text output by default: `published <id> (created|replaced) for <project>`,
   then `url: <url>` or how to view it. `--json` prints
@@ -30,7 +30,7 @@ list, so a server is needed only to check targets, not to store or show them.
 - Any rejection exits 1 and lists every problem as `field: message` on
   stderr. Nothing is written.
 - Subcommand names take precedence over directories (as 0060's `browser`):
-  serve a directory named `walkthrough` as `servef ./walkthrough`.
+  serve a directory named `walkthrough` as `srcz ./walkthrough`.
 
 ### Targets
 
@@ -57,7 +57,7 @@ list, so a server is needed only to check targets, not to store or show them.
   another `XDG_CACHE_HOME`); the CLI warns and names its POST endpoint.
 - `"open": true` opens the found URL unless `--no-open` or an SSH session.
   With no server showing it, the CLI prints how to view it
-  (`servef <project>`, then Walkthroughs) and exits 0. It never starts a
+  (`srcz <project>`, then Walkthroughs) and exits 0. It never starts a
   server.
 
 ### Agents
@@ -71,7 +71,7 @@ list, so a server is needed only to check targets, not to store or show them.
 - Publishing works with no server running and without port probing.
 - A server run with `--depth` above 5 accepts deeper working-tree files than
   the CLI default; `--depth` matches it.
-- A server rooted inside a repository (`servef ~/repo/docs`) accepts
+- A server rooted inside a repository (`srcz ~/repo/docs`) accepts
   `~/repo/docs` as a project; the CLI rejects it. A repository at `~` makes
   every non-git folder under `~` inside a repository for the CLI.
 - Processes with different cache directories write different stores. The

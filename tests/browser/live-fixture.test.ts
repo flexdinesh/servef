@@ -7,7 +7,7 @@ import test from "node:test"
 import { createLiveFixture, longDocument } from "./live-fixture.ts"
 
 test("live fixtures have independent mutable documents", () => {
-  const directory = mkdtempSync(path.join(tmpdir(), "servef-live-test-"))
+  const directory = mkdtempSync(path.join(tmpdir(), "srcz-live-test-"))
   try {
     const first = path.join(directory, "first")
     const second = path.join(directory, "second")

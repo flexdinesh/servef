@@ -1,4 +1,4 @@
-/* Import manifest. Layer order: Tailwind's layers, then servef's foundation,
+/* Import manifest. Layer order: Tailwind's layers, then srcz's foundation,
    shared primitives (ui), and feature styles. Tokens and themes stay unlayered. */
 @layer theme, base, components, utilities, foundation, ui, features;
 

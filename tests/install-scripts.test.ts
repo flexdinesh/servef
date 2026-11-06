@@ -43,13 +43,13 @@ const STUBS: Record<string, string[]> = {
     '  esac',
     'fi',
   ],
-  // macOS only: extracts a release zip as servef-desktop.app, or copies a
+  // macOS only: extracts a release zip as srcz-desktop.app, or copies a
   // directory.
   ditto: [
     'echo "ditto $*" >> "$STUB_LOG"',
     'if [ "$1" = -x ]; then',
-    '  mkdir -p "$4/servef-desktop.app/Contents/MacOS"',
-    "  printf 'app' > \"$4/servef-desktop.app/Contents/MacOS/servef-desktop\"",
+    '  mkdir -p "$4/srcz-desktop.app/Contents/MacOS"',
+    "  printf 'app' > \"$4/srcz-desktop.app/Contents/MacOS/srcz-desktop\"",
     'else',
     '  cp -R "$1" "$2"',
     'fi',
@@ -101,11 +101,11 @@ const STUBS: Record<string, string[]> = {
   ],
 }
 
-function fakeServef(version: string): string {
+function fakeSrcz(version: string): string {
   return [
     '#!/bin/sh',
     'case "$1" in',
-    `  --version) echo "servef ${version}" ;;`,
+    `  --version) echo "srcz ${version}" ;;`,
     '  daemon) exit "${STUB_DAEMON_STATUS:-1}" ;;',
     'esac',
     '',
@@ -124,7 +124,7 @@ async function createSandbox(
 ): Promise<Sandbox> {
   const testRoot = join(repositoryRoot, '.scratch', 'test-tmp')
   await mkdir(testRoot, { recursive: true })
-  const root = await mkdtemp(join(testRoot, 'servef-install-'))
+  const root = await mkdtemp(join(testRoot, 'srcz-install-'))
   registerCleanup(async () => {
     await rm(root, { recursive: true, force: true })
   })
@@ -150,7 +150,7 @@ async function createSandbox(
       STUB_UNAME_S: 'Linux',
       STUB_UNAME_M: 'x86_64',
       STUB_RELEASE_DIR: join(root, 'release'),
-      STUB_LATEST: 'https://github.com/flexdinesh/servef/releases/tag/v0.1.7',
+      STUB_LATEST: 'https://github.com/flexdinesh/srcz/releases/tag/v0.1.7',
     },
   }
 }
@@ -164,8 +164,8 @@ async function createRelease(
   const arch = options.arch ?? 'amd64'
   const version = options.version ?? '0.1.7'
   const release = sandbox.env.STUB_RELEASE_DIR ?? ''
-  const name = `servef_${version}_linux_${arch}`
-  await writeExecutable(join(release, name, 'servef'), fakeServef(`${version} (abc123)`))
+  const name = `srcz_${version}_linux_${arch}`
+  await writeExecutable(join(release, name, 'srcz'), fakeSrcz(`${version} (abc123)`))
   await new Promise<void>((resolve, reject) => {
     execFile('tar', ['-czf', join(release, `${name}.tar.gz`), '-C', release, name], (error) => {
       if (error === null) resolve()
@@ -176,24 +176,24 @@ async function createRelease(
 }
 
 // createDesktopRelease writes the desktop app's assets for version: the Linux
-// archive for arch (the app, its bundled servef, and its icon) and the
+// archive for arch (the app, its bundled srcz, and its icon) and the
 // darwin/arm64 zip.
 async function createDesktopRelease(sandbox: Sandbox, options: { arch?: string; version?: string } = {}): Promise<void> {
   const arch = options.arch ?? 'amd64'
   const version = options.version ?? '0.1.7'
   const release = sandbox.env.STUB_RELEASE_DIR ?? ''
   const staging = join(release, 'desktop-staging')
-  await writeExecutable(join(staging, 'servef-desktop'), `#!/bin/sh\necho "servef-desktop ${version} abc123"\n`)
-  await writeExecutable(join(staging, 'bin', 'servef'), fakeServef(`${version} (abc123)`))
-  await writeFile(join(staging, 'servef-desktop.png'), 'desktop png')
+  await writeExecutable(join(staging, 'srcz-desktop'), `#!/bin/sh\necho "srcz-desktop ${version} abc123"\n`)
+  await writeExecutable(join(staging, 'bin', 'srcz'), fakeSrcz(`${version} (abc123)`))
+  await writeFile(join(staging, 'srcz-desktop.png'), 'desktop png')
   await new Promise<void>((resolve, reject) => {
-    execFile('tar', ['-czf', join(release, `servef-desktop_${version}_linux_${arch}.tar.gz`), '-C', staging, '.'], (error) => {
+    execFile('tar', ['-czf', join(release, `srcz-desktop_${version}_linux_${arch}.tar.gz`), '-C', staging, '.'], (error) => {
       if (error === null) resolve()
       else reject(error)
     })
   })
   await rm(staging, { recursive: true })
-  await writeFile(join(release, `servef-desktop_${version}_darwin_arm64.zip`), 'zip')
+  await writeFile(join(release, `srcz-desktop_${version}_darwin_arm64.zip`), 'zip')
 }
 
 function run(script: string, sandbox: Sandbox, env: Record<string, string> = {}): Promise<Result> {
@@ -252,7 +252,7 @@ void test('shared blocks are identical in every script that carries them', async
 
 // --- install-edge.sh ---
 
-const EDGE_DOWNLOAD = 'https://github.com/flexdinesh/servef/releases/download/edge/'
+const EDGE_DOWNLOAD = 'https://github.com/flexdinesh/srcz/releases/download/edge/'
 
 void test('edge install scripts stop on macOS Intel before downloading', async (t) => {
   for (const script of ['install-edge.sh', 'install-desktop-edge.sh']) {
@@ -272,7 +272,7 @@ void test('stable install.sh still targets macOS Intel', async (t) => {
 
   await run('install.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'x86_64' })
 
-  assert.ok((await readFile(sandbox.log, 'utf8')).includes('/releases/download/v0.1.7/servef_0.1.7_darwin_amd64.tar.gz'))
+  assert.ok((await readFile(sandbox.log, 'utf8')).includes('/releases/download/v0.1.7/srcz_0.1.7_darwin_amd64.tar.gz'))
 })
 
 void test('install-edge.sh installs the CLI from the edge prerelease on PATH', async (t) => {
@@ -283,13 +283,13 @@ void test('install-edge.sh installs the CLI from the edge prerelease on PATH', a
     const result = await run('install-edge.sh', sandbox, { STUB_UNAME_M: machine })
 
     assertOk(result)
-    const bin = join(sandbox.home, '.local', 'bin', 'servef')
+    const bin = join(sandbox.home, '.local', 'bin', 'srcz')
     assert.ok(await isExecutable(bin))
-    assert.match(result.stdout, /downloading servef edge \(linux\/(amd64|arm64)\)/)
-    assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.0\.0-edge \(abc123\)\)/)
+    assert.match(result.stdout, /downloading srcz edge \(linux\/(amd64|arm64)\)/)
+    assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.0\.0-edge \(abc123\)\)/)
     assert.doesNotMatch(result.stdout, /not on PATH/)
     const log = await readFile(sandbox.log, 'utf8')
-    assert.ok(log.includes(`${EDGE_DOWNLOAD}servef_0.0.0-edge_linux_${arch}.tar.gz`), log)
+    assert.ok(log.includes(`${EDGE_DOWNLOAD}srcz_0.0.0-edge_linux_${arch}.tar.gz`), log)
     assert.doesNotMatch(log, /releases\/latest/)
     assert.doesNotMatch(log, /api\.github\.com/)
   }
@@ -302,8 +302,8 @@ void test('install-edge.sh prefers ~/bin when only it is on PATH', async (t) => 
   const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, 'bin')}:${SYSTEM_PATH}` })
 
   assertOk(result)
-  assert.ok(await exists(join(sandbox.home, 'bin', 'servef')))
-  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false)
+  assert.ok(await exists(join(sandbox.home, 'bin', 'srcz')))
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false)
 })
 
 void test('install-edge.sh prints the PATH line for the shell and never edits rc files', async (t) => {
@@ -319,19 +319,19 @@ void test('install-edge.sh prints the PATH line for the shell and never edits rc
     const result = await run('install-edge.sh', sandbox, { PATH: `${sandbox.stubs}:${SYSTEM_PATH}`, SHELL: shell })
 
     assertOk(result)
-    assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'servef')))
+    assert.ok(await exists(join(sandbox.home, '.local', 'bin', 'srcz')))
     assert.match(result.stdout, /\.local\/bin is not on PATH; add it:/)
     assert.match(result.stdout, line)
     assert.deepEqual(await readdir(sandbox.home), ['.local'], `${shell}: only ~/.local is written`)
   }
 })
 
-void test('install-edge.sh reports an update, a shadowing servef, and a running daemon', async (t) => {
+void test('install-edge.sh reports an update, a shadowing srcz, and a running daemon', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createRelease(sandbox, { version: '0.0.0-edge' })
-  await writeExecutable(join(sandbox.home, '.local', 'bin', 'servef'), fakeServef('0.1.6'))
+  await writeExecutable(join(sandbox.home, '.local', 'bin', 'srcz'), fakeSrcz('0.1.6'))
   const earlier = join(sandbox.root, 'brew-bin')
-  await writeExecutable(join(earlier, 'servef'), fakeServef('0.1.5'))
+  await writeExecutable(join(earlier, 'srcz'), fakeSrcz('0.1.5'))
 
   const result = await run('install-edge.sh', sandbox, {
     PATH: `${sandbox.stubs}:${earlier}:${join(sandbox.home, '.local', 'bin')}:${SYSTEM_PATH}`,
@@ -339,16 +339,16 @@ void test('install-edge.sh reports an update, a shadowing servef, and a running 
   })
 
   assertOk(result)
-  assert.match(result.stdout, /updated .*\/\.local\/bin\/servef \(servef 0\.1\.6 -> servef 0\.0\.0-edge/)
-  assert.match(result.stdout, /brew-bin\/servef comes first on PATH and is not the servef just installed/)
-  assert.match(result.stdout, /servef daemon stop/)
+  assert.match(result.stdout, /updated .*\/\.local\/bin\/srcz \(srcz 0\.1\.6 -> srcz 0\.0\.0-edge/)
+  assert.match(result.stdout, /brew-bin\/srcz comes first on PATH and is not the srcz just installed/)
+  assert.match(result.stdout, /srcz daemon stop/)
 })
 
 void test('install-edge.sh stops without its archive or on an unsupported platform', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   const missing = await run('install-edge.sh', sandbox)
   assert.notEqual(missing.code, 0)
-  assert.match(missing.stderr, /could not download servef_0\.0\.0-edge_linux_amd64\.tar\.gz from servef edge/)
+  assert.match(missing.stderr, /could not download srcz_0\.0\.0-edge_linux_amd64\.tar\.gz from srcz edge/)
 
   const windows = await run('install-edge.sh', sandbox, { STUB_UNAME_S: 'MINGW64_NT-10.0' })
   assert.notEqual(windows.code, 0)
@@ -361,44 +361,44 @@ void test('install-edge.sh stops without its archive or on an unsupported platfo
 
 // --- install-desktop.sh, install-desktop-edge.sh ---
 
-void test('install-desktop-edge.sh installs the Linux app, registers servef://, and links it on PATH', async (t) => {
+void test('install-desktop-edge.sh installs the Linux app, registers srcz://, and links it on PATH', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t), { homeName: 'home 50%' })
   await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
   const share = join(sandbox.home, '.local', 'share')
-  await writeExecutable(join(share, 'servef-desktop', 'app', 'stale'), 'earlier build')
-  const storage = join(share, 'servef-desktop', 'localstorage', 'page.localstorage')
+  await writeExecutable(join(share, 'srcz-desktop', 'app', 'stale'), 'earlier build')
+  const storage = join(share, 'srcz-desktop', 'localstorage', 'page.localstorage')
   await mkdir(dirname(storage), { recursive: true })
   await writeFile(storage, 'tabs')
 
   const result = await run('install-desktop-edge.sh', sandbox)
 
   assertOk(result)
-  const app = join(share, 'servef-desktop', 'app')
-  assert.ok(await isExecutable(join(app, 'servef-desktop')))
-  assert.ok(await isExecutable(join(app, 'bin', 'servef')), 'the app bundles the servef it runs the daemon with')
+  const app = join(share, 'srcz-desktop', 'app')
+  assert.ok(await isExecutable(join(app, 'srcz-desktop')))
+  assert.ok(await isExecutable(join(app, 'bin', 'srcz')), 'the app bundles the srcz it runs the daemon with')
   assert.equal(await exists(join(app, 'stale')), false, 'a new install replaces the earlier one')
   assert.equal(await readFile(storage, 'utf8'), 'tabs', 'an install keeps the page state WebKit stores')
-  assert.match(result.stdout, /installed .*servef-desktop\/app \(servef-desktop 0\.0\.0-edge abc123\)/)
-  const link = join(sandbox.home, '.local', 'bin', 'servef-desktop')
-  assert.equal((await readFile(link, 'utf8')).includes('servef-desktop 0.0.0-edge'), true)
-  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false, 'the CLI is not installed')
+  assert.match(result.stdout, /installed .*srcz-desktop\/app \(srcz-desktop 0\.0\.0-edge abc123\)/)
+  const link = join(sandbox.home, '.local', 'bin', 'srcz-desktop')
+  assert.equal((await readFile(link, 'utf8')).includes('srcz-desktop 0.0.0-edge'), true)
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false, 'the CLI is not installed')
 
-  const exec = `"${join(app, 'servef-desktop').replaceAll('%', '%%')}"`
-  const entry = await readFile(join(share, 'applications', 'servef-desktop.desktop'), 'utf8')
-  assert.match(entry, /^MimeType=x-scheme-handler\/servef;$/m)
+  const exec = `"${join(app, 'srcz-desktop').replaceAll('%', '%%')}"`
+  const entry = await readFile(join(share, 'applications', 'srcz-desktop.desktop'), 'utf8')
+  assert.match(entry, /^MimeType=x-scheme-handler\/srcz;$/m)
   assert.doesNotMatch(entry, /inode\/directory/)
   assert.ok(entry.includes(`\nExec=${exec} %U\n`), entry)
-  assert.match(entry, /^Icon=servef-desktop$/m)
-  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'), 'utf8'), 'desktop png')
+  assert.match(entry, /^Icon=srcz-desktop$/m)
+  assert.equal(await readFile(join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-desktop.png'), 'utf8'), 'desktop png')
 
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes(`${EDGE_DOWNLOAD}servef-desktop_0.0.0-edge_linux_amd64.tar.gz`), log)
-  assert.doesNotMatch(log, /servef_0\.0\.0-edge_linux_amd64\.tar\.gz/)
+  assert.ok(log.includes(`${EDGE_DOWNLOAD}srcz-desktop_0.0.0-edge_linux_amd64.tar.gz`), log)
+  assert.doesNotMatch(log, /srcz_0\.0\.0-edge_linux_amd64\.tar\.gz/)
   assert.doesNotMatch(log, /releases\/latest/)
-  assert.match(log, /^xdg-mime default servef-desktop\.desktop x-scheme-handler\/servef$/m)
+  assert.match(log, /^xdg-mime default srcz-desktop\.desktop x-scheme-handler\/srcz$/m)
   assert.ok(await exists(join(sandbox.home, '.config')), 'xdg-mime writes mimeapps.list there and does not create it')
   assert.match(log, /^update-desktop-database .*\/applications$/m)
-  assert.match(result.stdout, /servef-desktop \./)
+  assert.match(result.stdout, /srcz-desktop \./)
   assert.match(result.stdout, /scripts\/install\.sh/)
 })
 
@@ -410,7 +410,7 @@ void test('install-desktop.sh warns without WebKitGTK and installs anyway', asyn
   assertOk(missing)
   assert.match(missing.stdout, /WebKitGTK 4\.1 not found/)
   assert.match(missing.stdout, /apt install libwebkit2gtk-4\.1-0/)
-  assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'servef-desktop', 'app', 'servef-desktop')))
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')))
 
   const present = await run('install-desktop.sh', sandbox, { STUB_LDCONFIG: 'libwebkit2gtk-4.1.so.0 (libc6,x86-64) => /usr/lib/libwebkit2gtk-4.1.so.0' })
   assertOk(present)
@@ -424,50 +424,50 @@ void test('install-desktop.sh installs the latest release for the machine', asyn
   const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_M: 'aarch64' })
 
   assertOk(result)
-  assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'servef-desktop', 'app', 'servef-desktop')))
+  assert.ok(await isExecutable(join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'srcz-desktop')))
   const log = await readFile(sandbox.log, 'utf8')
-  assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
-  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-desktop_0.1.7_linux_arm64.tar.gz'), log)
+  assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
+  assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_linux_arm64.tar.gz'), log)
 })
 
-void test('install-desktop.sh installs servef-desktop.app on macOS, links it, and removes the Electron servef.app', async (t) => {
+void test('install-desktop.sh installs srcz-desktop.app on macOS, links it, and removes the Electron srcz.app', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox)
   const apps = (await exists('/Applications')) ? '/Applications' : join(sandbox.home, 'Applications')
   t.after(async () => {
-    if (apps === '/Applications') await rm('/Applications/servef-desktop.app', { recursive: true, force: true })
+    if (apps === '/Applications') await rm('/Applications/srcz-desktop.app', { recursive: true, force: true })
   })
-  const electron = join(sandbox.home, 'Applications', 'servef.app', 'Contents', 'MacOS', 'servef')
+  const electron = join(sandbox.home, 'Applications', 'srcz.app', 'Contents', 'MacOS', 'srcz')
   await writeExecutable(electron, 'electron')
-  const support = join(sandbox.home, 'Library', 'Application Support', 'servef-desktop', 'recent-folders.json')
+  const support = join(sandbox.home, 'Library', 'Application Support', 'srcz-desktop', 'recent-folders.json')
   await writeExecutable(support, '[]')
 
   const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
 
   assertOk(result)
-  const executable = join(apps, 'servef-desktop.app', 'Contents', 'MacOS', 'servef-desktop')
+  const executable = join(apps, 'srcz-desktop.app', 'Contents', 'MacOS', 'srcz-desktop')
   assert.equal(await readFile(executable, 'utf8'), 'app')
-  assert.equal(await readFile(join(sandbox.home, '.local', 'bin', 'servef-desktop'), 'utf8'), 'app')
+  assert.equal(await readFile(join(sandbox.home, '.local', 'bin', 'srcz-desktop'), 'utf8'), 'app')
   assert.equal(await exists(join(sandbox.home, '.local', 'share')), false)
-  assert.equal(await exists(join(sandbox.home, 'Applications', 'servef.app')), false, 'two bundles would both claim servef://')
+  assert.equal(await exists(join(sandbox.home, 'Applications', 'srcz.app')), false, 'two bundles would both claim srcz://')
   assert.match(result.stdout, /removed the earlier Electron app/)
   assert.ok(await exists(support), 'the Electron app data stays')
   const log = await readFile(sandbox.log, 'utf8')
-  assert.ok(log.includes('https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef-desktop_0.1.7_darwin_arm64.zip'), log)
+  assert.ok(log.includes('https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz-desktop_0.1.7_darwin_arm64.zip'), log)
   assert.doesNotMatch(log, /xdg-mime/)
 })
 
 void test('install-desktop.sh explains a release without the desktop app and changes nothing', async (t) => {
-  for (const [os, machine, asset] of [['Linux', 'x86_64', 'servef-desktop_0\\.1\\.7_linux_amd64\\.tar\\.gz'], ['Darwin', 'arm64', 'servef-desktop_0\\.1\\.7_darwin_arm64\\.zip']] as const) {
+  for (const [os, machine, asset] of [['Linux', 'x86_64', 'srcz-desktop_0\\.1\\.7_linux_amd64\\.tar\\.gz'], ['Darwin', 'arm64', 'srcz-desktop_0\\.1\\.7_darwin_arm64\\.zip']] as const) {
     const sandbox = await createSandbox(t.after.bind(t))
     await createRelease(sandbox)
-    const old = join(sandbox.home, '.local', 'share', 'servef-desktop', 'servef-desktop.AppImage')
+    const old = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'srcz-desktop.AppImage')
     await writeExecutable(old, 'old')
 
     const result = await run('install-desktop.sh', sandbox, { STUB_UNAME_S: os, STUB_UNAME_M: machine })
 
     assert.notEqual(result.code, 0)
-    assert.match(result.stderr, new RegExp(`servef v0\\.1\\.7 has no ${asset}; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel`))
+    assert.match(result.stderr, new RegExp(`srcz v0\\.1\\.7 has no ${asset}; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel`))
     assert.ok(await exists(old), 'a failed install leaves the Electron app alone')
   }
 })
@@ -479,18 +479,18 @@ void test('install-desktop scripts stop while the app runs', async (t) => {
   const running = await run('install-desktop-edge.sh', sandbox, { STUB_PGREP: '0' })
 
   assert.notEqual(running.code, 0)
-  assert.match(running.stderr, /the servef desktop app is running; quit it, then run this again/)
+  assert.match(running.stderr, /the srcz desktop app is running; quit it, then run this again/)
   assert.equal(await exists(join(sandbox.home, '.local')), false)
 })
 
 void test('install-desktop.sh stops on an Electron deb and names the command that removes it', async (t) => {
-  for (const deb of ['servef-desktop', 'servef-electron']) {
+  for (const deb of ['srcz-desktop', 'srcz-electron']) {
     const sandbox = await createSandbox(t.after.bind(t))
     await createDesktopRelease(sandbox)
-    const debs = join(sandbox.root, 'opt-servef')
+    const debs = join(sandbox.root, 'opt-srcz')
     await writeExecutable(join(debs, deb), 'deb')
 
-    const result = await run('install-desktop.sh', sandbox, { SERVEF_ELECTRON_DEB_DIR: debs })
+    const result = await run('install-desktop.sh', sandbox, { SRCZ_ELECTRON_DEB_DIR: debs })
 
     assert.notEqual(result.code, 0, deb)
     assert.ok(result.stderr.includes(`sudo apt remove ${deb}`), result.stderr)
@@ -502,17 +502,17 @@ void test('install-desktop.sh stops on an Electron deb and names the command tha
 function electronLeftovers(sandbox: Sandbox, share: string): string[] {
   const config = join(sandbox.home, '.config')
   return [
-    join(share, 'servef-desktop', 'servef-desktop.AppImage'),
-    join(share, 'servef-electron', 'servef-electron.AppImage'),
-    join(share, 'applications', 'servef-electron.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-electron.png'),
-    join(share, 'kio', 'servicemenus', 'servef-desktop.desktop'),
-    join(share, 'kio', 'servicemenus', 'servef-electron.desktop'),
-    join(share, 'nemo', 'actions', 'servef-desktop.nemo_action'),
-    join(share, 'nemo', 'actions', 'servef-electron.nemo_action'),
-    join(share, 'nautilus', 'scripts', 'Open in servef'),
-    join(config, 'autostart', 'servef-desktop.desktop'),
-    join(config, 'autostart', 'servef-electron.desktop'),
+    join(share, 'srcz-desktop', 'srcz-desktop.AppImage'),
+    join(share, 'srcz-electron', 'srcz-electron.AppImage'),
+    join(share, 'applications', 'srcz-electron.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-electron.png'),
+    join(share, 'kio', 'servicemenus', 'srcz-desktop.desktop'),
+    join(share, 'kio', 'servicemenus', 'srcz-electron.desktop'),
+    join(share, 'nemo', 'actions', 'srcz-desktop.nemo_action'),
+    join(share, 'nemo', 'actions', 'srcz-electron.nemo_action'),
+    join(share, 'nautilus', 'scripts', 'Open in srcz'),
+    join(config, 'autostart', 'srcz-desktop.desktop'),
+    join(config, 'autostart', 'srcz-electron.desktop'),
   ]
 }
 
@@ -522,9 +522,9 @@ void test('install-desktop.sh replaces an Electron install and keeps its data', 
   const share = join(sandbox.home, '.local', 'share')
   const left = electronLeftovers(sandbox, share)
   for (const path of left) await writeExecutable(path, 'old')
-  const oldEntry = join(share, 'applications', 'servef-desktop.desktop')
+  const oldEntry = join(share, 'applications', 'srcz-desktop.desktop')
   await writeExecutable(oldEntry, 'old')
-  const appData = join(sandbox.home, '.config', 'servef-desktop', 'recent-folders.json')
+  const appData = join(sandbox.home, '.config', 'srcz-desktop', 'recent-folders.json')
   await writeExecutable(appData, '[]')
 
   const result = await run('install-desktop.sh', sandbox)
@@ -532,8 +532,8 @@ void test('install-desktop.sh replaces an Electron install and keeps its data', 
   assertOk(result)
   assert.match(result.stdout, /removed the earlier Electron app/)
   for (const path of left) assert.equal(await exists(path), false, `${path} is removed`)
-  assert.match(await readFile(oldEntry, 'utf8'), /servef-desktop\/app\/servef-desktop %U/, 'the desktop entry is overwritten')
-  assert.ok(await isExecutable(join(share, 'servef-desktop', 'app', 'servef-desktop')))
+  assert.match(await readFile(oldEntry, 'utf8'), /srcz-desktop\/app\/srcz-desktop %U/, 'the desktop entry is overwritten')
+  assert.ok(await isExecutable(join(share, 'srcz-desktop', 'app', 'srcz-desktop')))
   assert.ok(await exists(appData), 'app data stays')
 })
 
@@ -541,12 +541,12 @@ void test('install-desktop.sh reports a hand-added Thunar action', async (t) => 
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox)
   const uca = join(sandbox.home, '.config', 'Thunar', 'uca.xml')
-  await writeExecutable(uca, '<command>/opt/servef/servef-electron %F</command>')
+  await writeExecutable(uca, '<command>/opt/srcz/srcz-electron %F</command>')
 
   const result = await run('install-desktop.sh', sandbox)
 
   assertOk(result)
-  assert.match(result.stdout, /Thunar still has an Open in servef custom action/)
+  assert.match(result.stdout, /Thunar still has an Open in srcz custom action/)
   assert.ok(await exists(uca), 'Thunar owns its settings')
 })
 
@@ -560,10 +560,10 @@ void test('install.sh installs the CLI from the release the latest page redirect
     const result = await run('install.sh', sandbox, { STUB_UNAME_M: machine })
 
     assertOk(result)
-    assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7 \(abc123\)\)/)
+    assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.1\.7 \(abc123\)\)/)
     const log = await readFile(sandbox.log, 'utf8')
-    assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
-    assert.ok(log.includes(`https://github.com/flexdinesh/servef/releases/download/v0.1.7/servef_0.1.7_linux_${arch}.tar.gz`), log)
+    assert.match(log, /-w %\{redirect_url\} https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
+    assert.ok(log.includes(`https://github.com/flexdinesh/srcz/releases/download/v0.1.7/srcz_0.1.7_linux_${arch}.tar.gz`), log)
     assert.doesNotMatch(log, /api\.github\.com/)
   }
 })
@@ -590,9 +590,9 @@ void test('install.sh resolves the latest release with wget when curl is missing
   const result = await run('install.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${system}` })
 
   assertOk(result)
-  assert.match(result.stdout, /installed .*\/\.local\/bin\/servef \(servef 0\.1\.7 \(abc123\)\)/)
+  assert.match(result.stdout, /installed .*\/\.local\/bin\/srcz \(srcz 0\.1\.7 \(abc123\)\)/)
   assert.doesNotMatch(await readFile(sandbox.log, 'utf8'), /^curl /m)
-  assert.match(await readFile(sandbox.log, 'utf8'), /wget -S --max-redirect=0 -O \/dev\/null https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+  assert.match(await readFile(sandbox.log, 'utf8'), /wget -S --max-redirect=0 -O \/dev\/null https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
 })
 
 void test('install.sh stops when the latest release or its archive is missing', async (t) => {
@@ -600,12 +600,12 @@ void test('install.sh stops when the latest release or its archive is missing', 
 
   const noLatest = await run('install.sh', sandbox, { STUB_LATEST: '' })
   assert.notEqual(noLatest.code, 0)
-  assert.match(noLatest.stderr, /could not find the latest servef release at https:\/\/github\.com\/flexdinesh\/servef\/releases\/latest/)
+  assert.match(noLatest.stderr, /could not find the latest srcz release at https:\/\/github\.com\/flexdinesh\/srcz\/releases\/latest/)
 
   const noArchive = await run('install.sh', sandbox)
   assert.notEqual(noArchive.code, 0)
-  assert.match(noArchive.stderr, /could not download servef_0\.1\.7_linux_amd64\.tar\.gz from servef v0\.1\.7/)
-  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'servef')), false)
+  assert.match(noArchive.stderr, /could not download srcz_0\.1\.7_linux_amd64\.tar\.gz from srcz v0\.1\.7/)
+  assert.equal(await exists(join(sandbox.home, '.local', 'bin', 'srcz')), false)
 })
 
 for (const script of ['install-desktop.sh', 'uninstall.sh']) {
@@ -613,9 +613,9 @@ for (const script of ['install-desktop.sh', 'uninstall.sh']) {
     const sandbox = await createSandbox(t.after.bind(t))
     await createDesktopRelease(sandbox)
     const same = join(sandbox.root, 'xdg')
-    const appImage = join(same, 'servef-desktop', 'servef-desktop.AppImage')
-    const appData = join(same, 'servef-desktop', 'recent-folders.json')
-    const pageState = join(same, 'servef-desktop', 'localstorage', 'page.localstorage')
+    const appImage = join(same, 'srcz-desktop', 'srcz-desktop.AppImage')
+    const appData = join(same, 'srcz-desktop', 'recent-folders.json')
+    const pageState = join(same, 'srcz-desktop', 'localstorage', 'page.localstorage')
     await writeExecutable(appImage, 'old')
     await writeExecutable(appData, '[]')
     await writeExecutable(pageState, 'tabs')
@@ -626,7 +626,7 @@ for (const script of ['install-desktop.sh', 'uninstall.sh']) {
     assert.equal(await exists(appImage), false, 'the old AppImage is removed')
     assert.ok(await exists(appData), 'app data shares the directory and stays')
     assert.ok(await exists(pageState), 'page state shares the directory and stays')
-    assert.equal(await exists(join(same, 'servef-desktop', 'app', 'servef-desktop')), script === 'install-desktop.sh')
+    assert.equal(await exists(join(same, 'srcz-desktop', 'app', 'srcz-desktop')), script === 'install-desktop.sh')
   })
 }
 
@@ -639,80 +639,80 @@ void test('uninstall.sh removes the desktop app and every Electron leftover, rep
   const share = join(sandbox.home, '.local', 'share')
   const left = electronLeftovers(sandbox, share)
   for (const path of left) await writeExecutable(path, 'old')
-  const manual = join(sandbox.home, 'Applications', 'servef-electron_0.1.7_linux_amd64.AppImage')
+  const manual = join(sandbox.home, 'Applications', 'srcz-electron_0.1.7_linux_amd64.AppImage')
   await writeExecutable(manual, 'appimage')
-  const oldManual = join(sandbox.home, 'Applications', 'servef-desktop_0.0.0-edge_linux_amd64.AppImage')
+  const oldManual = join(sandbox.home, 'Applications', 'srcz-desktop_0.0.0-edge_linux_amd64.AppImage')
   await writeExecutable(oldManual, 'appimage')
   const unrelated = join(sandbox.home, 'Applications', 'other.AppImage')
   await writeExecutable(unrelated, 'other')
   const config = join(sandbox.home, '.config')
-  await writeFile(join(config, 'autostart', 'servef-electron.desktop'), `[Desktop Entry]\nExec=${manual}\n`)
-  await writeFile(join(config, 'autostart', 'servef-desktop.desktop'), `[Desktop Entry]\nExec=${oldManual}\n`)
-  const pageState = join(share, 'servef-desktop', 'localstorage')
+  await writeFile(join(config, 'autostart', 'srcz-electron.desktop'), `[Desktop Entry]\nExec=${manual}\n`)
+  await writeFile(join(config, 'autostart', 'srcz-desktop.desktop'), `[Desktop Entry]\nExec=${oldManual}\n`)
+  const pageState = join(share, 'srcz-desktop', 'localstorage')
   await mkdir(pageState, { recursive: true })
-  await writeExecutable(join(sandbox.home, 'go', 'bin', 'servef'), fakeServef('0.1.6'))
-  await writeExecutable(join(sandbox.home, '.local', 'bin', 'servef'), fakeServef('0.1.6'))
-  await mkdir(join(config, 'servef'), { recursive: true })
-  await writeFile(join(config, 'servef', 'roots.json'), '[]')
-  await mkdir(join(config, 'servef-desktop'), { recursive: true })
-  await mkdir(join(sandbox.home, '.cache', 'servef'), { recursive: true })
+  await writeExecutable(join(sandbox.home, 'go', 'bin', 'srcz'), fakeSrcz('0.1.6'))
+  await writeExecutable(join(sandbox.home, '.local', 'bin', 'srcz'), fakeSrcz('0.1.6'))
+  await mkdir(join(config, 'srcz'), { recursive: true })
+  await writeFile(join(config, 'srcz', 'roots.json'), '[]')
+  await mkdir(join(config, 'srcz-desktop'), { recursive: true })
+  await mkdir(join(sandbox.home, '.cache', 'srcz'), { recursive: true })
   const shims = join(sandbox.root, 'mise', 'shims')
-  await writeExecutable(join(shims, 'servef'), fakeServef('0.1.6'))
+  await writeExecutable(join(shims, 'srcz'), fakeSrcz('0.1.6'))
 
   const result = await run('uninstall.sh', sandbox, { PATH: `${sandbox.stubs}:${join(sandbox.home, '.local', 'bin')}:${shims}:${SYSTEM_PATH}` })
 
   assertOk(result)
   for (const path of [
     ...left,
-    join(sandbox.home, '.local', 'bin', 'servef'),
-    join(sandbox.home, '.local', 'bin', 'servef-desktop'),
-    join(sandbox.home, 'go', 'bin', 'servef'),
-    join(share, 'servef-desktop', 'app'),
-    join(share, 'servef-electron'),
-    join(share, 'applications', 'servef-desktop.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-desktop.png'),
+    join(sandbox.home, '.local', 'bin', 'srcz'),
+    join(sandbox.home, '.local', 'bin', 'srcz-desktop'),
+    join(sandbox.home, 'go', 'bin', 'srcz'),
+    join(share, 'srcz-desktop', 'app'),
+    join(share, 'srcz-electron'),
+    join(share, 'applications', 'srcz-desktop.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-desktop.png'),
     manual,
     oldManual,
   ]) {
     assert.equal(await exists(path), false, `${path} is removed`)
   }
-  assert.ok(await exists(unrelated), 'only servef-electron and servef-desktop AppImages are removed')
-  for (const path of [join(config, 'servef', 'roots.json'), join(config, 'servef-desktop'), join(sandbox.home, '.cache', 'servef'), pageState]) {
+  assert.ok(await exists(unrelated), 'only srcz-electron and srcz-desktop AppImages are removed')
+  for (const path of [join(config, 'srcz', 'roots.json'), join(config, 'srcz-desktop'), join(sandbox.home, '.cache', 'srcz'), pageState]) {
     assert.ok(await exists(path), `${path} is kept`)
   }
-  assert.match(result.stdout, /mise\/shims\/servef is installed by mise/)
+  assert.match(result.stdout, /mise\/shims\/srcz is installed by mise/)
   assert.match(result.stdout, /kept your data/)
-  assert.ok(result.stdout.includes(join(config, 'servef')))
-  assert.ok(result.stdout.includes(join(share, 'servef-desktop')), 'page state is reported')
-  assert.ok(result.stdout.includes(join(config, 'servef-desktop')), 'Electron app data is reported')
+  assert.ok(result.stdout.includes(join(config, 'srcz')))
+  assert.ok(result.stdout.includes(join(share, 'srcz-desktop')), 'page state is reported')
+  assert.ok(result.stdout.includes(join(config, 'srcz-desktop')), 'Electron app data is reported')
 })
 
 void test('uninstall.sh names the command for each Electron deb', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  const debs = join(sandbox.root, 'opt-servef')
-  await writeExecutable(join(debs, 'servef-desktop'), 'deb')
-  await writeExecutable(join(debs, 'servef-electron'), 'deb')
+  const debs = join(sandbox.root, 'opt-srcz')
+  await writeExecutable(join(debs, 'srcz-desktop'), 'deb')
+  await writeExecutable(join(debs, 'srcz-electron'), 'deb')
 
-  const result = await run('uninstall.sh', sandbox, { SERVEF_ELECTRON_DEB_DIR: debs })
+  const result = await run('uninstall.sh', sandbox, { SRCZ_ELECTRON_DEB_DIR: debs })
 
   assertOk(result)
-  assert.ok(result.stdout.includes('sudo apt remove servef-desktop'), result.stdout)
-  assert.ok(result.stdout.includes('sudo apt remove servef-electron'), result.stdout)
+  assert.ok(result.stdout.includes('sudo apt remove srcz-desktop'), result.stdout)
+  assert.ok(result.stdout.includes('sudo apt remove srcz-electron'), result.stdout)
 })
 
-void test('uninstall.sh removes servef-mygo and keeps its data', async (t) => {
+void test('uninstall.sh removes srcz-mygo and keeps its data', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   const share = join(sandbox.home, '.local', 'share')
   const installed = [
-    join(sandbox.home, '.local', 'bin', 'servef-mygo'),
-    join(share, 'servef-mygo', 'app', 'servef-mygo'),
-    join(share, 'applications', 'servef-mygo.desktop'),
-    join(share, 'icons', 'hicolor', '512x512', 'apps', 'servef-mygo.png'),
+    join(sandbox.home, '.local', 'bin', 'srcz-mygo'),
+    join(share, 'srcz-mygo', 'app', 'srcz-mygo'),
+    join(share, 'applications', 'srcz-mygo.desktop'),
+    join(share, 'icons', 'hicolor', '512x512', 'apps', 'srcz-mygo.png'),
   ]
   for (const path of installed) await writeExecutable(path, 'old')
-  const config = join(sandbox.home, '.config', 'servef-mygo')
+  const config = join(sandbox.home, '.config', 'srcz-mygo')
   await mkdir(config, { recursive: true })
-  const pageData = join(share, 'servef-mygo')
+  const pageData = join(share, 'srcz-mygo')
   await mkdir(join(pageData, 'localstorage'), { recursive: true })
 
   const result = await run('uninstall.sh', sandbox)
@@ -728,9 +728,9 @@ void test('uninstall.sh removes servef-mygo and keeps its data', async (t) => {
 void test('uninstall.sh removes every macOS bundle and keeps page state', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   const applications = join(sandbox.home, 'Applications')
-  const bundles = ['servef-desktop.app', 'servef.app', 'servef-mygo.app'].map((name) => join(applications, name))
+  const bundles = ['srcz-desktop.app', 'srcz.app', 'srcz-mygo.app'].map((name) => join(applications, name))
   for (const bundle of bundles) await writeExecutable(join(bundle, 'Contents', 'MacOS', 'app'), 'app')
-  const webkit = join(sandbox.home, 'Library', 'WebKit', 'io.github.flexdinesh.servef.desktop')
+  const webkit = join(sandbox.home, 'Library', 'WebKit', 'io.github.flexdinesh.srcz.desktop')
   await mkdir(webkit, { recursive: true })
 
   const result = await run('uninstall.sh', sandbox, { STUB_UNAME_S: 'Darwin', STUB_UNAME_M: 'arm64' })
@@ -741,20 +741,20 @@ void test('uninstall.sh removes every macOS bundle and keeps page state', async 
   assert.ok(result.stdout.includes(webkit))
 })
 
-void test('install-desktop-edge.sh warns about a running daemon with the bundled servef', async (t) => {
+void test('install-desktop-edge.sh warns about a running daemon with the bundled srcz', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
   await createDesktopRelease(sandbox, { version: '0.0.0-edge' })
 
   const result = await run('install-desktop-edge.sh', sandbox, { STUB_DAEMON_STATUS: '0' })
 
   assertOk(result)
-  const bundled = join(sandbox.home, '.local', 'share', 'servef-desktop', 'app', 'bin', 'servef')
+  const bundled = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'bin', 'srcz')
   assert.ok(result.stdout.includes(`"${bundled}" daemon stop`), result.stdout)
 })
 
 void test('uninstall.sh stops for a running daemon when only the app is installed', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  const bundled = join(sandbox.home, '.local', 'share', 'servef-desktop', 'app', 'bin', 'servef')
+  const bundled = join(sandbox.home, '.local', 'share', 'srcz-desktop', 'app', 'bin', 'srcz')
   await writeExecutable(bundled, '#!/bin/sh\nexit 0\n')
 
   const result = await run('uninstall.sh', sandbox)
@@ -764,17 +764,17 @@ void test('uninstall.sh stops for a running daemon when only the app is installe
   assert.ok(await exists(bundled), 'nothing is removed under a live daemon')
 })
 
-void test('uninstall.sh stops while servef runs and reports an empty home', async (t) => {
+void test('uninstall.sh stops while srcz runs and reports an empty home', async (t) => {
   const sandbox = await createSandbox(t.after.bind(t))
-  const bin = join(sandbox.home, '.local', 'bin', 'servef')
-  await writeExecutable(bin, fakeServef('0.1.6'))
+  const bin = join(sandbox.home, '.local', 'bin', 'srcz')
+  await writeExecutable(bin, fakeSrcz('0.1.6'))
 
   const daemon = await run('uninstall.sh', sandbox, { STUB_DAEMON_STATUS: '0' })
   assert.notEqual(daemon.code, 0)
-  assert.match(daemon.stderr, /a servef daemon is running; stop it with '.*servef daemon stop'/)
+  assert.match(daemon.stderr, /a srcz daemon is running; stop it with '.*srcz daemon stop'/)
   const app = await run('uninstall.sh', sandbox, { STUB_PGREP: '0' })
   assert.notEqual(app.code, 0)
-  assert.match(app.stderr, /the servef desktop app is running/)
+  assert.match(app.stderr, /the srcz desktop app is running/)
   assert.ok(await exists(bin))
 
   const empty = await createSandbox(t.after.bind(t))

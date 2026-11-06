@@ -30,7 +30,7 @@ test("each row's text equals its source line, so navigation columns hold", () =>
   }
 })
 
-test("tokens render as servef syntax classes and file text is escaped", () => {
+test("tokens render as srcz syntax classes and file text is escaped", () => {
   const [keyword, , call] = rows("package main\n\nprintln(\"<b>\")\n", "go")
   assert.match(keyword ?? "", /^<span class="hl-keyword">package <\/span>/)
   assert.ok(call?.includes("&lt;b&gt;"))
@@ -45,7 +45,7 @@ test("multiline state carries across rows", () => {
 })
 
 test("plain, image, and unknown languages skip highlighting", () => {
-  for (const language of ["text", "plain", "", "servef-unknown", "TEXT"]) {
+  for (const language of ["text", "plain", "", "srcz-unknown", "TEXT"]) {
     assert.equal(highlightLines(highlights, "a\n", language), null, language)
   }
 })

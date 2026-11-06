@@ -6,13 +6,13 @@
 
 ## Context
 
-The theme defaulted to System, so servef opened light on light-mode hosts.
-servef is a code browser used beside dark editors and terminals; Dark is the
+The theme defaulted to System, so srcz opened light on light-mode hosts.
+srcz is a code browser used beside dark editors and terminals; Dark is the
 expected first look.
 
 ## Decision
 
-- `DEFAULT_THEME` is Dark. A missing, unreadable, or unknown `servef-theme`
+- `DEFAULT_THEME` is Dark. A missing, unreadable, or unknown `srcz-theme`
   resolves to Dark; Reset all and the Theme reset restore Dark.
 - System stays an option and still follows the OS live. Stored choices,
   including `system`, are kept.

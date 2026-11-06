@@ -8,7 +8,7 @@
 
 Commits (0027) diffs one commit at a time. Reviewing a branch before a pull
 request, or a run of an agent's commits, meant opening every commit's files
-and combining them mentally. servef never runs `git` (0023).
+and combining them mentally. srcz never runs `git` (0023).
 
 ## Decision
 

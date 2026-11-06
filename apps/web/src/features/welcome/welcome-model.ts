@@ -1,4 +1,4 @@
-import type { ProjectsResponse } from "@servef/contracts"
+import type { ProjectsResponse } from "@srcz/contracts"
 
 import { projectSections, type ProjectRow } from "../projects/project-picker.ts"
 
@@ -24,7 +24,7 @@ export interface WelcomeEntry {
   shortcut?: string
 }
 
-export const documentationUrl = "https://github.com/flexdinesh/servef#readme"
+export const documentationUrl = "https://github.com/flexdinesh/srcz#readme"
 
 // startEntries are the actions that begin a session; Open folder… needs the
 // desktop app (canOpenFolder).
@@ -38,7 +38,7 @@ export function startEntries(mac: boolean, canOpenFolder: boolean): WelcomeEntry
   ]
 }
 
-// guideEntries are what servef does, each running the action it describes.
+// guideEntries are what srcz does, each running the action it describes.
 export function guideEntries(mac: boolean): WelcomeEntry[] {
   return [
     {

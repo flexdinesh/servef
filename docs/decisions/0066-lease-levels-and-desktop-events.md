@@ -12,7 +12,7 @@
 A desktop app (0062) keeps one daemon connection for every window. It needs
 cheap git signals (a branch switch, a new commit) for projects with no
 visible tab, announcements of walkthroughs published by agents, a way to open
-a path that may lie inside or around served roots (`servef ~/code/foo` with
+a path that may lie inside or around served roots (`srcz ~/code/foo` with
 `~/code` served fails today), and browser memory that survives roots
 changing at runtime (0061 Consequences).
 
@@ -65,7 +65,7 @@ Every stream for a checkout, at either level, sends `head`:
 
 | Route | Response |
 | --- | --- |
-| `GET /_daemon/events` (SSE) | `: servef`, then `status {protocol, version}`, then `walkthrough {project, id, title, created}` per announcement; `: heartbeat` every 25 s |
+| `GET /_daemon/events` (SSE) | `: srcz`, then `status {protocol, version}`, then `walkthrough {project, id, title, created}` per announcement; `: heartbeat` every 25 s |
 | `POST /_daemon/walkthroughs` `{project, id, created}` (JSON, 4 KiB) | 202 `{announced: true}`; 404 `projectUnavailable` (no served root resolves it), 404 `walkthroughUnavailable` (not in the daemon's store); 400 `invalidRequest` |
 | `POST /_daemon/open` `{path}` (JSON, 4 KiB) | `{root, added, replaced, project}`: 201 when added, 200 otherwise; 400 `invalidRoot`; 404 `projectUnavailable`; 500 `rootsNotSaved` |
 
@@ -75,7 +75,7 @@ Every stream for a checkout, at either level, sends `head`:
   daemon from idling. It ends with the request, the daemon, or shutdown.
 - Announcements fan out per stream with a buffer of 16; the oldest is
   dropped when full. Sources: a successful `POST /api/walkthroughs`
-  (in process) and `POST /_daemon/walkthroughs` from `servef walkthrough
+  (in process) and `POST /_daemon/walkthroughs` from `srcz walkthrough
   publish`, which reads the walkthrough from the daemon's own store. Publish
   announces with a 1 s timeout; a daemon that is not running or does not
   serve the project is ignored, and `walkthroughUnavailable` is warned about
@@ -103,7 +103,7 @@ Every stream for a checkout, at either level, sends `head`:
 
 ### Development isolation
 
-- `servef daemon run|ensure --roots-file <path>` (hidden) overrides the roots
+- `srcz daemon run|ensure --roots-file <path>` (hidden) overrides the roots
   file; `ensure` forwards it to a daemon it starts.
 
 ### Protocol

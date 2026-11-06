@@ -11,11 +11,11 @@ export function longDocument(marker: string): string {
 }
 
 // Git hooks export GIT_DIR and friends, which would aim these commands at
-// servef's own repository instead of the fixture.
+// srcz's own repository instead of the fixture.
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
 
 function git(liveFixtureRoot: string, ...args: string[]): boolean {
-  const result = spawnSync("git", ["-c", "user.name=servef", "-c", "user.email=servef@example.invalid", "-c", "commit.gpgsign=false", ...args], {
+  const result = spawnSync("git", ["-c", "user.name=srcz", "-c", "user.email=srcz@example.invalid", "-c", "commit.gpgsign=false", ...args], {
     cwd: liveFixtureRoot,
     env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
     stdio: "ignore",

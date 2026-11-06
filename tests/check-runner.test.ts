@@ -13,7 +13,7 @@ function phase(name: string, source: string): Phase {
 }
 
 function temporary(t: test.TestContext): string {
-  const root = mkdtempSync(path.join(tmpdir(), "servef-check-"))
+  const root = mkdtempSync(path.join(tmpdir(), "srcz-check-"))
   t.after(() => { rmSync(root, { recursive: true, force: true }) })
   return path.join(root, "logs")
 }
@@ -98,12 +98,12 @@ test("arguments split into groups at ::: and job counts follow mise", () => {
 })
 
 test("container leaf failures direct users to isolated public tasks", (t) => {
-  const root = mkdtempSync(path.join(tmpdir(), "servef-rerun-"))
+  const root = mkdtempSync(path.join(tmpdir(), "srcz-rerun-"))
   t.after(() => { rmSync(root, { recursive: true, force: true }) })
   writeFileSync(path.join(root, "mise"), "#!/bin/sh\nexit 3\n", { mode: 0o755 })
   const result = spawnSync(process.execPath, ["scripts/check.ts", "_container:test:go"], {
     encoding: "utf8",
-    env: { ...process.env, PATH: `${root}${path.delimiter}${process.env.PATH ?? ""}`, SERVEF_CHECK_LOG_DIR: path.join(root, "logs") },
+    env: { ...process.env, PATH: `${root}${path.delimiter}${process.env.PATH ?? ""}`, SRCZ_CHECK_LOG_DIR: path.join(root, "logs") },
   })
   assert.equal(result.status, 3, result.stderr)
   assert.match(result.stdout, /^rerun: mise run test:go$/m)

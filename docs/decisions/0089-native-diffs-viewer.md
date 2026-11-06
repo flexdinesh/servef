@@ -20,7 +20,7 @@ the web UI does, and the Source Control milestone (M8) needs all of them.
 ## Decision
 
 - `packages/mygo/diffs` is a generic diffs viewer, a port of what
-  `@pierre/diffs` does for servef. It imports nothing from servef (0086) and
+  `@pierre/diffs` does for srcz. It imports nothing from srcz (0086) and
   never compares texts into hunks: callers pass both sides' lines with
   hunks, blocks, and gaps in its own model.
   - `diffs` (pure, no mygo; a test enforces it): rows for split and unified

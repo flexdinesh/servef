@@ -1,6 +1,6 @@
 # Releases
 
-servef ships only as GitHub release assets, installed with the scripts in
+srcz ships only as GitHub release assets, installed with the scripts in
 `scripts/` (decisions 0073, 0079). No branch or tag carries built files; tags
 point at plain `main` commits. Homebrew and `go install` are not supported.
 
@@ -36,8 +36,8 @@ No repository secrets are needed; publishing uses the workflow's
      binary.
    - `desktop-linux` (Ubuntu) and `desktop-macos` (macOS) package the desktop
      app per arch with `apps/desktop/scripts/package.sh`, bundling the matching
-     archive's `servef`. Each smoke tests one package: Linux checks the amd64
-     app's and bundled binary's versions, the desktop entry's `servef://`
+     archive's `srcz`. Each smoke tests one package: Linux checks the amd64
+     app's and bundled binary's versions, the desktop entry's `srcz://`
      handler, and the icon; macOS checks the arm64 app's versions, its signature,
      and `CFBundleURLSchemes`.
    - `assets` checks the exact asset set and writes `checksums.txt`.
@@ -61,8 +61,8 @@ no longer built. A newer push cancels an older build; publishing is never
 cancelled, and an older run skips publishing when `edge` already has a newer
 commit. The first green push creates the prerelease.
 
-Edge binaries report `servef 0.0.0-edge <commit> <date>`; the desktop app
-reports `servef-desktop 0.0.0-edge <commit>`.
+Edge binaries report `srcz 0.0.0-edge <commit> <date>`; the desktop app
+reports `srcz-desktop 0.0.0-edge <commit>`.
 
 ## Assets
 
@@ -70,9 +70,9 @@ Each release and `edge` publishes `checksums.txt`, four archives, and four
 desktop packages, where `<version>` is the tag without its leading `v`, or
 `0.0.0-edge`:
 
-- `servef_<version>_<darwin|linux>_<amd64|arm64>.tar.gz`
-- `servef-desktop_<version>_linux_<amd64|arm64>.tar.gz`
-- `servef-desktop_<version>_darwin_<amd64|arm64>.zip`
+- `srcz_<version>_<darwin|linux>_<amd64|arm64>.tar.gz`
+- `srcz-desktop_<version>_linux_<amd64|arm64>.tar.gz`
+- `srcz-desktop_<version>_darwin_<amd64|arm64>.zip`
 
 `edge` omits every `darwin_amd64` asset (decision 0093); the edge install
 scripts stop on macOS Intel and point at the stable ones.
@@ -90,14 +90,14 @@ Renaming an asset breaks them for every user at once. v0.1.6 and earlier have no
 desktop asset: `install-desktop.sh` stops with a message naming the edge script
 until a release carries one.
 
-Each archive contains the native `servef` binary, README, and license. The
-frontend is built into `apps/servef/internal/web/dist/` before Go
+Each archive contains the native `srcz` binary, README, and license. The
+frontend is built into `apps/srcz/internal/web/dist/` before Go
 compilation and embedded in the binary. Node.js and pnpm are build-time
 dependencies only; installed releases need no JavaScript runtime, external
 assets, or sidecar server.
 
 Desktop packages bundle the same Go binary as the archive for their OS and
-arch, at `resources/bin/servef` (not on `PATH`). Linux needs WebKitGTK 4.1 on the
+arch, at `resources/bin/srcz` (not on `PATH`). Linux needs WebKitGTK 4.1 on the
 machine. macOS builds are ad-hoc signed, not notarized, so Gatekeeper blocks the
 first launch of a browser-downloaded package until the user allows it. There is
 no auto-update; upgrade by running the install script again. To package locally,
@@ -120,7 +120,7 @@ Git integration (decision 0074). Project settings:
 | Setting | Value |
 | --- | --- |
 | Root directory | repository root (CF reads `.node-version`, Node 26) |
-| Build command | `pnpm install --frozen-lockfile --filter @servef/site... && pnpm build:site` |
+| Build command | `pnpm install --frozen-lockfile --filter @srcz/site... && pnpm build:site` |
 | Build output directory | `apps/site/dist/public` |
 | Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
 

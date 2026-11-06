@@ -1,6 +1,6 @@
 import type { SelectedLineRange } from "@pierre/diffs"
 
-import type { Commit } from "@servef/contracts"
+import type { Commit } from "@srcz/contracts"
 import { isRecord } from "../../api/http.ts"
 import { isCommitHash, shortHash } from "../../lib/commit-hash.ts"
 import { diffLineAnchor, parseDiffLineAnchor } from "./diff-line-selection.ts"

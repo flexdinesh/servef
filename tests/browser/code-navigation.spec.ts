@@ -18,7 +18,7 @@ function location(path: string, line: number, column: number, kind = "definition
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/navigation-status?*", async (route) => {
     const path = new URL(route.request().url()).searchParams.get("path") ?? ""
-    const enabled = route.request().headers()["x-servef-language-servers"] === "on"
+    const enabled = route.request().headers()["x-srcz-language-servers"] === "on"
     await route.fulfill({ json: path === "notes.txt"
       ? { supported: false, enabled, eligible: false, reason: "No language server is configured for this language.", server: null }
       : { ...missingGopls, enabled, server: { ...missingGopls.server, state: "stopped" } } })
@@ -107,7 +107,7 @@ for (const modifier of [process.platform === "darwin" ? "Meta" : "Control"]) {
     await expect(greet).toHaveClass(/navigation-linking/)
     await expect.poll(readSelection).toBe(selected)
     await word(greet, 5, "Greet").hover()
-    await expect.poll(() => page.evaluate(() => [...CSS.highlights.get("servef-navigation-link") ?? []].map(String).join())).toBe("Greet")
+    await expect.poll(() => page.evaluate(() => [...CSS.highlights.get("srcz-navigation-link") ?? []].map(String).join())).toBe("Greet")
     await expect.poll(readSelection).toBe(selected)
     await page.keyboard.up(modifier)
     await expect(greet).not.toHaveClass(/navigation-linking/)
@@ -129,7 +129,7 @@ const missingGopls = {
 test("language servers default on and explicit off persists", async ({ page }) => {
   const headers: (string | undefined)[] = []
   page.on("request", (request) => {
-    if (request.url().includes("/api/references?")) headers.push(request.headers()["x-servef-language-servers"])
+    if (request.url().includes("/api/references?")) headers.push(request.headers()["x-srcz-language-servers"])
   })
   await page.goto("/view?path=navigation%2Fformat.go")
   await word(source(page, "Go source"), 6, "Format").click({ modifiers: ["ControlOrMeta"] })

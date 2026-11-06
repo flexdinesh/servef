@@ -55,7 +55,7 @@ const mockDiffs: ReadonlyMap<string, string> = new Map([
   ["assets/sample.bin", "diff-binary.json"],
   ["code/app.js", "diff-added.json"],
   ["code/main.go", "diff-modified.json"],
-  ["config/servef.toml", "diff-deleted.json"],
+  ["config/srcz.toml", "diff-deleted.json"],
   ["guides/getting-started.md", "diff-renamed.json"],
   ["guides/new-guide.md", "diff-untracked.json"],
   ["notes.txt", "diff-too-large.json"],
@@ -67,7 +67,7 @@ const mockCommit = "3577ec6f1d2e4b8a9c0d7e6f5a4b3c2d1e0f9a8b"
 const mockCommitDiffs: ReadonlyMap<string, string> = new Map([
   ["code/app.js", "diff-added.json"],
   ["code/main.go", "diff-modified.json"],
-  ["config/servef.toml", "diff-deleted.json"],
+  ["config/srcz.toml", "diff-deleted.json"],
   ["guides/getting-started.md", "diff-renamed.json"],
 ])
 

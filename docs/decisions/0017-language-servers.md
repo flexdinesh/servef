@@ -8,11 +8,11 @@
 
 Syntax navigation (0015) matches names, so it cannot follow types, methods
 on values, or re-exports the way an editor does. Installed language servers
-answer these exactly, but cost far more memory than servef itself:
+answer these exactly, but cost far more memory than srcz itself:
 
 | Process | Project | Resident memory |
 | --- | --- | --- |
-| servef, idle after navigating | 44-file Go repo | ~38 MB |
+| srcz, idle after navigating | 44-file Go repo | ~38 MB |
 | gopls | same repo | 380 to 740 MB |
 | typescript-language-server (tsserver) | mid-size TS repo | 585 to 956 MB |
 
@@ -22,12 +22,12 @@ Memory footprint is a priority, so servers must never run unasked.
 
 - Language servers are opt-in through the Language Servers setting, off by
   default, stored in the browser like other settings (0013). Navigation and
-  status requests send `X-Servef-Language-Servers: on`; a header rather than
+  status requests send `X-Srcz-Language-Servers: on`; a header rather than
   a query parameter, so another site cannot start servers through the
-  browser without a CORS preflight servef never grants.
+  browser without a CORS preflight srcz never grants.
 - `internal/lsp` describes servers as data (`Builtins()`): binary, args,
   install commands, docs, and the navigable families they serve with LSP
-  language IDs. Servers only add precision to families servef already
+  language IDs. Servers only add precision to families srcz already
   navigates; `web.New` fails closed on a server for any other family.
   Phase 1: gopls (Go) and typescript-language-server (JS, JSX, TS, TSX).
 - One server runs per server and project root, started by the first opted-in
@@ -62,7 +62,7 @@ the fake server in `internal/lsp/lsptest` when behavior differs.
 
 - Off: no change in memory or behavior.
 - On: compiler-accurate results once a server is ready, at the server's
-  memory cost while it runs; servef reports that cost in the status panel.
+  memory cost while it runs; srcz reports that cost in the status panel.
 - First requests answer from syntax navigation while servers start.
 - Projects on TypeScript 7 (native) ship no `tsserver.js`, so
   typescript-language-server fails there; navigation falls back to syntax

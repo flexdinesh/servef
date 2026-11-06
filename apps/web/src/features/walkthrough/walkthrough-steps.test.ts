@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { WalkthroughStep } from "@servef/contracts"
+import type { WalkthroughStep } from "@srcz/contracts"
 import type { CompareContext } from "../source-control/compare.ts"
 import { coverRoute, lineDrift, parseStep, routeStep, routeWalkthrough, stepAfter, stepLabel, stepRoute, stepTarget } from "./walkthrough-steps.ts"
 

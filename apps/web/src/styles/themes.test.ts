@@ -109,10 +109,10 @@ function mix(a: string, b: string, p: number): string {
 }
 
 test("every theme's selection mark and field edges hold 3:1 against their grounds", () => {
-  const servef = /:root:is\(\[data-theme="system"\][^{]*\{([^}]*)\}/.exec(themesCSS)?.[1] ?? ""
-  const servefLight = (key: string) => new RegExp(`--color-${key}:\\s*light-dark\\((#[0-9a-f]{6})`).exec(servef)?.[1]
+  const srcz = /:root:is\(\[data-theme="system"\][^{]*\{([^}]*)\}/.exec(themesCSS)?.[1] ?? ""
+  const srczLight = (key: string) => new RegExp(`--color-${key}:\\s*light-dark\\((#[0-9a-f]{6})`).exec(srcz)?.[1]
   for (const [name, values] of allThemes()) {
-    const value = (key: string) => (name === "light" ? servefLight(key) : undefined) ?? values.get(`--color-${key}`) ?? ""
+    const value = (key: string) => (name === "light" ? srczLight(key) : undefined) ?? values.get(`--color-${key}`) ?? ""
     const chrome = value("workspace-chrome") || mix(value("surface"), value("canvas"), 0.5)
     const field = value("field-border") || mix(value("text-muted"), value("surface"), 0.9)
     for (const [ground, color] of [["surface", value("surface")], ["surface-secondary", value("surface-secondary")], ["surface-raised", value("surface-raised")], ["workspace-chrome", chrome]]) {

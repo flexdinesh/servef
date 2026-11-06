@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { LineDiff } from "@servef/contracts"
+import type { LineDiff } from "@srcz/contracts"
 import { lineDiffOf } from "./line-diff-testing.ts"
 import { diffLineTarget } from "./diff-line-selection.ts"
 import { adjacentHunk, fileOrder, gapForLine, hunkCursor, hunkInFile, hunkSelection } from "./diff-hunks.ts"

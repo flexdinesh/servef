@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { definitionOutcome, emptyMessage, groupLocations, identifierAt, navigationQuery, navigationTitle, navigationEligibility, resultNotice } from "./code-navigation.ts"
-import type { NavigationLocation, NavigationResult } from "@servef/contracts"
+import type { NavigationLocation, NavigationResult } from "@srcz/contracts"
 
 function location(path: string, line: number, column: number, kind = "function"): NavigationLocation {
   return { path, line, column, endLine: line, endColumn: column + 6, kind, snippet: "" }

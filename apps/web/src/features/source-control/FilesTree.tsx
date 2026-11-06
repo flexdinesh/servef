@@ -2,7 +2,7 @@ import type { GitStatusEntry } from "@pierre/trees"
 import { FileTree as PierreFileTree, useFileTree } from "@pierre/trees/react"
 import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react"
 
-import type { FileStats } from "@servef/contracts"
+import type { FileStats } from "@srcz/contracts"
 import { treeCSS } from "../../lib/tree-css.ts"
 import { ancestorDirectories, type CompareFile } from "./compare-files.ts"
 import { fileDecoration, viewedCSS } from "./files-tree-decoration.ts"

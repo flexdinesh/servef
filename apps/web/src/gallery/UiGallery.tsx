@@ -52,7 +52,7 @@ export default function UiGallery() {
   return (
     <main className="gallery">
       <header className="gallery-header">
-        <h1>servef UI primitives</h1>
+        <h1>srcz UI primitives</h1>
         <Select aria-label="Theme" value={theme} onChange={(event) => { if (isTheme(event.target.value)) setTheme(event.target.value) }}>
           {themeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </Select>

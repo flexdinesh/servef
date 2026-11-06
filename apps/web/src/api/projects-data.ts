@@ -1,4 +1,4 @@
-import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "@servef/contracts"
+import { isDirectoriesResponse, isProjectsResponse, type DirectoriesResponse, type ProjectsResponse } from "@srcz/contracts"
 
 import { failureReason, fetchJSON } from "./http.ts"
 import { lastProject, type WorkspaceMemory } from "../workspace/workspace-memory.ts"

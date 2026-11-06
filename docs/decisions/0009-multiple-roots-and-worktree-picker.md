@@ -9,7 +9,7 @@
 
 ## Context
 
-Users keep repositories in more than one parent folder and run `servef` from
+Users keep repositories in more than one parent folder and run `srcz` from
 inside a repository whose worktrees sit beside it. 0007 served one root,
 listed out-of-root worktrees as unopenable, let Open folder open any folder
 (including folders inside repositories), and listed every worktree flat under
@@ -70,7 +70,7 @@ its repository.
 
 ### Memory
 
-- Storage key `servef-workspaces-v2`: tabs per absolute project path, shared
+- Storage key `srcz-workspaces-v2`: tabs per absolute project path, shared
   across sessions; last project per set of roots. Earlier memory is dropped.
 - Opened folders are remembered projects in a root that discovery does not
   list.

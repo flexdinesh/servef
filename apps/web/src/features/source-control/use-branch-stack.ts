@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON } from "../../api/http.ts"
-import { isStackResponse, type StackResponse } from "@servef/contracts"
+import { isStackResponse, type StackResponse } from "@srcz/contracts"
 import { useRefreshOnReturn } from "./use-refresh-on-return.ts"
 
 export interface BranchStackState {

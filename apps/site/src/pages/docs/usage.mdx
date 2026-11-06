@@ -5,37 +5,37 @@
 Open the current directory:
 
 ```sh
-servef .
+srcz .
 ```
 
 Or another directory:
 
 ```sh
-servef path/to/markdown
+srcz path/to/markdown
 ```
 
-With the [desktop app](/docs/desktop) installed, `servef [path]` opens the
+With the [desktop app](/docs/desktop) installed, `srcz [path]` opens the
 directory in it and exits. Without it, or with `--host` or `--port`, it serves
-in a browser, as `servef browser [path]` does. On a machine without a UI (an
+in a browser, as `srcz browser [path]` does. On a machine without a UI (an
 SSH session, or Linux without a display) it tells you to run
-`servef [path] --remote`, which prints a `servef connect` command to run on your
+`srcz [path] --remote`, which prints a `srcz connect` command to run on your
 computer ([Remote hosts](/docs/remote)).
 
-`servef browser [path]` always serves in a browser and takes the same flags.
+`srcz browser [path]` always serves in a browser and takes the same flags.
 Subcommand names take precedence over directories, so open a directory named
-`browser`, `walkthrough`, or `daemon` as `servef ./browser`,
-`servef ./walkthrough`, or `servef ./daemon`.
+`browser`, `walkthrough`, or `daemon` as `srcz ./browser`,
+`srcz ./walkthrough`, or `srcz ./daemon`.
 
 Serve several directories with a repeatable `--path` (a positional path is
 shorthand for one); overlapping directories fail before starting:
 
 ```sh
-servef --path ~/work --path ~/personal
+srcz --path ~/work --path ~/personal
 ```
 
 ## Projects and worktrees
 
-servef looks for git repositories (including linked worktrees) up to
+srcz looks for git repositories (including linked worktrees) up to
 `--scan-depth` folders deep in each directory (default `10`; `0` checks only
 the served directories) and lists them in the project picker (Cmd/Ctrl+O). It
 stops descending at a repository and skips hidden, `node_modules`, and
@@ -59,7 +59,7 @@ A project that opens with no tabs to restore shows the Welcome tab: shortcuts
 to open a project, find a file, and run a command; the project's branch,
 uncommitted changes, and walkthroughs; every served project (when there is
 more than one) with a filter and each repository's worktrees; and a short
-guide in which every entry runs what it describes. Click **servef** in the
+guide in which every entry runs what it describes. Click **srcz** in the
 status bar, or run **Help › Welcome** from the command palette, to open it
 again. Turn it off with **Workbench › Show Welcome on Startup** in Settings;
 the project picker then opens on the first launch instead.
@@ -70,7 +70,7 @@ walkthrough to start.
 
 ## Host and port
 
-Without `--port`, servef uses the first free port from `7971` through `7980`.
+Without `--port`, srcz uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.
 
 Setting either one always serves in a browser. For parallel agent sessions or
@@ -78,15 +78,15 @@ worktrees, use a different port for each server, or let the OS select an
 available port:
 
 ```sh
-servef . --port 8123 --no-open
-servef . --port 0 --no-open
+srcz . --port 8123 --no-open
+srcz . --port 0 --no-open
 ```
 
 Use the URL printed at startup. Each server serves its own roots and stops
 independently. An occupied explicit port fails without stopping another server.
-Open servef by `localhost` or an IP address; other hostnames are refused, so
+Open srcz by `localhost` or an IP address; other hostnames are refused, so
 websites cannot reach it through DNS rebinding.
-If the range is full, servef can stop all verified instances after confirmation.
+If the range is full, srcz can stop all verified instances after confirmation.
 
 ## Files
 
@@ -104,27 +104,27 @@ repository checkout, regardless of `--depth` and skipped folders.
 
 ## Daemon
 
-`servef daemon` is plumbing for the [desktop app](/docs/desktop): one long-lived
-servef per user, reachable only through a private Unix socket (macOS and
+`srcz daemon` is plumbing for the [desktop app](/docs/desktop): one long-lived
+srcz per user, reachable only through a private Unix socket (macOS and
 Linux), whose directories are added while it runs and remembered across
 restarts. Clients start it on demand; it stops after 30 minutes without
 requests. To check on it or stop it:
 
 ```sh
-servef daemon status
-servef daemon stop
+srcz daemon status
+srcz daemon stop
 ```
 
-`servef daemon ensure` starts it unless it is running; `--json` prints status
+`srcz daemon ensure` starts it unless it is running; `--json` prints status
 as JSON.
 
 ## All options
 
 ```sh
-servef --help
-servef daemon run --help
+srcz --help
+srcz daemon run --help
 ```
 
-`servef daemon` subcommands take `--socket` to use another socket path;
+`srcz daemon` subcommands take `--socket` to use another socket path;
 `run` and `ensure` also take `--depth`, `--scan-depth`, and `--idle-exit`
 (`0` never stops).

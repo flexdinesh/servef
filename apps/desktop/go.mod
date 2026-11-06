@@ -1,10 +1,10 @@
-module github.com/flexdinesh/servef/apps/desktop
+module github.com/flexdinesh/srcz/apps/desktop
 
 go 1.27.3
 
 require (
 	github.com/egoist/mygo v0.7.4
-	github.com/flexdinesh/servef v0.0.0
+	github.com/flexdinesh/srcz v0.0.0
 )
 
 require (
@@ -13,6 +13,6 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 )
 
-replace github.com/flexdinesh/servef => ../servef
+replace github.com/flexdinesh/srcz => ../srcz
 
 tool github.com/egoist/mygo/cmd/mygo

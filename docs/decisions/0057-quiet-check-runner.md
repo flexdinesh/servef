@@ -22,7 +22,7 @@ run the suite twice: once by hand and once in the hook.
   cleared per run. The terminal gets `ok <task> 4.2s` per task. A failure
   prints its last 100 lines, its log path, and `mise run <task>`; its group
   finishes, later groups are skipped, and the first failing code is the exit
-  code. `SERVEF_CHECK_VERBOSE=1` streams output instead of writing logs.
+  code. `SRCZ_CHECK_VERBOSE=1` streams output instead of writing logs.
 - Builds and reporters print only what needs attention: Vite builds the app at
   `--logLevel warn`, Node tests use the dot reporter, and Playwright uses dots
   when stdout is not a terminal. Vocs has no quiet flag; its log keeps it.

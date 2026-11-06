@@ -41,9 +41,9 @@ Counts include parameterized cases. Paths below are relative to `tests/browser/`
 
 ## Cheaper coverage retained
 
-- `apps/servef/internal/document/*_test.go`: family lookup, original source, token-preserving
+- `apps/srcz/internal/document/*_test.go`: family lookup, original source, token-preserving
   formatting, escaping, malformed input, binary/size boundaries.
-- `apps/servef/internal/web/*_test.go`: scoped access, HTTP contracts, images, navigation,
+- `apps/srcz/internal/web/*_test.go`: scoped access, HTTP contracts, images, navigation,
   git comparisons, walkthroughs, and live-event transport.
 - `apps/web/src/features/documents/document-view.test.ts` and
   `diagram.test.ts`: capabilities, mode policy, loading/failure decisions, diagram zoom,

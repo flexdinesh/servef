@@ -1,6 +1,6 @@
 import type { SelectedLineRange, SelectionSide } from "@pierre/diffs"
 
-import type { WalkthroughStep } from "@servef/contracts"
+import type { WalkthroughStep } from "@srcz/contracts"
 import { isCommitHash, shortHash } from "../../lib/commit-hash.ts"
 import { lineAnchor, type LineRange } from "../../lib/line-selection.ts"
 import { branchCompare, compareName, compareSearch, reviewFragment, workingCompare, type Compare, type CompareContext, type CompareSearch } from "../source-control/compare.ts"

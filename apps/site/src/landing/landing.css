@@ -480,7 +480,7 @@ article:has(> .landing) {
   fill: var(--l-text);
 }
 
-/* Hero: terminal types `servef .`, then the workspace opens. 9 s loop. */
+/* Hero: terminal types `srcz .`, then the workspace opens. 9 s loop. */
 
 .hero-type {
   animation: hero-type 9s steps(9, end) infinite both;

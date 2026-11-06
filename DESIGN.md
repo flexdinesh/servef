@@ -1,5 +1,5 @@
 ---
-name: servef
+name: srcz
 description: Compact VS Code-style workspace for browsing local files.
 colors:
   bg: "#ffffff"
@@ -190,13 +190,13 @@ components:
     padding: "0.5rem 0.75rem"
     typography: "{typography.code}"
 ---
-# Design System: servef
+# Design System: srcz
 
 ## Overview
 
 **Creative North Star: "VS Code editor"**
 
-servef follows familiar editor conventions: an activity bar, a compact explorer and search sidebar, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
+srcz follows familiar editor conventions: an activity bar, a compact explorer and search sidebar, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local files central.
 
 Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
 
@@ -222,19 +222,19 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Servef Light, where it is white and the islands float on it (decision 0041); `surface` is document (white in Servef Light, decision 0046); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#eff1f4` in Servef Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Servef themes set it directly: `#e5e7eb` in Light, a clear step under the white surface; decisions 0044 and 0046); `island-border` is the islands' 1px edge, `#d3d7dd` in Servef Light and transparent elsewhere; Servef Light's greys are cool slate, matching its slate text (decision 0046); `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Srcz Light, where it is white and the islands float on it (decision 0041); `surface` is document (white in Srcz Light, decision 0046); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#eff1f4` in Srcz Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Srcz themes set it directly: `#e5e7eb` in Light, a clear step under the white surface; decisions 0044 and 0046); `island-border` is the islands' 1px edge, `#d3d7dd` in Srcz Light and transparent elsewhere; Srcz Light's greys are cool slate, matching its slate text (decision 0046); `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
-Choices: Auto, Servef Light, Servef Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Servef Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Servef Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `servef-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
+Choices: Auto, Srcz Light, Srcz Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Srcz Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Srcz Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `srcz-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
 
 **The Functional Accent Rule.** Use accent for state and interaction; keep routine prose headings and large surfaces neutral.
 
 **State roles** (VS Code conventions, shared by every interactive element):
 
-- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Servef Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
+- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Srcz Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
 - `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles (including a pressed IconButton), highlighted menu items. Accent text on the selection tint (selected line numbers, palette matches) switches to `selected-text`, which holds 4.5:1 there.
 - `--color-focus` (= `accent`): keyboard focus.
-- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#7a808a` in Servef Light, decision 0046), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
+- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#7a808a` in Srcz Light, decision 0046), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
 - `--color-selected-border` (= `accent`): the selection mark. The selection tint is under 3:1, so selected rows draw a 3:1 mark: a 1px inset ring (lists, trees, menus' highlighted item, a pressed IconButton; a commit range takes one ring around the run) while tabs use document-surface continuity without an accent mark (decision 0056). The active activity tile is its own mark, as in VS Code's highlight (decision 0046).
 
 ## Typography
@@ -273,7 +273,7 @@ Scrollbars (decision 0055): 10px (`--scrollbar-size`), no track or arrows, a squ
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows; in Servef Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows; in Srcz Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
@@ -311,7 +311,7 @@ Activity bar, tab strip, Pierre trees and diffs, prose, and the Mermaid canvas a
 
 ### Activity bar
 
-A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G), then Walkthroughs (route icon, no shortcut). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. Walkthroughs counts walkthroughs published since the view last showed, named “Walkthroughs, 2 new walkthroughs”. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners, `--shadow-control`) and `aria-pressed`, with no rail bar (decision 0046); hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `servef-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
+A 2.5rem column on `workspace-chrome` with a 1px right border and 40px-square rows from the island top: Explorer (files icon, Cmd/Ctrl+Shift+E), Search (Cmd/Ctrl+Shift+F), then Source Control (git-branch icon, Cmd/Ctrl+Shift+G), then Walkthroughs (route icon, no shortcut). Source Control carries a count badge of pending changes (`99+` above 99), named “Source Control, 4 pending changes”; no badge at zero. Walkthroughs counts walkthroughs published since the view last showed, named “Walkthroughs, 2 new walkthroughs”. The badge sits at the tile's lower right: 14px tall, 6px radius, `accent` fill with `surface` text (contrast holds in every theme), 9px 600 tabular figures as in VS Code. Items show 18px icons in `text-secondary`; hover and the active item use `text-primary`, and the active item carries a 32px-square `surface` tile (4px inset on every side, 4px corners, `--shadow-control`) and `aria-pressed`, with no rail bar (decision 0046); hover shows the same tile in the `--color-hover` layer. The full button remains the click target; keyboard focus draws the 1px inset outline. Clicking the active item, or Cmd/Ctrl+B, hides the sidebar on desktop (the resizer hides with it); clicking any item restores it. All views stay mounted so switching keeps tree, search, and change-list state. View and visibility persist under `srcz-sidebar`. Mobile puts the bar inside the drawer with 32px-square items; the drawer is named after the active view.
 
 ### Explorer
 
@@ -392,13 +392,13 @@ Unregistered text files open as Source and the footer names the type (“Plain t
 
 Images open in a fit-by-default viewer: centered, never upscaled, on a subtle surface/surface-secondary checkerboard with a 1px border; zoomed images scroll within the pane. The toggle slot holds [Fit][−][100%][+] (SVG adds [Preview][Source] first; zoom hides in Source). The middle button shows the current zoom and resets to 100%. Steps are ×1.25 within 10%–800%. With the viewer focused, `+`/`-` zoom, `0` fits, `1` shows actual size. Zoom changes are announced politely; the footer shows `1920 × 1080 · 64%` beside the size. Loading shows a neutral placeholder; decode failures read “Can't display this image.” Alt text is the filename.
 
-Other binaries open to the centered empty-state layout: “Binary file”, `name · size`, and “servef shows text and images only.” No toggle.
+Other binaries open to the centered empty-state layout: “Binary file”, `name · size`, and “srcz shows text and images only.” No toggle.
 
-Non-image files over 32 MiB use the same layout: “Too large to display”, `name · size`, and “servef shows text files up to 32 MB.” No toggle; the footer keeps the type label.
+Non-image files over 32 MiB use the same layout: “Too large to display”, `name · size`, and “srcz shows text files up to 32 MB.” No toggle; the footer keeps the type label.
 
 ### Footer
 
-Explorer footer: the servef brand (opens or activates the Welcome tab), process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
+Explorer footer: the srcz brand (opens or activates the Welcome tab), process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against the canvas, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
 
 LSP availability sits beside the document language for every text file, including
 unsupported languages: LSP unavailable, missing, off, available, starting, ready,
@@ -414,7 +414,7 @@ label. No line selection.
 
 ### Settings
 
-The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, Code Navigation, Workbench, or (desktop app only) Notifications, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a `surface-recessed` fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, Code Navigation: Language Servers (On by default; Off disables code navigation in this browser), Workbench: Show Welcome on Startup (On by default; decision 0052), and, in the desktop app only, Notifications: New Commits, Branch Switches, and Walkthroughs (On by default) and File Edits (Off by default; decision 0099), each an Off/On `Select`. A warning `Notice` tops the Notifications section when notices cannot reach the user, naming the fix when there is one; browsers show neither the category nor its palette commands. Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” (“Saved for this connection.” in the desktop app) with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, language servers On, Welcome on startup On, and the notification defaults. Only changed values persist, under `servef-settings` in localStorage; theme keeps `servef-theme`. Search also matches select option labels (“nord” finds Theme).
+The footer gear or Ctrl/Cmd+, opens Settings, a VS Code-style dialog (56rem maximum width, centered and bounded by the viewport, transparent backdrop so changes show live). Its header, search, filters, and footer stay visible while settings scroll independently. A compact left category rail filters All settings, Appearance, Code Navigation, Workbench, or (desktop app only) Notifications, with counts; its hover and selected fills start at the search field's left edge and run to the rail's border; mobile moves categories into a horizontally scrollable row with 44px targets. A 32px header names it and holds Close. A bordered “Search settings” field (focused on open; accent ring) filters by every term across category, title, and description; Escape clears a query from any setting control, then closes. A clear-search action returns focus to search. A result count and Show modified toggle sit below search; search matches globally across categories, and Clear filters recovers empty results. Settings group under 16px section titles (Appearance). Each item reads “Category: **Title**”, a 13px secondary description, then its control. Flat items take a `surface-recessed` fill on hover/focus. A changed value shows a 2px accent bar in the item's left gutter (VS Code's modified marker), an italic muted “Modified”, and a reset icon (restores the default; focus moves to the control). Settings, in order: Theme (an 18rem maximum-width `Select` of the named themes, default Dark; its chevron sits as far from the right border as the text from the left), Font Size, Code Navigation: Language Servers (On by default; Off disables code navigation in this browser), Workbench: Show Welcome on Startup (On by default; decision 0052), and, in the desktop app only, Notifications: New Commits, Branch Switches, and Walkthroughs (On by default) and File Edits (Off by default; decision 0099), each an Off/On `Select`. A warning `Notice` tops the Notifications section when notices cannot reach the user, naming the fix when there is one; browsers show neither the category nor its palette commands. Number controls are 5rem fields with a muted unit; values apply on every valid keystroke; invalid input keeps the last valid value, marks the field `aria-invalid`, and says “Enter a whole number from 10 to 20.” Selects apply on change. The footer matches the header's 32px height (44px on mobile) and reads “Saved in this browser. Changes apply immediately.” (“Saved for this connection.” in the desktop app) with a ghost Reset all action, disabled when nothing differs; it restores Dark, 13px, language servers On, Welcome on startup On, and the notification defaults. Only changed values persist, under `srcz-settings` in localStorage; theme keeps `srcz-theme`. Search also matches select option labels (“nord” finds Theme).
 
 Opened at a setting (from the command palette), Settings clears its search, scrolls the item into view, focuses its control (selecting a number's text), and flashes the item: `accent-subtle` fill and a 1px inset accent ring hold for the first third of 1.6s, then ease out (`cubic-bezier(0.16, 1, 0.3, 1)`). Reduced motion shows the highlight statically for 1.6s.
 
@@ -450,7 +450,7 @@ resizes the pair (each keeps at least 15% of it), revealing a 2px accent line
 on hover and keyboard focus; arrow keys step 5% and double-click restores the
 default split. Phones stack panes at their natural height and the view
 scrolls. Pane state, weights, the list view, the commit range, the review
-rail, and each project's base branch persist under `servef-source-control`.
+rail, and each project's base branch persist under `srcz-source-control`.
 Outside a repository the view reads “This folder isn't a git repository.”
 
 Uncommitted carries the Search count badge (named “4 files”) and actions View
@@ -555,7 +555,7 @@ Inline (compact menu: Word, Character, Off), Expand unchanged, Previous change
 and Next change (Shift+F7, F7; they step across files), Collapse/Expand All
 Files, and, for commit, range, and branch reviews, Files (panel-right icon,
 `aria-pressed` while the rail shows). Toggles use `aria-pressed`. Options
-persist in this browser under `servef-diff-options`, not Settings. When the
+persist in this browser under `srcz-diff-options`, not Settings. When the
 diff area is narrower than 48rem (a narrow window, or a wide sidebar or rail)
 Split is `aria-disabled` with “Split view needs a wider window” as its
 tooltip, and Unified is forced; below 30rem the layout group hides so tabs
@@ -596,7 +596,7 @@ with uncommitted edits carry a 6px `accent` dot before the status letter
 (decision 0051). Notes and narration sit on the gutter. Files follow on it
 (8px inset, 12px between files, 32px below the last),
 each an island: a `surface` section with `--radius-island` corners and the
-`island-border` hairline (Servef Light only), as the workspace islands sit on
+`island-border` hairline (Srcz Light only), as the workspace islands sit on
 the canvas. Each section is named by its
 path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`,
 sticking one 8px gutter below the tab strip over a gutter-colored band,
@@ -605,7 +605,7 @@ with a bottom border that hides while the file is collapsed): a plain disclosure
 file icon, and path; a muted “from <old path>”; stats; the status letter; a
 Viewed toggle button (disabled until the file's blob hash arrives); and Open
 File (disabled, with its reason, when the working tree lacks the file). Viewed files start collapsed; marks persist
-under `servef-review-viewed` and clear when the file's content changes.
+under `srcz-review-viewed` and clear when the file's content changes.
 Diffs load as files near the viewport and keep their height while away.
 
 Slim notices sit inside a file in the large-file bar treatment: renamed,
@@ -621,17 +621,17 @@ selected lines.
 Diff source uses the Source font, size, and line height in rem. Syntax colors
 come from `--color-syntax-*` through a CSS-variable Shiki theme, so every theme
 applies and polarity follows the resolved theme. Added and deleted line fills
-are Pierre's 12% mix of `success` and `destructive` into `surface`; Servef
+are Pierre's 12% mix of `success` and `destructive` into `surface`; Srcz
 Light mixes a vivid green (`--color-diff-addition-tint`, `#00c853`) for
 additions, since its dark `success` reads grey at that strength; line numbers,
-separators, and selection use servef tokens. Highlighting runs in a pool of two
+separators, and selection use srcz tokens. Highlighting runs in a pool of two
 local workers shared by the tab's files; a separate worker computes diffs, at
 most 30 stay parsed, and rows are virtualized within the document pane.
 Closing the last review tab ends every diff worker.
 
 ### Walkthroughs
 
-Agent-published tours (decision 0047). The view lists the project's walkthroughs newest first: route icon, title, and a muted “7 steps · 3 hours ago” line in two-line rows on the list row primitive. Choosing one shows its title, “Step 3 of 7 · 1 minute ago”, a Delete icon that turns into an inline warning Notice bar with Delete and Cancel, and a listbox of Overview then numbered steps: tabular number, a type icon (note, file, file at a commit, diff), title, and the muted target label (`src/app.ts:3–5`, `README.md:1–2 @ f34279d`, `Uncommitted · src/app.ts:1 (old)`). The current step takes the selection fill; steps read this session dim their title to `text-secondary`. The header's back arrow returns to the list. Opening a walkthrough link reveals the view on desktop only. The header's last action on both screens, before the phone Close, is Copy Agent Instructions (decision 0049): it copies a prompt naming this servef's origin, the project, the format, and the publish endpoint, and its icon checks in success or crosses in destructive for `--duration-feedback`, announced. The empty list reads “Ask an agent to explain a change or feature as a walkthrough. Paste these instructions into it first.” above an outline “Copy agent instructions” button whose label becomes “Copied” or “Copy failed”.
+Agent-published tours (decision 0047). The view lists the project's walkthroughs newest first: route icon, title, and a muted “7 steps · 3 hours ago” line in two-line rows on the list row primitive. Choosing one shows its title, “Step 3 of 7 · 1 minute ago”, a Delete icon that turns into an inline warning Notice bar with Delete and Cancel, and a listbox of Overview then numbered steps: tabular number, a type icon (note, file, file at a commit, diff), title, and the muted target label (`src/app.ts:3–5`, `README.md:1–2 @ f34279d`, `Uncommitted · src/app.ts:1 (old)`). The current step takes the selection fill; steps read this session dim their title to `text-secondary`. The header's back arrow returns to the list. Opening a walkthrough link reveals the view on desktop only. The header's last action on both screens, before the phone Close, is Copy Agent Instructions (decision 0049): it copies a prompt naming this srcz's origin, the project, the format, and the publish endpoint, and its icon checks in success or crosses in destructive for `--duration-feedback`, announced. The empty list reads “Ask an agent to explain a change or feature as a walkthrough. Paste these instructions into it first.” above an outline “Copy agent instructions” button whose label becomes “Copied” or “Copy failed”.
 
 A step opens its ordinary tab: Source with the lines selected, a snapshot, or a review at its file and lines. Its narration is an editor zone, not a card: a full-width band after the step's last line on `surface-secondary` with 1px `border` above and below, set in the UI face. In Source it stays pinned to the visible width across horizontal scroll; in a diff it is a Pierre line annotation on the step's side; without lines, or in Preview, Format, and images, it leads the file or view. The header reads “Step 3 of 7”, the title in 14px 600, then Previous, Next, and Close icon buttons (Cmd/Ctrl+Left and Right step from anywhere outside text fields). Prose follows the Markdown system at 14px, within the reading width. A step whose expected first line no longer matches shows a warning Notice: “This code changed after the step was written”. A diff step whose file left the compare says so.
 
@@ -643,7 +643,7 @@ Present (the view header's presentation icon, or the palette) hides the activity
 
 The Welcome tab (decision 0052) is a flat page on the document surface, in
 the walkthrough cover's voice and without cards: a muted “Serving <roots>”
-line, “servef” at the preview h1 size (600, -0.02em), and a secondary
+line, “srcz” at the preview h1 size (600, -0.02em), and a secondary
 one-line tagline, then two columns once the tab is 48rem wide (a container
 query; one column below), 68rem at most. Section titles are 15px 600
 (`--preview-h4`) in `text-primary`, 12px above their content. Start and What
@@ -695,4 +695,4 @@ One prose system across documents. Tables: 14px, neutral headers, horizontal ove
 - Don't center preview prose or substitute generic heading/body tokens for the preview scale.
 - Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.
 - Don't rely on color alone for selection, focus, errors, or status.
-- Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/servef/internal/web/dist/` directly.
+- Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/srcz/internal/web/dist/` directly.

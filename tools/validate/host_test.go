@@ -125,7 +125,7 @@ func TestReadOnlyPreparedDirectoriesProduceWritablePrivateCopies(t *testing.T) {
 }
 
 func TestHostEnvironmentSelectsPrivateStateAndPinnedPaths(t *testing.T) {
-	t.Setenv("SERVEF_API_TARGET", "http://localhost:1234")
+	t.Setenv("SRCZ_API_TARGET", "http://localhost:1234")
 	t.Setenv("NODE_OPTIONS", "--require=/personal/config.js")
 	t.Setenv("GIT_DIR", "/personal/repository")
 	t.Setenv("PATH", "/personal/bin")

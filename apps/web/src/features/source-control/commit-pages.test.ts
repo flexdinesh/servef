@@ -2,12 +2,12 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { appendedCommits, commitsUrl, refreshedCommits } from "./commit-pages.ts"
-import type { Commit, CommitsResponse } from "@servef/contracts"
+import type { Commit, CommitsResponse } from "@srcz/contracts"
 
 function commit(letter: string): Commit {
   return {
     hash: letter.repeat(40), parents: [], subject: letter, body: "",
-    author: { name: "servef", email: "servef@example.com" }, authorTime: "2026-10-21T14:02:00+11:00",
+    author: { name: "srcz", email: "srcz@example.com" }, authorTime: "2026-10-21T14:02:00+11:00",
   }
 }
 

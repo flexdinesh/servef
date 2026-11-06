@@ -1,7 +1,7 @@
 import type { FileDiffMetadata } from "@pierre/diffs"
 import { useEffect, useState } from "react"
 
-import { isDiffResponse, type DiffResponse, type LineDiff } from "@servef/contracts"
+import { isDiffResponse, type DiffResponse, type LineDiff } from "@srcz/contracts"
 import { failureReason, fetchJSON, RequestError, type RequestFailure } from "../../api/http.ts"
 import { boundedCache } from "../../lib/bounded-cache.ts"
 import { compareKey, type Compare } from "./compare.ts"

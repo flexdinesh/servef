@@ -1,4 +1,4 @@
-import type { PageData } from "@servef/contracts"
+import type { PageData } from "@srcz/contracts"
 
 import type { DocumentMode } from "../../api/page-contract.ts"
 import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"

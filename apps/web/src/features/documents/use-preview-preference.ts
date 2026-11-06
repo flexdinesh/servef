@@ -5,7 +5,7 @@ import type { DocumentMode } from "../../api/page-contract.ts"
 // The Preview choice lasts for the browser tab's session, per project. Projects
 // are absolute paths. Storage is a convenience; blocked storage keeps the
 // in-memory choice.
-const storagePrefix = "servef-preview:"
+const storagePrefix = "srcz-preview:"
 
 function readPreference(project: string): boolean {
   try {

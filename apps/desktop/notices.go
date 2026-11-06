@@ -8,10 +8,10 @@ import (
 
 	"github.com/egoist/mygo"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/bridge"
-	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
-	"github.com/flexdinesh/servef/apps/desktop/internal/notifier"
-	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/bridge"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/connect"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/notifier"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/proxy"
 )
 
 // These reach the OS; end-to-end builds, which have no notification service,
@@ -79,7 +79,7 @@ func (h *host) showNotice(notice notifier.Notice) {
 		case errors.Is(err, mygo.ErrNotificationsDenied):
 			h.noticesDenied.Store(true)
 		case err != nil:
-			log.Printf("servef-desktop: notification: %v", err)
+			log.Printf("srcz-desktop: notification: %v", err)
 		default:
 			h.noticesDenied.Store(false)
 		}

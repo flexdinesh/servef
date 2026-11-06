@@ -1,30 +1,30 @@
 # Architecture
 
-`servef` is one product implemented by build-time projects and distributed as
+`srcz` is one product implemented by build-time projects and distributed as
 one Go binary, plus desktop packages that bundle it (decision 0068).
 
 ## System boundaries
 
-- `apps/servef/main.go` and `apps/servef/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`servef [path]`), `servef --remote`, `servef connect`, and `servef remote` (decision 0098).
-- `apps/servef/internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
-- `apps/servef/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API (typed `Controller` operations and their HTTP handler), roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
-- `apps/servef/internal/app/`: transport-agnostic application layer (decision 0080); domain services (projects, documents, events, source control) return `pkg/contract` types or typed errors; no `net/http`.
-- `apps/servef/internal/diff/`: line diffs (hunks, blocks, collapsed gaps, counts) laid out as jsdiff and Pierre lay them out, with time and size bounds (decision 0083); knows bytes only.
-- `apps/servef/pkg/contract/`: transport shapes, error kinds and codes, request parameters; the source `tools/contracts` generates `packages/contracts` from.
-- `apps/servef/pkg/client/`: Go client over HTTP/TCP, HTTP/Unix socket, and in process.
-- `apps/servef/internal/files/`: file discovery, always-skipped directories, and safe path resolution.
-- `apps/servef/internal/projects/`: root validation, repository/worktree discovery, project resolution.
-- `apps/servef/internal/git/`: go-git reads for Source Control; go-git types stay inside it.
-- `apps/servef/internal/document/`: file families, previews, formatting, media types, binary/size policy.
-- `apps/servef/internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
-- `apps/servef/internal/control/`: authenticated discovery and shutdown of local servef processes.
-- `apps/servef/internal/browser/`, `apps/servef/internal/version/`: browser launch and build version.
-- `apps/servef/internal/desktopapp/`: desktop app detection (`servef://` handler), opening URLs in it, install hints.
-- `apps/servef/internal/web/`: HTTP adapter (`routes.go`, kind-to-status mapping, server-sent events, raw bytes), shell/static delivery, embedded assets, and the domains not yet moved to `internal/app` (navigation, walkthroughs, metrics).
-- `packages/contracts/`: generated TypeScript types and runtime guards (`@servef/contracts`); never edited by hand.
+- `apps/srcz/main.go` and `apps/srcz/cmd/`: CLI, process lifecycle, listener, browser launch, daemon commands and spawning, opening the desktop app (`srcz [path]`), `srcz --remote`, `srcz connect`, and `srcz remote` (decision 0098).
+- `apps/srcz/internal/runtime/`: the web app, HTTP server, and shutdown order shared by every transport; no listener.
+- `apps/srcz/internal/daemon/`: per-user Unix socket, single-instance lock, `/_daemon/*` control API (typed `Controller` operations and their HTTP handler), roots file, idle exit, client, and `Ensure`; no CLI flags or spawning.
+- `apps/srcz/internal/app/`: transport-agnostic application layer (decision 0080); domain services (projects, documents, events, source control) return `pkg/contract` types or typed errors; no `net/http`.
+- `apps/srcz/internal/diff/`: line diffs (hunks, blocks, collapsed gaps, counts) laid out as jsdiff and Pierre lay them out, with time and size bounds (decision 0083); knows bytes only.
+- `apps/srcz/pkg/contract/`: transport shapes, error kinds and codes, request parameters; the source `tools/contracts` generates `packages/contracts` from.
+- `apps/srcz/pkg/client/`: Go client over HTTP/TCP, HTTP/Unix socket, and in process.
+- `apps/srcz/internal/files/`: file discovery, always-skipped directories, and safe path resolution.
+- `apps/srcz/internal/projects/`: root validation, repository/worktree discovery, project resolution.
+- `apps/srcz/internal/git/`: go-git reads for Source Control; go-git types stay inside it.
+- `apps/srcz/internal/document/`: file families, previews, formatting, media types, binary/size policy.
+- `apps/srcz/internal/lsp/`: language-server data, process lifecycle, JSON-RPC client.
+- `apps/srcz/internal/control/`: authenticated discovery and shutdown of local srcz processes.
+- `apps/srcz/internal/browser/`, `apps/srcz/internal/version/`: browser launch and build version.
+- `apps/srcz/internal/desktopapp/`: desktop app detection (`srcz://` handler), opening URLs in it, install hints.
+- `apps/srcz/internal/web/`: HTTP adapter (`routes.go`, kind-to-status mapping, server-sent events, raw bytes), shell/static delivery, embedded assets, and the domains not yet moved to `internal/app` (navigation, walkthroughs, metrics).
+- `packages/contracts/`: generated TypeScript types and runtime guards (`@srcz/contracts`); never edited by hand.
 - `apps/web/`: React UI, Vite build, frontend tests and development tooling.
-- `apps/desktop/`: the desktop app `servef-desktop` (decisions 0094, 0095), its own Go 1.27 module outside `go.work`: mygo shows `apps/web` in the OS web view, proxying `servef-app://local` from the daemon socket; it never reads project files and embeds no frontend.
-- `tools/`: validation, release, and contract-generation tooling, its own Go module. The root `go.work` uses `apps/servef` and `tools` (decision 0078).
+- `apps/desktop/`: the desktop app `srcz-desktop` (decisions 0094, 0095), its own Go 1.27 module outside `go.work`: mygo shows `apps/web` in the OS web view, proxying `srcz-app://local` from the daemon socket; it never reads project files and embeds no frontend.
+- `tools/`: validation, release, and contract-generation tooling, its own Go module. The root `go.work` uses `apps/srcz` and `tools` (decision 0078).
 - `testdata/markdown/`: canonical filesystem corpus for Go and browser tests.
 - `testdata/api/`: transport scenarios for frontend-only development.
 - `docs/decisions/`: decision records for scope, file types, views, and limits.
@@ -63,9 +63,9 @@ client -> HTTP (TCP, Unix socket) | app + daemon.Controller (in process)
 desktop -> daemon socket -> runtime
 CLI -> runtime
 git, projects -> files
-React -> @servef/contracts guards -> HTTP API -> HTTP adapter -> app
+React -> @srcz/contracts guards -> HTTP API -> HTTP adapter -> app
 pkg/contract -> tools/contracts -> packages/contracts (committed, drift-checked)
-web source -> Vite -> apps/servef/internal/web/dist -> go:embed -> servef binary
+web source -> Vite -> apps/srcz/internal/web/dist -> go:embed -> srcz binary
 ```
 
 Go and pnpm retain their native dependency graphs. The repository-level
@@ -97,7 +97,7 @@ engine. No local convention provides remote enforcement.
 
 ## Distribution
 
-Vite writes hashed assets to `apps/servef/internal/web/dist`, which no branch
+Vite writes hashed assets to `apps/srcz/internal/web/dist`, which no branch
 or tag tracks. `.github/workflows/build.yml` builds it before Go compilation
 and publishes only GitHub release assets (decision 0079): a `vX.Y.Z` tag on a
 `main` commit publishes that stable release, and every green push to `main`
@@ -106,8 +106,8 @@ Node.js runtime or frontend sidecar; the install scripts are the supported
 install.
 
 Both publish CLI archives and desktop packages (macOS zip, Linux tar.gz per
-arch): `mygo build` bundles that build's Go binary as `resources/bin/servef`.
-Bare `servef [path]` opens the installed app through the daemon and otherwise
+arch): `mygo build` bundles that build's Go binary as `resources/bin/srcz`.
+Bare `srcz [path]` opens the installed app through the daemon and otherwise
 serves in a browser.
 
 ## Growth rules

@@ -35,9 +35,9 @@ test("a first landing opens Welcome with the projects instead of the picker", as
   await page.goto("/")
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&welcome=1`))
   await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
-  await expect(welcome(page).getByRole("heading", { name: "servef", level: 1 })).toBeVisible()
+  await expect(welcome(page).getByRole("heading", { name: "srcz", level: 1 })).toBeVisible()
   await expect(page.getByRole("dialog", { name: "Switch project" })).toBeHidden()
-  await expect(page).toHaveTitle("Welcome · servef")
+  await expect(page).toHaveTitle("Welcome · srcz")
 
   await expect(projects(page).getByRole("button", { name: /^markdown/ })).toContainText("Current")
   await expect(projects(page).getByRole("button", { name: /^(markdown|guides|reference)/ })).toHaveText([
@@ -74,7 +74,7 @@ test("remembered tabs restore instead of Welcome; with nothing to restore it ret
   await expect(tabs(page).getByRole("tab")).toHaveText(["README.md"])
 
   // A closed Welcome stays closed while other tabs restore.
-  await page.getByRole("link", { name: "servef home" }).click()
+  await page.getByRole("link", { name: "srcz home" }).click()
   await page.getByRole("button", { name: "Close Welcome" }).click()
   await expect(tabs(page).getByRole("tab", { name: "README.md" })).toHaveAttribute("aria-selected", "true")
   await page.reload()

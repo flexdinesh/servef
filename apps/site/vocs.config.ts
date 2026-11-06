@@ -1,7 +1,7 @@
 import { defineConfig } from 'vocs/config'
 
 export default defineConfig({
-  title: 'servef',
+  title: 'srcz',
   description:
     'Browse any file in a local directory: rendered Markdown, image previews, formatted data, and highlighted source.',
   renderStrategy: 'full-static',
@@ -16,5 +16,5 @@ export default defineConfig({
     { text: 'Code navigation', link: '/docs/code-navigation' },
     { text: 'Walkthroughs', link: '/docs/walkthroughs' },
   ],
-  socials: [{ icon: 'github', link: 'https://github.com/flexdinesh/servef' }],
+  socials: [{ icon: 'github', link: 'https://github.com/flexdinesh/srcz' }],
 })

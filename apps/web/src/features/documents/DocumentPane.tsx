@@ -9,7 +9,7 @@ import type { DocumentView } from "./document-view.ts"
 import { FormattedDocument } from "./FormattedDocument.tsx"
 import { handleImageKey, ImageDocument } from "./ImageDocument.tsx"
 import { SourceDocument, type LineSelection, type SourceAnnotation, type SourceNavigation } from "./SourceDocument.tsx"
-import type { PageData } from "@servef/contracts"
+import type { PageData } from "@srcz/contracts"
 import { projectUrl } from "../../api/project-url.ts"
 import type { ImageViewer } from "./use-image-viewer.ts"
 

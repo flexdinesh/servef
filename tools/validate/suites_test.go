@@ -122,7 +122,7 @@ func TestConsumerInputInvalidation(t *testing.T) {
 	}{
 		{"apps/web/src/model.test.ts", []string{"web-static", "frontend"}},
 		{"apps/web/src/View.test.tsx", []string{"web-static", "frontend"}},
-		{"apps/servef/internal/app/app_test.go", []string{"repo", "go", "desktop", "desktop-extended"}},
+		{"apps/srcz/internal/app/app_test.go", []string{"repo", "go", "desktop", "desktop-extended"}},
 		{"apps/desktop/e2e/e2e_test.go", []string{"repo", "desktop", "desktop-extended"}},
 		{"tools/validate/snapshot_test.go", []string{"repo", "go"}},
 		{"tools/validate/snapshot.go", all},

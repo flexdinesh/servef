@@ -10,13 +10,13 @@ import (
 
 	"github.com/egoist/mygo"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/bridge"
-	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
-	"github.com/flexdinesh/servef/pkg/client"
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/bridge"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/proxy"
+	"github.com/flexdinesh/srcz/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
-// preloadScript is window.servefDesktop (decisions 0081, 0098) over mygo's IPC,
+// preloadScript is window.srczDesktop (decisions 0081, 0098) over mygo's IPC,
 // on the app's origins only. The UI feature-detects every method. A remote
 // server's page gets what its window needs, nothing of this machine: its files
 // are elsewhere. The methods check again, since a page can call mygo directly.
@@ -29,7 +29,7 @@ const preloadScript = `(() => {
     showContextMenu(items, x, y) { return call("ShowContextMenu", items, x, y) },
     configureNotifications(config) { return call("ConfigureNotifications", config) },
   }
-  window.servefDesktop = Object.freeze(location.host === "` + proxy.Host + `" ? {
+  window.srczDesktop = Object.freeze(location.host === "` + proxy.Host + `" ? {
     version: 2,
     ...window_,
     openFolder() { void call("OpenFolder").catch(() => undefined) },
@@ -102,7 +102,7 @@ func (b *bridgeService) OpenFolder(ctx context.Context) error {
 	if !ok {
 		return errRefused
 	}
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: window, Title: "Open a folder in servef", Directory: true})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: window, Title: "Open a folder in srcz", Directory: true})
 	if err != nil || len(paths) == 0 {
 		return err
 	}
@@ -229,14 +229,14 @@ func (h *host) windowMenu(goos string) *mygo.MenuItem {
 func (h *host) closeTab(window *mygo.Window) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	unhandled, err := window.Page().EvalContext(ctx, `return window.dispatchEvent(new Event("servef:close-tab", { cancelable: true }))`)
+	unhandled, err := window.Page().EvalContext(ctx, `return window.dispatchEvent(new Event("srcz:close-tab", { cancelable: true }))`)
 	if err == nil && unhandled == true {
 		window.Close()
 	}
 }
 
 func (h *host) chooseFolder() {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.frontWindow(), Title: "Open a folder in servef", Directory: true})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.frontWindow(), Title: "Open a folder in srcz", Directory: true})
 	if err == nil && len(paths) > 0 {
 		h.openAndLoad(paths[0])
 	}

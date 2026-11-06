@@ -35,7 +35,7 @@ and install instructions currently mix platforms indiscriminately.
   contracts, result filtering, and bounded snippets.
 - Enable language servers by default in the browser. Preserve explicitly
   stored on/off settings; an absent setting adopts the new default. Retain
-  `X-Servef-Language-Servers: on` on navigation requests so cross-origin
+  `X-Srcz-Language-Servers: on` on navigation requests so cross-origin
   requests cannot start processes without a preflight. Off means navigation
   is disabled. Other browser sessions can continue using shared servers.
 - Start one server per project root and selected server on the first
@@ -74,7 +74,7 @@ and install instructions currently mix platforms indiscriminately.
   disabled, available/stopped, starting, ready, failed, and unknown status.
   A file blocked by policy has an explicit reason. Status polling does not
   count as navigation activity or keep a server alive.
-- Generate installation guidance on the servef host from OS, Linux distro,
+- Generate installation guidance on the srcz host from OS, Linux distro,
   known package managers, and runtime prerequisites. Send vetted commands,
   labels, and documentation to the UI. Offer copy and Check again. Never
   infer the host from the browser or execute installers from the UI.
@@ -87,8 +87,8 @@ and install instructions currently mix platforms indiscriminately.
 - Navigation uses the selected server's project configuration, build context,
   language version, and supported features. This improves semantic accuracy;
   it does not guarantee identical results across every editor/server setup.
-- servef loses parser/index memory and binary weight. Language-server memory
-  remains additional and potentially substantial. Measure servef and server
+- srcz loses parser/index memory and binary weight. Language-server memory
+  remains additional and potentially substantial. Measure srcz and server
   process-tree RSS separately; the status panel continues exposing server
   memory.
 - Without an installed compatible server, navigation is unavailable with
@@ -103,7 +103,7 @@ On Stash with matching stripped Linux builds, the old binary measured
 48,263,328 bytes. The LSP-only build measured about 39.3 MB. Opening the same
 source file used about 30 MB RSS before and 28 MB after. After definition and
 reference requests, syntax navigation peaked at about 166 MB and settled at
-47 MB after four idle seconds; the LSP-only servef process stayed around
+47 MB after four idle seconds; the LSP-only srcz process stayed around
 28 MB, with the native TypeScript server consuming about 280 MB separately.
 These are local observations, not fixed limits or guarantees.
 

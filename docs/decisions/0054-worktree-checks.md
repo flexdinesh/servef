@@ -44,4 +44,4 @@ explicit port, including zero for an OS-assigned listener.
 - Browser counts fall without claiming unit tests prove omitted interaction
   variants. Visual review remains necessary for cosmetic changes.
 - The locking helper is development tooling for Linux/macOS, not part of the
-  distributed servef binary. No runtime dependency is added to servef.
+  distributed srcz binary. No runtime dependency is added to srcz.

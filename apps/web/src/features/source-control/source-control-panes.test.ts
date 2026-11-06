@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { StackLayer, StackResponse } from "@servef/contracts"
+import type { StackLayer, StackResponse } from "@srcz/contracts"
 import type { Compare } from "./compare.ts"
 import { fileParts, onBaseBranch, refChips, rowDiff, stackRows } from "./source-control-panes.ts"
 

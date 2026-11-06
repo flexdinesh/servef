@@ -19,13 +19,13 @@ grammar downloads, and colors tokens from CSS variables.
 
 - Diffs highlight with Highlights only (`preferredHighlighter:
   'highlights'`). No Shiki backend ships: a build-only Vite plugin
-  (`servef-diffs-subset`) resolves Pierre's `shiki` imports to a stub
+  (`srcz-diffs-subset`) resolves Pierre's `shiki` imports to a stub
   (`web/src/shiki-unavailable.ts`) and its Pierre, Shiki, and Highlights
   theme catalogs to empty subsets. Browsers without WebAssembly SIMD show
   plain text.
 - One theme, `web/src/syntax-theme.ts`, maps Highlights' syntax categories
-  to servef's `--color-syntax-*` tokens (comment, keyword, type, function,
-  variable, string, number, operator), so diffs follow every servef theme.
+  to srcz's `--color-syntax-*` tokens (comment, keyword, type, function,
+  variable, string, number, operator), so diffs follow every srcz theme.
 - Text up to 100,000 characters (both sides of a diff) highlights on the
   main thread; larger text goes to a pool of two workers
   (`web/src/highlight-thread.ts`).
@@ -70,7 +70,7 @@ grammar downloads, and colors tokens from CSS variables.
   | --- | --- | --- |
   | Binary | 31.8 MB | 26.3 MB |
   | `/api/page`, 4 MB file | 72.5 MB in 4.4 s | 4.4 MB in 16 ms |
-  | servef RSS after loading the 4 MB file four times | 413 MB | 47 MB |
+  | srcz RSS after loading the 4 MB file four times | 413 MB | 47 MB |
   | Time to highlighted Source, 100 KB / 1 MB / 4 MB | 1.1 s / 8.2 s / 34 s | 0.8 s / 5.2 s / 20 s |
   | Browser heap, 100 KB / 1 MB / 4 MB | 14 / 81 / 304 MB | 15 / 83 / 300 MB |
 

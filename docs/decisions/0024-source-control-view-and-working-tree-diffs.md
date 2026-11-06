@@ -6,17 +6,17 @@
 
 ## Context
 
-servef shows files as they are on disk but not what changed since the last
+srcz shows files as they are on disk but not what changed since the last
 commit. Reviewing local or agent-made edits meant switching to another tool.
 VS Code lists uncommitted changes in a Source Control view and opens each as a
-diff tab. servef never runs `git` (0023) and limits reads to indexed,
+diff tab. srcz never runs `git` (0023) and limits reads to indexed,
 CLI-scoped files (0001).
 
 ## Decision
 
 - The activity bar gains a third item, Source Control (Cmd/Ctrl+Shift+G),
   after Search. It shows a count badge (`99+` above 99). The view persists
-  under `servef-sidebar` like the others.
+  under `srcz-sidebar` like the others.
 - One change list compares HEAD with the working tree; staged and unstaged
   changes are not separated. Statuses: `modified`, `added`, `untracked`,
   `deleted`, `renamed`. Renames pair a deleted and an added path with
@@ -24,7 +24,7 @@ CLI-scoped files (0001).
 - Status is pure Go in `internal/git/`: go-git reads the HEAD tree, the index,
   and objects. Tracked entries reuse the index hash when size, mtime, mode,
   and the racy check match, and are hashed as git blobs otherwise. Untracked
-  files come from a walk that applies servef's own 0023 ignore rules, so
+  files come from a walk that applies srcz's own 0023 ignore rules, so
   Source Control and Search agree on what git ignores. No `git` binary.
   go-git's `Worktree.Status` is not used: its ignore sources differ from 0023
   and it does not prune ignored trees such as `node_modules` before work.
@@ -57,7 +57,7 @@ CLI-scoped files (0001).
   scroll root so keyboard scrolling and scroll memory keep working.
   Closing the last diff tab ends the parse and highlighting workers and
   clears Pierre's resolved grammars, themes, and the last diff response. Shiki highlights
-  through a CSS-variable theme bound to `--color-syntax-*`, so every servef
+  through a CSS-variable theme bound to `--color-syntax-*`, so every srcz
   theme applies. The grammar comes from the server's `documentType.id`
   through an explicit family-to-Shiki map in `web/src/diff-language.ts`
   (`text` turns highlighting off); the UI detects no extensions. Families,
@@ -66,7 +66,7 @@ CLI-scoped files (0001).
   main thread. Grammars and workers are bundled locally.
 - Only mapped grammars ship. `@pierre/diffs` imports Shiki's full bundle and
   every Pierre and Shiki theme; a build-only Vite plugin
-  (`servef-diffs-subset`) resolves its `shiki`, `shiki/wasm`, and
+  (`srcz-diffs-subset`) resolves its `shiki`, `shiki/wasm`, and
   `@pierre/theming/themes` imports to local subsets: the grammars in
   `web/src/diff-grammars.ts`, no themes, and no Oniguruma WebAssembly.
 - Every registered family needs an explicit grammar choice. Tests chain the
@@ -78,7 +78,7 @@ CLI-scoped files (0001).
   that imports others brings those along.
 - The diff toolbar holds Split/Unified, Wrap, Ignore whitespace, Inline
   (Word/Character/Off), Expand unchanged, and Open File (disabled for deleted
-  files). Options persist in localStorage `servef-diff-options`, not
+  files). Options persist in localStorage `srcz-diff-options`, not
   Settings. Below 48rem Split is disabled and Unified forced.
 - Changes refresh on project load, window focus or visibility (throttled to
   2s), view activation, and Refresh. No polling.

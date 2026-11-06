@@ -7,7 +7,7 @@
 
 Reading code across files needs go to definition and find references. LSP
 servers give precise answers but need per-language toolchains installed and
-running, which breaks the single self-contained binary. servef only reads
+running, which breaks the single self-contained binary. srcz only reads
 code, so name-based answers from syntax trees are good enough.
 
 ## Decision
@@ -43,7 +43,7 @@ code, so name-based answers from syntax trees are good enough.
 - Limits: files over 4 MiB, binary files, and parses over 2 s yield no
   symbols; at most 4 parses run at once; definitions cap at 50 and
   references at 1000. A request that is cancelled stops scanning.
-  When `GOMEMLIMIT` is unset, servef sets a 1 GiB soft heap limit so parse
+  When `GOMEMLIMIT` is unset, srcz sets a 1 GiB soft heap limit so parse
   garbage is collected before the heap doubles.
 
 ## Consequences

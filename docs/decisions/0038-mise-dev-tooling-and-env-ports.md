@@ -32,9 +32,9 @@ sequence and never checked `gofmt` or `go.mod` tidiness.
   tests for race tests, then runs browser tests alone.
 - `build:web` declares its sources and `internal/web/dist` output, so mise
   skips it when inputs are unchanged.
-- Dev ports come from the environment: `SERVEF_DEV_SERVER_PORT` (Go, default
-  `8080`) and `SERVEF_DEV_WEB_PORT` (Vite, default `5173`). Vite proxies `/api`
-  to the Go port unless `SERVEF_API_TARGET` is set. Unset or empty uses the
+- Dev ports come from the environment: `SRCZ_DEV_SERVER_PORT` (Go, default
+  `8080`) and `SRCZ_DEV_WEB_PORT` (Vite, default `5173`). Vite proxies `/api`
+  to the Go port unless `SRCZ_API_TARGET` is set. Unset or empty uses the
   default; an invalid port fails startup. mise loads them from a gitignored
   `.env`; `.env.example` lists them.
 

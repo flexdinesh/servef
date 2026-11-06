@@ -36,20 +36,20 @@ test("restoring tabs never writes an empty workspace before navigation finishes"
   // Seed only after the first visit remembers Welcome; that write would
   // otherwise replace the seeded tabs.
   await page.waitForFunction((project) => {
-    const memory: unknown = JSON.parse(window.localStorage.getItem("servef-workspaces-v2") ?? "{}")
+    const memory: unknown = JSON.parse(window.localStorage.getItem("srcz-workspaces-v2") ?? "{}")
     if (typeof memory !== "object" || memory === null || !("projects" in memory)) return false
     const projects = memory.projects
     return typeof projects === "object" && projects !== null && project in projects
   }, fixtureRoot)
   await page.evaluate((project) => {
-    window.localStorage.setItem("servef-workspaces-v2", JSON.stringify({ last: {}, projects: {
+    window.localStorage.setItem("srcz-workspaces-v2", JSON.stringify({ last: {}, projects: {
       [project]: { tabs: ["README.md", "config/settings.json", "removed.md"], active: "config/settings.json", expanded: ["config/", "removed/", "../outside/", "README.md"] },
     } }))
   }, fixtureRoot)
   await page.addInitScript(() => {
     const original = Storage.prototype.setItem
     Storage.prototype.setItem = function (key, value) {
-      if (key === "servef-workspaces-v2") {
+      if (key === "srcz-workspaces-v2") {
         const writes: unknown = JSON.parse(document.documentElement.dataset.workspaceWrites ?? "[]")
         document.documentElement.dataset.workspaceWrites = JSON.stringify([...(Array.isArray(writes) ? writes : []), JSON.parse(value)])
       }

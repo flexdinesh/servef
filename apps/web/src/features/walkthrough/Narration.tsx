@@ -3,7 +3,7 @@ import type { SyntheticEvent } from "react"
 
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { Notice } from "../../components/ui/notice.tsx"
-import type { WalkthroughStep } from "@servef/contracts"
+import type { WalkthroughStep } from "@srcz/contracts"
 import { DocumentPreview } from "../documents/DocumentPreview.tsx"
 import type { Drift } from "./walkthrough-steps.ts"
 

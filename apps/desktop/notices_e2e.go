@@ -12,11 +12,11 @@ import (
 )
 
 // Under Xvfb there is no notification service and no window manager to move
-// focus. With SERVEF_E2E_NOTICES set, notices append to that file as JSON lines,
+// focus. With SRCZ_E2E_NOTICES set, notices append to that file as JSON lines,
 // and the test drives focus and clicks through the page's mygo.call. Release
 // builds never carry it.
 func init() {
-	path := os.Getenv("SERVEF_E2E_NOTICES")
+	path := os.Getenv("SRCZ_E2E_NOTICES")
 	if path == "" {
 		return
 	}

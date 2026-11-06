@@ -8,7 +8,7 @@
 ## Context
 
 Agents explain changes and features in chat, pointing at `path:12-20` and
-diffs the reader must find by hand. servef already links lines (0008), diff
+diffs the reader must find by hand. srcz already links lines (0008), diff
 ranges (0028), and review files (`#f=`, 0035), and reveals them (0034). A
 reader wants one ordered story: open each place in turn, highlighted, with
 the agent's explanation beside it.
@@ -39,15 +39,15 @@ the agent's explanation beside it.
   flags a step whose line no longer starts with it.
 - Limits: 200 steps, 200-character titles, 32 KiB per body and summary, 100
   walkthroughs per project (the least recently updated are evicted).
-- Walkthroughs persist in the user cache (`servef/walkthroughs/<hash of the
+- Walkthroughs persist in the user cache (`srcz/walkthroughs/<hash of the
   project>/<id>.json`, 0700 directories, 0600 files, atomic replace), never
   in the project. Posting an existing ID replaces it and keeps its creation
   time; a missing ID is generated from the title.
 - Writes are guarded against other sites in the browser, not other local
   processes: POST requires JSON, which a cross-site page cannot send without
-  a preflight servef never approves, and POST and DELETE refuse any Origin
+  a preflight srcz never approves, and POST and DELETE refuse any Origin
   that is not the request's own host (`code: "foreignOrigin"`).
-- `open: true` opens the walkthrough's URL in the browser, unless servef runs
+- `open: true` opens the walkthrough's URL in the browser, unless srcz runs
   with `--no-open` (or over SSH), as startup does. The response always
   returns the URL: `/view?project=…&wt=<id>`.
 - `GET /api/walkthroughs?project=` lists summaries, newest first;

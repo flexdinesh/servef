@@ -6,10 +6,10 @@
 
 ## Context
 
-Publishing a walkthrough needs an agent that knows servef's URL, the
+Publishing a walkthrough needs an agent that knows srcz's URL, the
 project's absolute path, the JSON format, and how to tell a good story. The
-`servef-walkthrough` skill carries that guidance, but only for agents that
-install it, and it finds servef by probing ports. The empty Walkthroughs view
+`srcz-walkthrough` skill carries that guidance, but only for agents that
+install it, and it finds srcz by probing ports. The empty Walkthroughs view
 named the endpoints and nothing else.
 
 ## Decision

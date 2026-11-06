@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-import { isProjectsResponse } from "@servef/contracts"
+import { isProjectsResponse } from "@srcz/contracts"
 
 import { isRecord } from "./http.ts"
 

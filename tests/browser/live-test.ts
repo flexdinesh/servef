@@ -10,9 +10,9 @@ import { createLiveFixture } from "./live-fixture.ts"
 export const test = base.extend<{ seed: string | undefined; live: { root: string; origin: string } }>({
   seed: [undefined, { option: true }],
   live: async ({ seed }, use, info) => {
-    const binary = process.env.SERVEF_BROWSER_BINARY
+    const binary = process.env.SRCZ_BROWSER_BINARY
     if (!binary) throw new Error("Run live-update tests through scripts/test-browser.ts")
-    const parent = process.env.SERVEF_BROWSER_LIVE_ROOT ?? tmpdir()
+    const parent = process.env.SRCZ_BROWSER_LIVE_ROOT ?? tmpdir()
     mkdirSync(parent, { recursive: true })
     const directory = mkdtempSync(path.join(parent, "case-"))
     const root = path.join(directory, "repository")
@@ -36,7 +36,7 @@ export const test = base.extend<{ seed: string | undefined; live: { root: string
       try {
         if (!completed || info.status !== info.expectedStatus) {
           writeFileSync(path.join(directory, "server.log"), output)
-          const artifacts = process.env.SERVEF_BROWSER_ARTIFACT_DIR
+          const artifacts = process.env.SRCZ_BROWSER_ARTIFACT_DIR
           const destination = artifacts
             ? path.join(artifacts, "live", path.basename(directory))
             : info.outputPath("live-fixture")

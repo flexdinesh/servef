@@ -2,12 +2,12 @@
 
 // Package e2e launches the built app on a display and drives its page over
 // mygo's automation protocol (decision 0094). Run it under a display and a
-// session bus, with the real servef binary:
+// session bus, with the real srcz binary:
 //
 //	xvfb-run -a dbus-run-session -- sh apps/desktop/scripts/e2e.sh
 //
-// It writes screenshots and report.json to SERVEF_DESKTOP_E2E_OUT. Resource
-// scenarios additionally write RSS files when SERVEF_DESKTOP_EXTENDED=1.
+// It writes screenshots and report.json to SRCZ_DESKTOP_E2E_OUT. Resource
+// scenarios additionally write RSS files when SRCZ_DESKTOP_EXTENDED=1.
 package e2e
 
 import (
@@ -50,10 +50,10 @@ type session struct {
 	target int
 }
 
-// connectionLink finds the link `servef connect` prints.
-var connectionLink = regexp.MustCompile(`desktop: servef://(r-[0-9a-f]{12})/`)
+// connectionLink finds the link `srcz connect` prints.
+var connectionLink = regexp.MustCompile(`desktop: srcz://(r-[0-9a-f]{12})/`)
 
-func proxyOrigin(host string) string { return "servef-app://" + host }
+func proxyOrigin(host string) string { return "srcz-app://" + host }
 
 type windowListing struct {
 	Windows []struct {
@@ -116,11 +116,11 @@ type world struct {
 
 func newWorld(t *testing.T) (*world, string) {
 	t.Helper()
-	binary := os.Getenv("SERVEF_DESKTOP_BINARY")
+	binary := os.Getenv("SRCZ_DESKTOP_BINARY")
 	if binary == "" {
-		t.Fatal("SERVEF_DESKTOP_BINARY must name the servef binary")
+		t.Fatal("SRCZ_DESKTOP_BINARY must name the srcz binary")
 	}
-	out := os.Getenv("SERVEF_DESKTOP_E2E_OUT")
+	out := os.Getenv("SRCZ_DESKTOP_E2E_OUT")
 	if out == "" {
 		out = t.TempDir()
 	}
@@ -138,9 +138,9 @@ func newWorld(t *testing.T) (*world, string) {
 	writeFixture(t, w.project)
 	w.notices = filepath.Join(base, "notices.jsonl")
 	// Dagger may supply the app built from the same immutable source snapshot.
-	w.bin = os.Getenv("SERVEF_DESKTOP_APP_BINARY")
+	w.bin = os.Getenv("SRCZ_DESKTOP_APP_BINARY")
 	if w.bin == "" {
-		w.bin = filepath.Join(base, "servef-desktop")
+		w.bin = filepath.Join(base, "srcz-desktop")
 		build := exec.Command("go", "build", "-tags", "e2e", "-o", w.bin, ".")
 		build.Dir = ".."
 		if output, err := build.CombinedOutput(); err != nil {
@@ -151,8 +151,8 @@ func newWorld(t *testing.T) (*world, string) {
 	w.env = append(os.Environ(),
 		"HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"),
 		"XDG_RUNTIME_DIR="+filepath.Join(base, "run"),
-		"SERVEF_DESKTOP_SOCKET="+w.daemon, "SERVEF_DESKTOP_ROOTS_FILE="+filepath.Join(base, "roots.json"),
-		"MYGO_AUTOMATION="+w.sock, "MYGO_ENV=production", "SERVEF_E2E_NOTICES="+w.notices,
+		"SRCZ_DESKTOP_SOCKET="+w.daemon, "SRCZ_DESKTOP_ROOTS_FILE="+filepath.Join(base, "roots.json"),
+		"MYGO_AUTOMATION="+w.sock, "MYGO_ENV=production", "SRCZ_E2E_NOTICES="+w.notices,
 	)
 	for _, dir := range []string{home, filepath.Join(base, "run")} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -171,7 +171,7 @@ func newWorld(t *testing.T) (*world, string) {
 
 func TestWebViewApp(t *testing.T) {
 	w, base := newWorld(t)
-	binary := os.Getenv("SERVEF_DESKTOP_BINARY")
+	binary := os.Getenv("SRCZ_DESKTOP_BINARY")
 	home := filepath.Join(base, "home")
 
 	app := w.launch(w.project)
@@ -204,7 +204,7 @@ func TestWebViewApp(t *testing.T) {
 
 	run("refusals", func(t *testing.T) {
 		// "//x" alone would name another host, which the page's CSP refuses.
-		for _, name := range []string{"/_daemon/status", "/%5Fdaemon/status", "//_daemon/status", "/_servef/status", "/x/%2e%2e/_daemon/status", "/_daemon/..%2fstatus", "/_daemon%2f..%2fstatus", "/_servef/..%2fstatus"} {
+		for _, name := range []string{"/_daemon/status", "/%5Fdaemon/status", "//_daemon/status", "/_srcz/status", "/x/%2e%2e/_daemon/status", "/_daemon/..%2fstatus", "/_daemon%2f..%2fstatus", "/_srcz/..%2fstatus"} {
 			got := app.eval(fmt.Sprintf(`return (await fetch(location.origin + %q)).status`, name))
 			if got != float64(403) {
 				t.Errorf("fetch %s = %v, want 403", name, got)
@@ -318,7 +318,7 @@ func TestWebViewApp(t *testing.T) {
 	})
 
 	run("bridge", func(t *testing.T) {
-		if got := app.eval(`return window.servefDesktop.version`); got != float64(2) {
+		if got := app.eval(`return window.srczDesktop.version`); got != float64(2) {
 			t.Errorf("bridge version = %v", got)
 		}
 		refused := func(script string) {
@@ -328,22 +328,22 @@ func TestWebViewApp(t *testing.T) {
 				t.Errorf("%s = %v, want a refusal", script, got)
 			}
 		}
-		refused(`window.servefDesktop.revealPath("relative", "a")`)
-		refused(`window.servefDesktop.revealPath(` + strconv.Quote(w.project) + `, "../escape")`)
-		refused(`window.servefDesktop.showContextMenu([], 1, 1)`)
-		refused(`window.servefDesktop.showContextMenu([{id: "a b", label: "A"}], 1, 1)`)
-		refused(`window.servefDesktop.showContextMenu([{id: "a", label: "A"}], -1, 1)`)
-		if got := app.eval(`return await window.servefDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")`); got != true {
+		refused(`window.srczDesktop.revealPath("relative", "a")`)
+		refused(`window.srczDesktop.revealPath(` + strconv.Quote(w.project) + `, "../escape")`)
+		refused(`window.srczDesktop.showContextMenu([], 1, 1)`)
+		refused(`window.srczDesktop.showContextMenu([{id: "a b", label: "A"}], 1, 1)`)
+		refused(`window.srczDesktop.showContextMenu([{id: "a", label: "A"}], -1, 1)`)
+		if got := app.eval(`return await window.srczDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")`); got != true {
 			t.Errorf("revealPath of a served file = %v", got)
 		}
 		outside := filepath.Join(w.project, "escape")
 		if err := os.Symlink("/etc/hostname", outside); err != nil {
 			t.Fatal(err)
 		}
-		if got := app.eval(`return await window.servefDesktop.revealPath(` + strconv.Quote(w.project) + `, "escape")`); got != false {
+		if got := app.eval(`return await window.srczDesktop.revealPath(` + strconv.Quote(w.project) + `, "escape")`); got != false {
 			t.Errorf("revealPath through a symlink out of the project = %v", got)
 		}
-		app.eval(`window.__chosen = "pending"; void window.servefDesktop.showContextMenu([{id: "first", label: "First"}, {separator: true}, {id: "second", label: "Second"}], 40, 40).then((id) => { window.__chosen = id }); return true`)
+		app.eval(`window.__chosen = "pending"; void window.srczDesktop.showContextMenu([{id: "first", label: "First"}, {separator: true}, {id: "second", label: "Second"}], 40, 40).then((id) => { window.__chosen = id }); return true`)
 		time.Sleep(time.Second)
 		app.capture("context-menu.png")
 		key := exec.Command("xdotool", "key", "--delay", "100", "Down", "Return")
@@ -370,14 +370,14 @@ func TestWebViewApp(t *testing.T) {
 			}
 		}
 		// The app's own scheme routes to the window, as a link does.
-		app.eval(`location.href = "servef://local/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=main.go"; return true`)
-		app.waitEval("the link's document", `return location.origin + location.pathname === "servef-app://local/view" && location.search.includes("path=main.go")`)
+		app.eval(`location.href = "srcz://local/view?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=main.go"; return true`)
+		app.waitEval("the link's document", `return location.origin + location.pathname === "srcz-app://local/view" && location.search.includes("path=main.go")`)
 	})
 
 	run("bridge refuses other pages of the origin", func(t *testing.T) {
 		app.eval(`location.href = "/api/projects"; return true`)
-		app.waitEval("the JSON page", `return location.pathname === "/api/projects" && document.readyState === "complete" && window.servefDesktop !== undefined`)
-		got := app.eval(`try { return ["resolved", await window.servefDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")] } catch (error) { return ["rejected", String(error)] }`)
+		app.waitEval("the JSON page", `return location.pathname === "/api/projects" && document.readyState === "complete" && window.srczDesktop !== undefined`)
+		got := app.eval(`try { return ["resolved", await window.srczDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")] } catch (error) { return ["rejected", String(error)] }`)
 		if values, _ := got.([]any); len(values) != 2 || values[0] != "rejected" {
 			t.Errorf("revealPath from /api/projects = %v, want a refusal", got)
 		}
@@ -388,13 +388,13 @@ func TestWebViewApp(t *testing.T) {
 		app.eval(`location.href = "/api/raw?project=" + encodeURIComponent(` + strconv.Quote(w.project) + `) + "&path=pic.png"; return true`)
 		// The raw page's sandbox may stop scripts: nothing to wait on there.
 		time.Sleep(2 * time.Second)
-		got, err := app.evalErr(`try { return ["resolved", await window.servefDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")] } catch (error) { return ["rejected", String(error)] }`)
+		got, err := app.evalErr(`try { return ["resolved", await window.srczDesktop.revealPath(` + strconv.Quote(w.project) + `, "README.md")] } catch (error) { return ["rejected", String(error)] }`)
 		w.report["bridgeFromRaw"] = fmt.Sprint(got, " ", err)
 		if values, _ := got.([]any); len(values) == 2 && values[0] == "resolved" {
 			t.Errorf("revealPath from /api/raw = %v, want a refusal", got)
 		}
 		// Back through a link, which needs no script in the page.
-		second := exec.Command(w.bin, "servef://local/view?project="+urlEscape(w.project)+"&path=README.md")
+		second := exec.Command(w.bin, "srcz://local/view?project="+urlEscape(w.project)+"&path=README.md")
 		second.Env = w.env
 		if output, err := second.CombinedOutput(); err != nil {
 			t.Fatalf("second instance: %v\n%s", err, output)
@@ -435,7 +435,7 @@ func TestWebViewApp(t *testing.T) {
 
 	t.Run("state survives a restart", func(t *testing.T) {
 		w.t = t
-		// The install scripts replace only servef-desktop/app and keep the rest,
+		// The install scripts replace only srcz-desktop/app and keep the rest,
 		// so the page's state must be beside it, where they expect it.
 		stored := storageFiles(t, home)
 		w.report["storageFiles"] = stored
@@ -443,7 +443,7 @@ func TestWebViewApp(t *testing.T) {
 			t.Error("no localStorage files found")
 		}
 		for _, file := range stored {
-			if !strings.HasPrefix(file, filepath.Join("data", "servef-desktop", "localstorage")+string(filepath.Separator)) {
+			if !strings.HasPrefix(file, filepath.Join("data", "srcz-desktop", "localstorage")+string(filepath.Separator)) {
 				t.Errorf("localStorage at %s", file)
 			}
 		}
@@ -457,9 +457,9 @@ func TestWebViewApp(t *testing.T) {
 		app.capture("restored.png")
 	})
 
-	// servefGate runs the real binary, failing or slow at `daemon ensure` while
+	// srczGate runs the real binary, failing or slow at `daemon ensure` while
 	// the files beside it say so.
-	gate := filepath.Join(base, "servef-gate")
+	gate := filepath.Join(base, "srcz-gate")
 	gateClosed, gateSlow := filepath.Join(base, "gate-closed"), filepath.Join(base, "gate-slow")
 	script := "#!/bin/sh\nif [ \"$1 $2\" = \"daemon ensure\" ]; then\n  if [ -e " + gateClosed + " ]; then echo 'gate closed' >&2; exit 1; fi\n  if [ -e " + gateSlow + " ]; then sleep 4; fi\nfi\nexec " + binary + " \"$@\"\n"
 	if err := os.WriteFile(gate, []byte(script), 0o755); err != nil {
@@ -471,8 +471,8 @@ func TestWebViewApp(t *testing.T) {
 			t.Fatal(err)
 		}
 		w.daemon = filepath.Join(base, name+".sock")
-		w.env = append(w.env, "SERVEF_DESKTOP_BINARY="+gate, "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"),
-			"SERVEF_DESKTOP_SOCKET="+w.daemon, "SERVEF_DESKTOP_ROOTS_FILE="+filepath.Join(base, name+"-roots.json"))
+		w.env = append(w.env, "SRCZ_DESKTOP_BINARY="+gate, "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"),
+			"SRCZ_DESKTOP_SOCKET="+w.daemon, "SRCZ_DESKTOP_ROOTS_FILE="+filepath.Join(base, name+"-roots.json"))
 		t.Cleanup(func() {
 			stop := exec.Command(binary, "daemon", "stop", "--socket", filepath.Join(base, name+".sock"))
 			stop.Env = w.env
@@ -480,7 +480,7 @@ func TestWebViewApp(t *testing.T) {
 		})
 	}
 
-	// useHandler makes w a home where the built app handles servef:// links
+	// useHandler makes w a home where the built app handles srcz:// links
 	// (real xdg-mime and xdg-open), with the CLI's default socket and roots.
 	useHandler := func(t *testing.T, name string) {
 		t.Helper()
@@ -489,8 +489,8 @@ func TestWebViewApp(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(dataHome, "applications"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		entry := "[Desktop Entry]\nType=Application\nName=servef\nExec=" + w.bin + " %U\nTerminal=false\nMimeType=x-scheme-handler/servef;\n"
-		if err := os.WriteFile(filepath.Join(dataHome, "applications", "servef-desktop.desktop"), []byte(entry), 0o644); err != nil {
+		entry := "[Desktop Entry]\nType=Application\nName=srcz\nExec=" + w.bin + " %U\nTerminal=false\nMimeType=x-scheme-handler/srcz;\n"
+		if err := os.WriteFile(filepath.Join(dataHome, "applications", "srcz-desktop.desktop"), []byte(entry), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		// The CLI knows only the default socket and roots: so must the app here.
@@ -498,29 +498,29 @@ func TestWebViewApp(t *testing.T) {
 		if err := os.MkdirAll(run, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		w.env = append(w.env, "SERVEF_DESKTOP_BINARY="+binary, "HOME="+home, "XDG_DATA_HOME="+dataHome, "XDG_CONFIG_HOME="+filepath.Join(home, "config"),
-			"XDG_CACHE_HOME="+filepath.Join(home, "cache"), "XDG_RUNTIME_DIR="+run, "SERVEF_DESKTOP_SOCKET=", "SERVEF_DESKTOP_ROOTS_FILE=", "TMPDIR="+base,
+		w.env = append(w.env, "SRCZ_DESKTOP_BINARY="+binary, "HOME="+home, "XDG_DATA_HOME="+dataHome, "XDG_CONFIG_HOME="+filepath.Join(home, "config"),
+			"XDG_CACHE_HOME="+filepath.Join(home, "cache"), "XDG_RUNTIME_DIR="+run, "SRCZ_DESKTOP_SOCKET=", "SRCZ_DESKTOP_ROOTS_FILE=", "TMPDIR="+base,
 			"SSH_CONNECTION=", "SSH_CLIENT=", "SSH_TTY=")
 		t.Cleanup(func() {
 			stop := exec.Command(binary, "daemon", "stop")
 			stop.Env = w.env
 			_ = stop.Run()
 		})
-		register := exec.Command("xdg-mime", "default", "servef-desktop.desktop", "x-scheme-handler/servef")
+		register := exec.Command("xdg-mime", "default", "srcz-desktop.desktop", "x-scheme-handler/srcz")
 		register.Env = w.env
 		if output, err := register.CombinedOutput(); err != nil {
 			t.Fatalf("xdg-mime default: %v\n%s", err, output)
 		}
-		query := exec.Command("xdg-mime", "query", "default", "x-scheme-handler/servef")
+		query := exec.Command("xdg-mime", "query", "default", "x-scheme-handler/srcz")
 		query.Env = w.env
-		if output, err := query.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "servef-desktop.desktop" {
+		if output, err := query.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "srcz-desktop.desktop" {
 			t.Fatalf("xdg-mime query = %q, %v", output, err)
 		}
 	}
 
-	// The way users get here: `servef <dir>` asks the OS for the servef://
+	// The way users get here: `srcz <dir>` asks the OS for the srcz://
 	// handler and the running app takes the link.
-	t.Run("servef opens a folder through the servef handler", func(t *testing.T) {
+	t.Run("srcz opens a folder through the srcz handler", func(t *testing.T) {
 		w.t = t
 		useHandler(t, "handler")
 		app := w.launch()
@@ -532,12 +532,12 @@ func TestWebViewApp(t *testing.T) {
 		output, err := cli.CombinedOutput()
 		w.report["cliOpen"] = string(output)
 		if err != nil {
-			t.Fatalf("servef %s: %v\n%s", other, err, output)
+			t.Fatalf("srcz %s: %v\n%s", other, err, output)
 		}
-		if !strings.Contains(string(output), "opened "+other+" in servef") || strings.Contains(string(output), "browser mode") {
-			t.Errorf("servef printed %q", output)
+		if !strings.Contains(string(output), "opened "+other+" in srcz") || strings.Contains(string(output), "browser mode") {
+			t.Errorf("srcz printed %q", output)
 		}
-		app.waitEval("the folder's project in the window", `return location.origin === "servef-app://local" && new URLSearchParams(location.search).get("project") === `+strconv.Quote(other))
+		app.waitEval("the folder's project in the window", `return location.origin === "srcz-app://local" && new URLSearchParams(location.search).get("project") === `+strconv.Quote(other))
 		app.waitEval("the project's tree", treeShows("README.md"))
 		app.capture("cli-open.png")
 	})
@@ -628,7 +628,7 @@ func TestWebViewApp(t *testing.T) {
 	// The whole remote flow (decision 0098): one machine runs --remote, this
 	// computer runs the printed string, and the app shows it in a window of its
 	// own. The two share nothing but that string.
-	t.Run("servef connect opens a remote server in its own window", func(t *testing.T) {
+	t.Run("srcz connect opens a remote server in its own window", func(t *testing.T) {
 		w.t = t
 		useHandler(t, "connect")
 		serverHome, serverRun := filepath.Join(base, "connect-server"), filepath.Join(base, "csrun")
@@ -650,11 +650,11 @@ func TestWebViewApp(t *testing.T) {
 		writeFixture(t, served)
 		printed, err := onServer(served, "--remote", "--host", "127.0.0.1", "--port", "0", "--remote-grace", "2s")
 		if err != nil {
-			t.Fatalf("servef --remote: %v\n%s", err, printed)
+			t.Fatalf("srcz --remote: %v\n%s", err, printed)
 		}
 		text := ""
 		for line := range strings.Lines(printed) {
-			if found, ok := strings.CutPrefix(strings.TrimSpace(line), "servef connect "); ok {
+			if found, ok := strings.CutPrefix(strings.TrimSpace(line), "srcz connect "); ok {
 				text = found
 			}
 		}
@@ -664,7 +664,7 @@ func TestWebViewApp(t *testing.T) {
 
 		app := w.launch()
 		defer app.stop()
-		app.waitEval("the local window", `return location.origin === "servef-app://local"`)
+		app.waitEval("the local window", `return location.origin === "srcz-app://local"`)
 		app.eval(`localStorage.setItem("connect-marker", "local"); return true`)
 		local := app.windowOn(proxyOrigin("local"))
 
@@ -674,14 +674,14 @@ func TestWebViewApp(t *testing.T) {
 			command.Env = w.env
 			output, err := command.CombinedOutput()
 			if err != nil {
-				t.Fatalf("servef connect: %v\n%s", err, output)
+				t.Fatalf("srcz connect: %v\n%s", err, output)
 			}
 			return string(output)
 		}
 		output := connect()
 		match := connectionLink.FindStringSubmatch(output)
 		if match == nil || !strings.Contains(output, "connected to ") || strings.Contains(output, text[strings.LastIndex(text, "/")+1:]) {
-			t.Fatalf("servef connect printed %q", output)
+			t.Fatalf("srcz connect printed %q", output)
 		}
 		id := match[1]
 		remote := app.waitWindow(proxyOrigin(id))
@@ -696,7 +696,7 @@ func TestWebViewApp(t *testing.T) {
 			t.Errorf("the remote page reads the local page's storage: %v", got)
 		}
 		// Nothing of this machine: not on the bridge, and not by calling mygo.
-		if got := app.eval(`const b = window.servefDesktop; return [b.version, typeof b.closeWindow, typeof b.showContextMenu, typeof b.showAppMenu, typeof b.openFolder, typeof b.revealPath]`); fmt.Sprint(got) != "[2 function function function undefined undefined]" {
+		if got := app.eval(`const b = window.srczDesktop; return [b.version, typeof b.closeWindow, typeof b.showContextMenu, typeof b.showAppMenu, typeof b.openFolder, typeof b.revealPath]`); fmt.Sprint(got) != "[2 function function function undefined undefined]" {
 			t.Errorf("remote bridge = %v", got)
 		}
 		for _, method := range []string{`"Bridge.RevealPath", ` + strconv.Quote(w.project) + `, "README.md"`, `"Bridge.OpenFolder"`} {
@@ -706,10 +706,10 @@ func TestWebViewApp(t *testing.T) {
 		}
 		// No secret reaches the page, the control API stays out of reach, and
 		// neither the daemon nor another origin answers it.
-		if got := app.eval(`return [document.cookie, (await fetch("/_servef/remote")).status, (await fetch("/_daemon/status")).status]`); fmt.Sprint(got) != "[ 403 403]" {
+		if got := app.eval(`return [document.cookie, (await fetch("/_srcz/remote")).status, (await fetch("/_daemon/status")).status]`); fmt.Sprint(got) != "[ 403 403]" {
 			t.Errorf("cookie and control answers = %v", got)
 		}
-		if got := app.eval(`try { await fetch("servef-app://local/api/projects"); return "read" } catch { return "blocked" }`); got != "blocked" {
+		if got := app.eval(`try { await fetch("srcz-app://local/api/projects"); return "read" } catch { return "blocked" }`); got != "blocked" {
 			t.Errorf("a remote page reached the local daemon: %v", got)
 		}
 		if strings.Contains(fmt.Sprint(app.eval(`return document.documentElement.outerHTML`)), text[strings.LastIndex(text, "/")+1:]) {
@@ -757,7 +757,7 @@ func TestWebViewApp(t *testing.T) {
 		// Seconds of errors, so the browser has given up on the stream.
 		time.Sleep(3 * time.Second)
 		if output, err := onServer(served, "--remote", "--host", "127.0.0.1", "--remote-grace", "2s"); err != nil {
-			t.Fatalf("servef --remote again: %v\n%s", err, output)
+			t.Fatalf("srcz --remote again: %v\n%s", err, output)
 		}
 		app.waitEval("the window following the server again", `return document.querySelector('.status-live[data-mode="watching"]') !== null`)
 		writeServed("live-remote-again.md")
@@ -790,7 +790,7 @@ func TestWebViewApp(t *testing.T) {
 
 		// The last UI closes: the server stops by itself, and the local window
 		// is unaffected.
-		app.eval(`window.servefDesktop.closeWindow(); return true`)
+		app.eval(`window.srczDesktop.closeWindow(); return true`)
 		app.target = local
 		for app.windowCount() != 1 {
 			if time.Now().After(deadline.Add(pageTimeout)) {
@@ -798,7 +798,7 @@ func TestWebViewApp(t *testing.T) {
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		app.waitEval("the local window still answering", `return location.origin === "servef-app://local"`)
+		app.waitEval("the local window still answering", `return location.origin === "srcz-app://local"`)
 		stopBy := time.Now().Add(pageTimeout)
 		for {
 			if _, err := onServer("daemon", "status"); err != nil {
@@ -812,7 +812,7 @@ func TestWebViewApp(t *testing.T) {
 		}
 
 		// A link to a connection this computer does not have opens nothing.
-		unknown := exec.Command(w.bin, "servef://r-000000000000/")
+		unknown := exec.Command(w.bin, "srcz://r-000000000000/")
 		unknown.Env = w.env
 		if output, err := unknown.CombinedOutput(); err != nil {
 			t.Fatalf("an unknown connection's link: %v\n%s", err, output)
@@ -833,7 +833,7 @@ func TestWebViewApp(t *testing.T) {
 		second := make(chan error, 1)
 		go func() {
 			time.Sleep(1500 * time.Millisecond)
-			link := exec.Command(w.bin, "servef://local/view?project="+urlEscape(w.project)+"&path=main.go")
+			link := exec.Command(w.bin, "srcz://local/view?project="+urlEscape(w.project)+"&path=main.go")
 			link.Env = w.env
 			second <- link.Run()
 		}()
@@ -866,8 +866,8 @@ func TestWebViewApp(t *testing.T) {
 // TestWebViewResources measures a document session and a fresh single-document
 // profile without repeating the correctness suite.
 func TestWebViewResources(t *testing.T) {
-	if os.Getenv("SERVEF_DESKTOP_EXTENDED") != "1" {
-		t.Skip("resource scenarios require SERVEF_DESKTOP_EXTENDED=1")
+	if os.Getenv("SRCZ_DESKTOP_EXTENDED") != "1" {
+		t.Skip("resource scenarios require SRCZ_DESKTOP_EXTENDED=1")
 	}
 	w, base := newWorld(t)
 	t.Run("memory after the session", func(t *testing.T) {
@@ -891,7 +891,7 @@ func TestWebViewResources(t *testing.T) {
 			t.Fatal(err)
 		}
 		w.env = append(w.env, "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"))
-		app := w.launch("servef://local/view?project=" + urlEscape(w.project) + "&path=README.md")
+		app := w.launch("srcz://local/view?project=" + urlEscape(w.project) + "&path=README.md")
 		defer app.stop()
 		app.waitEval("the document's Preview button", `const preview = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim() === "Preview"); preview?.click(); return preview !== undefined`)
 		app.waitEval("a Mermaid diagram", `return document.querySelector(".mermaid-diagram svg.ondine") !== null`)
@@ -906,7 +906,7 @@ func TestWebViewResources(t *testing.T) {
 func (w *world) exerciseDocuments(app *session) {
 	app.t.Helper()
 	// A second launch hands its link to the first instance.
-	second := exec.Command(w.bin, "servef://local/view?project="+urlEscape(w.project)+"&path=main.go")
+	second := exec.Command(w.bin, "srcz://local/view?project="+urlEscape(w.project)+"&path=main.go")
 	second.Env = w.env
 	if output, err := second.CombinedOutput(); err != nil {
 		app.t.Errorf("second instance: %v\n%s", err, output)
@@ -1140,7 +1140,7 @@ func (s *session) capture(name string) {
 		s.t.Errorf("capture %s: %v", name, err)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(os.Getenv("SERVEF_DESKTOP_E2E_OUT"), name), data, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(os.Getenv("SRCZ_DESKTOP_E2E_OUT"), name), data, 0o644); err != nil {
 		s.t.Errorf("capture %s: %v", name, err)
 	}
 }
@@ -1207,9 +1207,9 @@ func (w *world) writeMemory(appPid int, name string) {
 	walk(appPid)
 	fmt.Fprintf(&report, "app-tree total rss_mib=%d pss_mib=%d\n", totalRSS/1024, totalPSS/1024)
 	for pid, name := range names {
-		if name == "servef" {
+		if name == "srcz" {
 			rss, pss := rollup(pid)
-			fmt.Fprintf(&report, "servef %d rss_mib=%d pss_mib=%d\n", pid, rss/1024, pss/1024)
+			fmt.Fprintf(&report, "srcz %d rss_mib=%d pss_mib=%d\n", pid, rss/1024, pss/1024)
 		}
 	}
 	w.t.Log(report.String())

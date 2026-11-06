@@ -21,7 +21,7 @@ and it reads colors and fonts from `--ondine-*` CSS custom properties.
 - Ondine is the only Mermaid renderer. Excalidraw, its font assets, and
   `EXCALIDRAW_ASSET_PATH` are removed.
 - Diagrams render in the browser. Go still sends Mermaid fences as escaped
-  source; `/api/page` and servef memory are unchanged.
+  source; `/api/page` and srcz memory are unchanged.
 - One `all` module loads on the first visible diagram, compiles with
   `WebAssembly.compileStreaming`, and serves every diagram on the page. A failed
   load shows source with a reload action.

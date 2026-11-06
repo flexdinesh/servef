@@ -36,7 +36,7 @@ test("renders local Markdown images", async ({ page }) => {
   await page.goto("/view?path=guides%2Fgetting-started.md")
   await showPreview(page)
 
-  const image = page.getByRole("img", { name: "servef preview fixture" })
+  const image = page.getByRole("img", { name: "srcz preview fixture" })
   await expect(image).toBeVisible()
   await expect.poll(() => image.evaluate((element) => (
     element instanceof HTMLImageElement && element.naturalWidth > 0 && element.naturalHeight > 0
@@ -168,7 +168,7 @@ async function themeSetting(page: Page) {
 
 test("system theme follows live OS changes", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" })
-  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "system"))
+  await page.addInitScript(() => window.localStorage.setItem("srcz-theme", "system"))
   await page.goto("/")
 
   await expect(page.locator("html")).toHaveClass(/light/)
@@ -188,8 +188,8 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
   const options = palette.getByRole("option")
   await expect(options).toHaveCount(13)
   await expect(options.nth(0)).toHaveAccessibleName(/^Preferences: Open Settings, (Ctrl\+|⌘),$/)
-  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Servef Dark")
-  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Servef Dark")
+  await expect(options.nth(1)).toHaveAccessibleName("Preferences: Color Theme, Srcz Dark")
+  await expect(options.nth(2)).toHaveAccessibleName("Settings: Theme, Srcz Dark")
   await expect(options.nth(3)).toHaveAccessibleName("Settings: Font Size, 13px")
   await expect(options.nth(4)).toHaveAccessibleName("Settings: Language Servers, On")
   await expect(options.nth(5)).toHaveAccessibleName("Settings: Show Welcome on Startup, On")
@@ -242,7 +242,7 @@ test("command palette opens settings at the chosen setting", async ({ page }) =>
 })
 
 test("highlights Source in the browser with the selected theme", async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem("servef-theme", "light"))
+  await page.addInitScript(() => window.localStorage.setItem("srcz-theme", "light"))
   await page.goto("/view?path=code%2Fmain.go")
   const source = page.getByRole("textbox", { name: "Go source" })
   // Highlights keeps trailing whitespace in a token.

@@ -46,7 +46,7 @@
 }
 
 /* Pierre's diff renders in a shadow root; these inherited variables carry
-   servef's tokens and Source type roles across it. */
+   srcz's tokens and Source type roles across it. */
 .diff-view {
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-sans);
@@ -59,7 +59,7 @@
   --diffs-bg-addition-emphasis-override: color-mix(in srgb, var(--color-success) 30%, var(--color-surface));
   --diffs-bg-deletion-emphasis-override: color-mix(in srgb, var(--color-destructive) 30%, var(--color-surface));
   /* Pierre mixes these into the surface for added lines. The tint is
-     undefined outside Servef Light, so Pierre's own mix applies there. */
+     undefined outside Srcz Light, so Pierre's own mix applies there. */
   --diffs-bg-addition-override: var(--color-diff-addition-tint);
   --diffs-bg-addition-number-override: var(--color-diff-addition-tint);
   --diffs-fg-number-override: var(--color-text-muted);
@@ -163,7 +163,7 @@
 }
 
 /* Files are islands on a recessed gutter, as the workspace islands sit on
-   the canvas: surface contrast and gaps, plus a hairline in Servef Light. */
+   the canvas: surface contrast and gaps, plus a hairline in Srcz Light. */
 .review-files {
   display: flex;
   flex: 1;
@@ -179,7 +179,7 @@
   scroll-margin-top: var(--space-2);
   border-radius: var(--radius-island);
   background: var(--color-surface);
-  /* The workspace islands' hairline (Servef Light only); an outer shadow is
+  /* The workspace islands' hairline (Srcz Light only); an outer shadow is
      never covered by the file's own content. */
   box-shadow: 0 0 0 1px var(--color-island-border);
 }

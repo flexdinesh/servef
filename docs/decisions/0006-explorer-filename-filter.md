@@ -18,7 +18,7 @@ unregistered files in scope, a checkbox list stops scaling.
   patterns keep the last valid filter. A `Serving …` line shows a narrowed CLI
   scope.
 - Tabs use Pierre's icon resolver and sprite sheet. Pierre's colours live in
-  its shadow DOM, so servef maps colour families to theme tokens.
+  its shadow DOM, so srcz maps colour families to theme tokens.
 
 ## Consequences
 

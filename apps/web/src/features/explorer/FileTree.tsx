@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { FilenameFilter, useFilenameFilter, type FilenameFilterState } from "./FilenameFilter.tsx"
 import { countFiles, filterTreeByFilename } from "./filename-filter.ts"
 
-import type { PageData, TreeNode } from "@servef/contracts"
+import type { PageData, TreeNode } from "@srcz/contracts"
 
 import { openDirectoryPaths } from "../../api/page-data.ts"
 import { projectShortcutLabel } from "../projects/ProjectPicker.tsx"

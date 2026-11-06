@@ -1,55 +1,55 @@
 # Remote hosts
 
-servef runs beside the files. To browse another machine, start it there with
+srcz runs beside the files. To browse another machine, start it there with
 `--remote`, then run the command it prints on your computer. The
 [desktop app](/docs/desktop) opens that machine in a window of its own.
 
-## Install servef on the host
+## Install srcz on the host
 
 Install the CLI on the remote machine as on any computer
 ([Getting started](/docs/getting-started)):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
 ```
 
-The script needs no sudo and puts `servef` in `~/.local/bin` (or `~/bin`).
-Release archives (`servef_<version>_linux_<amd64|arm64>.tar.gz`) work too;
-put `servef` in `~/.local/bin`.
+The script needs no sudo and puts `srcz` in `~/.local/bin` (or `~/bin`).
+Release archives (`srcz_<version>_linux_<amd64|arm64>.tar.gz`) work too;
+put `srcz` in `~/.local/bin`.
 
 ## Serve from the host
 
 ```sh
-servef ~/code/foo --remote
+srcz ~/code/foo --remote
 ```
 
 ```text
-  servef 1.4.0
+  srcz 1.4.0
   serving directory:  /home/dee/code/foo
 
   on your computer, run:
-  servef connect 10.0.0.5:7971/<credential>
+  srcz connect 10.0.0.5:7971/<credential>
 
-  stops 10 min after this if nothing connects, and 5 min after the last UI closes. `servef remote stop` stops it now.
+  stops 10 min after this if nothing connects, and 5 min after the last UI closes. `srcz remote stop` stops it now.
 ```
 
 It returns to your shell and keeps serving in the background, so you can close
 the SSH session. It binds every interface unless `--host` names one, on the
 first free port from 7971 to 7980 unless `--port` sets it. It serves every
-directory servef already serves on that machine, and prints them all.
+directory srcz already serves on that machine, and prints them all.
 
-Without `--remote`, `servef` on a machine with no UI (an SSH session, or Linux
+Without `--remote`, `srcz` on a machine with no UI (an SSH session, or Linux
 without a display) prints a reminder and exits. It never opens a port by itself.
 
 ## Connect from your computer
 
 ```sh
-servef connect 10.0.0.5:7971/<credential>
+srcz connect 10.0.0.5:7971/<credential>
 ```
 
 The desktop app opens that machine in its own window, with its own tabs and
-settings. Connect to several machines and each gets a window. servef saves the
-connection, so `servef://<id>/` links reopen it. `--no-open` saves it and prints
+settings. Connect to several machines and each gets a window. srcz saves the
+connection, so `srcz://<id>/` links reopen it. `--no-open` saves it and prints
 the link instead.
 
 The printed addresses are a guess at what your computer can reach. If they are
@@ -57,7 +57,7 @@ wrong, edit the string, or pass `--host`:
 
 ```sh
 ssh -L 7971:localhost:7971 <host>
-servef connect --host localhost 10.0.0.5:7971/<credential>
+srcz connect --host localhost 10.0.0.5:7971/<credential>
 ```
 
 ## Security
@@ -69,7 +69,7 @@ string's token. The string has no expiry. It keeps working across restarts until
 you replace it:
 
 ```sh
-servef remote rotate    # old strings stop working
+srcz remote rotate    # old strings stop working
 ```
 
 Pages from a remote server cannot reach your computer: they get no folder dialog
@@ -81,14 +81,14 @@ The server stops 10 minutes after starting if no window or browser connects, and
 5 minutes after the last one closes. A hidden or minimized window still counts.
 
 ```sh
-servef remote status    # state, clients, and the string again
-servef remote stop      # stop now
+srcz remote status    # state, clients, and the string again
+srcz remote stop      # stop now
 ```
 
 ## Browser
 
 ```sh
-servef ~/code/foo --remote --web
+srcz ~/code/foo --remote --web
 ```
 
 also prints a `web:` link. Open it in any browser; it signs in with a cookie and
@@ -96,9 +96,9 @@ removes the token from the address bar. Browsers warn about the self-signed
 certificate, because they cannot pin it. That link is a password too.
 
 :::warning
-`servef browser --host <address>` is a different thing: plain http with **no
+`srcz browser --host <address>` is a different thing: plain http with **no
 authentication**. Anyone who can reach the address can read the served files. Use
-it only on networks you trust, or run `servef browser` (it binds `localhost`) and
+it only on networks you trust, or run `srcz browser` (it binds `localhost`) and
 forward its port yourself, for example `ssh -L 7971:localhost:7971 <host>`.
 :::
 
@@ -111,6 +111,6 @@ about this computer. If the host goes away, they resume when it returns.
 
 ## Walkthroughs
 
-Agents on the host publish with `servef walkthrough publish`
+Agents on the host publish with `srcz walkthrough publish`
 ([Walkthroughs](/docs/walkthroughs)). While the host serves with `--remote`, it
-prints a `servef://` link that opens on the connected computer.
+prints a `srcz://` link that opens on the connected computer.

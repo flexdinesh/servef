@@ -32,8 +32,8 @@
     },
     {
       "title": "The package line moved on",
-      "body": "This step was written against an older package name, so servef flags it as changed.",
-      "bodyHTML": "<p>This step was written against an older package name, so servef flags it as changed.</p>\n",
+      "body": "This step was written against an older package name, so srcz flags it as changed.",
+      "bodyHTML": "<p>This step was written against an older package name, so srcz flags it as changed.</p>\n",
       "file": {
         "path": "navigation/greet.go",
         "lines": [2, 2],
@@ -41,7 +41,7 @@
       }
     },
     {
-      "title": "The hello message now names servef",
+      "title": "The hello message now names srcz",
       "body": "The uncommitted change rewords the message; the search token comment stays so content search still finds it.",
       "bodyHTML": "<p>The uncommitted change rewords the message; the search token comment stays so content search still finds it.</p>\n",
       "diff": {
@@ -51,7 +51,7 @@
         "path": "code/main.go",
         "side": "new",
         "lines": [7, 7],
-        "expect": "fmt.Println(\"hello from servef\") // go-search-token"
+        "expect": "fmt.Println(\"hello from srcz\") // go-search-token"
       }
     },
     {

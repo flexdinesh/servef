@@ -1,0 +1,681 @@
+// Package projects discovers git repositories and worktrees below served roots
+// and resolves project directories within them. It knows the .git marker and
+// git's worktree and HEAD files, and nothing about file formats.
+package projects
+
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/flexdinesh/srcz/internal/files"
+)
+
+// ErrUnavailable is returned when a project ID does not name a servable
+// directory.
+var ErrUnavailable = errors.New("project unavailable")
+
+// ErrInsideRepository is returned for a directory inside a repository that is
+// not itself a repository or worktree: repositories open whole.
+var ErrInsideRepository = fmt.Errorf("%w: inside a repository", ErrUnavailable)
+
+// Kind describes why a directory is listed as a project.
+type Kind string
+
+const (
+	// KindFolder is a served root that is not itself a repository.
+	KindFolder Kind = "folder"
+	// KindRepo is a repository's main worktree or a submodule.
+	KindRepo Kind = "repo"
+	// KindWorktree is a linked worktree created by git worktree add.
+	KindWorktree Kind = "worktree"
+)
+
+// Root is a served root directory.
+type Root struct {
+	Path   string `json:"path"`
+	Name   string `json:"name"`
+	IsRepo bool   `json:"isRepo"`
+}
+
+// Project is a directory that can be served as a workspace.
+//
+// ID is the canonical absolute path; it is empty when the directory cannot be
+// opened. Path is always the absolute path. Members of one repository with
+// linked worktrees share Group, the Path of the group's main worktree (or of
+// its first member when the main worktree is missing). Root is the served root
+// the project, or its repository, lives in; empty when none. Branch is the
+// checked-out branch, a short commit for a detached HEAD, or empty.
+// Repository names the project's repository (see Checkout); empty for a
+// folder.
+type Project struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	Kind       Kind   `json:"kind"`
+	Group      string `json:"group"`
+	Root       string `json:"root"`
+	Branch     string `json:"branch"`
+	Repository string `json:"repository"`
+	Available  bool   `json:"available"`
+}
+
+// Checkout describes the repository checked out at a project directory.
+// Repository is the origin remote's repository name, else the main worktree's
+// folder; Worktrees counts the repository's verified checkouts. A folder
+// outside any repository has KindFolder and nothing else.
+type Checkout struct {
+	Kind       Kind
+	Branch     string
+	Repository string
+	Worktrees  int
+}
+
+// Directory is a child directory listed while browsing for a project.
+type Directory struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	IsProject bool   `json:"isProject"`
+}
+
+// Discovery is the result of Discover. Skipped holds roots that no longer
+// resolve to a readable directory; Warnings hold recoverable errors below the
+// roots.
+type Discovery struct {
+	Projects []Project
+	Skipped  []files.Warning
+	Warnings []files.Warning
+}
+
+// Roots describes served roots for display.
+func Roots(roots []string) []Root {
+	result := make([]Root, len(roots))
+	for i, root := range roots {
+		result[i] = Root{Path: root, Name: filepath.Base(root), IsRepo: hasGit(root)}
+	}
+	return result
+}
+
+// Discover finds repositories up to maxDepth directories below each root (a
+// root is depth zero) and every worktree of those repositories, wherever it
+// lives. It stops descending at a repository, skips hidden and excluded
+// (files.Excluded) directory names, and does not follow symlinks. A root that is not a
+// repository is listed as a folder project. A root that no longer resolves
+// to a directory, or cannot be read, is reported in Skipped; the other roots
+// are still discovered.
+func Discover(roots []string, maxDepth int) Discovery {
+	var skipped []files.Warning
+	canonicalRoots := make([]string, 0, len(roots))
+	for _, root := range roots {
+		canonicalRoot, err := canonicalDir(root)
+		if err != nil {
+			skipped = append(skipped, files.Warning{Path: root, Err: err})
+			continue
+		}
+		canonicalRoots = append(canonicalRoots, canonicalRoot)
+	}
+	d := discoverer{roots: canonicalRoots, projects: make(map[string]Project), groups: make(map[string]bool)}
+	for _, root := range canonicalRoots {
+		if err := d.walk(root, 0, maxDepth); err != nil {
+			skipped = append(skipped, files.Warning{Path: root, Err: fmt.Errorf("read discovery root: %w", err)})
+			continue
+		}
+		if _, ok := d.projects[root]; !ok {
+			d.projects[root] = Project{ID: root, Name: filepath.Base(root), Path: root, Kind: KindFolder, Root: root, Available: true}
+		}
+	}
+
+	result := Discovery{Projects: make([]Project, 0, len(d.projects)), Skipped: skipped, Warnings: d.warnings}
+	for _, project := range d.projects {
+		result.Projects = append(result.Projects, project)
+	}
+	rank := func(project Project) int {
+		for i, root := range canonicalRoots {
+			if project.Root == root {
+				return i
+			}
+		}
+		return len(canonicalRoots)
+	}
+	sort.Slice(result.Projects, func(a, b int) bool {
+		left, right := result.Projects[a], result.Projects[b]
+		if left.Available != right.Available {
+			return left.Available
+		}
+		if leftRank, rightRank := rank(left), rank(right); leftRank != rightRank {
+			return leftRank < rightRank
+		}
+		if (left.Path == left.Root) != (right.Path == right.Root) {
+			return left.Path == left.Root
+		}
+		leftFold, rightFold := strings.ToLower(left.Path), strings.ToLower(right.Path)
+		if leftFold != rightFold {
+			return leftFold < rightFold
+		}
+		return left.Path < right.Path
+	})
+	return result
+}
+
+// Resolve returns the symlink-evaluated directory for a project ID, an
+// absolute path. Below a root, a directory opens when it is a repository or
+// worktree, or when no directory from the root down to it is one; excluded
+// names (files.Excluded) never open. Outside every root, only a linked worktree whose
+// repository lies in a root opens.
+func Resolve(roots []string, id string) (string, error) {
+	resolved, root, err := locate(roots, id)
+	if err != nil {
+		return "", err
+	}
+	if root == "" || hasGit(resolved) {
+		return resolved, nil
+	}
+	if insideRepository(root, resolved) {
+		return "", ErrInsideRepository
+	}
+	return resolved, nil
+}
+
+// ProjectFor returns the project that shows dir, an absolute clean path: the
+// nearest repository or worktree from dir up to its root, else dir itself,
+// symlinks evaluated. The result is a project ID Resolve accepts. A dir
+// outside every root, or excluded (files.Excluded), is an error, as in
+// Resolve.
+func ProjectFor(roots []string, dir string) (string, error) {
+	resolved, root, err := locate(roots, dir)
+	if err != nil {
+		return "", err
+	}
+	if root == "" {
+		return resolved, nil
+	}
+	for candidate := resolved; ; candidate = filepath.Dir(candidate) {
+		if hasGit(candidate) {
+			return candidate, nil
+		}
+		if candidate == root || candidate == filepath.Dir(candidate) {
+			return resolved, nil
+		}
+	}
+}
+
+// ResolveStandalone returns the symlink-evaluated directory for a project ID
+// when no roots are served: the directory is its own root (srcz
+// walkthrough publish). It applies Resolve's ID rules (absolute, clean,
+// existing directory). A directory inside a repository, not a repository or
+// worktree itself, returns ErrInsideRepository, as Resolve does for folders
+// inside a served repository.
+func ResolveStandalone(id string) (string, error) {
+	resolved, err := existingDirectory(id)
+	if err != nil || hasGit(resolved) {
+		return resolved, err
+	}
+	for dir := filepath.Dir(resolved); ; dir = filepath.Dir(dir) {
+		if hasGit(dir) {
+			return "", ErrInsideRepository
+		}
+		if dir == filepath.Dir(dir) {
+			return resolved, nil
+		}
+	}
+}
+
+// Directories lists the child directories of a folder for browsing; an empty
+// ID lists the roots. Repositories and their contents are not browsed: they
+// open whole. Hidden directories are listed; excluded names (files.Excluded)
+// and symlinks are not.
+func Directories(roots []string, id string) ([]Directory, error) {
+	if id == "" {
+		result := make([]Directory, 0, len(roots))
+		for _, root := range Roots(roots) {
+			result = append(result, Directory{Name: root.Name, Path: root.Path, IsProject: root.IsRepo})
+		}
+		return result, nil
+	}
+	dir, root, err := locate(roots, id)
+	if err != nil {
+		return nil, err
+	}
+	if root == "" || hasGit(dir) || insideRepository(root, dir) {
+		return nil, ErrInsideRepository
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Directory, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || files.Excluded(name) {
+			continue
+		}
+		child := filepath.Join(dir, name)
+		result = append(result, Directory{Name: name, Path: child, IsProject: hasGit(child)})
+	}
+	sort.Slice(result, func(a, b int) bool {
+		left, right := strings.ToLower(result[a].Name), strings.ToLower(result[b].Name)
+		if left != right {
+			return left < right
+		}
+		return result[a].Name < result[b].Name
+	})
+	return result, nil
+}
+
+// locate resolves an ID to an existing directory and the root containing it.
+// The root is empty for a linked worktree outside every root whose repository
+// lies in one; any other directory outside the roots escapes.
+func locate(roots []string, id string) (string, string, error) {
+	resolved, err := existingDirectory(id)
+	if err != nil {
+		return "", "", err
+	}
+	for _, root := range roots {
+		canonicalRoot := canonical(root)
+		if !files.Within(canonicalRoot, resolved) {
+			continue
+		}
+		rel, err := filepath.Rel(canonicalRoot, resolved)
+		if err != nil {
+			return "", "", files.ErrPathEscape
+		}
+		for _, segment := range strings.Split(filepath.ToSlash(rel), "/") {
+			if files.Excluded(segment) {
+				return "", "", fmt.Errorf("%w: %q is excluded", ErrUnavailable, id)
+			}
+		}
+		return resolved, canonicalRoot, nil
+	}
+	if common, ok := worktreeCommonDir(resolved); ok && withinAny(roots, common) {
+		return resolved, "", nil
+	}
+	return "", "", files.ErrPathEscape
+}
+
+// existingDirectory checks a project ID's form (absolute and clean) and
+// returns the existing directory it names, symlinks evaluated.
+func existingDirectory(id string) (string, error) {
+	if id == "" || !filepath.IsAbs(id) || filepath.Clean(id) != id {
+		return "", fmt.Errorf("%w: invalid project id %q", ErrUnavailable, id)
+	}
+	resolved, err := filepath.EvalSymlinks(id)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%w: not a directory", ErrUnavailable)
+	}
+	return resolved, nil
+}
+
+// insideRepository reports whether a directory from root down to dir's parent
+// is a repository.
+func insideRepository(root, dir string) bool {
+	for parent := filepath.Dir(dir); files.Within(root, parent); parent = filepath.Dir(parent) {
+		if hasGit(parent) {
+			return true
+		}
+		if parent == root {
+			break
+		}
+	}
+	return false
+}
+
+type discoverer struct {
+	roots    []string
+	projects map[string]Project
+	groups   map[string]bool
+	warnings []files.Warning
+}
+
+func (d *discoverer) walk(dir string, depth, maxDepth int) error {
+	if hasGit(dir) {
+		d.addRepository(dir)
+		return nil
+	}
+	if depth >= maxDepth {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if depth == 0 {
+			return err
+		}
+		d.warn(dir, err)
+		return nil
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		// DirEntry types come from Lstat, so symlinked directories are not IsDir.
+		if !entry.IsDir() || strings.HasPrefix(name, ".") || files.Excluded(name) {
+			continue
+		}
+		if err := d.walk(filepath.Join(dir, name), depth+1, maxDepth); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addRepository lists a repository and every verified worktree of it.
+func (d *discoverer) addRepository(dir string) {
+	common, err := commonDir(dir)
+	if err != nil {
+		d.warn(dir, err)
+		d.add(dir, "", "")
+		return
+	}
+	if d.groups[common] {
+		if _, ok := d.projects[dir]; !ok {
+			d.add(dir, "", common)
+		}
+		return
+	}
+	d.groups[common] = true
+	members := worktrees(common)
+	if !containsPath(members, dir) {
+		members = append(members, dir)
+	}
+	group := ""
+	if len(members) > 1 {
+		group = members[0]
+	}
+	for _, member := range members {
+		d.add(member, group, common)
+	}
+}
+
+// add lists a repository member. A member outside the roots opens only as a
+// linked worktree of a repository whose common directory is in a root.
+func (d *discoverer) add(dir, group, common string) {
+	kind := KindRepo
+	if isLinkedWorktree(dir) {
+		kind = KindWorktree
+	}
+	project := Project{Name: filepath.Base(dir), Path: dir, Kind: kind, Group: group, Root: d.rootOf(dir), Branch: Branch(dir), Repository: repositoryName(dir, common)}
+	if project.Root != "" {
+		project.Available = true
+	} else if common != "" {
+		project.Root = d.rootOf(common)
+		project.Available = kind == KindWorktree && project.Root != ""
+	}
+	if project.Available {
+		project.ID = dir
+	}
+	d.projects[dir] = project
+}
+
+func (d *discoverer) rootOf(dir string) string {
+	for _, root := range d.roots {
+		if files.Within(root, dir) {
+			return root
+		}
+	}
+	return ""
+}
+
+func (d *discoverer) warn(dir string, err error) {
+	d.warnings = append(d.warnings, files.Warning{Path: dir, Err: err})
+}
+
+// commonDir returns the shared git directory of a worktree.
+func commonDir(worktree string) (string, error) {
+	gitPath := filepath.Join(worktree, ".git")
+	info, err := os.Lstat(gitPath)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() {
+		return canonical(gitPath), nil
+	}
+	admin, err := readGitFile(gitPath)
+	if err != nil {
+		return "", err
+	}
+	content, err := os.ReadFile(filepath.Join(admin, "commondir"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return admin, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return canonical(resolveFrom(admin, strings.TrimSpace(string(content)))), nil
+}
+
+// worktreeCommonDir returns the common git directory of a linked worktree
+// whose admin directory links back to it, as git worktree add creates.
+func worktreeCommonDir(dir string) (string, bool) {
+	gitFile := filepath.Join(dir, ".git")
+	admin, err := readGitFile(gitFile)
+	if err != nil {
+		return "", false
+	}
+	content, err := os.ReadFile(filepath.Join(admin, "gitdir"))
+	if err != nil || canonical(resolveFrom(admin, strings.TrimSpace(string(content)))) != canonical(gitFile) {
+		return "", false
+	}
+	if _, err := os.Stat(filepath.Join(admin, "commondir")); err != nil {
+		return "", false
+	}
+	common, err := commonDir(dir)
+	return common, err == nil
+}
+
+// worktrees returns the main worktree, when the common directory is a .git
+// directory, followed by every linked worktree whose .git file links back.
+func worktrees(common string) []string {
+	var members []string
+	if filepath.Base(common) == ".git" {
+		main := filepath.Dir(common)
+		if info, err := os.Lstat(filepath.Join(main, ".git")); err == nil && info.IsDir() {
+			members = append(members, main)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(common, "worktrees"))
+	if err != nil {
+		return members
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		admin := filepath.Join(common, "worktrees", entry.Name())
+		content, err := os.ReadFile(filepath.Join(admin, "gitdir"))
+		if err != nil {
+			continue
+		}
+		gitFile := resolveFrom(admin, strings.TrimSpace(string(content)))
+		back, err := readGitFile(gitFile)
+		if err != nil || back != canonical(admin) {
+			continue
+		}
+		members = append(members, canonical(filepath.Dir(gitFile)))
+	}
+	return members
+}
+
+// Branch reads a worktree's HEAD: the branch name, another ref's name, or a
+// short commit when detached. It is empty when dir is not a worktree or HEAD
+// cannot be read.
+func Branch(dir string) string {
+	gitDir, err := adminDir(dir)
+	if err != nil {
+		return ""
+	}
+	content, err := os.ReadFile(filepath.Join(gitDir, "HEAD"))
+	if err != nil {
+		return ""
+	}
+	head := strings.TrimSpace(string(content))
+	if ref, ok := strings.CutPrefix(head, "ref:"); ok {
+		ref = strings.TrimSpace(ref)
+		if name, ok := strings.CutPrefix(ref, "refs/heads/"); ok {
+			return name
+		}
+		return ref
+	}
+	if len(head) > 7 {
+		return head[:7]
+	}
+	return head
+}
+
+// Inspect describes the checkout at a canonical project directory.
+func Inspect(dir string) Checkout {
+	if !hasGit(dir) {
+		return Checkout{Kind: KindFolder}
+	}
+	checkout := Checkout{Kind: KindRepo, Branch: Branch(dir), Repository: filepath.Base(dir), Worktrees: 1}
+	if isLinkedWorktree(dir) {
+		checkout.Kind = KindWorktree
+	}
+	common, err := commonDir(dir)
+	if err != nil {
+		return checkout
+	}
+	members := worktrees(common)
+	if !containsPath(members, dir) {
+		members = append(members, dir)
+	}
+	checkout.Repository = repositoryName(dir, common)
+	checkout.Worktrees = len(members)
+	return checkout
+}
+
+// repositoryName names the repository of a checkout by its origin remote,
+// else by its main worktree's folder or bare git directory. Without a common
+// git directory it is the checkout's folder.
+func repositoryName(dir, common string) string {
+	if common == "" {
+		return filepath.Base(dir)
+	}
+	if name := originName(common); name != "" {
+		return name
+	}
+	if filepath.Base(common) == ".git" {
+		return filepath.Base(filepath.Dir(common))
+	}
+	return strings.TrimSuffix(filepath.Base(common), ".git")
+}
+
+// originName reads the repository name from the origin remote URL in a common
+// git directory's config, as in "git@host:owner/name.git" or "../name".
+func originName(common string) string {
+	content, err := os.ReadFile(filepath.Join(common, "config"))
+	if err != nil {
+		return ""
+	}
+	origin := false
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			origin = line == `[remote "origin"]`
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !origin || !ok || !strings.EqualFold(strings.TrimSpace(key), "url") {
+			continue
+		}
+		url := strings.TrimRight(strings.Trim(strings.TrimSpace(value), `"`), `/\`)
+		return strings.TrimSuffix(url[strings.LastIndexAny(url, `/\:`)+1:], ".git")
+	}
+	return ""
+}
+
+// readGitFile reads a "gitdir: <path>" file and returns the canonical path.
+func readGitFile(name string) (string, error) {
+	info, err := os.Lstat(name)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a gitdir file", name)
+	}
+	content, err := os.ReadFile(name)
+	if err != nil {
+		return "", err
+	}
+	target, ok := strings.CutPrefix(strings.TrimSpace(string(content)), "gitdir:")
+	if !ok {
+		return "", fmt.Errorf("%s is not a gitdir file", name)
+	}
+	return canonical(resolveFrom(filepath.Dir(name), strings.TrimSpace(target))), nil
+}
+
+// isLinkedWorktree reports whether dir's .git file names an admin directory
+// that shares a common git directory, as linked worktrees do and submodules
+// do not.
+func isLinkedWorktree(dir string) bool {
+	admin, err := readGitFile(filepath.Join(dir, ".git"))
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(admin, "commondir"))
+	return err == nil
+}
+
+func hasGit(dir string) bool {
+	info, err := os.Lstat(filepath.Join(dir, ".git"))
+	return err == nil && (info.IsDir() || info.Mode().IsRegular())
+}
+
+func withinAny(roots []string, dir string) bool {
+	for _, root := range roots {
+		if files.Within(canonical(root), dir) {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalDir(root string) (string, error) {
+	absolute, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve root: %w", err)
+	}
+	resolved, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", fmt.Errorf("resolve root: %w", err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("inspect root: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("root %q is not a directory", root)
+	}
+	return resolved, nil
+}
+
+// canonical evaluates symlinks when the path exists and cleans it otherwise.
+func canonical(name string) string {
+	if resolved, err := filepath.EvalSymlinks(name); err == nil {
+		return resolved
+	}
+	return filepath.Clean(name)
+}
+
+func resolveFrom(base, name string) string {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	return filepath.Join(base, name)
+}
+
+func containsPath(paths []string, name string) bool {
+	for _, candidate := range paths {
+		if candidate == name {
+			return true
+		}
+	}
+	return false
+}

@@ -1,6 +1,6 @@
 import { themeOptions } from "./theme.ts"
 
-export const SETTINGS_STORAGE_KEY = "servef-settings"
+export const SETTINGS_STORAGE_KEY = "srcz-settings"
 
 export interface Settings {
   fontSize: number

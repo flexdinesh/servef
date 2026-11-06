@@ -12,11 +12,11 @@
 The desktop app should be light (memory, CPU, bundle size) and robust.
 Electron bundles Chromium and Node: a 102 MiB deb and about 320 MiB PSS for
 one idle window (0067). System-webview shells in Go promise less. Two were
-evaluated against what the app relies on: one `servef-app://<connection>`
+evaluated against what the app relies on: one `srcz-app://<connection>`
 origin per connection with its own storage (0067, 0070, 0071, 0076),
 incremental event streams whose close cancels the upstream request, module
 workers and `compileStreaming` under the daemon CSP, a bridge only on
-`servef-app://local`, navigation and window-open policy, single instance
+`srcz-app://local`, navigation and window-open policy, single instance
 with links and folder arguments.
 
 ## Decision
@@ -34,7 +34,7 @@ servers (0070), cannot be reproduced. Not built.
 
 ### mygo 0.7.4 (spiked on Linux, not adopted)
 
-A minimal mygo shell proxied `servef-app://local` and a second connection to
+A minimal mygo shell proxied `srcz-app://local` and a second connection to
 two real daemons with 0067's proxy rules, and ran ten gates and the 0067
 memory scenario beside Electron 45.1.0 in one Debian bookworm image under
 Xvfb (WebKitGTK 2.50.6). Spike branch `spike/desktop-shell` (unmerged).

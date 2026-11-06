@@ -9,7 +9,7 @@ final tab with this shortcut closes the app; the shortcut in an empty workspace
 also closes the app. Tab close buttons and context menus keep their behavior.
 
 The native Window menu registers Close Tab with CmdOrCtrl+W and dispatches the
-cancelable `servef:close-tab` event. React owns tab selection and cleanup, then
+cancelable `srcz:close-tab` event. React owns tab selection and cleanup, then
 uses the optional, sender-checked `closeWindow()` bridge method after navigation
 and workspace memory save the final close. The bridge stays version 2, with
 feature detection as in 0081. Pages without a workspace retain native Close.

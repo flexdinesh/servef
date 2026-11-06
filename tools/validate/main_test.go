@@ -248,8 +248,8 @@ func TestDesktopGroupIsPartOfCheckPR(t *testing.T) {
 			t.Fatalf("%s belongs to the desktop group alone", task)
 		}
 	}
-	// The e2e runs the real servef binary with the web app embedded.
-	for _, name := range []string{"apps/desktop/main.go", "apps/servef/pkg/client/client.go", "apps/web/src/App.tsx", "packages/contracts/src/index.ts", "pnpm-lock.yaml"} {
+	// The e2e runs the real srcz binary with the web app embedded.
+	for _, name := range []string{"apps/desktop/main.go", "apps/srcz/pkg/client/client.go", "apps/web/src/App.tsx", "packages/contracts/src/index.ts", "pnpm-lock.yaml"} {
 		if !selected("desktop", name) {
 			t.Fatalf("desktop does not select %s", name)
 		}
@@ -284,10 +284,10 @@ func TestDesktopGroupIsPartOfCheckPR(t *testing.T) {
 }
 
 func TestFrontendIncludesWalkthroughSchemaContract(t *testing.T) {
-	if !selected("frontend", "apps/servef/internal/walkthrough/schema.json") {
+	if !selected("frontend", "apps/srcz/internal/walkthrough/schema.json") {
 		t.Fatal("frontend example validation requires server schema")
 	}
-	if selected("frontend", "apps/servef/internal/walkthrough/store.go") {
+	if selected("frontend", "apps/srcz/internal/walkthrough/store.go") {
 		t.Fatal("unrelated Go implementation entered frontend inputs")
 	}
 }
@@ -370,7 +370,7 @@ func TestSlotSurvivesSupervisorDescriptorClose(t *testing.T) {
 func TestRunnerEnvironmentExcludesHostConfiguration(t *testing.T) {
 	t.Setenv("DAGGER_ENGINE", "cloud")
 	t.Setenv("DAGGER_CLOUD_TOKEN", "secret")
-	t.Setenv("SERVEF_API_TARGET", "http://localhost:9999")
+	t.Setenv("SRCZ_API_TARGET", "http://localhost:9999")
 	env := strings.Join(runnerEnvironment("/private-home"), "\n")
 	for _, value := range []string{"secret", "http://localhost", "DAGGER_ENGINE=cloud"} {
 		if strings.Contains(env, value) {

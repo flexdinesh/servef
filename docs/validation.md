@@ -114,11 +114,11 @@ shellcheck on `apps/desktop/scripts`, `go mod tidy -diff`, `go vet`, and
 
 The e2e half builds the app with `-tags e2e` (mygo's automation plugin) and drives
 its page under Xvfb with WebKitGTK from the Debian snapshot, against the real
-`servef` binary with its web app embedded; screenshots and
+`srcz` binary with its web app embedded; screenshots and
 `report.json` land in the artifact directory under `desktop-e2e/`. It also runs
-`servef <dir>` against a `servef://` handler registered with real `xdg-utils`. Each
+`srcz <dir>` against a `srcz://` handler registered with real `xdg-utils`. Each
 launch gets its own socket, roots file, and XDG directories; nothing reaches the
-user's daemon. The group reads `apps/desktop/`, `apps/servef/` (the module it
+user's daemon. The group reads `apps/desktop/`, `apps/srcz/` (the module it
 replaces and the binary it runs), `apps/web/`, and `packages/contracts/`.
 `fmt:check` covers `apps/desktop`; `tidy:check` does not. Linux only: macOS is
 built and smoke-tested by `build.yml`.
@@ -129,13 +129,13 @@ profile. RSS files and their settling waits belong to extended artifacts.
 
 ## Engine ownership
 
-Install pinned tools through mise. Reuse `servef-validation-engine-v0.21.10`
+Install pinned tools through mise. Reuse `srcz-validation-engine-v0.21.10`
 across this repository's worktrees, with the dedicated named volume
-`servef-validation-engine-v0.21.10-state`. CLI, SDK, and engine use 0.21.10.
+`srcz-validation-engine-v0.21.10-state`. CLI, SDK, and engine use 0.21.10.
 Initialization and execution connect directly with:
 
 ```sh
-export _EXPERIMENTAL_DAGGER_RUNNER_HOST=docker-container://servef-validation-engine-v0.21.10
+export _EXPERIMENTAL_DAGGER_RUNNER_HOST=docker-container://srcz-validation-engine-v0.21.10
 export DAGGER_LEAVE_OLD_ENGINE=true
 ```
 
@@ -147,10 +147,10 @@ or prune another task's engine or volume. Do not use broad prune commands.
 Only when explicitly provisioning a new repository-owned engine, use:
 
 ```sh
-docker volume create servef-validation-engine-v0.21.10-state
-docker run -d --name servef-validation-engine-v0.21.10 --privileged \
+docker volume create srcz-validation-engine-v0.21.10-state
+docker run -d --name srcz-validation-engine-v0.21.10 --privileged \
   --cpus 8 --memory 12g --memory-swap 12g \
-  -v servef-validation-engine-v0.21.10-state:/var/lib/dagger \
+  -v srcz-validation-engine-v0.21.10-state:/var/lib/dagger \
   registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334
 ```
 
@@ -201,7 +201,7 @@ schema. Shared workspace locks invalidate their consumers. Site content does
 not invalidate application tests. Toolchain preparation is separate from task
 commands, so unchanged toolchains can survive a task edit.
 
-Desktop keeps the replaced servef module's test files: `go mod tidy` follows
+Desktop keeps the replaced srcz module's test files: `go mod tidy` follows
 dependency test imports when checking its sums. The standalone application
 binary still excludes Go test files from its build inputs.
 

@@ -16,8 +16,8 @@ export function useDesktopCloseTab(active: WorkspaceTab | null, tabs: readonly W
       if (tab) closeTab(tab)
       if (tabs.length <= 1) setClosingWindow(true)
     }
-    window.addEventListener("servef:close-tab", close)
-    return () => window.removeEventListener("servef:close-tab", close)
+    window.addEventListener("srcz:close-tab", close)
+    return () => window.removeEventListener("srcz:close-tab", close)
   }, [active, closeTab, tabs])
 
   // Let navigation and the project's memory effect save the empty workspace

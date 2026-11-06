@@ -1,9 +1,9 @@
 #!/bin/sh
-# Installs the servef desktop app (decision 0095) from the edge prerelease:
+# Installs the srcz desktop app (decision 0095) from the edge prerelease:
 # latest main, rebuilt by CI after every green push. Stable installs use
 # scripts/install-desktop.sh. Decision 0079.
 #
-#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop-edge.sh | sh
 #
 # Installs in the same places as scripts/install-desktop.sh and replaces
 # either install. Remove with scripts/uninstall.sh.
@@ -11,7 +11,7 @@
 # shared:base:begin
 set -eu
 
-REPO="flexdinesh/servef"
+REPO="flexdinesh/srcz"
 
 if [ -t 1 ]; then
   BOLD="$(printf '\033[1m')"
@@ -43,12 +43,12 @@ detect_platform() {
   case "$(uname -s)" in
     Linux) OS=linux ;;
     Darwin) OS=darwin ;;
-    *) fail "unsupported OS $(uname -s): servef supports macOS and Linux" ;;
+    *) fail "unsupported OS $(uname -s): srcz supports macOS and Linux" ;;
   esac
   case "$(uname -m)" in
     x86_64 | amd64) ARCH=amd64 ;;
     aarch64 | arm64) ARCH=arm64 ;;
-    *) fail "unsupported architecture $(uname -m): servef supports amd64 and arm64" ;;
+    *) fail "unsupported architecture $(uname -m): srcz supports amd64 and arm64" ;;
   esac
 }
 
@@ -68,7 +68,7 @@ cleanup() {
   if [ -n "$TMP" ]; then rm -rf "$TMP"; fi
 }
 make_tmp() {
-  TMP="$(mktemp -d 2>/dev/null || mktemp -d -t servef)"
+  TMP="$(mktemp -d 2>/dev/null || mktemp -d -t srcz)"
   trap cleanup EXIT
   trap 'exit 130' INT TERM
 }
@@ -97,15 +97,15 @@ choose_bin_dir() {
   fi
 }
 
-# install_cli SRC installs the servef binary SRC as BIN_DIR/servef.
+# install_cli SRC installs the srcz binary SRC as BIN_DIR/srcz.
 install_cli() {
   choose_bin_dir
-  target="$BIN_DIR/servef"
+  target="$BIN_DIR/srcz"
   previous=""
   if [ -x "$target" ]; then
     previous="$("$target" --version 2>/dev/null | head -n 1 || true)"
   fi
-  staged="$BIN_DIR/.servef.$$"
+  staged="$BIN_DIR/.srcz.$$"
   cp "$1" "$staged"
   chmod 755 "$staged"
   mv -f "$staged" "$target"
@@ -125,13 +125,13 @@ install_cli() {
       *) note "export PATH=\"$BIN_DIR:\$PATH\"   # in ~/.profile" ;;
     esac
   fi
-  first="$(command -v servef 2>/dev/null || true)"
+  first="$(command -v srcz 2>/dev/null || true)"
   if [ -n "$first" ] && [ "$first" != "$target" ]; then
-    warn "$first comes first on PATH and is not the servef just installed"
+    warn "$first comes first on PATH and is not the srcz just installed"
   fi
   if "$target" daemon status >/dev/null 2>&1; then
-    warn "a servef daemon is running an earlier build; to switch now, run:"
-    note "servef daemon stop"
+    warn "a srcz daemon is running an earlier build; to switch now, run:"
+    note "srcz daemon stop"
   fi
 }
 # shared:cli:end
@@ -148,45 +148,45 @@ case "$DESKTOP_CONFIG" in
   *) DESKTOP_CONFIG="$HOME/.config" ;;
 esac
 # The app has a directory of its own: WebKit keeps the page's localStorage
-# beside it in servef-desktop/, which updates and uninstall leave alone.
-DESKTOP_HOME="$DESKTOP_DATA/servef-desktop/app"
-DESKTOP_ID="servef-desktop.desktop"
-DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-desktop.png"
-# The Electron app (decision 0095) installed its deb here, as servef-desktop or
-# servef-electron, and on macOS as servef.app.
-ELECTRON_DEB_DIR="${SERVEF_ELECTRON_DEB_DIR:-/opt/servef}"
+# beside it in srcz-desktop/, which updates and uninstall leave alone.
+DESKTOP_HOME="$DESKTOP_DATA/srcz-desktop/app"
+DESKTOP_ID="srcz-desktop.desktop"
+DESKTOP_ICON="$DESKTOP_DATA/icons/hicolor/512x512/apps/srcz-desktop.png"
+# The Electron app (decision 0095) installed its deb here, as srcz-desktop or
+# srcz-electron, and on macOS as srcz.app.
+ELECTRON_DEB_DIR="${SRCZ_ELECTRON_DEB_DIR:-/opt/srcz}"
 
 desktop_running() {
   has pgrep || return 1
   if [ "$OS" = darwin ]; then
-    pgrep -f 'servef-desktop\.app/Contents/MacOS/servef-desktop|servef\.app/Contents/MacOS/servef' >/dev/null 2>&1
+    pgrep -f 'srcz-desktop\.app/Contents/MacOS/srcz-desktop|srcz\.app/Contents/MacOS/srcz' >/dev/null 2>&1
   else
-    pgrep -x -u "$(id -u)" 'servef-(desktop|electron)' >/dev/null 2>&1
+    pgrep -x -u "$(id -u)" 'srcz-(desktop|electron)' >/dev/null 2>&1
   fi
 }
 
 # electron_paths CMD runs CMD with what the Electron app's scripts and its Open
 # at Login left on Linux. Never its user data; with XDG_DATA_HOME equal to
-# XDG_CONFIG_HOME, that shares servef-desktop/ with the AppImage.
+# XDG_CONFIG_HOME, that shares srcz-desktop/ with the AppImage.
 electron_paths() {
-  "$1" "$DESKTOP_DATA/servef-electron" \
-    "$DESKTOP_DATA/servef-desktop/servef-desktop.AppImage" \
-    "$DESKTOP_DATA/applications/servef-electron.desktop" \
-    "$DESKTOP_DATA/icons/hicolor/512x512/apps/servef-electron.png" \
-    "$DESKTOP_DATA/kio/servicemenus/servef-electron.desktop" \
-    "$DESKTOP_DATA/kio/servicemenus/servef-desktop.desktop" \
-    "$DESKTOP_DATA/nemo/actions/servef-electron.nemo_action" \
-    "$DESKTOP_DATA/nemo/actions/servef-desktop.nemo_action" \
-    "$DESKTOP_DATA/nautilus/scripts/Open in servef" \
-    "$DESKTOP_CONFIG/autostart/servef-electron.desktop" \
-    "$DESKTOP_CONFIG/autostart/servef-desktop.desktop"
+  "$1" "$DESKTOP_DATA/srcz-electron" \
+    "$DESKTOP_DATA/srcz-desktop/srcz-desktop.AppImage" \
+    "$DESKTOP_DATA/applications/srcz-electron.desktop" \
+    "$DESKTOP_DATA/icons/hicolor/512x512/apps/srcz-electron.png" \
+    "$DESKTOP_DATA/kio/servicemenus/srcz-electron.desktop" \
+    "$DESKTOP_DATA/kio/servicemenus/srcz-desktop.desktop" \
+    "$DESKTOP_DATA/nemo/actions/srcz-electron.nemo_action" \
+    "$DESKTOP_DATA/nemo/actions/srcz-desktop.nemo_action" \
+    "$DESKTOP_DATA/nautilus/scripts/Open in srcz" \
+    "$DESKTOP_CONFIG/autostart/srcz-electron.desktop" \
+    "$DESKTOP_CONFIG/autostart/srcz-desktop.desktop"
 }
 
 # warn_thunar_action reports a hand-added Thunar action, which lives in Thunar's
 # own settings file.
 warn_thunar_action() {
-  if [ -f "$DESKTOP_CONFIG/Thunar/uca.xml" ] && grep -Eq 'servef-(electron|desktop)' "$DESKTOP_CONFIG/Thunar/uca.xml"; then
-    warn "Thunar still has an Open in servef custom action; remove it in Edit > Configure custom actions"
+  if [ -f "$DESKTOP_CONFIG/Thunar/uca.xml" ] && grep -Eq 'srcz-(electron|desktop)' "$DESKTOP_CONFIG/Thunar/uca.xml"; then
+    warn "Thunar still has an Open in srcz custom action; remove it in Edit > Configure custom actions"
   fi
 }
 # shared:desktop:end
@@ -209,14 +209,14 @@ LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchS
 
 check_desktop_conflicts() {
   if [ "$OS" = linux ]; then
-    for deb in servef-desktop servef-electron; do
+    for deb in srcz-desktop srcz-electron; do
       if [ -e "$ELECTRON_DEB_DIR/$deb" ]; then
         fail "the $deb deb (the Electron app) is installed; remove it first: sudo apt remove $deb"
       fi
     done
   fi
   if desktop_running; then
-    fail "the servef desktop app is running; quit it, then run this again"
+    fail "the srcz desktop app is running; quit it, then run this again"
   fi
 }
 
@@ -244,13 +244,13 @@ replace_path() {
   mv "$2.new" "$2"
 }
 
-# link_desktop TARGET links BIN_DIR/servef-desktop to TARGET.
+# link_desktop TARGET links BIN_DIR/srcz-desktop to TARGET.
 link_desktop() {
   choose_bin_dir
-  ln -sfn "$1" "$BIN_DIR/servef-desktop"
-  ok "linked $BIN_DIR/servef-desktop"
+  ln -sfn "$1" "$BIN_DIR/srcz-desktop"
+  ok "linked $BIN_DIR/srcz-desktop"
   if ! on_path "$BIN_DIR"; then
-    warn "$BIN_DIR is not on PATH; add it to run servef-desktop from a terminal"
+    warn "$BIN_DIR is not on PATH; add it to run srcz-desktop from a terminal"
   fi
 }
 
@@ -267,92 +267,92 @@ remove_electron() {
   warn_thunar_action
 }
 
-# warn_running_daemon SERVEF warns about a daemon from an earlier build: the app
+# warn_running_daemon SRCZ warns about a daemon from an earlier build: the app
 # reuses it, and shows its web UI, until it stops.
 warn_running_daemon() {
   if "$1" daemon status >/dev/null 2>&1; then
-    warn "a servef daemon is running an earlier build; the app shows that build until it stops. To switch now, run:"
+    warn "a srcz daemon is running an earlier build; the app shows that build until it stops. To switch now, run:"
     note "\"$1\" daemon stop"
   fi
 }
 
 # install_desktop_linux DIR installs the unpacked Linux archive DIR, its
-# desktop entry and icon, and makes it the servef:// handler.
+# desktop entry and icon, and makes it the srcz:// handler.
 install_desktop_linux() {
-  if ! [ -x "$1/servef-desktop" ] || ! [ -x "$1/bin/servef" ]; then
-    fail "$package has no servef-desktop app"
+  if ! [ -x "$1/srcz-desktop" ] || ! [ -x "$1/bin/srcz" ]; then
+    fail "$package has no srcz-desktop app"
   fi
-  mkdir -p "$DESKTOP_DATA/servef-desktop"
+  mkdir -p "$DESKTOP_DATA/srcz-desktop"
   replace_path "$1" "$DESKTOP_HOME"
-  version="$("$DESKTOP_HOME/servef-desktop" --version 2>/dev/null | head -n 1 || true)"
+  version="$("$DESKTOP_HOME/srcz-desktop" --version 2>/dev/null | head -n 1 || true)"
   ok "installed $DESKTOP_HOME ($version)"
   electron_paths remove_electron
-  exec_arg="$(desktop_exec "$DESKTOP_HOME/servef-desktop")"
+  exec_arg="$(desktop_exec "$DESKTOP_HOME/srcz-desktop")"
   mkdir -p "$DESKTOP_DATA/applications" "$(dirname "$DESKTOP_ICON")" "$DESKTOP_CONFIG"
-  cp "$DESKTOP_HOME/servef-desktop.png" "$DESKTOP_ICON"
+  cp "$DESKTOP_HOME/srcz-desktop.png" "$DESKTOP_ICON"
   cat >"$DESKTOP_DATA/applications/$DESKTOP_ID" <<EOF2
 [Desktop Entry]
 Type=Application
-Name=servef
-Comment=Browse local files with servef
+Name=srcz
+Comment=Browse local files with srcz
 Exec=$exec_arg %U
-Icon=servef-desktop
+Icon=srcz-desktop
 Terminal=false
 Categories=Development;
-MimeType=x-scheme-handler/servef;
+MimeType=x-scheme-handler/srcz;
 EOF2
   if has update-desktop-database; then
     update-desktop-database "$DESKTOP_DATA/applications" >/dev/null 2>&1 || true
   fi
-  if has xdg-mime && xdg-mime default "$DESKTOP_ID" x-scheme-handler/servef; then
-    ok "registered servef:// links"
+  if has xdg-mime && xdg-mime default "$DESKTOP_ID" x-scheme-handler/srcz; then
+    ok "registered srcz:// links"
   else
-    warn "could not set the servef:// handler (xdg-mime); servef . may serve in a browser instead"
+    warn "could not set the srcz:// handler (xdg-mime); srcz . may serve in a browser instead"
   fi
-  link_desktop "$DESKTOP_HOME/servef-desktop"
-  warn_running_daemon "$DESKTOP_HOME/bin/servef"
+  link_desktop "$DESKTOP_HOME/srcz-desktop"
+  warn_running_daemon "$DESKTOP_HOME/bin/srcz"
 }
 
-# install_desktop_macos APP installs servef-desktop.app into /Applications, or
+# install_desktop_macos APP installs srcz-desktop.app into /Applications, or
 # ~/Applications when /Applications is not writable, and removes the Electron
-# app's servef.app, which also claims servef:// links.
+# app's srcz.app, which also claims srcz:// links.
 install_desktop_macos() {
   apps="/Applications"
   if ! [ -d "$apps" ] || ! [ -w "$apps" ]; then
     apps="$HOME/Applications"
     mkdir -p "$apps"
   fi
-  replace_path "$1" "$apps/servef-desktop.app"
+  replace_path "$1" "$apps/srcz-desktop.app"
   for dir in /Applications "$HOME/Applications"; do
-    [ -e "$dir/servef.app" ] || continue
+    [ -e "$dir/srcz.app" ] || continue
     if [ -w "$dir" ]; then
-      rm -rf "$dir/servef.app"
-      ok "removed the earlier Electron app $dir/servef.app"
+      rm -rf "$dir/srcz.app"
+      ok "removed the earlier Electron app $dir/srcz.app"
     else
-      warn "$dir/servef.app is the earlier Electron app and may take servef:// links; remove it with:"
-      note "sudo rm -rf \"$dir/servef.app\""
+      warn "$dir/srcz.app is the earlier Electron app and may take srcz:// links; remove it with:"
+      note "sudo rm -rf \"$dir/srcz.app\""
     fi
   done
   if [ -x "$LSREGISTER" ]; then
-    "$LSREGISTER" -f "$apps/servef-desktop.app" >/dev/null 2>&1 || true
+    "$LSREGISTER" -f "$apps/srcz-desktop.app" >/dev/null 2>&1 || true
   fi
-  ok "installed $apps/servef-desktop.app"
-  link_desktop "$apps/servef-desktop.app/Contents/MacOS/servef-desktop"
-  warn_running_daemon "$apps/servef-desktop.app/Contents/Resources/bin/servef"
+  ok "installed $apps/srcz-desktop.app"
+  link_desktop "$apps/srcz-desktop.app/Contents/MacOS/srcz-desktop"
+  warn_running_daemon "$apps/srcz-desktop.app/Contents/Resources/bin/srcz"
 }
 
 # install_desktop_release installs the desktop app of release TAG. It bundles
-# the servef binary it runs the daemon with; the CLI is not installed.
+# the srcz binary it runs the daemon with; the CLI is not installed.
 install_desktop_release() {
   if [ "$OS" = linux ]; then
-    package="servef-desktop_${VERSION}_linux_${ARCH}.tar.gz"
+    package="srcz-desktop_${VERSION}_linux_${ARCH}.tar.gz"
   else
-    package="servef-desktop_${VERSION}_darwin_${ARCH}.zip"
+    package="srcz-desktop_${VERSION}_darwin_${ARCH}.zip"
   fi
 
-  step "downloading the servef desktop app $TAG ($OS/$ARCH)"
+  step "downloading the srcz desktop app $TAG ($OS/$ARCH)"
   fetch "$(release_url "$package")" "$TMP/$package" ||
-    fail "servef $TAG has no $package; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel"
+    fail "srcz $TAG has no $package; earlier releases have no desktop app; it ships in the next stable release and on edge, except macOS Intel"
 
   mkdir -p "$TMP/desktop"
   if [ "$OS" = linux ]; then
@@ -364,13 +364,13 @@ install_desktop_release() {
     else
       unzip -q "$TMP/$package" -d "$TMP/desktop"
     fi
-    [ -d "$TMP/desktop/servef-desktop.app" ] || fail "$package has no servef-desktop.app"
-    install_desktop_macos "$TMP/desktop/servef-desktop.app"
+    [ -d "$TMP/desktop/srcz-desktop.app" ] || fail "$package has no srcz-desktop.app"
+    install_desktop_macos "$TMP/desktop/srcz-desktop.app"
   fi
   check_webkit
   ok "done; open a directory in the desktop app with:"
-  note "servef-desktop ."
-  note "For servef . and walkthroughs, install the CLI too: scripts/install.sh"
+  note "srcz-desktop ."
+  note "For srcz . and walkthroughs, install the CLI too: scripts/install.sh"
 }
 # shared:desktop-install:end
 
@@ -393,15 +393,15 @@ release_url() {
   printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
 }
 
-# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# download_cli sets CLI to the srcz binary of release TAG, whose assets are
 # named for VERSION.
 download_cli() {
-  name="servef_${VERSION}_${OS}_${ARCH}"
-  step "downloading servef $TAG ($OS/$ARCH)"
-  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
+  name="srcz_${VERSION}_${OS}_${ARCH}"
+  step "downloading srcz $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from srcz $TAG"
   tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
-  CLI="$TMP/$name/servef"
-  [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
+  CLI="$TMP/$name/srcz"
+  [ -f "$CLI" ] || fail "$name.tar.gz has no srcz binary"
 }
 # shared:release:end
 

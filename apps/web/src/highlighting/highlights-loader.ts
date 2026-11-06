@@ -1,4 +1,4 @@
-// HighlightsModule is what servef uses from @pierre/highlights.
+// HighlightsModule is what srcz uses from @pierre/highlights.
 export type HighlightsModule = Pick<typeof import("@pierre/highlights"), "codeToTokens" | "isSupportedLanguage">
 
 let loading: Promise<HighlightsModule | null> | undefined

@@ -19,7 +19,7 @@ metrics in `internal/web`, with hand-written TypeScript guards, and gave
   resolution, indexed and ignored-path checks, size and binary limits,
   snapshots, location mapping, and failure kinds and codes. `internal/lsp`
   still owns the servers; `app.Config.LanguageServers` hands the manager in,
-  and its owner closes it. `X-Servef-Language-Servers: on` becomes the
+  and its owner closes it. `X-Srcz-Language-Servers: on` becomes the
   request field `LanguageServers` (`contract.LanguageServersHeader` names
   the header); status never starts a server.
 - `app.Metrics` samples the process (`Sample`); `app.Documents.ReadImage`

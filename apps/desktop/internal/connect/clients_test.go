@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/notifier"
-	"github.com/flexdinesh/servef/pkg/client"
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/notifier"
+	"github.com/flexdinesh/srcz/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
 func TestStreamClientKeepsItsClientAndEnsuresWhenTheDaemonHasGone(t *testing.T) {
 	socket := "/run/one.sock"
 	ensures := 0
-	daemon := NewDaemon("servef", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
+	daemon := NewDaemon("srcz", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		ensures++
 		return []byte(fmt.Sprintf(`{"protocol":1,"version":"x","pid":1,"socket":%q,"roots":[],"depth":0,"scanDepth":0,"idleExit":"30m0s","startedAt":"2026-11-03T10:00:00Z"}`, socket)), nil, nil
 	})
@@ -73,7 +73,7 @@ func TestRemoteClientsFollowTheSavedConnection(t *testing.T) {
 		t.Errorf("an unchanged connection: same client %v, %v", again == first, err)
 	}
 
-	// `servef connect` with a new address applies to the next attempt.
+	// `srcz connect` with a new address applies to the next attempt.
 	saved.Hosts = []string{"10.0.0.2"}
 	store[id] = saved
 	moved, err := connect(context.Background(), nil)

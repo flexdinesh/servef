@@ -9,10 +9,10 @@ import { requestedPort, serverPort, startProcess, stopProcess, type ManagedProce
 // Re-enter this runner inside a loopback-only namespace before starting any
 // servers. Hosts without unprivileged namespaces still use OS-assigned ports.
 const isolate = ["--user", "--map-root-user", "--net", "sh", "-c", 'ip link set lo up && exec "$@"', "sh"]
-if (process.platform === "linux" && process.env.SERVEF_BROWSER_ISOLATED !== "1"
+if (process.platform === "linux" && process.env.SRCZ_BROWSER_ISOLATED !== "1"
   && spawnSync("unshare", [...isolate, "true"], { stdio: "ignore" }).status === 0) {
   const wrapper = startProcess("unshare", [...isolate, process.execPath, ...process.argv.slice(1)], {
-    ...process.env, SERVEF_BROWSER_ISOLATED: "1",
+    ...process.env, SRCZ_BROWSER_ISOLATED: "1",
   })
   const forward = () => { wrapper.child.kill("SIGTERM") }
   process.once("SIGINT", forward)
@@ -20,7 +20,7 @@ if (process.platform === "linux" && process.env.SERVEF_BROWSER_ISOLATED !== "1"
   process.exit(await wrapper.exited)
 }
 
-const root = mkdtempSync(path.join(tmpdir(), "servef-browser-"))
+const root = mkdtempSync(path.join(tmpdir(), "srcz-browser-"))
 const processes: ManagedProcess[] = []
 let interrupted = false
 function interrupt() {
@@ -34,8 +34,8 @@ const env = {
   ...process.env,
   NO_COLOR: "1",
   FORCE_COLOR: "0",
-  SERVEF_BROWSER_GIT_ROOT: path.join(root, "git"),
-  SERVEF_BROWSER_LIVE_ROOT: path.join(root, "live"),
+  SRCZ_BROWSER_GIT_ROOT: path.join(root, "git"),
+  SRCZ_BROWSER_LIVE_ROOT: path.join(root, "live"),
 }
 
 function launch(command: string, args: string[], overrides: NodeJS.ProcessEnv = {}, capture = false) {
@@ -52,13 +52,13 @@ async function run(command: string, args: string[]) {
 
 try {
   const base = requestedPort(process.env.PORT, "PORT", 65532)
-  const web = requestedPort(process.env.SERVEF_BROWSER_WEB_PORT, "SERVEF_BROWSER_WEB_PORT")
-  const binary = process.env.SERVEF_BROWSER_BINARY
-    ? path.resolve(process.env.SERVEF_BROWSER_BINARY)
-    : path.join(root, process.platform === "win32" ? "servef.exe" : "servef")
-  if (!process.env.SERVEF_BROWSER_BINARY) await run("go", ["build", "-o", binary, "./apps/servef"])
+  const web = requestedPort(process.env.SRCZ_BROWSER_WEB_PORT, "SRCZ_BROWSER_WEB_PORT")
+  const binary = process.env.SRCZ_BROWSER_BINARY
+    ? path.resolve(process.env.SRCZ_BROWSER_BINARY)
+    : path.join(root, process.platform === "win32" ? "srcz.exe" : "srcz")
+  if (!process.env.SRCZ_BROWSER_BINARY) await run("go", ["build", "-o", binary, "./apps/srcz"])
   await run(process.execPath, ["tests/browser/git-fixture.ts"])
-  mkdirSync(env.SERVEF_BROWSER_LIVE_ROOT, { recursive: true })
+  mkdirSync(env.SRCZ_BROWSER_LIVE_ROOT, { recursive: true })
 
   async function serve(directory: string, port: number) {
     return serverPort(launch(binary, [directory, "--host", "127.0.0.1", "--port", String(port), "--no-open"], {
@@ -67,17 +67,17 @@ try {
   }
 
   const api = await serve("testdata/markdown", base)
-  const git = await serve(env.SERVEF_BROWSER_GIT_ROOT, base === 0 ? 0 : base + 2)
+  const git = await serve(env.SRCZ_BROWSER_GIT_ROOT, base === 0 ? 0 : base + 2)
   const vite = await serverPort(launch(process.execPath, [
     "apps/web/node_modules/vite/bin/vite.js", "--configLoader", "native", "--host", "127.0.0.1", "--port", String(web), "--strictPort",
     "--config", "apps/web/vite.config.ts",
-  ], { SERVEF_API_TARGET: `http://127.0.0.1:${api}` }, true))
+  ], { SRCZ_API_TARGET: `http://127.0.0.1:${api}` }, true))
 
   const result = await launch("playwright", ["test", ...process.argv.slice(2)], {
-    SERVEF_BROWSER_API_PORT: String(api),
-    SERVEF_BROWSER_GIT_PORT: String(git),
-    SERVEF_BROWSER_BINARY: binary,
-    SERVEF_BROWSER_WEB_PORT: String(vite),
+    SRCZ_BROWSER_API_PORT: String(api),
+    SRCZ_BROWSER_GIT_PORT: String(git),
+    SRCZ_BROWSER_BINARY: binary,
+    SRCZ_BROWSER_WEB_PORT: String(vite),
   }).exited
   process.exitCode = interrupted ? 130 : result
 } catch (error) {
@@ -86,8 +86,8 @@ try {
 } finally {
   await Promise.all(processes.map(stopProcess))
   try {
-    if (process.exitCode && process.env.SERVEF_BROWSER_ARTIFACT_DIR) {
-      const destination = path.join(process.env.SERVEF_BROWSER_ARTIFACT_DIR, path.basename(root))
+    if (process.exitCode && process.env.SRCZ_BROWSER_ARTIFACT_DIR) {
+      const destination = path.join(process.env.SRCZ_BROWSER_ARTIFACT_DIR, path.basename(root))
       cpSync(root, destination, { recursive: true })
     }
   } finally {

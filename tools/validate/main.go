@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const engine = "servef-validation-engine-v0.21.10"
+const engine = "srcz-validation-engine-v0.21.10"
 const engineImage = "registry.dagger.io/engine@sha256:2a7c054e0864e297671c24a0726ebf1c9747d70291b8843b1726daaff200a334"
 
 type options struct {
@@ -99,7 +99,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	digest := sha256.Sum256([]byte(common))
 	global := filepath.Join(base, "local-validation")
-	a := app{root, filepath.Join(global, "servef", hex.EncodeToString(digest[:16])), global}
+	a := app{root, filepath.Join(global, "srcz", hex.EncodeToString(digest[:16])), global}
 	if command == "prune" {
 		return a.prune()
 	}

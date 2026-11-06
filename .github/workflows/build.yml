@@ -55,7 +55,7 @@ jobs:
             ~/.local/share/pnpm/store
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/servef/go.sum') }}
+          key: ${{ runner.os }}-dependencies-${{ hashFiles('mise.lock', 'pnpm-lock.yaml', 'apps/srcz/go.sum') }}
           restore-keys: ${{ runner.os }}-dependencies-
 
       - name: Install frontend dependencies
@@ -75,7 +75,7 @@ jobs:
 
           commit="$(git rev-parse --short=12 HEAD)"
           date="$(git show -s --format=%cI HEAD)"
-          module="github.com/flexdinesh/servef/internal/version"
+          module="github.com/flexdinesh/srcz/internal/version"
 
           rm -rf release-dist
           mkdir -p release-dist
@@ -87,14 +87,14 @@ jobs:
           for target in "${targets[@]}"; do
             goos="${target%/*}"
             goarch="${target#*/}"
-            archive_dir="servef_${VERSION}_${goos}_${goarch}"
+            archive_dir="srcz_${VERSION}_${goos}_${goarch}"
             mkdir -p "release-dist/${archive_dir}"
 
             CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
               -trimpath \
               -ldflags="-s -w -X ${module}.Version=${VERSION} -X ${module}.Commit=${commit} -X ${module}.Date=${date}" \
-              -o "release-dist/${archive_dir}/servef" \
-              ./apps/servef
+              -o "release-dist/${archive_dir}/srcz" \
+              ./apps/srcz
 
             cp README.md LICENSE "release-dist/${archive_dir}/"
             tar -C release-dist -czf "release-dist/${archive_dir}.tar.gz" "${archive_dir}"
@@ -110,9 +110,9 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          tar -C "$dir" -xzf "release-dist/servef_${VERSION}_linux_amd64.tar.gz"
-          bin="$dir/servef_${VERSION}_linux_amd64/servef"
-          "$bin" --version | grep -F "servef ${VERSION} $(git rev-parse --short=12 HEAD) "
+          tar -C "$dir" -xzf "release-dist/srcz_${VERSION}_linux_amd64.tar.gz"
+          bin="$dir/srcz_${VERSION}_linux_amd64/srcz"
+          "$bin" --version | grep -F "srcz ${VERSION} $(git rev-parse --short=12 HEAD) "
           "$bin" "$dir" --port 7999 --no-open &
           trap 'kill $!' EXIT
           for _ in $(seq 50); do curl -fsS -o /dev/null http://127.0.0.1:7999/ && break; sleep 0.2; done
@@ -128,7 +128,7 @@ jobs:
           compression-level: 0
 
   # The desktop app (decisions 0094, 0095) bundles the archives' Go binary as
-  # resources/bin/servef. mygo needs no cgo, so one Linux runner builds both
+  # resources/bin/srcz. mygo needs no cgo, so one Linux runner builds both
   # architectures. apps/desktop needs Go 1.27: GOTOOLCHAIN fetches the toolchain
   # go.mod names, verified against sum.golang.org.
   desktop-linux:
@@ -166,11 +166,11 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          tar -C "$dir" -xzf "desktop-dist/servef-desktop_${VERSION}_linux_amd64.tar.gz"
-          "$dir/servef-desktop" --version | grep -Fx "servef-desktop ${VERSION} $(git rev-parse --short=12 HEAD)"
-          "$dir/bin/servef" --version | grep -F "servef ${VERSION} "
-          grep -E '^MimeType=(.*;)?x-scheme-handler/servef(;|$)' "$dir/servef-desktop.desktop"
-          test -f "$dir/servef-desktop.png"
+          tar -C "$dir" -xzf "desktop-dist/srcz-desktop_${VERSION}_linux_amd64.tar.gz"
+          "$dir/srcz-desktop" --version | grep -Fx "srcz-desktop ${VERSION} $(git rev-parse --short=12 HEAD)"
+          "$dir/bin/srcz" --version | grep -F "srcz ${VERSION} "
+          grep -E '^MimeType=(.*;)?x-scheme-handler/srcz(;|$)' "$dir/srcz-desktop.desktop"
+          test -f "$dir/srcz-desktop.png"
 
       - name: Upload desktop packages
         uses: actions/upload-artifact@v7
@@ -218,14 +218,14 @@ jobs:
           set -euo pipefail
 
           dir="$(mktemp -d)"
-          ditto -x -k "desktop-dist/servef-desktop_${VERSION}_darwin_arm64.zip" "$dir"
-          app="$dir/servef-desktop.app/Contents"
-          "$app/MacOS/servef-desktop" --version | grep -Fx "servef-desktop ${VERSION} $(git rev-parse --short=12 HEAD)"
-          "$app/Resources/bin/servef" --version | grep -F "servef ${VERSION} "
-          codesign --verify "$dir/servef-desktop.app"
+          ditto -x -k "desktop-dist/srcz-desktop_${VERSION}_darwin_arm64.zip" "$dir"
+          app="$dir/srcz-desktop.app/Contents"
+          "$app/MacOS/srcz-desktop" --version | grep -Fx "srcz-desktop ${VERSION} $(git rev-parse --short=12 HEAD)"
+          "$app/Resources/bin/srcz" --version | grep -F "srcz ${VERSION} "
+          codesign --verify "$dir/srcz-desktop.app"
           scheme="$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw -o - "$app/Info.plist")"
-          if [[ "$scheme" != "servef" ]]; then
-            echo "Info.plist registers URL scheme '$scheme', want servef" >&2
+          if [[ "$scheme" != "srcz" ]]; then
+            echo "Info.plist registers URL scheme '$scheme', want srcz" >&2
             exit 1
           fi
 
@@ -262,14 +262,14 @@ jobs:
           expected=()
           for arch in amd64 arm64; do
             expected+=(
-              "servef_${VERSION}_linux_${arch}.tar.gz"
-              "servef-desktop_${VERSION}_linux_${arch}.tar.gz"
+              "srcz_${VERSION}_linux_${arch}.tar.gz"
+              "srcz-desktop_${VERSION}_linux_${arch}.tar.gz"
             )
           done
           for arch in $MACOS_ARCHES; do
             expected+=(
-              "servef_${VERSION}_darwin_${arch}.tar.gz"
-              "servef-desktop_${VERSION}_darwin_${arch}.zip"
+              "srcz_${VERSION}_darwin_${arch}.tar.gz"
+              "srcz-desktop_${VERSION}_darwin_${arch}.zip"
             )
           done
 

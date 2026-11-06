@@ -5,7 +5,7 @@
 
 ## Context
 
-servef follows VS Code conventions. Settings are reachable from a footer gear
+srcz follows VS Code conventions. Settings are reachable from a footer gear
 or Cmd/Ctrl+,, but there was no keyboard-first way to jump to one setting, and
 no general home for commands as they grow.
 

@@ -10,17 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/client"
 )
 
 func TestDaemonEnsuresOnceAndAgainWhenAsked(t *testing.T) {
 	ensures := 0
-	daemon := NewDaemon("servef", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
+	daemon := NewDaemon("srcz", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		ensures++
 		return []byte(status), nil, nil
 	})
 	for range 2 {
-		if socket, err := daemon.Socket(context.Background(), false); err != nil || socket != "/run/user/1000/servef/daemon.sock" {
+		if socket, err := daemon.Socket(context.Background(), false); err != nil || socket != "/run/user/1000/srcz/daemon.sock" {
 			t.Fatalf("socket %q, %v", socket, err)
 		}
 	}
@@ -34,7 +34,7 @@ func TestDaemonEnsuresOnceAndAgainWhenAsked(t *testing.T) {
 
 func TestDaemonFailureCooldown(t *testing.T) {
 	ensures := 0
-	daemon := NewDaemon("servef", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
+	daemon := NewDaemon("srcz", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		ensures++
 		return nil, []byte("no daemon"), errors.New("exit status 1")
 	})
@@ -56,7 +56,7 @@ func TestDaemonFailureCooldown(t *testing.T) {
 }
 
 func TestDaemonReportsAMissingBinary(t *testing.T) {
-	missing := errors.New("servef is not on PATH")
+	missing := errors.New("srcz is not on PATH")
 	daemon := NewDaemon("", missing, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		t.Error("ran without a binary")
 		return nil, nil, nil
@@ -85,7 +85,7 @@ func TestDoEnsuresAgainWhenTheDaemonHasGone(t *testing.T) {
 
 	socket := dead
 	ensures := 0
-	daemon := NewDaemon("servef", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
+	daemon := NewDaemon("srcz", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		ensures++
 		return []byte(fmt.Sprintf(`{"protocol":1,"version":"x","pid":1,"socket":%q,"roots":[],"depth":0,"scanDepth":0,"idleExit":"30m0s","startedAt":"2026-11-03T10:00:00Z"}`, socket)), nil, nil
 	})
@@ -111,7 +111,7 @@ func TestDoEnsuresAgainWhenTheDaemonHasGone(t *testing.T) {
 }
 
 func TestDoDoesNotRepeatOtherFailures(t *testing.T) {
-	daemon := NewDaemon("servef", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
+	daemon := NewDaemon("srcz", nil, nil, func(context.Context, string, ...string) ([]byte, []byte, error) {
 		return []byte(status), nil, nil
 	})
 	refused := errors.New("the path is not a directory")

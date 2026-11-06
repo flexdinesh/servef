@@ -17,7 +17,7 @@
 
 0077 kept Electron after a mygo shell that hosted the web UI in WebKitGTK
 lost on memory, CPU, and request handling. A native UI is a different bet:
-draw servef with mygo's own widgets, no web view, as one more client of the
+draw srcz with mygo's own widgets, no web view, as one more client of the
 contracts 0080 introduced. It can only be judged by building it, so it ships
 as an experiment beside the Electron app and does not replace it.
 
@@ -41,16 +41,16 @@ as an experiment beside the Electron app and does not replace it.
 ### Boundaries
 
 - `apps/native` is its own Go module (`go 1.27.3`, mygo v0.7.4) outside
-  `go.work` (0078). From servef it imports only `pkg/contract` and
-  `pkg/client` (`replace github.com/flexdinesh/servef => ../servef`). Its
-  module path sits under servef's, so Go's internal rule would allow more; a
-  boundary test fails on any other servef import. Since 0084 those two link
-  no other servef package (`go list -deps`), so the binary carries neither
+  `go.work` (0078). From srcz it imports only `pkg/contract` and
+  `pkg/client` (`replace github.com/flexdinesh/srcz => ../srcz`). Its
+  module path sits under srcz's, so Go's internal rule would allow more; a
+  boundary test fails on any other srcz import. Since 0084 those two link
+  no other srcz package (`go list -deps`), so the binary carries neither
   the server nor the web app and builds without `internal/web/dist`.
 - View models are pure Go with no mygo import: `link` (links and arguments),
   `tree`, `docview` (modes and views), `mdlink` (Markdown link and image
-  resolution), `highlight` (Chroma to servef's eight syntax categories),
-  `theme` (servef's tokens), `live`, `connect`, `review` (diff layout), and
+  resolution), `highlight` (Chroma to srcz's eight syntax categories),
+  `theme` (srcz's tokens), `live`, `connect`, `review` (diff layout), and
   `workspace` (the app state). `view` is the thin mygo layer.
 - The web UI stays the source of truth. `docview` mirrors
   `document-view.ts` (Source and Preview; no Format), `theme` mirrors
@@ -80,18 +80,18 @@ as an experiment beside the Electron app and does not replace it.
 
 ### Connections and links
 
-- The daemon is ensured with `servef daemon ensure --json` from the bundled
-  binary (`resources/bin/servef`; `SERVEF_NATIVE_BINARY` then `PATH` in
-  development) and must speak protocol 1. `servef control list --json`
+- The daemon is ensured with `srcz daemon ensure --json` from the bundled
+  binary (`resources/bin/srcz`; `SRCZ_NATIVE_BINARY` then `PATH` in
+  development) and must speak protocol 1. `srcz control list --json`
   lists loopback CLI servers. Any server opens by address.
-- Scheme `servef-native://`, mirroring `servef://`:
-  `servef-native://local/?project=&path=` (the daemon) and
-  `servef-native://<host>:<port>/?project=&path=` (a server). Non-loopback
+- Scheme `srcz-native://`, mirroring `srcz://`:
+  `srcz-native://local/?project=&path=` (the daemon) and
+  `srcz-native://<host>:<port>/?project=&path=` (a server). Non-loopback
   servers are confirmed once per host and port per session (0076).
-- One instance per user (mygo's lock): links and `servef-native [path]` reach
+- One instance per user (mygo's lock): links and `srcz-native [path]` reach
   the first instance; Linux passes links as arguments, macOS as Apple Events.
   Paths open through `/_daemon/open` (`Client.DaemonOpen`).
-- The servef CLI knows nothing about the native app; `servef [path]` still
+- The srcz CLI knows nothing about the native app; `srcz [path]` still
   opens the Electron app or a browser (0068).
 - Markdown images read `/api/image` over the connection's transport:
   root-confined and image types only. `pkg/client` has no image read yet, so
@@ -102,14 +102,14 @@ as an experiment beside the Electron app and does not replace it.
 - `build.yml` jobs `native-linux` (cross-compiles linux amd64 and arm64 with
   `mygo build`; mygo needs no cgo) and `native-macos` (darwin amd64 and arm64
   on `macos-latest`, ad-hoc signed) bundle the matching CLI archive's
-  binary and upload `servef-native_<version>_linux_<arch>.tar.gz` and
-  `servef-native_<version>_darwin_<arch>.zip`. Go 1.27.3 comes from
+  binary and upload `srcz-native_<version>_linux_<arch>.tar.gz` and
+  `srcz-native_<version>_darwin_<arch>.zip`. Go 1.27.3 comes from
   `GOTOOLCHAIN`, verified against sum.golang.org. `apps/native/scripts/package.sh`
   holds the steps.
 - `scripts/install-native.sh` (latest) and `install-native-edge.sh` (edge)
-  install the app only: Linux in `~/.local/share/servef-native` with a desktop
-  entry for `servef-native://` and an icon, macOS `servef-native.app` in
-  `/Applications` (or `~/Applications`); both link `servef-native` into
+  install the app only: Linux in `~/.local/share/srcz-native` with a desktop
+  entry for `srcz-native://` and an icon, macOS `srcz-native.app` in
+  `/Applications` (or `~/Applications`); both link `srcz-native` into
   `~/.local/bin` (or `~/bin`). `uninstall.sh` removes it and keeps its data.
 - Docs label it experimental.
 
@@ -119,7 +119,7 @@ as an experiment beside the Electron app and does not replace it.
   Dagger group outside the eleven, with its own preparation (the Go 1.27.3
   tarball, sha256-checked). It runs shellcheck on `apps/native/scripts`,
   `go mod tidy -diff`, `go vet`, and `go test -race` (headless `ui.Tester`
-  view tests and view-model unit tests against a fake servef over real
+  view tests and view-model unit tests against a fake srcz over real
   TCP and Unix-socket transports).
 - `fmt:check` covers `apps/native`; `tidy:check` does not, since the locked
   Go cannot load a Go 1.27 module.

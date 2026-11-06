@@ -17,13 +17,13 @@
     "formattable": false
   },
   "original": {
-    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![servef preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `servef testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nservef testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
+    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![srcz preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `srcz testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nsrcz testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
     "size": 362,
     "binary": false,
     "tooLarge": false
   },
   "modified": {
-    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![servef preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `servef testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nservef testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
+    "content": "# Getting started\n\nUse this guide to exercise GitHub Flavored Markdown.\n\n![srcz preview fixture](../assets/preview.svg)\n\n| Command | Purpose |\n| --- | --- |\n| `srcz testdata/markdown` | Browse the fixture library |\n| `pnpm dev` | Run the development stack |\n\n```sh\nsrcz testdata/markdown\n```\n\nContinue to the [search notes](../reference/topics/search.md).\n",
     "size": 362,
     "binary": false,
     "tooLarge": false

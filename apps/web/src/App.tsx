@@ -23,7 +23,7 @@ import { documentView, resolveDocumentMode } from "./features/documents/document
 import { FileTree } from "./features/explorer/FileTree.tsx"
 import { ImageZoomControls } from "./features/documents/ImageZoomControls.tsx"
 import { clampLineRange, lineAnchor, parseLineAnchor, splitSourceLines, type LineRange } from "./lib/line-selection.ts"
-import type { NavigationLocation, PageData } from "@servef/contracts"
+import type { NavigationLocation, PageData } from "@srcz/contracts"
 import {
   emptyPage,
   isPageLoadResult,
@@ -648,7 +648,7 @@ export function App({ project }: AppProps) {
     } : undefined
 
   const documentTitle = activeTab ? nameTab(activeTab).title : ""
-  const windowTitle = `${documentTitle ? `${documentTitle} · ` : ""}servef`
+  const windowTitle = `${documentTitle ? `${documentTitle} · ` : ""}srcz`
   useEffect(() => {
     document.title = windowTitle
   }, [windowTitle])

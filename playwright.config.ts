@@ -5,7 +5,7 @@ import { webPort } from "./tests/browser/ports.ts"
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: true,
-  outputDir: process.env.SERVEF_BROWSER_OUTPUT_DIR ?? "test-results",
+  outputDir: process.env.SRCZ_BROWSER_OUTPUT_DIR ?? "test-results",
   // Bound CPU and Chromium memory across agent sessions. --workers overrides.
   workers: 2,
   retries: 0,

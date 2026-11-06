@@ -1,6 +1,6 @@
 import type { SelectedLineRange, SelectionSide } from "@pierre/diffs"
 
-import type { LineDiff } from "@servef/contracts"
+import type { LineDiff } from "@srcz/contracts"
 import type { DiffStyle } from "./diff-options.ts"
 import type { LineRange } from "../../lib/line-selection.ts"
 

@@ -1,4 +1,4 @@
-import type { NavigationLocation, NavigationResult, NavigationStatus } from "@servef/contracts"
+import type { NavigationLocation, NavigationResult, NavigationStatus } from "@srcz/contracts"
 
 // SourcePosition addresses a character in Source: a 1-based line and a
 // 0-based UTF-16 column into the line's text.

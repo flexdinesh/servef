@@ -1,6 +1,6 @@
 import type { FileContents } from "@pierre/diffs"
 
-import type { DiffResponse, DiffSide } from "@servef/contracts"
+import type { DiffResponse, DiffSide } from "@srcz/contracts"
 import { formatBytes } from "../../lib/format-bytes.ts"
 
 // DiffContent is what a working-tree diff can show: text sides for Pierre, or

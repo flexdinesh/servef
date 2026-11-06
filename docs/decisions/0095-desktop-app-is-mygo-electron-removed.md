@@ -31,27 +31,27 @@ toolkit's name, so it leaves the product's.
 | Thing | Name |
 | --- | --- |
 | Directory | `apps/desktop` |
-| Binary, slug, command | `servef-desktop` |
-| macOS bundle | `servef-desktop.app` |
-| Identifier | `io.github.flexdinesh.servef.desktop` |
-| Link scheme | `servef://`, which the CLI prints and `internal/desktopapp` detects |
-| Page origin | `servef-app://local` |
-| Page bridge | `window.servefDesktop` |
+| Binary, slug, command | `srcz-desktop` |
+| macOS bundle | `srcz-desktop.app` |
+| Identifier | `io.github.flexdinesh.srcz.desktop` |
+| Link scheme | `srcz://`, which the CLI prints and `internal/desktopapp` detects |
+| Page origin | `srcz-app://local` |
+| Page bridge | `window.srczDesktop` |
 | Scripts | `install-desktop.sh`, `install-desktop-edge.sh` |
-| Assets | `servef-desktop_<version>_linux_<arch>.tar.gz`, `servef-desktop_<version>_darwin_<arch>.zip` |
+| Assets | `srcz-desktop_<version>_linux_<arch>.tar.gz`, `srcz-desktop_<version>_darwin_<arch>.zip` |
 | Tasks | `dev:desktop`, `test:desktop`, `test:desktop:e2e` (alias `desktop:e2e`) |
 | Validation group | `desktop` |
-| Linux data | `$XDG_DATA_HOME/servef-desktop/`: `app/` and WebKit's store beside it |
+| Linux data | `$XDG_DATA_HOME/srcz-desktop/`: `app/` and WebKit's store beside it |
 
 "mygo" stays for the framework: the dependency and its imports, `mygo.json`, its
-CLI, and prose naming it. `servef-mygo` was never in a stable release, so its page
+CLI, and prose naming it. `srcz-mygo` was never in a stable release, so its page
 state does not migrate.
 
 ### Removed
 
 `apps/electron` and everything it alone used:
 
-- `servef control list` (`Registry.List` stays: walkthrough publish uses it).
+- `srcz control list` (`Registry.List` stays: walkthrough publish uses it).
 - `/_daemon/directories`, `projects.Browse`, and their contract shapes and client
   methods.
 - The web app's `cli-`, `ssh-`, and `http-` shareable origins, and the title band
@@ -65,7 +65,7 @@ state does not migrate.
 Not ported, on purpose: ssh connections, the Connect page, CLI and http server
 connections, Open at Login, notifications, recent folders, the Dock menu, folder
 drop, file manager actions. Each is the cost of one shell doing less. A
-`servef://<host>:<port>` link opens in the browser. Nothing replaces them here; a
+`srcz://<host>:<port>` link opens in the browser. Nothing replaces them here; a
 later decision can add one back.
 
 Left on the server, without a client: `/_daemon/events` and `DaemonEvents`,
@@ -78,28 +78,28 @@ own change.
 The `desktop` group enters `check:pr`, replacing `electron` and `electron-static`:
 ten groups. It runs unit tests, then the built app under Xvfb. A failure in the
 WebKit app now blocks PRs. Playwright's WebKit project stays opt-in: it compares
-against Chromium and has known gaps (0094). The e2e also runs `servef <dir>`
-through a `servef://` handler registered with real `xdg-utils`, in place of what
+against Chromium and has known gaps (0094). The e2e also runs `srcz <dir>`
+through a `srcz://` handler registered with real `xdg-utils`, in place of what
 Electron's `cli.spec.ts` covered.
 
 ### Existing Electron installs
 
 Stable never shipped Electron: v0.1.6 has CLI archives only. Electron installs
-came from the edge scripts or a local build: `servef-desktop` or `servef-electron`
-AppImages, debs, and on macOS `servef.app`. `install-desktop*.sh`:
+came from the edge scripts or a local build: `srcz-desktop` or `srcz-electron`
+AppImages, debs, and on macOS `srcz.app`. `install-desktop*.sh`:
 
 - stop while either deb is installed, naming `sudo apt remove`;
 - on Linux, after installing, remove the AppImages, autostart entries, Dolphin,
   Nemo, and Nautilus actions, and report a Thunar action, which lives in Thunar's
   own settings file;
-- on macOS, remove `servef.app`. Its name differs, so it would stay and also claim
-  `servef://`;
-- never touch Electron's user data, and replace only `servef-desktop/app`. With
+- on macOS, remove `srcz.app`. Its name differs, so it would stay and also claim
+  `srcz://`;
+- never touch Electron's user data, and replace only `srcz-desktop/app`. With
   `XDG_DATA_HOME` equal to `XDG_CONFIG_HOME` that directory holds Electron's data
   and WebKit's store too.
 
-`uninstall.sh` also removes Electron and `servef-mygo` leftovers, and keeps and
-reports data. Its `servef-native` handling and the `install-electron*.sh` scripts
+`uninstall.sh` also removes Electron and `srcz-mygo` leftovers, and keeps and
+reports data. Its `srcz-native` handling and the `install-electron*.sh` scripts
 are gone, so the URL an edge CLI's install hint printed no longer resolves.
 
 ## Consequences
@@ -107,7 +107,7 @@ are gone, so the URL an edge CLI's install hint printed no longer resolves.
 - WebKitGTK 4.1 is a Linux runtime dependency, which the scripts warn about but do
   not install. 0094 lists WebKit's known gaps.
 - `install-desktop.sh` installs the app, not the CLI (`install-electron.sh` did
-  both). The app bundles its own `servef`; `servef .` needs `install.sh` too.
+  both). The app bundles its own `srcz`; `srcz .` needs `install.sh` too.
 - Until a stable release carries the assets, `install-desktop.sh` stops at the
   download with a message naming `install-desktop-edge.sh`, and changes nothing.
 - macOS is built and smoke-tested by `build.yml` only; nobody has run the app on a

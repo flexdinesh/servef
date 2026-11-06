@@ -25,7 +25,7 @@ that work, and match its layout exactly, for selections and anchors to agree.
   codes (`unchanged`, `unknownBase`, `unknownHead`), and kinds are unchanged.
   `internal/web` only maps query parameters and results.
 - The shapes live in `pkg/contract/sourcecontrol.go` and generate into
-  `@servef/contracts`; request parameters are Go-only (`requests.go`), as are
+  `@srcz/contracts`; request parameters are Go-only (`requests.go`), as are
   the error codes (`codes.go`). The web app's hand-written source control
   guards are gone.
 - The generator accepts pointers to scalars with `omitempty` as optional
@@ -73,7 +73,7 @@ that work, and match its layout exactly, for selections and anchors to agree.
 
 - Each text diff costs server CPU and memory. On the dev fixture, five reviews
   of a branch with uncommitted changes, including a 1.6 MB file with 1200
-  hunks, moved servef from about 38-41 MB RSS (43-45 MB peak) to 43-51 MB
+  hunks, moved srcz from about 38-41 MB RSS (43-45 MB peak) to 43-51 MB
   (52 MB peak); the large diff takes about 0.1 s on the server and its
   response grows from 3.3 MB to 3.8 MB. The browser no longer parses.
 - The search allocates only when a path changes run kind, and its diagonal

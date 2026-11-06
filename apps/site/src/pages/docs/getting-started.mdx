@@ -7,25 +7,25 @@
 macOS and Linux, no sudo:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
 ```
 
-It installs the latest release's `servef` in `~/.local/bin` (or `~/bin` when
+It installs the latest release's `srcz` in `~/.local/bin` (or `~/bin` when
 that is on your `PATH`), and prints the line to add when the directory is not
 on `PATH`. Run it again to update.
 
-The install scripts are the supported way to install servef; Homebrew and
+The install scripts are the supported way to install srcz; Homebrew and
 `go install` are no longer offered. A specific version's archive is on
-[GitHub Releases](https://github.com/flexdinesh/servef/releases): put its
-`servef` binary in `~/.local/bin`.
+[GitHub Releases](https://github.com/flexdinesh/srcz/releases): put its
+`srcz` binary in `~/.local/bin`.
 
 ### Desktop app
 
 Optional, macOS and Linux. Linux needs WebKitGTK 4.1. It installs the app only:
-install the CLI too for `servef .` to open it.
+install the CLI too for `srcz .` to open it.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh
 ```
 
 The latest stable release does not carry the app yet: until the next one, use
@@ -34,7 +34,7 @@ The latest stable release does not carry the app yet: until the next one, use
 ### Uninstall
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh
 ```
 
 It removes the CLI and the desktop app however they were installed in your
@@ -46,17 +46,17 @@ another tool installed earlier, and keeps your data.
 Serve the current directory:
 
 ```sh
-servef .
+srcz .
 ```
 
-With the [desktop app](/docs/desktop) installed, servef opens the directory in it.
+With the [desktop app](/docs/desktop) installed, srcz opens the directory in it.
 Otherwise it opens the browser UI on the first free port from `7971` through
-`7980`; `servef browser .` always does. See [Usage](/docs/usage) for directories,
+`7980`; `srcz browser .` always does. See [Usage](/docs/usage) for directories,
 scope, and ports, and
 [Browsing](/docs/browsing) for the UI.
 
 See all options:
 
 ```sh
-servef --help
+srcz --help
 ```

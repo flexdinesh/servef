@@ -9,17 +9,17 @@ import path from "node:path"
 // the runner, its workers, and the server command agree, so concurrent runs from
 // other worktrees cannot rebuild it mid-run. mise run dev rebuilds it in .dev.
 function fixtureRoot(): string {
-  const existing = process.env.SERVEF_BROWSER_GIT_ROOT
+  const existing = process.env.SRCZ_BROWSER_GIT_ROOT
   if (existing) return existing
-  const created = mkdtempSync(path.join(tmpdir(), "servef-browser-git-"))
-  process.env.SERVEF_BROWSER_GIT_ROOT = created
+  const created = mkdtempSync(path.join(tmpdir(), "srcz-browser-git-"))
+  process.env.SRCZ_BROWSER_GIT_ROOT = created
   return created
 }
 
 export const gitFixtureRoot = fixtureRoot()
 
 // gitFixtureBaseWorktree is a linked worktree of the fixture with main, the
-// base branch, checked out. It lives beside the served root; servef opens a
+// base branch, checked out. It lives beside the served root; srcz opens a
 // linked worktree whose repository lies in a root.
 export const gitFixtureBaseWorktree = `${gitFixtureRoot}-main`
 
@@ -28,7 +28,7 @@ export const gitFixtureChanges = 8
 // Correctness needs separated hunks and collapsed gaps. Extended runs retain
 // the ~1.6 MB stress fixture with 1,200 changed lines.
 function largeText(changed: boolean): string {
-  const lines = Array.from({ length: process.env.SERVEF_BROWSER_EXTENDED === "1" ? 24_000 : 400 }, (_, index) => {
+  const lines = Array.from({ length: process.env.SRCZ_BROWSER_EXTENDED === "1" ? 24_000 : 400 }, (_, index) => {
     const fox = changed && index % 20 === 0 ? "slow" : "quick"
     return `Line ${index}: the ${fox} brown fox jumps over the lazy dog, step ${index}.`
   })
@@ -89,11 +89,11 @@ function write(files: Record<string, string>) {
 }
 
 // Git hooks and `git bisect run` export GIT_DIR and friends, which would aim
-// these commands at servef's own repository instead of the fixture.
+// these commands at srcz's own repository instead of the fixture.
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")))
 
 function git(...args: string[]): boolean {
-  const result = spawnSync("git", ["-c", "user.name=servef", "-c", "user.email=servef@example.invalid", "-c", "commit.gpgsign=false", ...args], {
+  const result = spawnSync("git", ["-c", "user.name=srcz", "-c", "user.email=srcz@example.invalid", "-c", "commit.gpgsign=false", ...args], {
     cwd: gitFixtureRoot,
     env: { ...env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
     stdio: "ignore",

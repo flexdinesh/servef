@@ -9,7 +9,7 @@
 
 ## Context
 
-`servef` scopes one directory. Users run it over a folder of repos and
+`srcz` scopes one directory. Users run it over a folder of repos and
 worktrees and want to switch between them without restarting, always seeing
 the file system as it is at switch time. The server already rescans on every
 request and holds no file state.
@@ -77,7 +77,7 @@ request and holds no file state.
   project's page loads, then remounts the workspace: the tree filter, search
   index, and format cache reset, and the project's tabs are restored after
   checking them against the fresh tree.
-- Browser storage (`servef-workspaces`), keyed by served root and project ID,
+- Browser storage (`srcz-workspaces`), keyed by served root and project ID,
   keeps each project's tabs and active document and the last project. Opened
   folders are the remembered projects discovery does not list; Forget drops
   one. Landing on `/` without `project` reopens the last project (an unlisted
@@ -88,6 +88,6 @@ request and holds no file state.
 ## Consequences
 
 - Freshness needs no cache invalidation; switching is new requests.
-- Out-of-root worktrees are visible but not browsable; run `servef` from a
+- Out-of-root worktrees are visible but not browsable; run `srcz` from a
   common parent to browse them.
 - Markdown links and images cannot cross projects.

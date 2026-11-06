@@ -141,9 +141,9 @@ if (import.meta.main) {
   process.once("SIGTERM", abort)
   process.exitCode = await runChecks({
     groups,
-    logDir: process.env.SERVEF_CHECK_LOG_DIR ?? path.join(".dev", "check-logs", randomUUID()),
+    logDir: process.env.SRCZ_CHECK_LOG_DIR ?? path.join(".dev", "check-logs", randomUUID()),
     jobs: jobCount(process.env.MISE_JOBS),
-    verbose: process.env.SERVEF_CHECK_VERBOSE === "1",
+    verbose: process.env.SRCZ_CHECK_VERBOSE === "1",
     write: (text) => { process.stdout.write(text) },
     signal: controller.signal,
   })
