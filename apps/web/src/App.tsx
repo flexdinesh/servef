@@ -648,7 +648,7 @@ export function App({ project }: AppProps) {
     } : undefined
 
   const documentTitle = activeTab ? nameTab(activeTab).title : ""
-  const windowTitle = `${documentTitle ? `${documentTitle} · ` : ""}srcz`
+  const windowTitle = `${documentTitle ? `${documentTitle} · ` : ""}Source Zero`
   useEffect(() => {
     document.title = windowTitle
   }, [windowTitle])

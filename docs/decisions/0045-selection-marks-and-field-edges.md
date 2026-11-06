@@ -24,7 +24,7 @@ In every theme:
     run, so no middle commit reads as the cursor;
   - the active tab: a 2px line on its top edge;
   - the active view: a 2px bar on the activity rail's left edge.
-- `--color-field-border` is `text-muted` mixed 90% into `surface`; Srcz Light
+- `--color-field-border` is `text-muted` mixed 90% into `surface`; Source Zero Light
   sets `#858b94`. Both hold 3:1 against the field, the sidebar, chrome, and
   dialogs.
 - `themes.test.ts` enforces both for every theme.

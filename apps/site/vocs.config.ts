@@ -1,7 +1,7 @@
 import { defineConfig } from 'vocs/config'
 
 export default defineConfig({
-  title: 'srcz',
+  title: 'Source Zero',
   description:
     'Browse any file in a local directory: rendered Markdown, image previews, formatted data, and highlighted source.',
   renderStrategy: 'full-static',

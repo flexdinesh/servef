@@ -32,7 +32,7 @@ connections too) cannot depend on it.
   to `did-change-theme-color`, accepts only `#rrggbb` (pages are untrusted),
   and sets the window background and, outside macOS, the overlay color with
   a light or dark control color by luminance. New windows start with the
-  last reported color, else the Srcz canvas for the OS polarity. No bridge
+  last reported color, else the Source Zero canvas for the OS polarity. No bridge
   call, so ssh and CLI windows follow their page's theme too. Phone browsers
   also tint their chrome to the canvas.
 - Windows and Linux lose the visible menu bar; accelerators still work. A

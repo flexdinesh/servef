@@ -49,8 +49,8 @@ export interface ThemeOption {
 // built-in themes (decision 0036); their values live in themes.css.
 const themeDefinitions: Record<Theme, Omit<ThemeOption, "value">> = {
   "system": { label: "Auto", scheme: "system" },
-  "light": { label: "Srcz Light", scheme: "light" },
-  "dark": { label: "Srcz Dark", scheme: "dark" },
+  "light": { label: "Source Zero Light", scheme: "light" },
+  "dark": { label: "Source Zero Dark", scheme: "dark" },
   "catppuccin": { label: "Catppuccin", scheme: "dark" },
   "catppuccin-latte": { label: "Catppuccin Latte", scheme: "light" },
   "dracula": { label: "Dracula", scheme: "dark" },
@@ -95,7 +95,7 @@ function optionRank(value: Theme): number {
   return 3
 }
 
-// themeOptions lists Auto, Srcz Light, and Srcz Dark, then named themes by label.
+// themeOptions lists Auto, Source Zero Light, and Source Zero Dark, then named themes by label.
 export const themeOptions: readonly ThemeOption[] = Object.keys(themeDefinitions)
   .filter(isTheme)
   .map((value): ThemeOption => ({ value, ...themeDefinitions[value] }))

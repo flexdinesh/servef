@@ -12,7 +12,7 @@
     "signingIdentity": "-"
   },
   "linux": {
-    "comment": "Browse local files with srcz",
+    "comment": "Browse local files with Source Zero",
     "categories": [
       "Development"
     ],

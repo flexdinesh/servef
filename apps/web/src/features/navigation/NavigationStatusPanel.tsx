@@ -56,7 +56,7 @@ export function NavigationStatusPanel({ status, onCheck, onOpenSetting }: Naviga
         {server && <p>{serverSummary(server, enabled)}</p>}
         {server?.state === "missing" && (
           <>
-            <p>Install {server.name} on the machine running srcz, then check again:</p>
+            <p>Install {server.name} on the machine running Source Zero, then check again:</p>
             <ul className="navigation-installs">
               {server.install.map((install) => <InstallCommand key={install.label} install={install} />)}
             </ul>

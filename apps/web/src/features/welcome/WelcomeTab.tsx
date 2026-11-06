@@ -73,7 +73,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
     <div className="welcome">
       <header className="welcome-header">
         <p className="welcome-meta">Serving {roots.join(", ")}</p>
-        <h1 className="welcome-title">srcz</h1>
+        <h1 className="welcome-title">Source Zero</h1>
         <p className="welcome-tagline">Browse, search, and review local files.</p>
       </header>
       <div className="welcome-columns">

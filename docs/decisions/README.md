@@ -44,14 +44,14 @@ rewriting history; update `Status` on the old record.
 | [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted; built-in labels superseded by 0039 |
 | [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted; labels superseded by 0039 |
 | [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
-| [0039](0039-srcz-theme-labels.md) | Srcz Light, Srcz Dark, and Auto theme labels | Accepted |
+| [0039](0039-srcz-theme-labels.md) | Source Zero Light, Source Zero Dark, and Auto theme labels | Accepted |
 | [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted; commit-row branch chips superseded by 0042 |
-| [0041](0041-white-canvas-srcz-light.md) | White canvas for Srcz Light | Accepted; white document surface amended by 0043 |
+| [0041](0041-white-canvas-srcz-light.md) | White canvas for Source Zero Light | Accepted; white document surface amended by 0043 |
 | [0042](0042-expandable-commit-rows.md) | Expandable commit rows | Accepted |
-| [0043](0043-grey-document-surface-srcz-light.md) | Grey document surface for Srcz Light | Accepted; Srcz Light values amended by 0044; grey document surface superseded by 0046 |
-| [0044](0044-srcz-light-state-contrast.md) | Srcz Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Srcz Light values amended by 0046 |
+| [0043](0043-grey-document-surface-srcz-light.md) | Grey document surface for Source Zero Light | Accepted; Source Zero Light values amended by 0044; grey document surface superseded by 0046 |
+| [0044](0044-srcz-light-state-contrast.md) | Source Zero Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Source Zero Light values amended by 0046 |
 | [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
-| [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Srcz Light, flat tabs and toolbar | Accepted |
+| [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Source Zero Light, flat tabs and toolbar | Accepted |
 | [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065; application layer by 0087 |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted; CLI publish added by 0065 |

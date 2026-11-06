@@ -56,7 +56,7 @@ web UI it mirrors, and later sessions need the queue and the method.
   need the built app, which links `plugins/automation` only in `-tags e2e`
   builds (`apps/native/agent_e2e.go`). Release builds never carry it.
 
-### Srcz wiring
+### srcz wiring
 
 - `apps/native/internal/agenthost` runs the real view (`view.App` over
   `workspace.Model`) in a session, against `fakesrcz` serving

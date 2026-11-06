@@ -222,19 +222,19 @@ Feature CSS references tokens only; stylelint rejects color literals, raw font s
 Base Light uses neutral editor surfaces and functional blue. Named themes keep the same semantic roles.
 
 - **Primary:** `accent`, `accent-hover`, `accent-subtle`, `on-accent` serve links, focus, view-mode state, selected files, and primary actions.
-- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Srcz Light, where it is white and the islands float on it (decision 0041); `surface` is document (white in Srcz Light, decision 0046); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#eff1f4` in Srcz Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Srcz themes set it directly: `#e5e7eb` in Light, a clear step under the white surface; decisions 0044 and 0046); `island-border` is the islands' 1px edge, `#d3d7dd` in Srcz Light and transparent elsewhere; Srcz Light's greys are cool slate, matching its slate text (decision 0046); `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
+- **Neutral:** `bg` is the theme base; `canvas` is a per-theme tone for the outer workspace and footer that recedes below every island surface (darker than all of them), except in Source Zero Light, where it is white and the islands float on it (decision 0041); `surface` is document (white in Source Zero Light, decision 0046); `surface-secondary` is explorer/code; `surface-recessed` fills what is set into the document (active source line, code blocks, table headers, diff separators, image checkerboard): `surface-secondary` except `#eff1f4` in Source Zero Light; `workspace-chrome` mixes `surface` and `canvas` evenly for the activity rail and tab strip, so island edges stay visible against the canvas and the active tab stays distinct from the strip (Source Zero themes set it directly: `#e5e7eb` in Light, a clear step under the white surface; decisions 0044 and 0046); `island-border` is the islands' 1px edge, `#d3d7dd` in Source Zero Light and transparent elsewhere; Source Zero Light's greys are cool slate, matching its slate text (decision 0046); `surface-raised` is menus and floating controls. `text-primary/secondary/muted` establish content, supporting labels, and metadata. `border` separates ordinary regions; `border-strong` emphasizes elevated boundaries; `overlay` is the drawer backdrop.
 - **Status:** success, warning, destructive and subtle fills accompany text. `warning-subtle` also highlights search matches. `syntax-*` supplies code-token roles.
 
-Choices: Auto, Srcz Light, Srcz Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Srcz Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Srcz Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `srcz-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
+Choices: Auto, Source Zero Light, Source Zero Dark, Dracula, Solarized Light, and Omarchy's 23 built-in themes (decision 0036): Catppuccin, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Last Horizon, Lumon, Lupine, Matte Black, Miasma, Nord, Osaka Jade, Retro 82, Ristretto, Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. Source Zero Light, Solarized Light, Catppuccin Latte, Flexoki Light, Lupine, Rose Pine, and White resolve light; the rest and Source Zero Dark resolve dark. Auto follows `prefers-color-scheme`. Omarchy palettes map to roles by the rule in `themes.css`, readable first: text, links, status, and syntax hold 4.5:1 and comments 3:1 on `surface` and `surface-secondary`; monochrome palettes get quiet status hues so diffs keep red and green. Theme is chosen in Settings or the Color Theme quick pick and persists under `srcz-theme`. Keep `color-scheme` synchronized with resolved polarity; Mermaid diagrams read theme tokens through `--ondine-*` properties.
 
 **The Functional Accent Rule.** Use accent for state and interaction; keep routine prose headings and large surfaces neutral.
 
 **State roles** (VS Code conventions, shared by every interactive element):
 
-- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Srcz Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
+- `--color-hover` and `--color-active`: `text-primary` at 8% and 12%, layered over whatever surface the control sits on, so hover reads the same on islands and overlays. `--color-chrome-hover` is hover on the chrome bands (tabs, activity tiles): `--color-hover` except in Source Zero Light, where it is halfway between chrome and `surface`, so a hovered tab or tile never reads darker, and so more current, than the active one (decision 0044).
 - `--color-selected` (= `accent-subtle`) with `--color-selected-text` (= `accent-hover`): active and selected rows, pressed toggles (including a pressed IconButton), highlighted menu items. Accent text on the selection tint (selected line numbers, palette matches) switches to `selected-text`, which holds 4.5:1 there.
 - `--color-focus` (= `accent`): keyboard focus.
-- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#7a808a` in Srcz Light, decision 0046), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
+- `--color-field-bg` (= `surface`) and `--color-field-border`: text fields and selects. The border is `text-muted` mixed 90% into `surface` (`#7a808a` in Source Zero Light, decision 0046), so it holds 3:1 against the field and every surface around it (WCAG 1.4.11; decision 0045).
 - `--color-selected-border` (= `accent`): the selection mark. The selection tint is under 3:1, so selected rows draw a 3:1 mark: a 1px inset ring (lists, trees, menus' highlighted item, a pressed IconButton; a commit range takes one ring around the run) while tabs use document-surface continuity without an accent mark (decision 0056). The active activity tile is its own mark, as in VS Code's highlight (decision 0046).
 
 ## Typography
@@ -273,7 +273,7 @@ Scrollbars (decision 0055): 10px (`--scrollbar-size`), no track or arrows, a squ
 
 ## Elevation & Depth
 
-Workspace islands use surface contrast and canvas gutters, without shadows; in Srcz Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
+Workspace islands use surface contrast and canvas gutters, without shadows; in Source Zero Light, whose white canvas matches the white document island, a 1px `island-border` hairline keeps their edges; it paints above island content. Internal 1px separators, inset activity tiles, and the active tab's document fill establish structure. Shadows serve floating controls and overlays.
 
 - `--shadow-control`: `0 1px 2px rgb(15 18 23 / 8%)` in Light.
 - `--shadow-overlay`: `0 1.5rem 4rem rgb(15 18 23 / 22%)` in Light; every overlay.
@@ -596,7 +596,7 @@ with uncommitted edits carry a 6px `accent` dot before the status letter
 (decision 0051). Notes and narration sit on the gutter. Files follow on it
 (8px inset, 12px between files, 32px below the last),
 each an island: a `surface` section with `--radius-island` corners and the
-`island-border` hairline (Srcz Light only), as the workspace islands sit on
+`island-border` hairline (Source Zero Light only), as the workspace islands sit on
 the canvas. Each section is named by its
 path and has a sticky header (`--z-sticky`, `control-lg` tall, on `surface`,
 sticking one 8px gutter below the tab strip over a gutter-colored band,
@@ -621,7 +621,7 @@ selected lines.
 Diff source uses the Source font, size, and line height in rem. Syntax colors
 come from `--color-syntax-*` through a CSS-variable Shiki theme, so every theme
 applies and polarity follows the resolved theme. Added and deleted line fills
-are Pierre's 12% mix of `success` and `destructive` into `surface`; Srcz
+are Pierre's 12% mix of `success` and `destructive` into `surface`; Source Zero
 Light mixes a vivid green (`--color-diff-addition-tint`, `#00c853`) for
 additions, since its dark `success` reads grey at that strength; line numbers,
 separators, and selection use srcz tokens. Highlighting runs in a pool of two

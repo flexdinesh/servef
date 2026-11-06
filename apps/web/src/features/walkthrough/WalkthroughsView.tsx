@@ -249,7 +249,7 @@ function StepList({ context, onOpened, session, walkthrough }: StepListProps) {
       </div>
       {confirming && (
         <Notice tone="warning" layout="bar" role="group" aria-label="Delete walkthrough" className="walkthrough-confirm">
-          <span>Delete this walkthrough? srcz keeps no copy.</span>
+          <span>Delete this walkthrough? Source Zero keeps no copy.</span>
           {deleteError && <span role="alert">{deleteError}</span>}
           <span className="walkthrough-confirm-actions">
             <Button size="sm" variant="destructive" onClick={remove}>Delete</Button>

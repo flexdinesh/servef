@@ -9,7 +9,7 @@ const returnThrottle = 2_000
 // A stream the browser gave up on is reopened after this long.
 const retryDelay = 5_000
 
-const reconnecting: LiveStatus = { mode: "off", reason: "Reconnecting to srcz…" }
+const reconnecting: LiveStatus = { mode: "off", reason: "Reconnecting to Source Zero…" }
 
 export interface LiveStream {
   // closed reports that the stream gave up and will not reconnect by itself.

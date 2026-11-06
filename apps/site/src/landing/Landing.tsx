@@ -26,7 +26,7 @@ export function Landing() {
               <span className="landing-muted">One command away.</span>
             </h1>
             <p className="landing-lede">
-              srcz serves any local directory as a fast, read-only workspace: rendered
+              Source Zero serves any local directory as a fast, read-only workspace: rendered
               Markdown, image previews, formatted data, highlighted source, and diffs.
             </p>
             <InstallTabs />

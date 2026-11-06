@@ -1,12 +1,12 @@
-# 0044: Srcz Light state and boundary contrast
+# 0044: Source Zero Light state and boundary contrast
 
 - Status: Accepted
 - Date: 2026-10-26
-- Amends: [0041](0041-white-canvas-srcz-light.md) and [0043](0043-grey-document-surface-srcz-light.md) Srcz Light values
+- Amends: [0041](0041-white-canvas-srcz-light.md) and [0043](0043-grey-document-surface-srcz-light.md) Source Zero Light values
 
 ## Context
 
-A full review of Srcz Light (design review plus a rendered contrast scan)
+A full review of Source Zero Light (design review plus a rendered contrast scan)
 found that its greys sat 4-5 levels apart, so the current tab, active
 activity tile, active source line, review file islands, and selected rows read
 mostly by text color. Hover (8% ink) on the chrome bands read darker, and so
@@ -16,7 +16,7 @@ mixed from the dark success green, read grey.
 
 ## Decision
 
-Srcz Light values (named themes and Srcz Dark are unchanged):
+Source Zero Light values (named themes and Source Zero Dark are unchanged):
 
 - `workspace-chrome` and `surface-recessed` `#f0f0f0`, a 1.08:1 step under the
   `#f9f9f9` surface instead of 1.045.

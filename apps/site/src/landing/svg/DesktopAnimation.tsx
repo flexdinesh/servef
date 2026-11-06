@@ -22,7 +22,7 @@ export function DesktopAnimation() {
         <circle className="s-dot" cx="72" cy="81" r="4" />
         <circle className="s-dot" cx="86" cy="81" r="4" />
         <text x="190" y="85" fontSize="11">
-          api · srcz
+          api · Source Zero
         </text>
         <line className="s-divider" x1="150" y1="98" x2="150" y2="330" />
         <rect className="s-line" x="56" y="116" width="70" height="7" rx="3.5" />

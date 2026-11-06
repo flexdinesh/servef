@@ -105,11 +105,11 @@ test("a query ranks matches flat, including each worktree by branch", async () =
 })
 
 test("matchScore prefers names over paths and requires characters in order", () => {
-  assert.equal(matchScore("ser", "srcz", "work/srcz"), 0)
-  assert.equal(matchScore("vef", "srcz", "work/srcz"), 1)
+  assert.equal(matchScore("src", "srcz", "work/srcz"), 0)
+  assert.equal(matchScore("rcz", "srcz", "work/srcz"), 1)
   assert.equal(matchScore("work", "srcz", "work/srcz"), 2)
-  assert.equal(matchScore("wsf", "srcz", "work/srcz"), 3)
-  assert.equal(matchScore("fsw", "srcz", "work/srcz"), null)
+  assert.equal(matchScore("wsz", "srcz", "work/srcz"), 3)
+  assert.equal(matchScore("zsw", "srcz", "work/srcz"), null)
   assert.equal(matchScore("  ", "a", "a"), 0)
 })
 

@@ -1,4 +1,4 @@
-# 0039: Srcz Light, Srcz Dark, and Auto theme labels
+# 0039: Source Zero Light, Source Zero Dark, and Auto theme labels
 
 - Status: Accepted
 - Date: 2026-10-25
@@ -11,9 +11,9 @@ polarities rather than srcz's own themes, and "System" is clearer as "Auto".
 
 ## Decision
 
-- Labels: `light` is Srcz Light, `dark` is Srcz Dark, `system` is Auto.
+- Labels: `light` is Source Zero Light, `dark` is Source Zero Dark, `system` is Auto.
 - Ids are unchanged, so stored `srcz-theme` values keep working. Order and
-  grouping are unchanged: Auto, Srcz Light, Srcz Dark, then named themes.
+  grouping are unchanged: Auto, Source Zero Light, Source Zero Dark, then named themes.
 
 ## Consequences
 

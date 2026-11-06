@@ -1,10 +1,10 @@
 # Remote hosts
 
-srcz runs beside the files. To browse another machine, start it there with
+Source Zero runs beside the files. To browse another machine, start it there with
 `--remote`, then run the command it prints on your computer. The
 [desktop app](/docs/desktop) opens that machine in a window of its own.
 
-## Install srcz on the host
+## Install Source Zero on the host
 
 Install the CLI on the remote machine as on any computer
 ([Getting started](/docs/getting-started)):
@@ -36,7 +36,7 @@ srcz ~/code/foo --remote
 It returns to your shell and keeps serving in the background, so you can close
 the SSH session. It binds every interface unless `--host` names one, on the
 first free port from 7971 to 7980 unless `--port` sets it. It serves every
-directory srcz already serves on that machine, and prints them all.
+directory Source Zero already serves on that machine, and prints them all.
 
 Without `--remote`, `srcz` on a machine with no UI (an SSH session, or Linux
 without a display) prints a reminder and exits. It never opens a port by itself.
@@ -48,7 +48,7 @@ srcz connect 10.0.0.5:7971/<credential>
 ```
 
 The desktop app opens that machine in its own window, with its own tabs and
-settings. Connect to several machines and each gets a window. srcz saves the
+settings. Connect to several machines and each gets a window. Source Zero saves the
 connection, so `srcz://<id>/` links reopen it. `--no-open` saves it and prints
 the link instead.
 

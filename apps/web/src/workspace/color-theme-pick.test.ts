@@ -13,9 +13,9 @@ test("an empty query lists Auto, then light themes, then dark themes", () => {
   assert.deepEqual(groups.map((group) => group.title), [null, "light themes", "dark themes"])
   assert.deepEqual(groups[0]?.matches.map((match) => match.option.value), ["system"])
   assert.deepEqual(groups[1]?.matches.map((match) => match.option.label), [
-    "Srcz Light", "Catppuccin Latte", "Flexoki Light", "Lupine", "Rose Pine", "Solarized Light", "White",
+    "Source Zero Light", "Catppuccin Latte", "Flexoki Light", "Lupine", "Rose Pine", "Solarized Light", "White",
   ])
-  assert.equal(groups[2]?.matches[0]?.option.label, "Srcz Dark")
+  assert.equal(groups[2]?.matches[0]?.option.label, "Source Zero Dark")
   assert.equal(pickOrder(groups).length, themeOptions.length)
 })
 

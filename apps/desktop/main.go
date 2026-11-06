@@ -206,9 +206,9 @@ func windowStateKey(connectionHost string) string {
 
 func windowTitle(connectionHost, label string) string {
 	if connectionHost == proxy.Host || label == "" {
-		return "srcz"
+		return "Source Zero"
 	}
-	return "srcz: " + label
+	return "Source Zero: " + label
 }
 
 // hostOf is a page URL's connection.

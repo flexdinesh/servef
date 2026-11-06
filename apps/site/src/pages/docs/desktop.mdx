@@ -1,9 +1,9 @@
 # Desktop app
 
-The srcz desktop app, `srcz-desktop`, shows the same UI as `srcz browser`
+The Source Zero desktop app, `srcz-desktop`, shows the same UI as `srcz browser`
 in one window of its own: the operating system's web view, with native menus
 and dialogs, through the [mygo](https://github.com/egoist/mygo) toolkit. It talks
-to one long-lived srcz daemon per user over a private socket, so the window
+to one long-lived Source Zero daemon per user over a private socket, so the window
 and `srcz .` share the same server.
 
 It shows projects on this computer. The app is a preview: macOS builds are not
@@ -68,11 +68,11 @@ in the running app. With the CLI installed:
 srcz .
 ```
 
-srcz checks the directory, starts the daemon if needed, adds the directory to
+Source Zero checks the directory, starts the daemon if needed, adds the directory to
 it, opens the project in the app, and exits. `--no-open` prints the `srcz://`
 link instead.
 
-srcz serves in a browser instead, as `srcz browser` does, when:
+Source Zero serves in a browser instead, as `srcz browser` does, when:
 
 - `--host` or `--port` is set;
 - the app is not installed or does not open (prints install instructions);
@@ -104,7 +104,7 @@ no secret; the app looks up a connection saved on this computer.
 
 Right-click a file or folder in the Explorer, or a tab, for the app's native
 menu. **Reveal in File Manager** shows the file in Finder or your Linux file
-manager; the Explorer menu also copies a file's full or relative path. srcz
+manager; the Explorer menu also copies a file's full or relative path. Source Zero
 reveals only files inside a project it serves, and never follows a link out of
 the project.
 
@@ -127,7 +127,7 @@ uncommitted changes does not notify again. Click a notification to open what it
 is about.
 
 Settings warns you if this computer has no notification service or macOS is
-blocking srcz. Each notification is limited to one per project and kind every
+blocking Source Zero. Each notification is limited to one per project and kind every
 30 seconds.
 
 ## Not in the desktop app

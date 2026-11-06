@@ -18,7 +18,7 @@ export function notificationConfig(project: string, settings: Settings): Notific
 export function notificationProblem(status: NotificationStatus | null): string | null {
   if (!status) return null
   if (!status.supported) return "This computer has no notification service, so these settings have no effect."
-  if (status.denied) return "macOS is blocking notifications from srcz. Turn them on in System Settings › Notifications."
+  if (status.denied) return "macOS is blocking notifications from Source Zero. Turn them on in System Settings › Notifications."
   return null
 }
 

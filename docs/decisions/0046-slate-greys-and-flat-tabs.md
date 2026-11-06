@@ -1,13 +1,13 @@
-# 0046: Slate greys for Srcz Light, flat tabs and toolbar
+# 0046: Slate greys for Source Zero Light, flat tabs and toolbar
 
 - Status: Accepted
 - Date: 2026-10-26
 - Supersedes: [0043](0043-grey-document-surface-srcz-light.md)'s grey document surface
-- Amends: [0044](0044-srcz-light-state-contrast.md) Srcz Light values and [0045](0045-selection-marks-and-field-edges.md)'s activity rail bar
+- Amends: [0044](0044-srcz-light-state-contrast.md) Source Zero Light values and [0045](0045-selection-marks-and-field-edges.md)'s activity rail bar
 
 ## Context
 
-After 0043 and 0044, Srcz Light read washed out: the canvas, document,
+After 0043 and 0044, Source Zero Light read washed out: the canvas, document,
 explorer, and chrome greys sat within a few levels of each other
 (`#ffffff`, `#f9f9f9`, `#f8f8f8`, `#f0f0f0`), so structure rested on
 hairlines. The neutral greys also clashed with the cool slate text
@@ -20,7 +20,7 @@ gutter and scrolled away with the document.
 
 ## Decision
 
-Srcz Light values (named themes and Srcz Dark are unchanged):
+Source Zero Light values (named themes and Source Zero Dark are unchanged):
 
 - `bg`, `canvas`, and `surface` are `#ffffff`: the document is white again.
 - Greys are cool slate, a clear step darker: `surface-secondary` (explorer)

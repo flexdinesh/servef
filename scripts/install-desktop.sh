@@ -297,7 +297,7 @@ install_desktop_linux() {
 [Desktop Entry]
 Type=Application
 Name=srcz
-Comment=Browse local files with srcz
+Comment=Browse local files with Source Zero
 Exec=$exec_arg %U
 Icon=srcz-desktop
 Terminal=false

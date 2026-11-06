@@ -20,10 +20,10 @@ func TestWindowIdentityFollowsTheConnection(t *testing.T) {
 	if windowStateKey("r-0123456789ab") == windowStateKey("r-000000000000") {
 		t.Error("two connections share remembered bounds")
 	}
-	if got := windowTitle(proxy.Host, ""); got != "srcz" {
+	if got := windowTitle(proxy.Host, ""); got != "Source Zero" {
 		t.Errorf("local title = %q", got)
 	}
-	if got := windowTitle("r-0123456789ab", "box"); got != "srcz: box" {
+	if got := windowTitle("r-0123456789ab", "box"); got != "Source Zero: box" {
 		t.Errorf("remote title = %q", got)
 	}
 }

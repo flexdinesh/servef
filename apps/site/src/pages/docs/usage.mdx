@@ -35,7 +35,7 @@ srcz --path ~/work --path ~/personal
 
 ## Projects and worktrees
 
-srcz looks for git repositories (including linked worktrees) up to
+Source Zero looks for git repositories (including linked worktrees) up to
 `--scan-depth` folders deep in each directory (default `10`; `0` checks only
 the served directories) and lists them in the project picker (Cmd/Ctrl+O). It
 stops descending at a repository and skips hidden, `node_modules`, and
@@ -59,7 +59,7 @@ A project that opens with no tabs to restore shows the Welcome tab: shortcuts
 to open a project, find a file, and run a command; the project's branch,
 uncommitted changes, and walkthroughs; every served project (when there is
 more than one) with a filter and each repository's worktrees; and a short
-guide in which every entry runs what it describes. Click **srcz** in the
+guide in which every entry runs what it describes. Click **Source Zero** in the
 status bar, or run **Help › Welcome** from the command palette, to open it
 again. Turn it off with **Workbench › Show Welcome on Startup** in Settings;
 the project picker then opens on the first launch instead.
@@ -70,7 +70,7 @@ walkthrough to start.
 
 ## Host and port
 
-Without `--port`, srcz uses the first free port from `7971` through `7980`.
+Without `--port`, Source Zero uses the first free port from `7971` through `7980`.
 Use `--host` to bind a specific IP address or `--port` to select an exact port.
 
 Setting either one always serves in a browser. For parallel agent sessions or
@@ -84,9 +84,9 @@ srcz . --port 0 --no-open
 
 Use the URL printed at startup. Each server serves its own roots and stops
 independently. An occupied explicit port fails without stopping another server.
-Open srcz by `localhost` or an IP address; other hostnames are refused, so
+Open Source Zero by `localhost` or an IP address; other hostnames are refused, so
 websites cannot reach it through DNS rebinding.
-If the range is full, srcz can stop all verified instances after confirmation.
+If the range is full, Source Zero can stop all verified instances after confirmation.
 
 ## Files
 
@@ -105,7 +105,7 @@ repository checkout, regardless of `--depth` and skipped folders.
 ## Daemon
 
 `srcz daemon` is plumbing for the [desktop app](/docs/desktop): one long-lived
-srcz per user, reachable only through a private Unix socket (macOS and
+Source Zero per user, reachable only through a private Unix socket (macOS and
 Linux), whose directories are added while it runs and remembered across
 restarts. Clients start it on demand; it stops after 30 minutes without
 requests. To check on it or stop it:

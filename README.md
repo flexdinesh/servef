@@ -1,6 +1,6 @@
-# srcz
+# Source Zero
 
-Browse local files: rendered Markdown, image previews, formatted
+Source Zero (`srcz`) browses local files: rendered Markdown, image previews, formatted
 JSON/YAML/HTML/CSS/JavaScript, highlighted source, Source Control diffs, code
 navigation, walkthroughs, and live updates. Desktop app, browser, or remote.
 

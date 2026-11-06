@@ -1,4 +1,4 @@
-# srcz
+# Source Zero
 
 <!-- impeccable:product-schema 1 -->
 
@@ -23,4 +23,4 @@ Browse and search any local file in a directory through a Go CLI and embedded Re
 
 ## Brand Commitments
 
-The app name is srcz. The interface follows VS Code conventions. No app logo.
+The app name is Source Zero (command: `srcz`). The interface follows VS Code conventions. No app logo.

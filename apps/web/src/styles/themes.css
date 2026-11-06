@@ -1,4 +1,4 @@
-/* Srcz Light and Srcz Dark resolve the light-dark() values in tokens.css; Auto
+/* Source Zero Light and Source Zero Dark resolve the light-dark() values in tokens.css; Auto
    follows the browser through the default "light dark" color-scheme.
    Named themes override every theme value.
 
@@ -26,7 +26,7 @@
   color-scheme: dark;
 }
 
-/* Srcz Light (and Auto resolving light) sets islands on a white canvas
+/* Source Zero Light (and Auto resolving light) sets islands on a white canvas
    (decision 0041): chrome is its own light grey rather than the mix toward
    the canvas, and islands take a hairline edge. Dark keeps the mix. Greys
    are cool slate, matching the slate text, and the document surface is
@@ -41,7 +41,7 @@
   --color-island-border: light-dark(#d3d7dd, transparent);
 }
 
-/* Srcz Light added lines: Pierre mixes 12% of a hue into the surface, and
+/* Source Zero Light added lines: Pierre mixes 12% of a hue into the surface, and
    the dark success green reads grey at that strength, so additions mix a
    vivid green instead. Other themes keep Pierre's mix of their success. */
 :root.light:is([data-theme="system"], [data-theme="light"]) {
