@@ -123,7 +123,7 @@ func TestRefusals(t *testing.T) {
 		"srcz dots":       Origin + "/_srcz/..%2fstatus",
 		"reached and out": Origin + "/x/%2e%2e/_daemon/..%2fstatus",
 		"two slashes out": Origin + "//_daemon/..%2fstatus",
-		"encoded srcz":    Origin + "/_%73ervef/shutdown",
+		"encoded srcz":    Origin + "/_%73rcz/shutdown",
 		"daemon no slash": Origin + "/_daemon",
 	} {
 		t.Run(name, func(t *testing.T) {
