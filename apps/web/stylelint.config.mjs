@@ -1,13 +1,12 @@
-// Design-token enforcement (decision 0033). Raw colors, type sizes, radii,
-// depth, and motion values belong in styles/tokens.css and styles/themes.css;
-// everything else references them through var().
+// Design-token enforcement (decision 0033). Raw colors, type sizes, depth, and
+// motion values belong in styles/tokens.css and styles/themes.css; everything
+// else references them through var(). Corners are square (decision 0102).
 const tokenOnly = [
   "/color$/",
   "background",
   "fill",
   "stroke",
   "font-size",
-  "border-radius",
   "z-index",
 ]
 
@@ -25,6 +24,9 @@ export default {
       disableFix: true,
       message: "Use a token from styles/tokens.css for ${property} (got ${value}).",
     }],
+    "declaration-property-value-allowed-list": [{
+      "/^border(-[a-z]+)*-radius$/": ["0"],
+    }, { message: "Corners are square: border radius may only be 0 (decision 0102)." }],
     "declaration-property-value-disallowed-list": [{
       "/^(transition|animation)/": ["/\\b\\d+(\\.\\d+)?m?s\\b/"],
       "/.*/": ["/(^|[^\\w.-])([3-9]|\\d{2,})(\\.\\d+)?px\\b/"],

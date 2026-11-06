@@ -100,7 +100,6 @@
 }
 
 .search-match mark {
-  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   background: var(--color-warning-subtle);
   box-shadow: 0 0 0 1px var(--color-warning-subtle);

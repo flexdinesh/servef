@@ -1,6 +1,6 @@
 # 0044: Source Zero Light state and boundary contrast
 
-- Status: Accepted
+- Status: Accepted; Source Zero Light values superseded by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-26
 - Amends: [0041](0041-white-canvas-srcz-light.md) and [0043](0043-grey-document-surface-srcz-light.md) Source Zero Light values
 

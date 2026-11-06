@@ -9,13 +9,11 @@
   .layout {
     display: block;
     height: auto;
-    padding: 0;
   }
 
   .workspace {
     display: block;
     overflow: visible;
-    border-radius: 0;
   }
 
   body,

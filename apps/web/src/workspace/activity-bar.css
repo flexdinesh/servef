@@ -9,7 +9,7 @@
   background: var(--color-workspace-chrome);
 }
 
-/* Items are bar icon buttons whose state layers sit on an inset tile. */
+/* Items are bar icon buttons whose state layers fill the row. */
 .activity-item {
   --icon-button-glyph: var(--icon-lg);
   position: relative;
@@ -21,7 +21,7 @@
   stroke-width: 1.75;
 }
 
-/* The tile alone marks the active view, not IconButton's pressed ring. */
+/* The row alone marks the active view, not IconButton's pressed ring. */
 .activity-item[aria-pressed="true"] {
   color: var(--color-text-primary);
   box-shadow: none;
@@ -29,8 +29,7 @@
 
 .activity-item::before {
   position: absolute;
-  inset: var(--space-1);
-  border-radius: var(--radius-md);
+  inset: 0;
   content: "";
 }
 
@@ -42,13 +41,13 @@
   background: var(--color-active);
 }
 
-/* The active tile lifts like a pressed segment, so it reads on light chrome. */
+/* The active row joins the document surface and carries the accent edge. */
 .activity-item[aria-pressed="true"]::before {
   background: var(--color-surface);
-  box-shadow: var(--shadow-control);
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
-/* Pending-change count at the tile's lower right, as in VS Code. Surface text
+/* Pending-change count at the row's lower right, as in VS Code. Surface text
    keeps contrast on the accent in every theme. */
 .activity-badge {
   position: absolute;
@@ -57,10 +56,9 @@
   min-width: 0.875rem;
   height: 0.875rem;
   padding: 0 0.1875rem;
-  border-radius: var(--radius-lg);
   color: var(--color-surface);
   background: var(--color-accent);
-  /* VS Code's 9px badge; the type ramp starts at 12px, too large for the tile. */
+  /* VS Code's 9px badge; the type ramp starts at 12px, too large for the row. */
   font-size: var(--text-badge);
   font-weight: 600;
   font-variant-numeric: tabular-nums;

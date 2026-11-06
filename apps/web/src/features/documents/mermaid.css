@@ -4,7 +4,6 @@
   margin: var(--space-5) 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
@@ -28,7 +27,7 @@
   --ondine-accent: var(--color-accent);
   --ondine-critical: var(--color-destructive);
   --ondine-font: var(--font-mono);
-  --ondine-radius: var(--radius-sm);
+  --ondine-radius: 0;
 }
 
 .mermaid-diagram-controls {

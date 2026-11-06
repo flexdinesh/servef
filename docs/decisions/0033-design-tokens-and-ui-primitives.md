@@ -1,6 +1,6 @@
 # 0033: Design tokens and UI primitives
 
-- Status: Accepted
+- Status: Accepted; radius tokens removed by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-23
 
 ## Context

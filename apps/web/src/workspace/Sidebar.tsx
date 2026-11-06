@@ -40,7 +40,7 @@ interface SidebarProps {
 }
 
 // Sidebar groups the VS Code activity bar and its views into one desktop
-// island; mobile opens it as a modal drawer. All views
+// pane; mobile opens it as a modal drawer. All views
 // stay mounted so switching keeps tree, search, and change-list state.
 export function Sidebar({ explorer, pendingChanges, search, sidebar, sourceControl, unseenWalkthroughs, walkthroughs }: SidebarProps) {
   const { drawer, hidden, mobile, view } = sidebar

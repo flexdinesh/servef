@@ -1,5 +1,10 @@
-* {
+/* Every corner is square (decision 0102), including browser defaults on
+   fields, buttons, and details. */
+*,
+::before,
+::after {
   box-sizing: border-box;
+  border-radius: 0;
 }
 
 html {

@@ -303,6 +303,61 @@ test("F7 and the toolbar step through changes across the review's files", async 
   await expect(reviewFile(page, "untracked.txt").locator(".diff-view [data-line][data-selected-line]").first()).toBeInViewport()
 })
 
+test("a review's scrollbar runs only its pane's height, in a lane on the review's surface", async ({ page }) => {
+  await openReview(page, "review=branch#f=clean.md")
+  await expect(rail(page)).toBeVisible()
+  const main = page.locator("#document-pane")
+  const review = main.locator(".review")
+  const background = (element: Element) => getComputedStyle(element).backgroundColor
+  // The gutter main reserves paints as part of the review, and the file bands
+  // end on the lane's hairline.
+  expect(await main.evaluate(background)).toBe(await review.evaluate(background))
+  expect(await review.evaluate((element) => getComputedStyle(element).borderRightWidth)).toBe("1px")
+  const [mainBox, reviewBox, railBox, toolbarBox] = await Promise.all([
+    main.boundingBox(), review.boundingBox(), rail(page).boundingBox(), page.locator(".workspace-toolbar").boundingBox(),
+  ])
+  if (!mainBox || !reviewBox || !railBox || !toolbarBox) throw new Error("review panes are not laid out")
+  // Playwright's WebKit reserves no gutter, so the review may reach the edge.
+  expect(reviewBox.x + reviewBox.width).toBeLessThanOrEqual(mainBox.x + mainBox.width)
+  expect(mainBox.y).toBe(toolbarBox.y + toolbarBox.height)
+  expect(railBox.y).toBe(mainBox.y)
+  expect(railBox.y + railBox.height).toBe(mainBox.y + mainBox.height)
+})
+
+test("every corner is square, inside Pierre's trees and diffs and on overlays", async ({ page }) => {
+  // roundedElements walks the page and its shadow roots for any curved corner.
+  const roundedElements = () => {
+    const rounded: string[] = []
+    const walk = (root: Document | ShadowRoot) => {
+      for (const element of root.querySelectorAll("*")) {
+        for (const pseudo of [null, "::before", "::after"]) {
+          const style = getComputedStyle(element, pseudo)
+          const corners = [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius]
+          const curved = corners.find((value) => value !== "" && value !== "0px")
+          if (curved) rounded.push(`${element.tagName}.${element.getAttribute("class") ?? ""}${pseudo ?? ""}: ${curved}`)
+        }
+        if (element.shadowRoot) walk(element.shadowRoot)
+      }
+    }
+    walk(document)
+    return rounded
+  }
+
+  await openReview(page, "review=branch#f=clean.md")
+  await expect(rail(page)).toBeVisible()
+  await expect(reviewFile(page, "clean.md").locator(".diff-view")).toBeVisible()
+  expect(await page.evaluate(roundedElements)).toEqual([])
+
+  await page.getByRole("button", { name: "Settings" }).click()
+  await expect(page.getByRole("dialog", { name: "Settings" })).toBeVisible()
+  expect(await page.evaluate(roundedElements)).toEqual([])
+  await page.keyboard.press("Escape")
+
+  await page.keyboard.press("ControlOrMeta+Shift+P")
+  await expect(page.getByRole("dialog", { name: /command palette/i })).toBeVisible()
+  expect(await page.evaluate(roundedElements)).toEqual([])
+})
+
 test("phones stack the panes, open diffs from a tapped commit, and force Unified", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`${gitApiOrigin}/?project=${project}`)

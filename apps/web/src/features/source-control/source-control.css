@@ -66,6 +66,8 @@
 .scm-pane-toggle {
   width: auto;
   padding-right: var(--space-2);
+  font-family: var(--font-chrome);
+  font-size: var(--text-chrome);
 }
 
 .scm-pane-note {
@@ -363,7 +365,6 @@
   overflow: hidden;
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -502,7 +503,6 @@
 .commit-compare-hash {
   padding: 0 var(--space-1);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   background: var(--color-surface);
   font-family: var(--font-mono);
@@ -535,17 +535,15 @@
   flex: 1;
 }
 
-/* The rail is an island on the review's gutter, inset like its files: one
-   gutter from the tab strip, the island's edge, and its bottom, with the
-   files' own inset between them. */
+/* The rail docks at the review's end, full height, on a leading hairline. */
 .review-rail {
   position: relative;
   display: flex;
   min-height: 0;
   flex: none;
   flex-direction: column;
-  padding: var(--space-2) var(--space-2) var(--space-2) 0;
-  background: var(--color-workspace-chrome);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .review-rail-panel {
@@ -554,9 +552,6 @@
   flex: 1;
   flex-direction: column;
   overflow: clip;
-  border-radius: var(--radius-island);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-island-border);
 }
 
 .review-rail-resizer {
@@ -568,11 +563,10 @@
   touch-action: none;
 }
 
-/* The accent line spans the card's edge, inset from its rounded ends. */
+/* The accent line runs the rail's full height over its hairline. */
 .review-rail-resizer::after {
   position: absolute;
-  inset: calc(var(--space-2) + var(--radius-island)) calc((var(--separator-hit) - 2px) / 2);
-  border-radius: var(--radius-sm);
+  inset: 0 calc((var(--separator-hit) - 2px) / 2);
   content: "";
 }
 
@@ -593,15 +587,17 @@
   gap: var(--space-1);
   padding: 0 var(--space-2) 0 var(--space-3);
   color: var(--color-text-secondary);
-  font-size: var(--text-xs);
+  font-family: var(--font-chrome);
+  font-size: var(--text-chrome);
   font-weight: 600;
 }
 
-/* The rail card's header matches a file header: as tall, with its rule. */
+/* The rail's header matches a file header: as tall, on its band, with its rule. */
 .review-rail-panel > .review-rail-header {
   height: auto;
   min-height: var(--control-lg);
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
 }
 
 .review-rail-title {

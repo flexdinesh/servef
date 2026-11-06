@@ -1,6 +1,6 @@
 # 0056: Borderless editor tabs
 
-- Status: Accepted
+- Status: Accepted; tabs without separators superseded by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-29
 - Amends: [0046](0046-slate-greys-and-flat-tabs.md) and
   [0045](0045-selection-marks-and-field-edges.md)'s active-tab selection mark

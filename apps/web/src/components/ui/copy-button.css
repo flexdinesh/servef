@@ -8,7 +8,6 @@
   gap: var(--space-1);
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   background: transparent;
   cursor: pointer;
@@ -33,11 +32,6 @@
 
 .ui-copy-button[data-variant="chip"] {
   padding: 0 var(--space-2);
-}
-
-/* Bordered variants share Button's radius. */
-.ui-copy-button:is([data-variant="raised"], [data-variant="chip"], [data-variant="gutter"]) {
-  border-radius: var(--radius-md);
 }
 
 .ui-copy-button[data-variant="gutter"] {

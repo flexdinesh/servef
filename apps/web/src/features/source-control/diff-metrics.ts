@@ -7,7 +7,8 @@ const rowRem = 1.375
 const remPx = 16
 
 // diffMetrics is the virtualizer's row estimate at a UI scale; Pierre measures
-// wrapped rows itself.
+// wrapped rows itself. Spacing matches diff.css `--diffs-gap-block`, which runs
+// code and collapsed-line bands flush.
 export function diffMetrics(scale: number): VirtualFileMetrics {
-  return { ...DEFAULT_VIRTUAL_FILE_METRICS, lineHeight: rowRem * remPx * scale }
+  return { ...DEFAULT_VIRTUAL_FILE_METRICS, lineHeight: rowRem * remPx * scale, spacing: 0 }
 }

@@ -1,6 +1,6 @@
 # 0041: White canvas for Source Zero Light
 
-- Status: Accepted
+- Status: Superseded by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-26
 - Amends: DESIGN.md's rule that the canvas recedes darker than every island, for Source Zero Light only
 

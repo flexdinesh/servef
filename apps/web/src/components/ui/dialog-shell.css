@@ -1,10 +1,9 @@
-/* Overlays share one surface: raised fill, strong border, overlay radius and
-   shadow. Popovers and menus use the same recipe. */
+/* Overlays share one surface: raised fill, strong border, and shadow. Popovers
+   and menus use the same recipe. */
 .ui-dialog,
 .ui-popover,
 .ui-menu {
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-overlay);
   color: var(--color-text-primary);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-overlay);
@@ -34,15 +33,15 @@
 }
 
 .ui-dialog[data-variant="drawer"] {
-  inset: var(--space-1) auto var(--space-1) var(--space-1);
+  inset: 0 auto 0 0;
   width: min(85vw, 22rem);
-  height: calc(100dvh - var(--space-2));
+  height: 100dvh;
   max-height: none;
   margin: 0;
 }
 
 .ui-dialog[data-variant="sheet"] {
-  inset: auto var(--space-1) var(--space-1);
+  inset: auto 0 0;
   width: auto;
   height: min(70dvh, 32rem);
   max-width: none;

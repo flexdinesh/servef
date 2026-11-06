@@ -6,7 +6,6 @@
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-lg);
   color: var(--color-text-primary);
   background: var(--color-border);
   font-size: var(--text-xs);

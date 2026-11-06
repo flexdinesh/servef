@@ -45,7 +45,6 @@
 .gallery-progress {
   width: 18rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-island);
   background: var(--color-surface);
 }
 

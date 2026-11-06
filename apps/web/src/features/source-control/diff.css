@@ -13,6 +13,21 @@
   .diff-toolbar .diff-layout {
     display: none;
   }
+
+  /* A rename's old path takes a second line, so neither path truncates to nothing. */
+  .review-file-toggle:has(.review-file-from) {
+    height: auto;
+    flex-wrap: wrap;
+    padding-block: var(--space-1);
+  }
+
+  .review-file-toggle:has(.review-file-from) .review-file-path {
+    flex: 1 1 0;
+  }
+
+  .review-file-from {
+    flex: 0 0 100%;
+  }
 }
 
 .diff-hunk-steps {
@@ -22,12 +37,6 @@
 
 .diff-open-file {
   margin: 0 var(--space-1);
-}
-
-/* The rail toggle ends the toolbar; the end gap keeps it clear of the
-   workspace island's rounded corner. */
-.diff-files-toggle {
-  margin-right: var(--space-1);
 }
 
 .diff-inline-check {
@@ -63,7 +72,11 @@
   --diffs-bg-addition-override: var(--color-diff-addition-tint);
   --diffs-bg-addition-number-override: var(--color-diff-addition-tint);
   --diffs-fg-number-override: var(--color-text-muted);
-  --diffs-bg-separator-override: var(--color-surface-recessed);
+  /* A step under the file bands, so collapsed lines don't read as a second header. */
+  --diffs-bg-separator-override: color-mix(in srgb, var(--color-surface-recessed), var(--color-surface));
+  /* Code and collapsed-line bands run flush to the file header and pane edges. */
+  --diffs-gap-block: 0px;
+  --diffs-gap-inline: 0px;
   display: block;
   flex: 1 0 auto;
 }
@@ -82,26 +95,24 @@
   left: auto;
 }
 
-/* A review stacks every file of a compare in the document pane, on a
-   recessed gutter where its header and files are islands. */
+/* A review stacks every file of a compare in the document pane as one
+   continuous buffer: bands divide the files, not cards. Sharing main's surface
+   makes main's reserved scrollbar gutter part of the pane; bands end on the
+   hairline that makes it the scrollbar's lane. */
 .review {
   display: flex;
   min-width: 0;
   min-height: 100%;
   flex-direction: column;
-  background: var(--color-workspace-chrome);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
-/* The header is an island one gutter in from the tab strip, as the Files
-   rail is; with the files' top inset it sits 12px above the first file. */
 .review-header {
   display: grid;
   gap: var(--space-1);
-  margin: var(--space-2) var(--space-2) var(--space-1);
   padding: var(--space-4) var(--space-4) var(--space-3);
-  border-radius: var(--radius-island);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-island-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .review-title {
@@ -162,41 +173,36 @@
   padding: var(--space-4);
 }
 
-/* Files are islands on a recessed gutter, as the workspace islands sit on
-   the canvas: surface contrast and gaps, plus a hairline in Source Zero Light. */
 .review-files {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-2) var(--space-6);
+  padding-bottom: var(--space-6);
 }
 
-/* clip, unlike hidden, rounds the corners without breaking the sticky header.
-   Jumps to a file stop one gutter short, where its header sticks. */
+/* clip, unlike hidden, keeps wide content in bounds without breaking the
+   sticky header. One hairline divides neighbours, collapsed or open. */
 .review-file {
   overflow: clip;
-  scroll-margin-top: var(--space-2);
-  border-radius: var(--radius-island);
-  background: var(--color-surface);
-  /* The workspace islands' hairline (Source Zero Light only); an outer shadow is
-     never covered by the file's own content. */
-  box-shadow: 0 0 0 1px var(--color-island-border);
+}
+
+.review-file + .review-file {
+  border-top: 1px solid var(--color-border);
+}
+
+.review-file:last-child {
+  border-bottom: 1px solid var(--color-border);
 }
 
 .review-file:has(> .review-file-body[hidden]) .review-file-header {
   border-bottom-color: transparent;
 }
 
-/* File headers stick one gutter below the tab strip while their diff scrolls
-   under them; a gutter-colored band above masks the scrolled lines. Before
-   the header sticks the band sits outside its file and is clipped. Once
-   stuck the file's rounded clip has scrolled away, so the header rounds its
-   own top corners: its surface is a rounded layer over the band, which
-   reaches down into the corners to mask lines there too. */
+/* File headers stick to the top of the pane while their diff scrolls under
+   them. surface-secondary holds the contrast floors for stats and letters. */
 .review-file-header {
   position: sticky;
-  top: var(--space-2);
+  top: 0;
   z-index: var(--z-sticky);
   display: flex;
   min-height: var(--control-lg);
@@ -204,28 +210,8 @@
   gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-1);
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
   font-size: var(--text-label);
-}
-
-.review-file-header::before,
-.review-file-header::after {
-  position: absolute;
-  z-index: var(--z-behind);
-  right: 0;
-  left: 0;
-  content: "";
-}
-
-.review-file-header::before {
-  top: calc(-1 * var(--space-2));
-  height: calc(var(--space-2) + var(--radius-island));
-  background: var(--color-workspace-chrome);
-}
-
-.review-file-header::after {
-  inset: 0;
-  border-radius: var(--radius-island) var(--radius-island) 0 0;
-  background: var(--color-surface);
 }
 
 .review-file-toggle {
@@ -272,14 +258,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A file with uncommitted edits carries an accent dot beside its status
+/* A file with uncommitted edits carries an accent square beside its status
    letter while the review includes them. */
 .review-file-uncommitted {
   width: calc(var(--space-1) * 1.5);
   height: calc(var(--space-1) * 1.5);
   flex: none;
   margin-left: auto;
-  border-radius: var(--radius-lg);
   background: var(--color-accent);
 }
 
@@ -299,6 +284,16 @@
 
 .review-file-body[hidden] {
   display: none;
+}
+
+/* A notice ending a file leaves its edge to the hairline between files. */
+.review-file-body > .ui-notice:last-child {
+  border-bottom-width: 0;
+}
+
+/* A plain note sits on the file's surface, so only file headers are bands. */
+.review-file-body > .ui-notice:not([data-tone="warning"], [data-tone="error"]) {
+  background: transparent;
 }
 
 .review-file-note {
