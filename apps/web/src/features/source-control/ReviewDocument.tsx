@@ -21,7 +21,7 @@ import { Chevron } from "../../components/ui/section-toggle.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { SegmentedControl, SegmentedItem } from "../../components/ui/segmented-control.tsx"
 import { ToggleButton } from "../../components/ui/toggle-button.tsx"
-import type { FileStats, LineDiff } from "@servef/contracts"
+import type { FileStats, LineDiff } from "@srcz/contracts"
 import { formatBytes } from "../../lib/format-bytes.ts"
 import { shortHash } from "../../lib/commit-hash.ts"
 import { lineReference } from "../../lib/line-selection.ts"
@@ -44,7 +44,7 @@ import { loadReviewDiff, useReviewDiff, type RenderedDiff } from "./review-diffs
 import type { CompareData } from "./use-compare-data.ts"
 import { statsLabel, totals } from "./use-compare-stats.ts"
 
-// One servef theme serves both polarities; themeType picks the scheme.
+// One srcz theme serves both polarities; themeType picks the scheme.
 const theme = { light: DIFF_THEME, dark: DIFF_THEME }
 
 // Highlights tokenizes small diffs on the main thread; larger ones go to two
@@ -55,7 +55,7 @@ const poolOptions: WorkerPoolOptions = {
   mainThreadMaxCharacters: MAIN_THREAD_MAX_CHARACTERS,
 }
 
-// Browser surfaces inside Pierre's shadow root follow servef tokens: the
+// Browser surfaces inside Pierre's shadow root follow srcz tokens: the
 // selection, and wide code's square, inset scrollbar thumb (decision 0055).
 const diffCSS = `::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }
 [data-code]::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 0; }

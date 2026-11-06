@@ -1,9 +1,9 @@
-// Terminal runs `servef .`, then the workspace opens with a file tree and a
+// Terminal runs `srcz .`, then the workspace opens with a file tree and a
 // rendered Markdown preview. Animation lives in landing.css (hero-*).
 export function HeroAnimation() {
   return (
     <svg className="landing-svg" viewBox="0 0 600 440" role="img" aria-labelledby="hero-svg-title">
-      <title id="hero-svg-title">Running servef in a terminal opens a browser workspace for the folder</title>
+      <title id="hero-svg-title">Running srcz in a terminal opens a browser workspace for the folder</title>
 
       {/* Browser workspace */}
       <g className="hero-browser">
@@ -72,7 +72,7 @@ export function HeroAnimation() {
           $
         </text>
         <text className="hero-type s-strong-text" x="42" y="62" fontSize="14">
-          servef .
+          srcz .
         </text>
         <text className="hero-url" x="26" y="92" fontSize="12">
           → serving http://127.0.0.1:7980

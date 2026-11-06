@@ -4,18 +4,18 @@
 - Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md): Electron and its ssh connections are removed
 - Date: 2026-11-02
 - Implements: [0064](0064-ssh-remotes.md) Transport, Host identity, Missing
-  or mismatched servef, Notifications; [0062](0062-desktop-app.md) ssh
+  or mismatched srcz, Notifications; [0062](0062-desktop-app.md) ssh
   connections
 - Revises: [0067](0067-desktop-shell-and-protocol-proxy.md) (connection
   kinds, per-origin windows and navigation, local-only bridge,
   per-connection subscriptions, the `app` pages host); [0064](0064-ssh-remotes.md)
   (app-owned ControlMaster, runtime forward, slug origins)
-- Consumes: [0069](0069-servef-remote-and-ssh-links.md) (ssh link grammar,
+- Consumes: [0069](0069-srcz-remote-and-ssh-links.md) (ssh link grammar,
   `testdata/remote-links.json`)
 
 ## Context
 
-0069 prints `servef://ssh/<host>/…` links on the host. The app must turn one
+0069 prints `srcz://ssh/<host>/…` links on the host. The app must turn one
 into a connection to that host's daemon without prompting for secrets,
 without touching the user's own SSH sessions, and without ever passing a
 link string to a shell. The M3 app knew one connection (`local`), one window
@@ -26,7 +26,7 @@ origin, and one subscription set.
 ### Connections
 
 - Kinds: `daemon` (`local`), `ssh` (`ssh-<slug>`), and the app pages host
-  `app` (`servef-app://app/connect`, served by the app, no upstream).
+  `app` (`srcz-app://app/connect`, served by the app, no upstream).
 - Known ssh hosts live in `userData/connections.json`
   (`{"version":1,"ssh":[{id,destination,port,hints,addedAt}]}`, 0600, atomic
   write). A malformed or unknown-version file is renamed to
@@ -68,10 +68,10 @@ origin, and one subscription set.
   path, or remote output is interpolated:
 
   ```sh
-  sh -c 'PATH="$PATH:$HOME/.local/bin:${GOPATH:-$HOME/go}/bin:$HOME/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin"; export PATH; command -v servef >/dev/null 2>&1 || { echo "servef-missing $(uname -s) $(uname -m)" >&2; exit 127; }; exec servef daemon ensure --json'
+  sh -c 'PATH="$PATH:$HOME/.local/bin:${GOPATH:-$HOME/go}/bin:$HOME/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin"; export PATH; command -v srcz >/dev/null 2>&1 || { echo "srcz-missing $(uname -s) $(uname -m)" >&2; exit 127; }; exec srcz daemon ensure --json'
   ```
 
-  The stop command is the same with `exec servef daemon stop`. Existing
+  The stop command is the same with `exec srcz daemon stop`. Existing
   `PATH` entries win; the appended directories cover Homebrew, `go
   install`, and `~/.local/bin` for non-interactive sessions. The remote
   environment comes from the master's session (`SetEnv` on a mux client is
@@ -81,9 +81,9 @@ origin, and one subscription set.
 
 ### Local runtime files
 
-- A private directory per userData: Linux `$XDG_RUNTIME_DIR/servef-desktop-<h8>`
-  (absolute only) else `<tmpdir>/servef-desktop-<h8>`; macOS
-  `$TMPDIR/servef-desktop-<h8>`; `/tmp/servef-desktop-<uid>-<h8>` when a
+- A private directory per userData: Linux `$XDG_RUNTIME_DIR/srcz-desktop-<h8>`
+  (absolute only) else `<tmpdir>/srcz-desktop-<h8>`; macOS
+  `$TMPDIR/srcz-desktop-<h8>`; `/tmp/srcz-desktop-<uid>-<h8>` when a
   ControlPath plus OpenSSH's 17-byte suffix would not fit `sun_path`
   (Linux 107, macOS 103) or the path holds `%` or `:`.
 - Created 0700 or verified with `lstat`: a symlink or another owner is
@@ -115,7 +115,7 @@ origin, and one subscription set.
 - Transient failures (`unreachable`, `failed`, the master dying after ready)
   retry with backoff from 1 s doubling to 30 s; the window shows a
   reconnecting page that refreshes itself. Permanent kinds (`sshMissing`,
-  `sshTooOld`, `hostKey`, `auth`, `servefMissing`, `servefTooOld`,
+  `sshTooOld`, `hostKey`, `auth`, `srczMissing`, `srczTooOld`,
   `mismatch`, `forwardDenied`, `runtimeDir`) stop until a reload retries.
 - The remote daemon cannot idle while connected: the app holds its
   `/_daemon/events` stream. After disconnect it exits on its own idle timer
@@ -132,8 +132,8 @@ text, never run:
 | `hostKey` | `Host key verification failed`, `REMOTE HOST IDENTIFICATION HAS CHANGED`, `No <type> host key is known` | run `ssh <dest>` in a terminal once, then Retry; never offers to accept keys |
 | `auth` | `Permission denied (`, `Too many authentication failures` | load a key with `ssh-add`; make `ssh -o BatchMode=yes <dest> true` succeed |
 | `unreachable` | resolve, refused, timeout, no route, unreachable network, ControlPath wait timeout | detail; retried while held |
-| `servefMissing` | exit 127 with `servef-missing <os> <arch>` | Homebrew, `go install`, or the release archive for that arch into `~/.local/bin`; the PATH directories; "The app never installs anything" |
-| `servefTooOld` | `unknown command "daemon"`, `unknown flag: --json`, `unknown shorthand flag` | upgrade servef on the host |
+| `srczMissing` | exit 127 with `srcz-missing <os> <arch>` | Homebrew, `go install`, or the release archive for that arch into `~/.local/bin`; the PATH directories; "The app never installs anything" |
+| `srczTooOld` | `unknown command "daemon"`, `unknown flag: --json`, `unknown shorthand flag` | upgrade srcz on the host |
 | `mismatch` | status protocol is not 1 | upgrade the older side; "Stop the running daemon and retry" runs the stop command |
 | `forwardDenied` | inferred: ensure succeeds, the probe gets no response head (reset or broken pipe), re-ensure returns the same socket, the probe fails the same way again | `AllowStreamLocalForwarding yes`, no `DisableForwarding`, OpenSSH 6.7+ on the host |
 | `runtimeDir` | private directory refused | path and reason |
@@ -145,7 +145,7 @@ failed: connect failed: open failed`, and at ERROR nothing.
 
 ### Links, resolution, confirmation
 
-- `servef://ssh/<host>/<route>?…` parses per 0069; `ssh-*` keys are
+- `srcz://ssh/<host>/<route>?…` parses per 0069; `ssh-*` keys are
   stripped before the web query reaches the renderer. `<host>` may be any
   non-empty decoded text (a host name with spaces still parses); only
   resolved destinations must be valid.
@@ -160,7 +160,7 @@ failed: connect failed: open failed`, and at ERROR nothing.
   64, four at a time, 3 s each).
 - First contact is always confirmed in a native dialog listing at most four
   choices with their `ssh -G` user, hostname, and port, plus "A link asked
-  servef to connect. servef runs servef on that host with your SSH
+  srcz to connect. srcz runs srcz on that host with your SSH
   configuration. Connect only to hosts you trust." The choice is stored
   with the link's hints, so it is asked once. Cancel stores nothing.
 - Known-host links never prompt, as local links. An unknown `ssh-*` origin
@@ -169,14 +169,14 @@ failed: connect failed: open failed`, and at ERROR nothing.
 ### Windows, navigation, titles, bridge
 
 - Windows key by origin, then project; a window keeps its first origin for
-  life. Navigation to another `servef-app://` origin routes to a window of
+  life. Navigation to another `srcz-app://` origin routes to a window of
   that origin only for `local`, `app`, and known ssh ids.
 - Titles: `<page> - <dest> (SSH)`, `<page> - <dest> (SSH, reconnecting)`
-  while not ready, and `servef - Connect`.
-- The preload bridge (0067) exists only in `servef-app://local` windows and
-  main honors Open Folder only from them. Remote roots come from `servef
+  while not ready, and `srcz - Connect`.
+- The preload bridge (0067) exists only in `srcz-app://local` windows and
+  main honors Open Folder only from them. Remote roots come from `srcz
   remote` on the host; the UI hides Open Folder by feature detection.
-- Copied agent instructions in a remote window name `servef://ssh/<slug>`.
+- Copied agent instructions in a remote window name `srcz://ssh/<slug>`.
 
 ### Subscriptions and notices
 
@@ -193,19 +193,19 @@ failed: connect failed: open failed`, and at ERROR nothing.
 
 ### Connect page
 
-`servef-app://app/connect` (File > Connect…): static HTML, CSP
+`srcz-app://app/connect` (File > Connect…): static HTML, CSP
 `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'`, no
 scripts. It lists the connections with their state (links
-`servef://ssh/<slug>/`; a Forget POST form per ssh host that closes the
+`srcz://ssh/<slug>/`; a Forget POST form per ssh host that closes the
 connection and removes it) and the config aliases not yet known (links
-`servef://ssh/<alias>/`, confirmed on first contact). State changes are POST
+`srcz://ssh/<alias>/`, confirmed on first contact). State changes are POST
 only, behind the proxy's Origin guard.
 
 ### Dev and test seams
 
-`SERVEF_DESKTOP_SSH`, `SERVEF_DESKTOP_SSH_CONFIG` (master and alias lister
-only), `SERVEF_DESKTOP_RUNTIME_DIR`, and `SERVEF_DESKTOP_AUTO_CONFIRM=1`
-with `SERVEF_DESKTOP_DIALOG_LOG` apply only to unpackaged builds.
+`SRCZ_DESKTOP_SSH`, `SRCZ_DESKTOP_SSH_CONFIG` (master and alias lister
+only), `SRCZ_DESKTOP_RUNTIME_DIR`, and `SRCZ_DESKTOP_AUTO_CONFIRM=1`
+with `SRCZ_DESKTOP_DIALOG_LOG` apply only to unpackaged builds.
 
 ## Spike
 
@@ -224,7 +224,7 @@ Linux, OpenSSH 10.6p1 client against 10.6p1 (fish login shell) and 9.2p1
 - SSE streams incrementally through the forward and closing it ends the
   remote request.
 - The constant ensure command passes through sh and fish login shells
-  unchanged; the fallback directories find servef.
+  unchanged; the fallback directories find srcz.
 - Unverified: a Finder-launched macOS app seeing `SSH_AUTH_SOCK` and
   `/usr/bin/ssh`, and macOS `open-url` for ssh links.
 
@@ -234,7 +234,7 @@ Linux, OpenSSH 10.6p1 client against 10.6p1 (fish login shell) and 9.2p1
   need agent or unencrypted keys and a host key verified in a terminal.
 - Not reusing the user's ControlMaster costs one extra connection and
   authentication per host (noticeable with 2FA bastions).
-- `servef remote` and the app's ensure must resolve the same remote socket
+- `srcz remote` and the app's ensure must resolve the same remote socket
   (same `XDG_RUNTIME_DIR` in interactive and exec sessions); otherwise the
   link's project shows unavailable until that daemon restarts with the
   persisted root.

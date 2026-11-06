@@ -16,9 +16,9 @@ function FileNote({ name, size, title, message }: FileNoteProps & { title: strin
 }
 
 export function BinaryDocument(props: FileNoteProps) {
-  return <FileNote {...props} title="Binary file" message="servef shows text and images only." />
+  return <FileNote {...props} title="Binary file" message="Source Zero shows text and images only." />
 }
 
 export function TooLargeDocument(props: FileNoteProps) {
-  return <FileNote {...props} title="Too large to display" message="servef shows text files up to 32 MB." />
+  return <FileNote {...props} title="Too large to display" message="Source Zero shows text files up to 32 MB." />
 }

@@ -1,6 +1,6 @@
-# 0060: Scope flags removed; `servef browser` alias
+# 0060: Scope flags removed; `srcz browser` alias
 
-- Status: Accepted; the bare `servef [path]` clause is superseded by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
+- Status: Accepted; the bare `srcz [path]` clause is superseded by [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
 - Date: 2026-11-01
 - Supersedes: [0001](0001-filename-glob-scope.md); the exclusion parts
   (`--exclude`) of [0007](0007-projects-and-project-picker.md) and
@@ -15,7 +15,7 @@ In practice the defaults (`*`; `.git`, `node_modules`, `vendor`) cover nearly
 every run, gitignore marking (0023) already keeps generated and vendored files
 out of search and navigation, and the Explorer filename filter (0006) narrows
 the tree in the UI. The CLI also needs a name for today's standalone behavior
-before bare `servef` changes meaning (0063).
+before bare `srcz` changes meaning (0063).
 
 ## Decision
 
@@ -31,15 +31,15 @@ before bare `servef` changes meaning (0063).
 - Page data drops `filenamePatterns`.
 - The Explorer filename filter (0006) stays; it only changes visibility.
 
-### `servef browser`
+### `srcz browser`
 
-- Add `servef browser [path]`, an alias of today's behavior with the same
+- Add `srcz browser [path]`, an alias of today's behavior with the same
   flags: `--path` (repeatable), `--depth`, `--scan-depth`, `--host`,
   `--port`, `--no-open`.
-- Bare `servef [path]` keeps browser behavior until the desktop app ships
+- Bare `srcz [path]` keeps browser behavior until the desktop app ships
   (0063).
-- Subcommand names shadow same-named directories: `servef browser` runs the
-  subcommand. Serve a directory named `browser` as `servef ./browser`.
+- Subcommand names shadow same-named directories: `srcz browser` runs the
+  subcommand. Serve a directory named `browser` as `srcz ./browser`.
 
 ### Roots
 

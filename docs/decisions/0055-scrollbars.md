@@ -5,7 +5,7 @@
 
 ## Context
 
-servef styled none of its own scroll areas. Browsers with classic scrollbars
+srcz styled none of its own scroll areas. Browsers with classic scrollbars
 (Linux, Windows, macOS set to always show them) drew a wide grey bar with a
 track beside the review and the sidebar views. Content also jumped sideways
 whenever overflow came and went: switching from a short document to a long

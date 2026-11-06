@@ -8,11 +8,11 @@
 
 ## Context
 
-Desktop windows used the OS title bar. It ignores the servef theme, so a
+Desktop windows used the OS title bar. It ignores the srcz theme, so a
 dark workspace sat under a light GTK or Windows caption, and on Wayland
 Chromium drew its own unthemed one. VS Code hides the native bar and draws a
 title bar in its theme. The preload bridge exists only on
-`servef-app://local` (0067), so anything every window needs (ssh and CLI
+`srcz-app://local` (0067), so anything every window needs (ssh and CLI
 connections too) cannot depend on it.
 
 ## Decision
@@ -32,7 +32,7 @@ connections too) cannot depend on it.
   to `did-change-theme-color`, accepts only `#rrggbb` (pages are untrusted),
   and sets the window background and, outside macOS, the overlay color with
   a light or dark control color by luminance. New windows start with the
-  last reported color, else the Servef canvas for the OS polarity. No bridge
+  last reported color, else the Source Zero canvas for the OS polarity. No bridge
   call, so ssh and CLI windows follow their page's theme too. Phone browsers
   also tint their chrome to the canvas.
 - Windows and Linux lose the visible menu bar; accelerators still work. A
@@ -46,7 +46,7 @@ connections too) cannot depend on it.
 
 ## Consequences
 
-- An older remote servef UI (ssh) draws no band: the overlay controls cover
+- An older remote srcz UI (ssh) draws no band: the overlay controls cover
   the top-right of its tab strip and its top edge does not drag until the
   remote upgrades. Accepted over a native frame for non-local windows
   (inconsistent look) or a separate title view (one more renderer per

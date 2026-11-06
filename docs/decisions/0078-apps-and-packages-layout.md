@@ -21,22 +21,22 @@ Move files only; no behavior changes.
 
 | Path | Contents |
 | --- | --- |
-| `apps/servef/` | `go.mod`, `go.sum`, `main.go`, `cmd/`, `internal/`; the embedded UI builds into `apps/servef/internal/web/dist/` |
-| `apps/web/`, `apps/desktop/`, `apps/site/` | the former `web/`, `desktop/`, `site/`; package names stay `@servef/web`, `@servef/desktop`, `@servef/site` |
+| `apps/srcz/` | `go.mod`, `go.sum`, `main.go`, `cmd/`, `internal/`; the embedded UI builds into `apps/srcz/internal/web/dist/` |
+| `apps/web/`, `apps/desktop/`, `apps/site/` | the former `web/`, `desktop/`, `site/`; package names stay `@srcz/web`, `@srcz/desktop`, `@srcz/site` |
 | `packages/` | created when the first shared package exists, not before |
 | root | `testdata/` (shared by Go, frontend, browser, and desktop tests), `tools/`, `tests/`, `scripts/`, `.dagger/`, `docs/`, `skills/`, `patches/`, workspace manifests, and repository docs |
 
-The module path stays `github.com/flexdinesh/servef`, so imports and
-`-ldflags -X github.com/flexdinesh/servef/internal/version...` stamps are
+The module path stays `github.com/flexdinesh/srcz`, so imports and
+`-ldflags -X github.com/flexdinesh/srcz/internal/version...` stamps are
 unchanged.
 
 ### Go workspace
 
-A root `go.work` (Go 1.26) uses `./apps/servef` and `./tools`. `tools/`
-becomes its own module (`github.com/flexdinesh/servef/tools`, standard
+A root `go.work` (Go 1.26) uses `./apps/srcz` and `./tools`. `tools/`
+becomes its own module (`github.com/flexdinesh/srcz/tools`, standard
 library only), so `go run ./tools/validate` and `go run ./tools/release-version`
 keep working from the root. Go commands at the root name packages
-explicitly (`./apps/servef/... ./tools/...`): `./...` matches nothing at a
+explicitly (`./apps/srcz/... ./tools/...`): `./...` matches nothing at a
 workspace root that is not itself a module. `tidy:check` runs
 `go mod tidy -diff` in each module.
 
@@ -60,7 +60,7 @@ and joins `pnpm-workspace.yaml`.
 
 `pnpm-workspace.yaml`, the lockfile importers, mise tasks, Dagger inputs and
 working paths, validation selectors, workflows, and install scripts follow
-the move. Validation groups keep their scope: `apps/servef/` replaces
+the move. Validation groups keep their scope: `apps/srcz/` replaces
 `cmd/`, `internal/`, and root Go files in each group's inputs.
 
 `install-desktop.sh` fetches the icon from a release tag. Tags from before
@@ -69,14 +69,14 @@ this layout keep it at `desktop/resources/icon.png`; the script tries
 
 ## Consequences
 
-- `go install github.com/flexdinesh/servef@...` works only for tags from
+- `go install github.com/flexdinesh/srcz@...` works only for tags from
   before this layout: there is no `go.mod` at the root of later commits, so
   `@edge` stops building with the first edge publish after this change. The
   maintainer is dropping `go install` and Homebrew; the next phase reworks
   distribution. Until then, release and edge workflows only follow the new
   paths.
-- Go tasks and docs name `./apps/servef/...` instead of `./...`, and
-  `go build ./apps/servef` instead of `go build .`.
+- Go tasks and docs name `./apps/srcz/...` instead of `./...`, and
+  `go build ./apps/srcz` instead of `go build .`.
 - The Cloudflare Pages build output directory (a dashboard setting,
   decision 0074) becomes `apps/site/dist/public`.
 - Historical decision records keep their original paths.

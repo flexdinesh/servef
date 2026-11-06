@@ -7,7 +7,7 @@ import {
   isDirectoriesResponse, isErrorResponse, isFormatResult, isNavigationResult, isNavigationStatus, isPageData, isProcessMetrics,
   isProjectsResponse, isRangeFilesResponse, isRefsResponse, isSearchDocumentsResponse, isStackResponse, isWalkthrough,
   isWalkthroughSummary, type DiffResponse, type PageData,
-} from "@servef/contracts"
+} from "@srcz/contracts"
 import { unknownBaseCode, unknownHeadCode } from "./source-control-messages.ts"
 import { isRecord } from "./http.ts"
 import { isLiveChange, isLiveStatus } from "./events-contract.ts"

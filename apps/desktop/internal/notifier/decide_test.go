@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
 const (
@@ -107,21 +107,21 @@ func TestWalkthroughMessages(t *testing.T) {
 
 func TestAddressedNamesItsConnectionAndProject(t *testing.T) {
 	m := message{kind: KindCommit, title: "New commit on main", detail: "bbbbbbb Fix", route: "/view"}
-	local := addressed(m, "local", "", "/code/servef")
-	if local.Body != "servef · bbbbbbb Fix" || local.Route != "/view?project=%2Fcode%2Fservef" {
+	local := addressed(m, "local", "", "/code/srcz")
+	if local.Body != "srcz · bbbbbbb Fix" || local.Route != "/view?project=%2Fcode%2Fsrcz" {
 		t.Errorf("local = %+v", local)
 	}
-	remote := addressed(m, "r-0123456789ab", "devbox", "/code/servef")
-	if remote.Body != "devbox · servef · bbbbbbb Fix" {
+	remote := addressed(m, "r-0123456789ab", "devbox", "/code/srcz")
+	if remote.Body != "devbox · srcz · bbbbbbb Fix" {
 		t.Errorf("remote = %+v", remote)
 	}
-	if local.ID == remote.ID || !strings.HasPrefix(remote.ID, "r-0123456789ab/") || strings.Contains(remote.ID, "servef") {
+	if local.ID == remote.ID || !strings.HasPrefix(remote.ID, "r-0123456789ab/") || strings.Contains(remote.ID, "srcz") {
 		t.Errorf("IDs: local %q, remote %q", local.ID, remote.ID)
 	}
-	if again := addressed(message{kind: KindCommit, title: "main moved"}, "local", "", "/code/servef"); again.ID != local.ID {
+	if again := addressed(message{kind: KindCommit, title: "main moved"}, "local", "", "/code/srcz"); again.ID != local.ID {
 		t.Errorf("a newer notice must replace the one shown: %q, %q", again.ID, local.ID)
 	}
-	if other := addressed(message{kind: KindBranch}, "local", "", "/code/servef"); other.ID == local.ID {
+	if other := addressed(message{kind: KindBranch}, "local", "", "/code/srcz"); other.ID == local.ID {
 		t.Errorf("another kind must not replace it: %q", other.ID)
 	}
 }
@@ -175,8 +175,8 @@ func TestCleanKeepsNoticesPlain(t *testing.T) {
 }
 
 func TestBodyForEscapesMarkupOnLinuxOnly(t *testing.T) {
-	body := `servef · a1b2c3d <img src="x"> & <b>bold</b>`
-	if got, want := BodyFor("linux", body), `servef · a1b2c3d &lt;img src="x"&gt; &amp; &lt;b&gt;bold&lt;/b&gt;`; got != want {
+	body := `srcz · a1b2c3d <img src="x"> & <b>bold</b>`
+	if got, want := BodyFor("linux", body), `srcz · a1b2c3d &lt;img src="x"&gt; &amp; &lt;b&gt;bold&lt;/b&gt;`; got != want {
 		t.Errorf("linux = %q, want %q", got, want)
 	}
 	if got := BodyFor("darwin", body); got != body {

@@ -5,7 +5,7 @@ import { Kbd } from "../../components/ui/kbd.tsx"
 import { ListRow } from "../../components/ui/list-row.tsx"
 import { ViewHeader } from "../../components/ui/view-header.tsx"
 import { groupLocations, navigationTitle, resultNotice } from "./code-navigation.ts"
-import type { NavigationLocation } from "@servef/contracts"
+import type { NavigationLocation } from "@srcz/contracts"
 import { highlightedParts } from "../search/search-highlights.ts"
 import type { NavigationPanel } from "./use-code-navigation.ts"
 

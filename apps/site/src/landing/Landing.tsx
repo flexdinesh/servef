@@ -26,7 +26,7 @@ export function Landing() {
               <span className="landing-muted">One command away.</span>
             </h1>
             <p className="landing-lede">
-              servef serves any local directory as a fast, read-only workspace: rendered
+              Source Zero serves any local directory as a fast, read-only workspace: rendered
               Markdown, image previews, formatted data, highlighted source, and diffs.
             </p>
             <InstallTabs />
@@ -61,7 +61,7 @@ export function Landing() {
           <FeatureSection
             eyebrow="Desktop"
             title="Your project, in its own window."
-            body="The desktop app opens folders and servef:// links in the OS web view, with native menus and a daemon every terminal shares."
+            body="The desktop app opens folders and srcz:// links in the OS web view, with native menus and a daemon every terminal shares."
             visual={<DesktopAnimation />}
           />
         </div>

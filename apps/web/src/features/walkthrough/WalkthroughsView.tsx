@@ -9,7 +9,7 @@ import { IconButton } from "../../components/ui/icon-button.tsx"
 import { ListRow } from "../../components/ui/list-row.tsx"
 import { Notice, StatusMessage } from "../../components/ui/notice.tsx"
 import { ViewHeader } from "../../components/ui/view-header.tsx"
-import type { Walkthrough, WalkthroughStep } from "@servef/contracts"
+import type { Walkthrough, WalkthroughStep } from "@srcz/contracts"
 import { useClipboardCopy } from "../../lib/clipboard.ts"
 import { shareableOrigin } from "../../lib/shareable-origin.ts"
 import { commitAge, commitDate, type CompareContext } from "../source-control/compare.ts"
@@ -102,7 +102,7 @@ export function WalkthroughsView({ context, mobile, onDismiss, onPresent, projec
 }
 
 // CopyInstructions copies the prompt that teaches an agent to prepare and
-// publish a walkthrough to this servef (decision 0049): an icon in the view
+// publish a walkthrough to this srcz (decision 0049): an icon in the view
 // header, or a labeled button in the empty list.
 function CopyInstructions({ project, labeled = false }: { project: string; labeled?: boolean }) {
   const { status, copy } = useClipboardCopy()
@@ -249,7 +249,7 @@ function StepList({ context, onOpened, session, walkthrough }: StepListProps) {
       </div>
       {confirming && (
         <Notice tone="warning" layout="bar" role="group" aria-label="Delete walkthrough" className="walkthrough-confirm">
-          <span>Delete this walkthrough? servef keeps no copy.</span>
+          <span>Delete this walkthrough? Source Zero keeps no copy.</span>
           {deleteError && <span role="alert">{deleteError}</span>}
           <span className="walkthrough-confirm-actions">
             <Button size="sm" variant="destructive" onClick={remove}>Delete</Button>

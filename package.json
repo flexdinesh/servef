@@ -1,21 +1,21 @@
 {
-  "name": "servef",
+  "name": "srcz",
   "private": true,
   "type": "module",
   "scripts": {
-    "build:site": "pnpm --filter @servef/site build",
-    "build:web": "pnpm --filter @servef/web build",
+    "build:site": "pnpm --filter @srcz/site build",
+    "build:web": "pnpm --filter @srcz/web build",
     "check": "mise run check:pr",
-    "dev:site": "pnpm --filter @servef/site dev",
-    "dev:web": "pnpm --filter @servef/web dev",
-    "dev:mock": "pnpm --filter @servef/web dev:mock",
+    "dev:site": "pnpm --filter @srcz/site dev",
+    "dev:web": "pnpm --filter @srcz/web dev",
+    "dev:mock": "pnpm --filter @srcz/web dev:mock",
     "dev": "mise run dev",
     "link:local": "mise run install",
-    "lint": "pnpm --filter @servef/web lint",
+    "lint": "pnpm --filter @srcz/web lint",
     "test:browser": "mise run test:browser",
     "test:release": "node --test --test-concurrency=2 --test-reporter=dot tests/*.test.ts tests/browser/live-fixture.test.ts",
-    "test:web": "pnpm --filter @servef/web test",
-    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @servef/web typecheck && pnpm --filter @servef/site typecheck"
+    "test:web": "pnpm --filter @srcz/web test",
+    "typecheck": "pnpm exec tsc --noEmit && pnpm --filter @srcz/web typecheck && pnpm --filter @srcz/site typecheck"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

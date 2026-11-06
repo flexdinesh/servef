@@ -8,7 +8,7 @@
 Content search opened a palette-style dialog that ranked the top ten files by
 fuzzy-prefix full-text score with one snippet each. It hid the workspace while
 open, could not show every match, and Markdown was indexed as rendered text,
-so results had no source lines to jump to. servef follows VS Code conventions,
+so results had no source lines to jump to. srcz follows VS Code conventions,
 where search lives in a sidebar view beside the Explorer.
 
 ## Decision
@@ -16,7 +16,7 @@ where search lives in a sidebar view beside the Explorer.
 - A thin activity bar sits at the far left: Explorer (Cmd/Ctrl+Shift+E), then
   Search (Cmd/Ctrl+Shift+F). Clicking the active item, or Cmd/Ctrl+B, hides
   the sidebar on desktop. The view and visibility persist per browser under
-  `servef-sidebar`. Mobile shows the bar inside the existing drawer.
+  `srcz-sidebar`. Mobile shows the bar inside the existing drawer.
 - Find in files (footer, shortcut) reveals the Search view instead of a
   dialog, seeding the query from a single-line document selection.
 - Search follows VS Code: literal, case-insensitive matching of every

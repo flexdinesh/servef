@@ -134,7 +134,7 @@ func (w *world) exerciseNotices(app *session, project, connection string, addres
 	click(commit, "commit=")
 
 	// File Edits is off by default, and holds the project open once on.
-	app.eval(`localStorage.setItem("servef-settings", JSON.stringify({notifyEdits: "on"})); setTimeout(() => location.reload(), 0); return true`)
+	app.eval(`localStorage.setItem("srcz-settings", JSON.stringify({notifyEdits: "on"})); setTimeout(() => location.reload(), 0); return true`)
 	app.waitEval("the page after its reload", treeShows("README.md"))
 	edit := 0
 	edits := w.waitNotice("edits", func(notice shownNotice) bool { return ours(notice) && strings.HasSuffix(notice.Title, "changed") }, 15*time.Second, func() {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { isChangesResponse, type ChangedFile, type ChangesResponse } from "@servef/contracts"
+import { isChangesResponse, type ChangedFile, type ChangesResponse } from "@srcz/contracts"
 import { gitStatusError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON } from "../../api/http.ts"
 import { projectUrl } from "../../api/project-url.ts"

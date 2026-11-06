@@ -1,4 +1,4 @@
-import { isPageData, type PageData, type TreeNode } from "@servef/contracts"
+import { isPageData, type PageData, type TreeNode } from "@srcz/contracts"
 
 import type { PageLoadResult } from "./page-contract.ts"
 

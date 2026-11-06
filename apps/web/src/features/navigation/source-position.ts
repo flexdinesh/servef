@@ -75,7 +75,7 @@ export function wordRange(root: Element, line: number, word: ColumnRange): Range
   return null
 }
 
-const highlightName = "servef-navigation-link"
+const highlightName = "srcz-navigation-link"
 
 // showLink underlines a navigable word with the CSS Custom Highlight API,
 // leaving the highlighted HTML untouched; browsers without it show none.

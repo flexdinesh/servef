@@ -1,4 +1,4 @@
-import { isPageData, type PageData } from "@servef/contracts"
+import { isPageData, type PageData } from "@srcz/contracts"
 
 import { isRecord } from "./http.ts"
 

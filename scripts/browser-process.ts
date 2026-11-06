@@ -51,7 +51,7 @@ export async function stopProcess(proc: ManagedProcess): Promise<void> {
   }
 }
 
-// Both servef and Vite print their bound loopback URL after listening. Keeping
+// Both srcz and Vite print their bound loopback URL after listening. Keeping
 // that listener open avoids the race in probing and then releasing a free port.
 export async function serverPort(proc: ManagedProcess): Promise<number> {
   return new Promise<number>((resolve, reject) => {

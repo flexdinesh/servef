@@ -3,10 +3,10 @@
 - Status: Superseded
 - Superseded by: [0095](0095-desktop-app-is-mygo-electron-removed.md) for ssh and the desktop app's server windows and `/_daemon/directories`; [0098](0098-remote-connections.md) for no-UI serving and printed links
 - Date: 2026-11-02
-- Supersedes: [0069](0069-servef-remote-and-ssh-links.md) (`servef remote`,
+- Supersedes: [0069](0069-srcz-remote-and-ssh-links.md) (`srcz remote`,
   ssh links, link hints, `testdata/remote-links.json`)
 - Revises: [0063](0063-cli-commands-and-url-scheme.md) (scheme grammar; no
-  `servef remote`), [0064](0064-ssh-remotes.md) (host identity; forwards to
+  `srcz remote`), [0064](0064-ssh-remotes.md) (host identity; forwards to
   TCP servers), [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   step 2 (no-UI machines), [0070](0070-desktop-ssh-connections.md) (links,
   resolution, confirmation, Connect page),
@@ -15,7 +15,7 @@
 
 ## Context
 
-0069 taught the CLI about ssh: `servef remote`, link hints, and a grammar
+0069 taught the CLI about ssh: `srcz remote`, link hints, and a grammar
 the app resolved to ssh destinations through heuristics and a first-contact
 dialog. A link should say where a server is, not how to reach the machine,
 and the CLI should not care how the user got to a terminal. ssh is a
@@ -26,9 +26,9 @@ convenience of the desktop app only. None of 0069 or 0070 has been released.
 ### Links name an http server
 
 - A server URL has two forms: `http://<host>:<port>/<route>?<query>` (web)
-  and `servef://<host>:<port>/<route>?<query>` (desktop), the same URL with
-  the scheme swapped. `servef://local/…` stays the local daemon.
-  `servef://ssh/…` is gone.
+  and `srcz://<host>:<port>/<route>?<query>` (desktop), the same URL with
+  the scheme swapped. `srcz://local/…` stays the local daemon.
+  `srcz://ssh/…` is gone.
 - The CLI prints both forms as OSC 8 hyperlinks when stdout is a terminal
   and `TERM` is not `dumb` (0069's writer); the visible text is the plain
   URL either way.
@@ -38,7 +38,7 @@ convenience of the desktop app only. None of 0069 or 0070 has been released.
 - No-UI machine: `SSH_CONNECTION`, `SSH_CLIENT`, or `SSH_TTY` is set, or on
   Linux neither `DISPLAY` nor `WAYLAND_DISPLAY` is. The CLI never builds ssh
   details into a link.
-- Bare `servef [path]` decides: `--host` or `--port` set → browser mode; a
+- Bare `srcz [path]` decides: `--host` or `--port` set → browser mode; a
   no-UI machine → browser mode bound to the detected address, never opening
   anything; otherwise the 0068 daemon flow, unchanged.
 - Detected address: the server IP of `SSH_CONNECTION` (`client_ip
@@ -47,13 +47,13 @@ convenience of the desktop app only. None of 0069 or 0070 has been released.
   `localhost` with a notice. It binds that one IP, never all interfaces.
   These servers have no authentication: anyone who reaches the address can
   read the served files. The startup output says so.
-- `servef browser` keeps its loopback default everywhere and never opens the
+- `srcz browser` keeps its loopback default everywhere and never opens the
   desktop app. In SSH it still never opens a browser.
 - Browser-mode startup prints `web:` and `desktop:` lines. The local daemon
-  flow prints `opened <project> in servef` and `desktop:
-  servef://local/?project=…`; the daemon has no http listener, so there is
+  flow prints `opened <project> in srcz` and `desktop:
+  srcz://local/?project=…`; the daemon has no http listener, so there is
   no web URL.
-- `servef remote` is removed. `servef walkthrough publish` loses its ssh
+- `srcz remote` is removed. `srcz walkthrough publish` loses its ssh
   link; with a CLI server it prints the web URL and the desktop URL.
 
 ### Daemon: directory listing
@@ -73,15 +73,15 @@ directory), behind the control API's browser-request guard:
 - Errors (`{error, code}`): relative path 400 `invalidPath`; missing 404
   `pathUnavailable`; not a directory 400 `notDirectory`; unreadable 403
   `pathUnreadable`. Additive: protocol stays 1; an older daemon answers 404
-  and the app asks to upgrade servef on the host.
+  and the app asks to upgrade srcz on the host.
 
 ### Desktop: links
 
-- `servef://<loopback>:<port>/…` opens `cli-<port>` (0071), verified with
-  the local `servef control list`.
-- `servef://<other host>:<port>/…` opens kind `http`, id `http-<slug of
+- `srcz://<loopback>:<port>/…` opens `cli-<port>` (0071), verified with
+  the local `srcz control list`.
+- `srcz://<other host>:<port>/…` opens kind `http`, id `http-<slug of
   host>-<port>`, upstream TCP to that host. First contact is confirmed in a
-  native dialog once per host and port ("A link asked servef to open the
+  native dialog once per host and port ("A link asked srcz to open the
   server at <host>:<port>. It is not on this computer. Open only servers you
   trust."); the answer is stored in `connections.json`. Cancel stores
   nothing. `shareableOrigin` maps it back to `http://<host>:<port>`.
@@ -94,13 +94,13 @@ directory), behind the control API's browser-request guard:
   hosts store `{id, destination, port, addedAt}` without hints. The 0070
   transport stays: app-owned ControlMaster, BatchMode, constant remote
   commands, failure kinds, runtime directory.
-- Host page `servef-app://app/ssh/<id>` (static, no scripts): the remote
-  daemon's roots (from ensure), running remote servers (`servef control list
+- Host page `srcz-app://app/ssh/<id>` (static, no scripts): the remote
+  daemon's roots (from ensure), running remote servers (`srcz control list
   --json`, a constant command behind the 0070 PATH wrapper), and Browse
   folders.
-- Picker `servef-app://app/ssh/<id>/browse?path=` lists
+- Picker `srcz-app://app/ssh/<id>/browse?path=` lists
   `/_daemon/directories` over the forward. "Open this folder" is a POST form;
-  main posts `/_daemon/open` and opens `servef-app://ssh-<slug>/?project=…`.
+  main posts `/_daemon/open` and opens `srcz-app://ssh-<slug>/?project=…`.
   Paths travel in HTTP bodies over the forward, never in remote commands.
 - A remote TCP server is kind `ssh-port`, id `ssh-<slug>-<port>`: the master
   forwards `<runtime>/p-<h12>.sock` to the listed host and port. When the
@@ -114,14 +114,14 @@ directory), behind the control API's browser-request guard:
 ## Consequences
 
 - An IP-bound server on a no-UI machine is readable by anything that reaches
-  its address; `servef browser` (loopback) plus a user-made port forward is
+  its address; `srcz browser` (loopback) plus a user-made port forward is
   the private option.
-- A `servef://localhost:<port>` link printed on one machine and opened on
-  another reaches whatever servef server runs on that port there; no-UI
+- A `srcz://localhost:<port>` link printed on one machine and opened on
+  another reaches whatever srcz server runs on that port there; no-UI
   machines print their address to avoid this.
 - macOS Terminal.app has no OSC 8; its users copy the desktop URL. tmux
   needs `terminal-features` with `hyperlinks`.
 - The IP fallback changes a remote server's origin, so its localStorage does
   not carry over from the forwarded origin.
-- Any web page can fire `servef://<host>:<port>` links; confirmation and
+- Any web page can fire `srcz://<host>:<port>` links; confirmation and
   isolated origins without the bridge bound what a hostile server shows.

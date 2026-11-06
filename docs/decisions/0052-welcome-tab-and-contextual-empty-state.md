@@ -11,8 +11,8 @@ A project with no remembered tabs opened on an empty pane reading “Choose a
 file: Select a file from the folder tree.”, whatever the sidebar showed, so
 Search, Source Control, and Walkthroughs pointed at a tree that was not
 there. A first landing with several projects opened the project picker over
-that pane. Nothing in the app said what servef does beyond its views, and the
-`servef` footer brand only reopened the last tab.
+that pane. Nothing in the app said what srcz does beyond its views, and the
+`srcz` footer brand only reopened the last tab.
 
 ## Decision
 
@@ -24,12 +24,12 @@ that pane. Nothing in the app said what servef does beyond its views, and the
   restores like any tab.
 - It opens on its own when a project's route names no tab and memory restores
   no tabs, while **Workbench › Show Welcome on Startup** (`showWelcome`, On by
-  default, in `servef-settings`) is On. Restored tabs without an active one
+  default, in `srcz-settings`) is On. Restored tabs without an active one
   keep the empty pane. Projects mount separately, so this holds per project.
 - The footer brand, “Help › Welcome” in the command palette, and the empty
   pane's “Show Welcome” open or activate it.
 - Content, on the document surface without cards: a muted “Serving <roots>”
-  line, “servef” at the preview h1 size, and a one-line tagline; then two
+  line, “srcz” at the preview h1 size, and a one-line tagline; then two
   columns once the tab is 48rem wide (a container query), one below.
   - **Start**: Open project… (Cmd/Ctrl+O), Find a file (Cmd/Ctrl+K), Show all
     commands (Cmd/Ctrl+Shift+P).

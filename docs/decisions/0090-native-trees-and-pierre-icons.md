@@ -20,7 +20,7 @@ generic in `packages/mygo`.
   the web tree's sort, optional compact chains, `Filter`), `State` (open
   folders, selection, and keyboard cursor kept by path, so they survive a
   new `Tree` and a filtered one; `Reset` for another project), and `View`
-  over `ui.List`, its rows keyed by path. It imports nothing from servef.
+  over `ui.List`, its rows keyed by path. It imports nothing from srcz.
 - Own rows, not `ui.Outline`: Outline puts an arrow box before every row,
   leaves, too, and fixes row padding; Pierre draws the chevron in the icon
   slot. `ui.List` keeps virtualization; the widget handles Pierre's keys
@@ -56,7 +56,7 @@ generic in `packages/mygo`.
   and NOTICE sit beside it and ship in every native package's
   `THIRD_PARTY_NOTICES.txt` (`apps/native/scripts/notices.sh`). Rerun the
   script when the web bumps Pierre.
-- The native Explorer maps servef's tokens as `explorer.css` and
+- The native Explorer maps srcz's tokens as `explorer.css` and
   `tree-css.ts` do, and shows the statuses of the files it shows. As the
   web's `useChanges`, it reads a project's changes on load, on live
   changes (so a failed read recovers), when Source Control opens (joining

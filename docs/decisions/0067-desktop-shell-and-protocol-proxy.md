@@ -15,13 +15,13 @@
 per connection, and notifications while the app runs. 0066 gave the daemon
 what the app needs. This record fixes how the app is built, how renderer
 requests reach the daemon socket, and what the first version exposes. The
-CLI flip (`servef [path]` opens the app) and packaging are a later layer.
+CLI flip (`srcz [path]` opens the app) and packaging are a later layer.
 
 ## Decision
 
 ### Package
 
-- `desktop/` is the pnpm workspace package `@servef/desktop`: Electron
+- `desktop/` is the pnpm workspace package `@srcz/desktop`: Electron
   45.1.0, esbuild, TypeScript, oxlint, Playwright; no runtime dependencies.
   esbuild bundles `src/main/main.ts` to `build/main.mjs` (ESM) and
   `src/preload/preload.ts` to `build/preload.cjs` (sandboxed preloads are
@@ -38,25 +38,25 @@ CLI flip (`servef [path]` opens the app) and packaging are a later layer.
 
 ### Daemon connection
 
-- Binary: packaged apps use `resources/bin/servef` only; unpackaged runs use
-  `SERVEF_DESKTOP_BINARY`, else `servef` on PATH. The app never installs or
+- Binary: packaged apps use `resources/bin/srcz` only; unpackaged runs use
+  `SRCZ_DESKTOP_BINARY`, else `srcz` on PATH. The app never installs or
   copies it. Missing → an instructions page with Retry.
-- `servef daemon ensure --json` (timeout 15 s; dev and test flags `--socket`,
-  `--roots-file` only from `SERVEF_DESKTOP_SOCKET`,
-  `SERVEF_DESKTOP_ROOTS_FILE`). A protocol other than 1 → a mismatch page
-  with `servef daemon stop`, Retry, and "Stop the running daemon and retry".
+- `srcz daemon ensure --json` (timeout 15 s; dev and test flags `--socket`,
+  `--roots-file` only from `SRCZ_DESKTOP_SOCKET`,
+  `SRCZ_DESKTOP_ROOTS_FILE`). A protocol other than 1 → a mismatch page
+  with `srcz daemon stop`, Retry, and "Stop the running daemon and retry".
   A release mismatch shows only in About. The app never stops the daemon on
   quit.
-- `servef daemon ensure` marks inherited descriptors above stderr
+- `srcz daemon ensure` marks inherited descriptors above stderr
   close-on-exec before starting the daemon: Electron leaves Chromium's
   descriptors inheritable, and the daemon otherwise held its user-data files
   and stdio after the app quit.
-- One connection, `local` (`servef-app://local`). Pasted localhost URLs, CLI
+- One connection, `local` (`srcz-app://local`). Pasted localhost URLs, CLI
   servers, and ssh remotes are later connection kinds.
 
 ### Protocol proxy
 
-- `servef-app` is registered privileged (`standard`, `secure`,
+- `srcz-app` is registered privileged (`standard`, `secure`,
   `supportFetchAPI`, `stream`, `codeCache`) and handled in the main process
   over the socket with `node:http`.
 - Refused locally: unknown connection hosts (404); a decoded path starting
@@ -66,7 +66,7 @@ CLI flip (`servef [path]` opens the app) and packaging are a later layer.
 - Forwarded request headers are an allowlist (`accept`, `accept-language`,
   `content-type`, `content-length`, `range`, `if-none-match`,
   `if-modified-since`, `last-event-id`, `cache-control`,
-  `x-servef-language-servers`) plus `Host: localhost` (the daemon's Host
+  `x-srcz-language-servers`) plus `Host: localhost` (the daemon's Host
   check) and `Sec-Fetch-Site: same-origin`, which keeps the daemon refusing
   control requests that arrive through the proxy.
 - Responses stream through unchanged minus hop-by-hop headers; the daemon's
@@ -83,11 +83,11 @@ CLI flip (`servef [path]` opens the app) and packaging are a later layer.
 
 - Windows use `contextIsolation`, `sandbox`, no `nodeIntegration`, and
   `webSecurity`; permissions are denied except `clipboard-sanitized-write`.
-  Navigation stays on the connection origin; `servef://` links route
+  Navigation stays on the connection origin; `srcz://` links route
   internally; `http(s):` and `mailto:` open externally; the rest is denied.
-- `servef://local/` and `servef://local/view` map to the same path, query,
-  and fragment on `servef-app://local`. `servef://ssh/...` shows "Remote
-  links arrive in a later servef". Scheme links never add roots.
+- `srcz://local/` and `srcz://local/view` map to the same path, query,
+  and fragment on `srcz-app://local`. `srcz://ssh/...` shows "Remote
+  links arrive in a later srcz". Scheme links never add roots.
 - One instance: a second launch hands its link over and exits. A link for
   project P loads in the window showing P (focused first, then most recently
   focused), else a new window; a link without a project focuses the latest
@@ -97,12 +97,12 @@ CLI flip (`servef [path]` opens the app) and packaging are a later layer.
 
 ### Bridge v1
 
-- `window.servefDesktop = {version: 1, openFolder()}`, honored only from
-  `servef-app://` frames. Open Folder (also File menu, Cmd/Ctrl-O) picks a
+- `window.srczDesktop = {version: 1, openFolder()}`, honored only from
+  `srcz-app://` frames. Open Folder (also File menu, Cmd/Ctrl-O) picks a
   directory, posts `/_daemon/open`, and opens its project. The UI shows
   "Open folder…" in the Welcome tab and the empty project picker only when
   the bridge exists.
-- In the app, copied agent instructions name `servef://local` and omit the
+- In the app, copied agent instructions name `srcz://local` and omit the
   curl fallback; browsers are unchanged.
 
 ### Subscriptions and notifications
@@ -126,7 +126,7 @@ CLI flip (`servef [path]` opens the app) and packaging are a later layer.
 
 ### Spike outcome
 
-- Electron 45.1.0 on Linux with the primary `servef-app://` scheme passed:
+- Electron 45.1.0 on Linux with the primary `srcz-app://` scheme passed:
   incremental EventSource with `stream: true`, module workers and
   `'wasm-unsafe-eval'` under the daemon CSP, localStorage per origin across
   restarts, and EventSource close cancelling the upstream request. The
@@ -153,7 +153,7 @@ flags until measured.
 
 ## Consequences
 
-- The desktop app costs about 15 times the daemon's memory at idle; servef's
+- The desktop app costs about 15 times the daemon's memory at idle; srcz's
   own memory priority is unchanged and measured separately.
 - Hidden windows keep open leases (needed for settled notices), bounded by
   the daemon's 8 open projects.

@@ -21,7 +21,7 @@ test("binary files open to a note without views", async ({ page }) => {
   await page.goto("/view?path=assets%2Fsample.bin")
   await expect(page.getByRole("heading", { name: "Binary file" })).toBeVisible()
   await expect(page.locator("#document-pane")).toContainText("sample.bin · 24 B")
-  await expect(page.locator("#document-pane")).toContainText("servef shows text and images only.")
+  await expect(page.locator("#document-pane")).toContainText("Source Zero shows text and images only.")
   await expect(page.getByRole("group", { name: "Document view" })).toHaveCount(0)
   await expect(zoom(page)).toHaveCount(0)
   await expect(page.locator("#document-pane").getByRole("textbox")).toHaveCount(0)

@@ -1,17 +1,17 @@
 #!/bin/sh
-# Installs the servef CLI from the edge prerelease: latest main, rebuilt by
+# Installs the srcz CLI from the edge prerelease: latest main, rebuilt by
 # CI after every green push. Stable installs use scripts/install.sh.
 # Decisions 0073 and 0079.
 #
-#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-edge.sh | sh
 #
-# Writes only the servef binary to ~/.local/bin (or ~/bin when that is on
+# Writes only the srcz binary to ~/.local/bin (or ~/bin when that is on
 # PATH). Remove with scripts/uninstall.sh.
 
 # shared:base:begin
 set -eu
 
-REPO="flexdinesh/servef"
+REPO="flexdinesh/srcz"
 
 if [ -t 1 ]; then
   BOLD="$(printf '\033[1m')"
@@ -43,12 +43,12 @@ detect_platform() {
   case "$(uname -s)" in
     Linux) OS=linux ;;
     Darwin) OS=darwin ;;
-    *) fail "unsupported OS $(uname -s): servef supports macOS and Linux" ;;
+    *) fail "unsupported OS $(uname -s): srcz supports macOS and Linux" ;;
   esac
   case "$(uname -m)" in
     x86_64 | amd64) ARCH=amd64 ;;
     aarch64 | arm64) ARCH=arm64 ;;
-    *) fail "unsupported architecture $(uname -m): servef supports amd64 and arm64" ;;
+    *) fail "unsupported architecture $(uname -m): srcz supports amd64 and arm64" ;;
   esac
 }
 
@@ -68,7 +68,7 @@ cleanup() {
   if [ -n "$TMP" ]; then rm -rf "$TMP"; fi
 }
 make_tmp() {
-  TMP="$(mktemp -d 2>/dev/null || mktemp -d -t servef)"
+  TMP="$(mktemp -d 2>/dev/null || mktemp -d -t srcz)"
   trap cleanup EXIT
   trap 'exit 130' INT TERM
 }
@@ -97,15 +97,15 @@ choose_bin_dir() {
   fi
 }
 
-# install_cli SRC installs the servef binary SRC as BIN_DIR/servef.
+# install_cli SRC installs the srcz binary SRC as BIN_DIR/srcz.
 install_cli() {
   choose_bin_dir
-  target="$BIN_DIR/servef"
+  target="$BIN_DIR/srcz"
   previous=""
   if [ -x "$target" ]; then
     previous="$("$target" --version 2>/dev/null | head -n 1 || true)"
   fi
-  staged="$BIN_DIR/.servef.$$"
+  staged="$BIN_DIR/.srcz.$$"
   cp "$1" "$staged"
   chmod 755 "$staged"
   mv -f "$staged" "$target"
@@ -125,13 +125,13 @@ install_cli() {
       *) note "export PATH=\"$BIN_DIR:\$PATH\"   # in ~/.profile" ;;
     esac
   fi
-  first="$(command -v servef 2>/dev/null || true)"
+  first="$(command -v srcz 2>/dev/null || true)"
   if [ -n "$first" ] && [ "$first" != "$target" ]; then
-    warn "$first comes first on PATH and is not the servef just installed"
+    warn "$first comes first on PATH and is not the srcz just installed"
   fi
   if "$target" daemon status >/dev/null 2>&1; then
-    warn "a servef daemon is running an earlier build; to switch now, run:"
-    note "servef daemon stop"
+    warn "a srcz daemon is running an earlier build; to switch now, run:"
+    note "srcz daemon stop"
   fi
 }
 # shared:cli:end
@@ -155,15 +155,15 @@ release_url() {
   printf 'https://github.com/%s/releases/download/%s/%s' "$REPO" "$TAG" "$1"
 }
 
-# download_cli sets CLI to the servef binary of release TAG, whose assets are
+# download_cli sets CLI to the srcz binary of release TAG, whose assets are
 # named for VERSION.
 download_cli() {
-  name="servef_${VERSION}_${OS}_${ARCH}"
-  step "downloading servef $TAG ($OS/$ARCH)"
-  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from servef $TAG"
+  name="srcz_${VERSION}_${OS}_${ARCH}"
+  step "downloading srcz $TAG ($OS/$ARCH)"
+  fetch "$(release_url "$name.tar.gz")" "$TMP/$name.tar.gz" || fail "could not download $name.tar.gz from srcz $TAG"
   tar -xzf "$TMP/$name.tar.gz" -C "$TMP"
-  CLI="$TMP/$name/servef"
-  [ -f "$CLI" ] || fail "$name.tar.gz has no servef binary"
+  CLI="$TMP/$name/srcz"
+  [ -f "$CLI" ] || fail "$name.tar.gz has no srcz binary"
 }
 # shared:release:end
 
@@ -173,4 +173,4 @@ edge_release
 download_cli
 install_cli "$CLI"
 ok "done; open the current directory with:"
-note "servef ."
+note "srcz ."

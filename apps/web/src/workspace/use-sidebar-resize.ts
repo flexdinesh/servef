@@ -3,7 +3,7 @@ import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } fr
 const defaultWidth = 288
 const minimumWidth = 208
 const maximumWidth = 480
-const storageKey = "servef-sidebar-width"
+const storageKey = "srcz-sidebar-width"
 
 function clampWidth(width: number): number {
   return Math.min(maximumWidth, Math.max(minimumWidth, width))

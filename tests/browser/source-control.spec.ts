@@ -47,7 +47,7 @@ function commitsList(page: Page) {
 }
 
 function commitRow(page: Page, subject: string) {
-  return commitsList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(subject)}, servef, `) })
+  return commitsList(page).getByRole("option", { name: new RegExp(`^${escapeRegExp(subject)}, srcz, `) })
 }
 
 function branchesList(page: Page) {
@@ -160,7 +160,7 @@ test("Source Control lists every pending change and reviews them in one tab", as
 })
 
 test("large diffs keep the page responsive and render only rows near the viewport @extended", async ({ page }) => {
-  test.skip(process.env.SERVEF_BROWSER_EXTENDED !== "1", "requires the full extended git fixture")
+  test.skip(process.env.SRCZ_BROWSER_EXTENDED !== "1", "requires the full extended git fixture")
   test.setTimeout(60_000)
   await openReview(page, "review=working#f=large.txt")
   // The worker's parse can take seconds on a busy machine.
@@ -421,7 +421,7 @@ test("clicking a commit selects it; its diff opens the commit's review with a Fi
   const main = page.getByRole("main")
   await expect(main.getByRole("heading", { level: 1, name: featureSubject })).toBeVisible()
   await expect(main).toContainText("Explain how the fixture's branch history is built.")
-  await expect(main.locator(".review-meta")).toContainText("servef")
+  await expect(main.locator(".review-meta")).toContainText("srcz")
 
   // The rail lists the commit's files with line stats.
   await expect(rail(page).getByRole("heading", { name: "Files" })).toBeVisible()

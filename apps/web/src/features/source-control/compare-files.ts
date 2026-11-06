@@ -1,4 +1,4 @@
-import type { ChangedFile, Commit } from "@servef/contracts"
+import type { ChangedFile, Commit } from "@srcz/contracts"
 import type { Compare } from "./compare.ts"
 
 // Pure file-list states shared by every compare's change list, Files rail,

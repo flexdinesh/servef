@@ -61,7 +61,7 @@
      document surface and the canvas so island edges stay visible. */
   --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
   /* Islands draw this 1px edge; only a canvas as light as the islands
-     (Servef Light) needs one. */
+     (Source Zero Light) needs one. */
   --color-island-border: transparent;
   /* Fills set into the document surface: the active source line, code
      blocks, table headers, diff separators, the image checkerboard. */

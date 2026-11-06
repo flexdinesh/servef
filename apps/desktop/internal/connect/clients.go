@@ -6,9 +6,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/notifier"
-	"github.com/flexdinesh/servef/pkg/client"
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/notifier"
+	"github.com/flexdinesh/srcz/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
 // StreamClient returns a client for the long-lived streams of a notifier: the
@@ -42,7 +42,7 @@ type Saved interface {
 }
 
 // RemoteClients returns what a notifier connects to a saved server with. It
-// rereads the store each time, so `servef connect` with new addresses applies to
+// rereads the store each time, so `srcz connect` with new addresses applies to
 // the next attempt, and keeps a client while the connection is unchanged.
 func RemoteClients(store Saved, id string) func(context.Context, error) (client.Client, error) {
 	var (

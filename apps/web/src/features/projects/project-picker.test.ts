@@ -16,7 +16,7 @@ import {
   splitBrowseInput,
   type PickerSection,
 } from "./project-picker.ts"
-import { isProjectsResponse, type ProjectsResponse } from "@servef/contracts"
+import { isProjectsResponse, type ProjectsResponse } from "@srcz/contracts"
 
 async function projects(): Promise<ProjectsResponse> {
   const value: unknown = JSON.parse(await readFile(new URL("../../../../../testdata/api/default/projects.json", import.meta.url), "utf8"))
@@ -25,7 +25,7 @@ async function projects(): Promise<ProjectsResponse> {
 }
 
 const workspace = "/home/user/markdown"
-const servef = `${workspace}/servef/main`
+const srcz = `${workspace}/srcz/main`
 
 function summary(sections: readonly PickerSection[]) {
   return sections.map((section) => [section.title, section.rows.map((row) => {
@@ -42,8 +42,8 @@ function summary(sections: readonly PickerSection[]) {
 }
 
 test("projects list each root's folder and repositories, a repository with worktrees as one row", async () => {
-  assert.deepEqual(summary(projectSections(await projects(), [], `${workspace}/servef/wt-feat-project-picker`, "")), [
-    ["markdown", ["markdown", "notes @main", "servef @main 3 worktrees *"]],
+  assert.deepEqual(summary(projectSections(await projects(), [], `${workspace}/srcz/wt-feat-project-picker`, "")), [
+    ["markdown", ["markdown", "notes @main", "srcz @main 3 worktrees *"]],
     ["personal", ["personal", "blog @draft"]],
     ["", ["browse"]],
   ])
@@ -51,36 +51,36 @@ test("projects list each root's folder and repositories, a repository with workt
 
 test("a repository row opens its last-used worktree", async () => {
   const response = await projects()
-  const remembered = [`${workspace}/notes`, "/tmp/servef-hotfix", servef]
+  const remembered = [`${workspace}/notes`, "/tmp/srcz-hotfix", srcz]
   const row = projectSections(response, remembered, "", "")[0]?.rows[2]
   assert.ok(row?.kind === "project")
-  assert.equal(row.id, "/tmp/servef-hotfix")
+  assert.equal(row.id, "/tmp/srcz-hotfix")
   assert.equal(row.branch, "hotfix")
   assert.ok(canDrill(row))
   const fresh = projectSections(response, [], "", "")[0]?.rows[2]
-  assert.equal(fresh?.kind === "project" && fresh.id, servef)
+  assert.equal(fresh?.kind === "project" && fresh.id, srcz)
 })
 
 test("a repository's worktree list shows branches, main first", async () => {
   const response = await projects()
-  assert.deepEqual(summary(projectSections(response, [], servef, "", servef)), [
-    ["servef worktrees", ["main @main *", "feat-project-picker @feat-project-picker", "hotfix @hotfix"]],
+  assert.deepEqual(summary(projectSections(response, [], srcz, "", srcz)), [
+    ["srcz worktrees", ["main @main *", "feat-project-picker @feat-project-picker", "hotfix @hotfix"]],
   ])
-  assert.deepEqual(summary(projectSections(response, [], servef, "hot", servef)), [["servef worktrees", ["hotfix @hotfix"]]])
-  assert.deepEqual(projectSections(response, [], servef, "zzz", servef), [])
-  assert.equal(currentGroup(response, "/tmp/servef-hotfix"), servef)
+  assert.deepEqual(summary(projectSections(response, [], srcz, "hot", srcz)), [["srcz worktrees", ["hotfix @hotfix"]]])
+  assert.deepEqual(projectSections(response, [], srcz, "zzz", srcz), [])
+  assert.equal(currentGroup(response, "/tmp/srcz-hotfix"), srcz)
   assert.equal(currentGroup(response, `${workspace}/notes`), "")
 })
 
 test("unavailable worktrees are listed but not selectable", async () => {
   const response = await projects()
-  const hotfix = response.projects.find((project) => project.path === "/tmp/servef-hotfix")
+  const hotfix = response.projects.find((project) => project.path === "/tmp/srcz-hotfix")
   assert.ok(hotfix)
   const unavailable: ProjectsResponse = {
     ...response,
     projects: response.projects.map((project) => project === hotfix ? { ...project, id: "", root: "", available: false } : project),
   }
-  const sections = projectSections(unavailable, [], "", "", servef)
+  const sections = projectSections(unavailable, [], "", "", srcz)
   assert.deepEqual(summary(sections)[0]?.[1], ["main @main", "feat-project-picker @feat-project-picker", "hotfix @hotfix (Outside served folders)"])
   assert.equal(selectableRows(sections).length, 2)
 })
@@ -93,11 +93,11 @@ test("opened folders list remembered folders in the roots that discovery does no
 
 test("a query ranks matches flat, including each worktree by branch", async () => {
   assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "feat")), [
-    ["Projects", ["feat-project-picker in servef @feat-project-picker"]],
+    ["Projects", ["feat-project-picker in srcz @feat-project-picker"]],
     ["", ["browse"]],
   ])
   assert.deepEqual(summary(projectSections(await projects(), [`${workspace}/notes/wt`], "", "wt")), [
-    ["Projects", ["feat-project-picker in servef @feat-project-picker"]],
+    ["Projects", ["feat-project-picker in srcz @feat-project-picker"]],
     ["Opened folders", ["wt"]],
     ["", ["browse"]],
   ])
@@ -105,11 +105,11 @@ test("a query ranks matches flat, including each worktree by branch", async () =
 })
 
 test("matchScore prefers names over paths and requires characters in order", () => {
-  assert.equal(matchScore("ser", "servef", "work/servef"), 0)
-  assert.equal(matchScore("vef", "servef", "work/servef"), 1)
-  assert.equal(matchScore("work", "servef", "work/servef"), 2)
-  assert.equal(matchScore("wsf", "servef", "work/servef"), 3)
-  assert.equal(matchScore("fsw", "servef", "work/servef"), null)
+  assert.equal(matchScore("src", "srcz", "work/srcz"), 0)
+  assert.equal(matchScore("rcz", "srcz", "work/srcz"), 1)
+  assert.equal(matchScore("work", "srcz", "work/srcz"), 2)
+  assert.equal(matchScore("wsz", "srcz", "work/srcz"), 3)
+  assert.equal(matchScore("zsw", "srcz", "work/srcz"), null)
   assert.equal(matchScore("  ", "a", "a"), 0)
 })
 

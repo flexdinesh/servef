@@ -18,10 +18,10 @@ export function agentExample(project: string) {
 }
 
 // agentInstructions is the prompt the Walkthroughs view copies (decision
-// 0049): where servef runs, how to prepare a walkthrough, its format, and
+// 0049): where srcz runs, how to prepare a walkthrough, its format, and
 // how to publish it: the CLI first (decision 0065), then curl to origin. It
 // ends with "Walk me through: " for the user's topic. An origin that is not
-// http(s), such as the desktop app's servef://local, takes no HTTP
+// http(s), such as the desktop app's srcz://local, takes no HTTP
 // requests, so the prompt names the CLI only; a null origin (a desktop
 // window over ssh, decision 0076) is not named at all.
 export function agentInstructions(origin: string | null, project: string): string {
@@ -30,19 +30,19 @@ export function agentInstructions(origin: string | null, project: string): strin
   const example = JSON.stringify(fields, null, 2)
     .replace(/\n}$/, `,\n  "steps": [\n${steps.map((step) => `    ${JSON.stringify(step)}`).join(",\n")}\n  ]\n}`)
   const http = origin !== null && /^https?:\/\//.test(origin)
-  const format = http ? `GET ${origin}/api/walkthrough-schema, or: servef walkthrough schema` : "servef walkthrough schema"
+  const format = http ? `GET ${origin}/api/walkthrough-schema, or: srcz walkthrough schema` : "srcz walkthrough schema"
   const fallback = http
-    ? `If servef isn't on PATH or lacks "walkthrough publish":
+    ? `If srcz isn't on PATH or lacks "walkthrough publish":
 
 curl -q -sS -X POST -H 'Content-Type: application/json' --data @walkthrough.json ${origin}/api/walkthroughs
 
 `
     : ""
   const responses = http ? ` Over HTTP, 201 creates, 200 replaces, the response is {"id", "url", "created"}, and a 400 lists every problem.` : ""
-  return `Write a servef walkthrough of the topic at the end, and publish it with servef.
+  return `Write a srcz walkthrough of the topic at the end, and publish it with srcz.
 
-${origin === null ? "" : `servef: ${origin}\n`}Project: ${project}
-Publish: servef walkthrough publish walkthrough.json (no server needed)
+${origin === null ? "" : `srcz: ${origin}\n`}Project: ${project}
+Publish: srcz walkthrough publish walkthrough.json (no server needed)
 Format: ${format} (JSON Schema; authoritative if anything below is unclear)
 
 ## What a walkthrough is
@@ -67,7 +67,7 @@ Paths are project-relative with forward slashes. Lines are 1-based and inclusive
 
 Write the JSON to walkthrough.json, then:
 
-servef walkthrough publish walkthrough.json
+srcz walkthrough publish walkthrough.json
 
 ${fallback}\`\`\`json
 ${example}

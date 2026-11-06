@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
 // Kind is what a notice reports; each has its setting.

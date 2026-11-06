@@ -13,13 +13,13 @@
 
 ## Context
 
-Users open projects with `servef [path]` or File > Open Folder. File
+Users open projects with `srcz [path]` or File > Open Folder. File
 managers and the Dock are the other natural starting points, and a daily
 tool should be able to start at login. Folder paths from the OS are
 untrusted input. 0067 says scheme links never add roots, because any web page
 can fire one; OS entry points must therefore be argv or `open-file`, which
 only local users and processes can trigger (the trust of running
-`servef <path>`).
+`srcz <path>`).
 
 ## Decision
 
@@ -29,8 +29,8 @@ only local users and processes can trigger (the trust of running
   macOS `open-file`, `--open-path <paths…>` argv, and second instances. Each
   folder goes to `POST /_daemon/open` on the local daemon in order, so an
   outside folder becomes a persisted root (covering open, 0066), exactly as
-  `servef [path]` does. Each distinct project gets a window at
-  `servef-app://local/?project=<p>`; a window already showing it is reused.
+  `srcz [path]` does. Each distinct project gets a window at
+  `srcz-app://local/?project=<p>`; a window already showing it is reused.
 - At most 8 folders per request (the daemon's open-level cap, 0066); the
   rest are skipped with one report.
 - Failures (daemon not ready, a file, a missing folder) are collected into
@@ -47,15 +47,15 @@ only local users and processes can trigger (the trust of running
   so it is never trusted for paths. Paths go only into a JSON request body;
   nothing runs a shell.
 - macOS: a `public.folder` document type at rank `Alternate` delivers Dock
-  and app-icon drops and `open -a servef <dir>` as `open-file`, without
+  and app-icon drops and `open -a srcz <dir>` as `open-file`, without
   claiming folders from Finder. Events from one drop are collected for 100
   ms into one request.
 - Linux: the deb installs a Dolphin service menu
-  (`/usr/share/kio/servicemenus/servef-desktop.desktop`) and a Nemo action
-  (`/usr/share/nemo/actions/servef-desktop.nemo_action`), both running
-  `/opt/servef/servef-desktop --open-path %F`. The main entry keeps only
-  `x-scheme-handler/servef`: with `inode/directory`, desktops without a
-  folder default would pick servef as the folder opener, and every
+  (`/usr/share/kio/servicemenus/srcz-desktop.desktop`) and a Nemo action
+  (`/usr/share/nemo/actions/srcz-desktop.nemo_action`), both running
+  `/opt/srcz/srcz-desktop --open-path %F`. The main entry keeps only
+  `x-scheme-handler/srcz`: with `inode/directory`, desktops without a
+  folder default would pick srcz as the folder opener, and every
   `xdg-open <dir>` would add a daemon root.
 - Nautilus, Thunar, the AppImage, and Finder's context menu get documented
   recipes the user creates (`site/src/pages/desktop.mdx`); the app installs
@@ -69,20 +69,20 @@ only local users and processes can trigger (the trust of running
 - macOS (packaged only): `app.setLoginItemSettings({openAtLogin})`
   (SMAppService). `requires-approval` shows how to allow it in System
   Settings > General > Login Items, with a button that opens it.
-- Linux: writes `$XDG_CONFIG_HOME/autostart/servef-desktop.desktop` (atomic,
+- Linux: writes `$XDG_CONFIG_HOME/autostart/srcz-desktop.desktop` (atomic,
   mode 0644; `~/.config` when unset or relative) and removes only that file
   on uncheck. Exec is the installed executable, or `$APPIMAGE` for an
   AppImage, quoted per the Desktop Entry spec. An entry another tool wrote
   under that id counts as enabled.
 - Unpackaged builds offer no toggle, except Linux with the test seam
-  `SERVEF_DESKTOP_AUTOSTART_DIR`, so development never registers a dev
+  `SRCZ_DESKTOP_AUTOSTART_DIR`, so development never registers a dev
   Electron. Login launches are normal launches with a window: Linux has no
   tray, and SMAppService ignores hidden starts.
 - Failures show the error and where to change it by hand.
 
 ### Deferred
 
-- Windows: the daemon is Unix-socket only, bare `servef` uses browser mode,
+- Windows: the daemon is Unix-socket only, bare `srcz` uses browser mode,
   and Explorer menus need installer registry writes plus signing.
 - Signing, notarization, auto-update, and the Homebrew cask (0068).
 - A shipped Finder Quick Action and Nautilus menu: they need native code or

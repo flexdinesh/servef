@@ -11,10 +11,10 @@ import (
 
 func TestParseNotifications(t *testing.T) {
 	valid := func() map[string]any {
-		return map[string]any{"project": "/code/servef", "commits": true, "branches": true, "edits": false, "walkthroughs": true}
+		return map[string]any{"project": "/code/srcz", "commits": true, "branches": true, "edits": false, "walkthroughs": true}
 	}
 	got, ok := ParseNotifications(valid())
-	want := Notifications{Project: "/code/servef", Commits: true, Branches: true, Walkthroughs: true}
+	want := Notifications{Project: "/code/srcz", Commits: true, Branches: true, Walkthroughs: true}
 	if !ok || got != want {
 		t.Errorf("ParseNotifications = %+v, %v; want %+v", got, ok, want)
 	}

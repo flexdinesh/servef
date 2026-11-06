@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-10T10:21:43.635Z",
-  "title": "Design System: servef",
+  "title": "Design System: srcz",
   "extensions": {
     "colorMeta": {
       "bg": {
@@ -549,7 +549,7 @@
   ],
   "narrative": {
     "northStar": "VS Code editor",
-    "overview": "servef follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local Markdown central.\n\nWorkspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.",
+    "overview": "srcz follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Neutral surfaces, flat rows, subtle boundaries, and restrained controls keep local Markdown central.\n\nWorkspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.",
     "keyCharacteristics": [
       "Compact editor navigation.",
       "Flat, subtle, neutral surfaces.",
@@ -577,7 +577,7 @@
       "Don't center preview prose or substitute generic heading/body tokens for the preview scale.",
       "Don't introduce decorative gradients, pill containers, heavy shadows, or cards around document sections.",
       "Don't rely on color alone for selection, focus, errors, or status.",
-      "Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/servef/internal/web/dist/` directly."
+      "Don't require a CDN, frontend sidecar, or system JavaScript runtime in production; build and embed assets, never edit `apps/srcz/internal/web/dist/` directly."
     ]
   }
 }

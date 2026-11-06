@@ -6,7 +6,7 @@
 
 ## Context
 
-servef rescans on every request (0007) but the browser only asks when the
+srcz rescans on every request (0007) but the browser only asks when the
 user navigates, refreshes, or returns to the window. With an editor or an
 agent changing files beside the browser, the tree, the open document, and
 Source Control go stale while the user watches. Focus-based rereads (0024,
@@ -81,9 +81,9 @@ project. Several tabs can show several projects, or the same one.
   wait for focus or Refresh.
 - Tools that rewrite the index often (`git status`, editor git integrations)
   reread Source Control each time, at most once per batch.
-- A busy tree at most doubles servef's reads: one batch per 500 ms to 2 s.
+- A busy tree at most doubles srcz's reads: one batch per 500 ms to 2 s.
 - Browsers allow six HTTP/1.1 connections per origin; hidden tabs close
   their streams, so streams number the visible windows. Sharing one stream
   across tabs (a SharedWorker) is deferred until that limit is hit.
-- servef adds one dependency, `github.com/fsnotify/fsnotify`; the binary
+- srcz adds one dependency, `github.com/fsnotify/fsnotify`; the binary
   stays self-contained.

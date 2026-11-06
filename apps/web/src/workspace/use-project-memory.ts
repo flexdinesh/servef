@@ -1,4 +1,4 @@
-import type { PageData } from "@servef/contracts"
+import type { PageData } from "@srcz/contracts"
 import { useEffect, useMemo, useState } from "react"
 
 import { filePaths } from "../api/page-data.ts"

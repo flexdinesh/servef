@@ -7,11 +7,11 @@ import path from "node:path"
 // covering notes, line ranges, previews, an image, a snapshot, every compare
 // kind, and a step whose code changed. Fixed IDs replace them on each start.
 
-const port = process.env.SERVEF_DEV_SERVER_PORT || "8080"
+const port = process.env.SRCZ_DEV_SERVER_PORT || "8080"
 const origin = `http://127.0.0.1:${port}`
 const root = path.resolve(import.meta.dirname, "..")
 const library = path.join(root, "testdata/markdown")
-const fixture = process.env.SERVEF_BROWSER_GIT_ROOT || path.join(root, ".dev/git-fixture")
+const fixture = process.env.SRCZ_BROWSER_GIT_ROOT || path.join(root, ".dev/git-fixture")
 
 // The server compiles with go run first, so wait up to two minutes for it.
 async function waitForServer(): Promise<boolean> {
@@ -44,7 +44,7 @@ function libraryTour() {
     steps: [
       {
         title: "What this covers",
-        body: "The library is servef's shared development and test corpus. A step with lines opens Source with the narration under the range; a step without lines opens the file's usual view with the narration above it.\n\nStep with **Ctrl+Right** and **Ctrl+Left**, or press Present.",
+        body: "The library is srcz's shared development and test corpus. A step with lines opens Source with the narration under the range; a step without lines opens the file's usual view with the narration above it.\n\nStep with **Ctrl+Right** and **Ctrl+Left**, or press Present.",
       },
       {
         title: "The index links every guide",
@@ -63,7 +63,7 @@ function libraryTour() {
       },
       {
         title: "Two build stages",
-        body: "Dockerfiles are matched by name, not extension. The first stage builds the binary:\n\n```dockerfile\nRUN go build -o /servef .\n```",
+        body: "Dockerfiles are matched by name, not extension. The first stage builds the binary:\n\n```dockerfile\nRUN go build -o /srcz .\n```",
         file: { path: "code/Dockerfile", lines: [1, 4] },
       },
       {
@@ -78,7 +78,7 @@ function libraryTour() {
       },
       {
         title: "Written against an older base image",
-        body: "This step expected Go 1.22. The file moved on, so servef says the code changed after the step was written.",
+        body: "This step expected Go 1.22. The file moved on, so srcz says the code changed after the step was written.",
         file: { path: "code/Dockerfile", lines: [1, 1], expect: "FROM golang:1.22 AS build" },
       },
     ],

@@ -1,4 +1,4 @@
-module dagger/servef-validation
+module dagger/srcz-validation
 
 go 1.26.8
 

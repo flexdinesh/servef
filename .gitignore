@@ -1,6 +1,6 @@
 # Local binaries
-/servef
-/servef.exe
+/srcz
+/srcz.exe
 /bin/
 /node_modules/
 /apps/web/node_modules/
@@ -11,7 +11,7 @@
 /.impeccable/review/
 
 # Built frontend assets; never committed to any branch or tag (decision 0079)
-/apps/servef/internal/web/dist/
+/apps/srcz/internal/web/dist/
 
 # Go test and coverage output
 /*.test
@@ -27,7 +27,7 @@
 # go.sum stays authoritative.
 /go.work.sum
 
-# Desktop app builds (apps/desktop): mygo build output and the servef
+# Desktop app builds (apps/desktop): mygo build output and the srcz
 # binary it bundles.
 /apps/desktop/build/
 /apps/desktop/resources/bin/

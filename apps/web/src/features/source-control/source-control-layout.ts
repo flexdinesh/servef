@@ -1,11 +1,11 @@
-import { isCommitRange, type CommitRange } from "@servef/contracts"
+import { isCommitRange, type CommitRange } from "@srcz/contracts"
 import { isRecord } from "../../api/http.ts"
 
 // Source Control's layout, commit range, and chosen base branches,
-// remembered in this browser under servef-source-control (decisions 0027,
+// remembered in this browser under srcz-source-control (decisions 0027,
 // 0035, 0040). Pure except for readLayout/writeLayout, which never throw.
 
-export const LAYOUT_STORAGE_KEY = "servef-source-control"
+export const LAYOUT_STORAGE_KEY = "srcz-source-control"
 
 // Panes stack in this order, always (decision 0040).
 export const paneIds = ["working", "commits", "branches"] as const

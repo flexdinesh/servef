@@ -6,7 +6,7 @@
 ## Context
 
 JSON and YAML were the only formattable families. HTML, CSS, and JavaScript
-are often minified or unevenly indented. `servef` must stay one Go binary,
+are often minified or unevenly indented. `srcz` must stay one Go binary,
 and Format must preserve meaningful values (0003). Pure-Go options did not:
 esbuild drops comments and rewrites literals (`'x'` → `"x"`, `0xFF` → `255`),
 jsbeautifier-go corrupts modern syntax (`#p`, `??`, `?.`), and gohtml splits

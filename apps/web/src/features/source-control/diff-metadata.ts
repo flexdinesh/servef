@@ -1,6 +1,6 @@
 import type { ChangeContent, ChangeTypes, ContextContent, FileContents, FileDiffMetadata, Hunk } from "@pierre/diffs"
 
-import type { DiffBlock, DiffHunk, LineDiff } from "@servef/contracts"
+import type { DiffBlock, DiffHunk, LineDiff } from "@srcz/contracts"
 
 // fileDiffMetadata lays the server's line diff (decision 0083) out as the
 // FileDiffMetadata Pierre renders, over both whole sides, as Pierre's own

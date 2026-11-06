@@ -1,9 +1,9 @@
 import { formatBytes } from "../../lib/format-bytes.ts"
-import type { LanguageServerStatus, NavigationStatus } from "@servef/contracts"
+import type { LanguageServerStatus, NavigationStatus } from "@srcz/contracts"
 
 // LANGUAGE_SERVER_HEADER opts a navigation request into language servers. A
 // header, not a query parameter, so other sites cannot start servers.
-export const LANGUAGE_SERVER_HEADER = "X-Servef-Language-Servers"
+export const LANGUAGE_SERVER_HEADER = "X-Srcz-Language-Servers"
 
 export function navigationStatusQuery(project: string, path: string, refresh: boolean): string {
   const query = new URLSearchParams({ project, path })

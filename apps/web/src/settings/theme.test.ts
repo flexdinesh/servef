@@ -47,9 +47,9 @@ test("light themes resolve light", () => {
   for (const theme of light) assert.equal(resolveTheme(theme, true), "light")
 })
 
-test("theme options list Auto, Servef Light, and Servef Dark, then named themes by label", () => {
+test("theme options list Auto, Source Zero Light, and Source Zero Dark, then named themes by label", () => {
   const labels = themeOptions.map((option) => option.label)
-  assert.deepEqual(labels.slice(0, 3), ["Auto", "Servef Light", "Servef Dark"])
+  assert.deepEqual(labels.slice(0, 3), ["Auto", "Source Zero Light", "Source Zero Dark"])
   const named = labels.slice(3)
   assert.deepEqual(named, named.toSorted((a, b) => a.localeCompare(b)))
   assert.equal(themeOptions.length, 28)

@@ -11,7 +11,7 @@ import { ListButton } from "../../components/ui/list-row.tsx"
 import { Chevron } from "../../components/ui/section-toggle.tsx"
 import { TextField } from "../../components/ui/text-field.tsx"
 import { isAbort } from "../../api/http.ts"
-import type { ProjectsResponse } from "@servef/contracts"
+import type { ProjectsResponse } from "@srcz/contracts"
 import { fetchProjects } from "../../api/projects-data.ts"
 import { desktopBridge } from "../../lib/desktop-bridge.ts"
 import { useDelayedFlag } from "../../lib/use-delayed-flag.ts"
@@ -60,7 +60,7 @@ interface WelcomeTabProps {
 
 // WelcomeTab (decision 0052) starts a session: open a project, a file, or a
 // command; see the open project's branch, changes, and walkthroughs; switch
-// among the served projects; and learn what servef does by doing it. The
+// among the served projects; and learn what srcz does by doing it. The
 // desktop app also offers Open folder…, which its bridge runs.
 export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, project, roots }: WelcomeTabProps) {
   const lines = projectLines(facts)
@@ -73,7 +73,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
     <div className="welcome">
       <header className="welcome-header">
         <p className="welcome-meta">Serving {roots.join(", ")}</p>
-        <h1 className="welcome-title">servef</h1>
+        <h1 className="welcome-title">Source Zero</h1>
         <p className="welcome-tagline">Browse, search, and review local files.</p>
       </header>
       <div className="welcome-columns">

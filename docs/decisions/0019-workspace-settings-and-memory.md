@@ -16,7 +16,7 @@ and project switches.
   result counts, a modified-only filter, and an explicit clear-search action.
   Keep its header and footer visible within the viewport. Mobile categories
   become a horizontal row.
-- Extend `servef-workspaces-v2` with optional folder expansion per absolute
+- Extend `srcz-workspaces-v2` with optional folder expansion per absolute
   project path. Missing expansion preserves the existing default; an empty
   array means fully collapsed. Validate remembered folders against the fresh
   tree. Preserve folders hidden by filename filtering. Search and filters stay

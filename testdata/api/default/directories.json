@@ -1,8 +1,8 @@
 {
-  "path": "/home/user/markdown/servef",
+  "path": "/home/user/markdown/srcz",
   "directories": [
-    { "name": ".github", "path": "/home/user/markdown/servef/.github", "isProject": false },
-    { "name": "main", "path": "/home/user/markdown/servef/main", "isProject": true },
-    { "name": "wt-feat-project-picker", "path": "/home/user/markdown/servef/wt-feat-project-picker", "isProject": true }
+    { "name": ".github", "path": "/home/user/markdown/srcz/.github", "isProject": false },
+    { "name": "main", "path": "/home/user/markdown/srcz/main", "isProject": true },
+    { "name": "wt-feat-project-picker", "path": "/home/user/markdown/srcz/wt-feat-project-picker", "isProject": true }
   ]
 }

@@ -11,25 +11,25 @@
 
 ## Context
 
-The web UI is the source of truth for servef's interface; the desktop app
+The web UI is the source of truth for srcz's interface; the desktop app
 adds what only a native shell can do. 0072 deferred reveal in file manager,
 a Dock menu with recent folders, and launcher actions. Users also expect
 OS context menus in a desktop app and to drop a folder on a window. Open in
-editor is dropped: servef does not guess editors.
+editor is dropped: srcz does not guess editors.
 
 ## Decision
 
 ### Bridge v2
 
-- `window.servefDesktop` is `{version: 2, openFolder(), showAppMenu?(x, y),
+- `window.srczDesktop` is `{version: 2, openFolder(), showAppMenu?(x, y),
   revealPath(project, path), showContextMenu(items, x, y)}`, still exposed
-  to `servef-app://local` frames only (0070). Remote, CLI, http, and app
+  to `srcz-app://local` frames only (0070). Remote, CLI, http, and app
   page windows get no bridge.
 - The UI accepts any integer version from 1 and feature-detects each
   method; a version 1 bridge has only `openFolder` and `showAppMenu`.
   Browsers have no bridge and are unchanged.
 - Main validates every message as v1 does: the sender frame must be
-  `servef-app://local`, and every payload is checked for types and bounds
+  `srcz-app://local`, and every payload is checked for types and bounds
   before use. Invalid requests are dropped without a dialog.
 
 ### Reveal in file manager

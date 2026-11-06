@@ -25,7 +25,7 @@ never applied, linked worktrees read no `info/exclude`, and a worktree's
   git directory. A `.git` file is always ignored.
 - Outside a repository, only `.gitignore` files apply, as before.
 - Ignored files stay browsable in the tree; content search and navigation
-  locations skip them. servef reads git files directly and never runs `git`.
+  locations skip them. srcz reads git files directly and never runs `git`.
 
 ## Consequences
 

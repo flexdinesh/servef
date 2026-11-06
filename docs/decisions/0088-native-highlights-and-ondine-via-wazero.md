@@ -16,7 +16,7 @@ cgo, no web view.
 ## Decision
 
 Run both modules under wazero (v1.12, its compiler) in generic
-`packages/mygo` packages that import nothing from servef:
+`packages/mygo` packages that import nothing from srcz:
 
 - `highlights`: the embedded module, called as `dist/highlighter.js` calls
   it (header in page 0, input at 64 KiB, output mode 3, UTF-16 line
@@ -40,7 +40,7 @@ Run both modules under wazero (v1.12, its compiler) in generic
   the compiler's garbage to the system. A disk entry wazero rejects
   (`compilationcache: checksum mismatch`) clears the directory and compiles
   again, then in memory alone. The native app keeps it in the user cache
-  directory (`servef-native/wasm`, about 7 MiB) and warms Highlights at
+  directory (`srcz-native/wasm`, about 7 MiB) and warms Highlights at
   launch.
 - `svgdraw`: draws Ondine's SVG with mygo's Painter (shapes, paths, arcs,
   groups, nested viewports, transforms, strokes, fills, dashes, opacity,
@@ -66,7 +66,7 @@ validation input), and when Go's tokens or SVG differ from the goldens
 Ondine's LICENSE, and wazero's.
 
 `apps/native` drops Chroma. `internal/highlight` mirrors
-`syntax-highlight.ts` and `syntax-theme.ts` (servef's eight syntax
+`syntax-highlight.ts` and `syntax-theme.ts` (srcz's eight syntax
 categories plus inserted, deleted, link, italic, and bold), and its test
 compares native spans with the rows `highlightLines` renders
 (`apps/native/scripts/web-highlights.ts`), and hashes the mirrored web files

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { isCompareStatsResponse, type CompareStatsResponse, type FileStats } from "@servef/contracts"
+import { isCompareStatsResponse, type CompareStatsResponse, type FileStats } from "@srcz/contracts"
 import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON } from "../../api/http.ts"
 import { boundedCache } from "../../lib/bounded-cache.ts"

@@ -5,10 +5,10 @@ import path from "node:path"
 
 import { expect, test } from "@playwright/test"
 
-// `servef --remote --web` over real TLS, in the built binary (decision 0098).
+// `srcz --remote --web` over real TLS, in the built binary (decision 0098).
 // The dev proxy every other spec runs behind has no TLS or token.
-const binary = process.env.SERVEF_BROWSER_BINARY ?? ""
-test.skip(binary === "", "needs the built servef binary")
+const binary = process.env.SRCZ_BROWSER_BINARY ?? ""
+test.skip(binary === "", "needs the built srcz binary")
 
 test("the browser link signs in once, and the server counts the page as a UI", async ({ page, browser }) => {
   const home = mkdtempSync(path.join(tmpdir(), "sfw-"))
@@ -26,13 +26,13 @@ test("the browser link signs in once, and the server counts the page as a UI", a
     XDG_RUNTIME_DIR: run,
     NO_COLOR: "1",
   }
-  const servef = (...args: string[]) => execFileSync(binary, args, { env, encoding: "utf8" })
+  const srcz = (...args: string[]) => execFileSync(binary, args, { env, encoding: "utf8" })
   const clients = () => {
-    const status: unknown = JSON.parse(servef("remote", "status", "--json"))
+    const status: unknown = JSON.parse(srcz("remote", "status", "--json"))
     return typeof status === "object" && status !== null && "clients" in status ? status.clients : null
   }
   try {
-    const printed = servef(project, "--remote", "--web", "--host", "127.0.0.1", "--port", "0")
+    const printed = srcz(project, "--remote", "--web", "--host", "127.0.0.1", "--port", "0")
     const link = /web:\s+(https:\S+)/.exec(printed)?.[1]
     expect(link, printed).toBeTruthy()
     const signIn = new URL(link ?? "")
@@ -52,7 +52,7 @@ test("the browser link signs in once, and the server counts the page as a UI", a
     // The token leaves the address bar, and history, for an HttpOnly cookie.
     expect(signedIn.url()).not.toContain("token")
     const cookies = await context.cookies()
-    expect(cookies.map((cookie) => [cookie.name, cookie.httpOnly, cookie.secure, cookie.sameSite])).toEqual([["servef_remote", true, true, "Strict"]])
+    expect(cookies.map((cookie) => [cookie.name, cookie.httpOnly, cookie.secure, cookie.sameSite])).toEqual([["srcz_remote", true, true, "Strict"]])
     expect(await signedIn.evaluate(() => document.cookie)).toBe("")
 
     await signedIn.goto(`${signIn.origin}/view?${new URLSearchParams({ project, path: "guide.md" }).toString()}`)
@@ -64,7 +64,7 @@ test("the browser link signs in once, and the server counts the page as a UI", a
     await context.close()
   } finally {
     await page.close()
-    servef("daemon", "stop")
+    srcz("daemon", "stop")
     rmSync(home, { recursive: true, force: true })
   }
 })

@@ -7,14 +7,14 @@
 - Revises: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)
   (Releases; the Homebrew cask), [0073](0073-install-scripts.md) (edge
   scripts; Homebrew and `go install`),
-  [0070](0070-desktop-ssh-connections.md) (`servefMissing` instructions),
+  [0070](0070-desktop-ssh-connections.md) (`srczMissing` instructions),
   [0074](0074-landing-page-and-cloudflare-pages.md) (install tabs)
 
 ## Context
 
 0021 committed the built frontend on release tags and a force-pushed `edge`
 branch so `go install` worked. Since the `apps/` layout (0078) the Go module
-is no longer at the repository root, so `go install github.com/flexdinesh/servef`
+is no longer at the repository root, so `go install github.com/flexdinesh/srcz`
 works only for older tags, and `@edge` no longer builds. The Homebrew tap
 needed a cross-repository token and a pull request per release. The edge
 scripts (0073) cloned `edge` and built on the target machine with Go or
@@ -24,11 +24,11 @@ commit and handed it between jobs as a git bundle.
 
 ## Decision
 
-- servef ships only as GitHub release assets installed by the scripts in
+- srcz ships only as GitHub release assets installed by the scripts in
   `scripts/`. Homebrew and `go install` are not supported install paths; the
   tap job, `scripts/generate-homebrew-formula.ts`, its tests, and
   `HOMEBREW_TAP_TOKEN` are removed. Built files are never committed to any
-  branch or tag; `main` ignores `apps/servef/internal/web/dist/`.
+  branch or tag; `main` ignores `apps/srcz/internal/web/dist/`.
 - `.github/workflows/build.yml` is a reusable workflow that builds every asset
   for one commit and version: CLI archives (linux and darwin, amd64 and
   arm64), Electron packages (Linux AppImage and deb, macOS dmg and zip, per
@@ -58,7 +58,7 @@ commit and handed it between jobs as a git bundle.
   `desktop-install`); only `latest` (stable) and `edge` differ.
 - `uninstall.sh` still removes copies in Go's install directory and prints
   removal commands for Homebrew and mise copies, which earlier installs left.
-- The desktop app's `servefMissing`, `servefTooOld`, and `mismatch`
+- The desktop app's `srczMissing`, `srczTooOld`, and `mismatch`
   instructions offer the install script instead of Homebrew and Go. The
   landing page's install tabs are the CLI and desktop scripts.
 - The native app (`apps/native`) will ship in stable and edge too. Phase 5

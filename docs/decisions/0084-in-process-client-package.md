@@ -7,7 +7,7 @@
 
 ## Context
 
-0080 put all three transports in `apps/servef/pkg/client`. The in-process
+0080 put all three transports in `apps/srcz/pkg/client`. The in-process
 transport imports `internal/app` and `internal/daemon`, which link the
 server and its embedded web app (`internal/web/dist`). Every importer of
 `pkg/client` paid for that, including HTTP-only clients such as the native
@@ -16,10 +16,10 @@ app it never serves.
 
 ## Decision
 
-- `apps/servef/pkg/client` holds the `Client` interface, `Error`,
+- `apps/srcz/pkg/client` holds the `Client` interface, `Error`,
   `ErrNoDaemon`, `Stream`, and the HTTP transports (`NewTCP`, `NewUnix`).
   It imports only `pkg/contract`.
-- The in-process transport is `apps/servef/pkg/client/inprocess`
+- The in-process transport is `apps/srcz/pkg/client/inprocess`
   (`inprocess.New(application, control)`, type `inprocess.Client`), with the
   same behavior as 0080's `NewInProcess`.
 - `client.NewStream` builds a `Stream` for transports outside the package.

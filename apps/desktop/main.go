@@ -1,7 +1,7 @@
-// Command servef-desktop is the servef desktop app (decisions 0094, 0095, 0098):
+// Command srcz-desktop is the srcz desktop app (decisions 0094, 0095, 0098):
 // one window per connection, whose page is the web app, served through a custom
 // scheme from the local daemon or a saved remote server. It runs once per user:
-// links (servef://) and `servef-desktop [path]` reach the first instance.
+// links (srcz://) and `srcz-desktop [path]` reach the first instance.
 package main
 
 import (
@@ -19,13 +19,13 @@ import (
 
 	"github.com/egoist/mygo"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
-	"github.com/flexdinesh/servef/apps/desktop/internal/link"
-	"github.com/flexdinesh/servef/apps/desktop/internal/notifier"
-	"github.com/flexdinesh/servef/apps/desktop/internal/proxy"
-	"github.com/flexdinesh/servef/pkg/client"
-	"github.com/flexdinesh/servef/pkg/connection"
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/connect"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/link"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/notifier"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/proxy"
+	"github.com/flexdinesh/srcz/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/connection"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
 // Stamped by release builds with -ldflags -X.
@@ -78,7 +78,7 @@ func main() {
 	app.notify = app.showWarning
 	storePath, err := connection.DefaultStorePath()
 	if err != nil {
-		log.Printf("servef-desktop: %v", err)
+		log.Printf("srcz-desktop: %v", err)
 	}
 	app.store = connection.NewStore(storePath)
 	app.connections = proxy.NewConnections(app.daemon, app.store)
@@ -190,7 +190,7 @@ func (h *host) openWindow(start string) {
 			return
 		}
 		if err := page.LoadURL(proxy.OriginOf(connectionHost) + proxy.CrashedPath); err != nil {
-			log.Printf("servef-desktop: %v", err)
+			log.Printf("srcz-desktop: %v", err)
 		}
 	})
 }
@@ -206,9 +206,9 @@ func windowStateKey(connectionHost string) string {
 
 func windowTitle(connectionHost, label string) string {
 	if connectionHost == proxy.Host || label == "" {
-		return "servef"
+		return "Source Zero"
 	}
-	return "servef: " + label
+	return "Source Zero: " + label
 }
 
 // hostOf is a page URL's connection.
@@ -249,7 +249,7 @@ func (h *host) startURL(args []string, workingDir string) string {
 	start := proxy.Origin + "/"
 	request, err := link.FromArgs(args, workingDir)
 	if err != nil {
-		h.report("Not a servef link.", err.Error())
+		h.report("Not a srcz link.", err.Error())
 		return start
 	}
 	if request.Link != nil {
@@ -272,7 +272,7 @@ func (h *host) startURL(args []string, workingDir string) string {
 func (h *host) handleArgs(args []string, workingDir string) {
 	request, err := link.FromArgs(args, workingDir)
 	if err != nil {
-		h.report("Not a servef link.", err.Error())
+		h.report("Not a srcz link.", err.Error())
 		return
 	}
 	switch {
@@ -286,7 +286,7 @@ func (h *host) handleArgs(args []string, workingDir string) {
 func (h *host) openLink(raw string) {
 	target, err := link.Parse(raw)
 	if err != nil {
-		h.report("Not a servef link.", raw)
+		h.report("Not a srcz link.", raw)
 		return
 	}
 	h.loadLink(target)
@@ -303,7 +303,7 @@ func (h *host) loadLink(target link.Target) {
 }
 
 func (h *host) reportNotPaired() {
-	h.report("This computer has no such servef connection", "Run `servef connect` with the string `servef <path> --remote` prints on the server.")
+	h.report("This computer has no such srcz connection", "Run `srcz connect` with the string `srcz <path> --remote` prints on the server.")
 }
 
 func (h *host) openAndLoad(folder string) {
@@ -316,7 +316,7 @@ func (h *host) openAndLoad(folder string) {
 }
 
 // openFolder serves folder through /_daemon/open, adding a root as
-// `servef [path]` does, and returns its project's landing page.
+// `srcz [path]` does, and returns its project's landing page.
 func (h *host) openFolder(folder string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), connect.EnsureTimeout+15*time.Second)
 	defer cancel()
@@ -353,7 +353,7 @@ func (h *host) load(target string) {
 		return
 	}
 	if err := window.Page().LoadURL(target); err != nil {
-		log.Printf("servef-desktop: %v", err)
+		log.Printf("srcz-desktop: %v", err)
 	}
 }
 
@@ -365,7 +365,7 @@ func onlyNamesConnection(raw string) bool {
 
 // report tells the user something failed without blocking anything.
 func (h *host) report(message, detail string) {
-	log.Printf("servef-desktop: %s: %s", message, detail)
+	log.Printf("srcz-desktop: %s: %s", message, detail)
 	h.notify(message, detail)
 }
 
@@ -381,5 +381,5 @@ func appURL(target link.Target) string {
 }
 
 func versionLine() string {
-	return strings.TrimSpace("servef-desktop " + version + " " + commit)
+	return strings.TrimSpace("srcz-desktop " + version + " " + commit)
 }

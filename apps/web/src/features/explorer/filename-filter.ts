@@ -1,4 +1,4 @@
-import type { TreeNode } from "@servef/contracts"
+import type { TreeNode } from "@srcz/contracts"
 
 // Filename filters are comma-separated Go path.Match globs, matched
 // case-insensitively against the file base name.

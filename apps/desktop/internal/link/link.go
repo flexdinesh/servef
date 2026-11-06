@@ -1,12 +1,12 @@
-// Package link parses what opens servef-desktop: servef:// links and
+// Package link parses what opens srcz-desktop: srcz:// links and
 // command-line arguments. It is pure: no I/O.
 //
 // The CLI prints these links (decisions 0063, 0098):
 //
-//	servef://local/?project=<abs>&path=<rel>   the local daemon
-//	servef://<id>/?project=<abs>&path=<rel>    a saved connection
+//	srcz://local/?project=<abs>&path=<rel>   the local daemon
+//	srcz://<id>/?project=<abs>&path=<rel>    a saved connection
 //
-// A link names a connection and carries no secret: `servef connect` saves the
+// A link names a connection and carries no secret: `srcz connect` saves the
 // credential. The route is "/" or "/view". The query and fragment are the web
 // app's.
 package link
@@ -17,11 +17,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
-// Scheme is the URL scheme servef-desktop registers.
-const Scheme = "servef"
+// Scheme is the URL scheme srcz-desktop registers.
+const Scheme = "srcz"
 
 // Target is a parsed link: where it points and what it shows there.
 type Target struct {
@@ -34,10 +34,10 @@ type Target struct {
 	Fragment string
 }
 
-// ErrInvalid reports a link servef-desktop does not open.
-var ErrInvalid = errors.New("not a servef link")
+// ErrInvalid reports a link srcz-desktop does not open.
+var ErrInvalid = errors.New("not a srcz link")
 
-// Parse parses a servef:// link.
+// Parse parses a srcz:// link.
 func Parse(raw string) (Target, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Scheme != Scheme || u.User != nil || u.Opaque != "" {
@@ -67,15 +67,15 @@ func (t Target) AppPath() string {
 
 // Request is what one launch, or a second instance, asks for.
 type Request struct {
-	// Link is set when the arguments carry a servef:// link.
+	// Link is set when the arguments carry a srcz:// link.
 	Link *Target
 	// Path is an absolute directory to open through the daemon, as
-	// `servef [path]` does; empty when none was given.
+	// `srcz [path]` does; empty when none was given.
 	Path string
 }
 
 // FromArgs reads a command line, without the program name: the first
-// servef:// argument wins; otherwise the first argument that is not a
+// srcz:// argument wins; otherwise the first argument that is not a
 // flag names a path, made absolute against workingDir. A link that does not
 // parse is an error.
 func FromArgs(args []string, workingDir string) (Request, error) {

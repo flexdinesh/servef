@@ -26,7 +26,7 @@ scrolling by hand from change to change.
   Unified. There is no hunk-index anchor; hunk indexes shift when the file
   changes or whitespace is ignored.
 - A local `pnpm patch` of `@pierre/diffs` adds `onInstance` to React
-  `FileDiff`. servef reads row positions (`getLinePosition`) and expands gaps
+  `FileDiff`. srcz reads row positions (`getLinePosition`) and expands gaps
   (`expandHunk`) through the instance and scrolls the document pane itself.
 - Document navigation leaves scroll alone for fragment-only changes when no
   document is selected: a diff tab owns its scroll.

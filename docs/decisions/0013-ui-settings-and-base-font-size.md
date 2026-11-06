@@ -15,10 +15,10 @@ from one value. Users want to set the interface size.
   gear or Cmd/Ctrl+, styled after VS Code settings (search, grouped items,
   modified marker, per-item reset, Reset all). Changes apply immediately.
 - Persist only values that differ from defaults, as JSON under
-  `servef-settings` in `localStorage`; Reset all removes the key. Invalid or
+  `srcz-settings` in `localStorage`; Reset all removes the key. Invalid or
   unreadable stored values fall back to defaults per field.
 - Theme is a setting: it moves from its footer menu into Settings (a select)
-  but keeps its `servef-theme` key, so existing choices survive. Reset all
+  but keeps its `srcz-theme` key, so existing choices survive. Reset all
   restores System.
 - The first setting is Font Size: whole pixels, 10–20, default 13. It sets
   `--font-size-base`; `html` maps it to `1rem = base × 16 / 13`, so the scale

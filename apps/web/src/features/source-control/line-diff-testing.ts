@@ -1,6 +1,6 @@
 import { parseDiffFromFile } from "@pierre/diffs"
 
-import type { DiffBlock, DiffGap, DiffHunk, LineDiff } from "@servef/contracts"
+import type { DiffBlock, DiffGap, DiffHunk, LineDiff } from "@srcz/contracts"
 
 // lineDiffOf is the line diff the server sends for two texts (decision
 // 0083), read back from Pierre's own parse, which lays out the same hunks.

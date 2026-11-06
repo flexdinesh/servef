@@ -1,13 +1,13 @@
 #!/bin/sh
 # Packages the desktop app (decisions 0094, 0095) for one OS, per
-# architecture, bundling the servef binary of the matching CLI archive.
+# architecture, bundling the srcz binary of the matching CLI archive.
 #
 #   apps/desktop/scripts/package.sh linux|darwin VERSION ARCHIVES OUT [ARCHES]
 #
 # ARCHES is a space-separated list, amd64 and arm64 by default.
-# ARCHIVES holds servef_<VERSION>_<os>_<arch>.tar.gz (build.yml's cli job).
-# Writes servef-desktop_<VERSION>_linux_<arch>.tar.gz (mygo's archive) or
-# servef-desktop_<VERSION>_darwin_<arch>.zip (the ad-hoc signed app) to OUT.
+# ARCHIVES holds srcz_<VERSION>_<os>_<arch>.tar.gz (build.yml's cli job).
+# Writes srcz-desktop_<VERSION>_linux_<arch>.tar.gz (mygo's archive) or
+# srcz-desktop_<VERSION>_darwin_<arch>.zip (the ad-hoc signed app) to OUT.
 # Runs from the repository root with Go 1.27 (apps/desktop/go.mod) and jq.
 set -eu
 
@@ -32,19 +32,19 @@ config="$(jq --arg version "$version" '.version = $version' mygo.json)"
 printf '%s\n' "$config" >mygo.json
 
 for arch in $arches; do
-  name="servef_${version}_${os}_${arch}"
+  name="srcz_${version}_${os}_${arch}"
   tmp="$(mktemp -d)"
   tar -xzf "$archives/$name.tar.gz" -C "$tmp"
   mkdir -p resources/bin
-  cp "$tmp/$name/servef" resources/bin/servef
+  cp "$tmp/$name/srcz" resources/bin/srcz
   rm -rf "$tmp" build
 
   export MYGO_LDFLAGS="-X main.version=$version -X main.commit=$commit"
   if [ "$os" = linux ]; then
     go tool mygo build -platform "linux/$arch"
-    mv "build/linux-$arch/servef-desktop-$version-linux-$arch.tar.gz" "$out/servef-desktop_${version}_linux_${arch}.tar.gz"
+    mv "build/linux-$arch/srcz-desktop-$version-linux-$arch.tar.gz" "$out/srcz-desktop_${version}_linux_${arch}.tar.gz"
   else
     go tool mygo build -platform "darwin/$arch" -skip-dmg
-    ditto -c -k --keepParent "build/darwin-$arch/servef-desktop.app" "$out/servef-desktop_${version}_darwin_${arch}.zip"
+    ditto -c -k --keepParent "build/darwin-$arch/srcz-desktop.app" "$out/srcz-desktop_${version}_darwin_${arch}.zip"
   fi
 done

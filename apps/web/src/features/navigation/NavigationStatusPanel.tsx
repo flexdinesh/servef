@@ -3,7 +3,7 @@ import { CheckIcon, CopyIcon } from "lucide-react"
 import { Button } from "../../components/ui/button.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { useClipboardCopy } from "../../lib/clipboard.ts"
-import type { LanguageServerInstall, NavigationStatus } from "@servef/contracts"
+import type { LanguageServerInstall, NavigationStatus } from "@srcz/contracts"
 import { providerLabel, serverSummary } from "./navigation-status.ts"
 
 function InstallCommand({ install }: { install: LanguageServerInstall }) {
@@ -56,7 +56,7 @@ export function NavigationStatusPanel({ status, onCheck, onOpenSetting }: Naviga
         {server && <p>{serverSummary(server, enabled)}</p>}
         {server?.state === "missing" && (
           <>
-            <p>Install {server.name} on the machine running servef, then check again:</p>
+            <p>Install {server.name} on the machine running Source Zero, then check again:</p>
             <ul className="navigation-installs">
               {server.install.map((install) => <InstallCommand key={install.label} install={install} />)}
             </ul>

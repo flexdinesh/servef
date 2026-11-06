@@ -8,7 +8,7 @@
 ## Context
 
 The Vocs site (0026) put the docs Introduction at `/` and was never deployed.
-servef needs a marketing landing page that links to the docs, and the site
+srcz needs a marketing landing page that links to the docs, and the site
 will be hosted on Cloudflare Pages from this monorepo as plain static files.
 The landing is a rough starting point that will change heavily.
 
@@ -34,7 +34,7 @@ The landing is a rough starting point that will change heavily.
   `data-vocs-theme` attribute, so the landing and docs keep one theme.
 - Hosting is Cloudflare Pages Git integration from the repository root
   (`.node-version` selects Node 26), with a filtered pnpm install for
-  `@servef/site...`, `pnpm build:site`, and output `site/dist/public`.
+  `@srcz/site...`, `pnpm build:site`, and output `site/dist/public`.
   Settings are documented in `docs/development.md`; no `wrangler.toml`,
   because Pages build commands and variables live in the dashboard and the
   file would sit at the repository root.

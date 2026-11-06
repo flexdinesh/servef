@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
 // fakeDaemon answers Socket with a real Unix socket a test server listens on.
@@ -117,13 +117,13 @@ func TestRefusals(t *testing.T) {
 		"repeated slash":  Origin + "//_daemon/status",
 		"dot segments":    Origin + "/x/../_daemon/status",
 		"encoded dots":    Origin + "/x/%2e%2e/_daemon/status",
-		"servef control":  Origin + "/_servef/shutdown",
+		"srcz control":    Origin + "/_srcz/shutdown",
 		"encoded slash":   Origin + "/_daemon/..%2fstatus",
 		"encoded after":   Origin + "/_daemon%2f..%2fstatus",
-		"servef dots":     Origin + "/_servef/..%2fstatus",
+		"srcz dots":       Origin + "/_srcz/..%2fstatus",
 		"reached and out": Origin + "/x/%2e%2e/_daemon/..%2fstatus",
 		"two slashes out": Origin + "//_daemon/..%2fstatus",
-		"encoded servef":  Origin + "/_%73ervef/shutdown",
+		"encoded srcz":    Origin + "/_%73rcz/shutdown",
 		"daemon no slash": Origin + "/_daemon",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestForwardsAllowlistedHeadersAndSetsDaemonChecks(t *testing.T) {
 	}))
 	r := request(http.MethodGet, Origin+"/api/page?project=%2Fa%20b&path=x%2Fy#frag", nil)
 	for name, value := range map[string]string{
-		"Accept": "application/json", "Range": "bytes=0-3", "Last-Event-Id": "7", "X-Servef-Language-Servers": "on",
+		"Accept": "application/json", "Range": "bytes=0-3", "Last-Event-Id": "7", "X-Srcz-Language-Servers": "on",
 		"If-None-Match": `"tag"`, "Cookie": "secret", "Authorization": "secret", "Sec-Fetch-Site": "cross-site", "Host": "evil", "Origin": Origin,
 	} {
 		r.Header.Set(name, value)
@@ -186,7 +186,7 @@ func TestForwardsAllowlistedHeadersAndSetsDaemonChecks(t *testing.T) {
 	p.ServeHTTP(recorder, r)
 
 	for name, want := range map[string]string{
-		"Accept": "application/json", "Range": "bytes=0-3", "Last-Event-Id": "7", "X-Servef-Language-Servers": "on", "If-None-Match": `"tag"`,
+		"Accept": "application/json", "Range": "bytes=0-3", "Last-Event-Id": "7", "X-Srcz-Language-Servers": "on", "If-None-Match": `"tag"`,
 		"Sec-Fetch-Site": "same-origin", "Cookie": "", "Authorization": "", "Origin": "",
 	} {
 		if value := got.Header.Get(name); value != want {

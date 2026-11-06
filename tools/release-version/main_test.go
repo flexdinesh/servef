@@ -88,7 +88,7 @@ func TestTagsAtHeadFindsTagsNamingHead(t *testing.T) {
 }
 
 // isolateGit drops inherited GIT_* variables: git hooks export GIT_DIR, which
-// would aim these commands at servef's own repository.
+// would aim these commands at srcz's own repository.
 func isolateGit(t *testing.T) {
 	t.Helper()
 	for _, entry := range os.Environ() {

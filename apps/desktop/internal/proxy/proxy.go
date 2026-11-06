@@ -1,5 +1,5 @@
 // Package proxy serves the app's custom scheme (decisions 0067, 0094, 0098):
-// servef-app://local from the daemon's Unix socket, servef-app://<id> from a
+// srcz-app://local from the daemon's Unix socket, srcz-app://<id> from a
 // saved remote server. Pages reach /api and the web app, never the control
 // endpoints or a credential, and servers see what their checks expect.
 package proxy
@@ -17,18 +17,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
 const (
 	// Scheme is the custom scheme pages load from; Host the local connection.
-	Scheme = "servef-app"
+	Scheme = "srcz-app"
 	Host   = "local"
 	// Origin is the local connection's origin.
 	Origin = Scheme + "://" + Host
 	// CrashedPath is the page shown when the web process keeps crashing. It
 	// is the proxy's own, so it loads whatever the page or the daemon does.
-	CrashedPath = "/__servef-desktop/crashed"
+	CrashedPath = "/__srcz-desktop/crashed"
 
 	// maxBody bounds a request body: past the server's 1 MiB walkthrough
 	// limit, so the server still answers for what it refuses.
@@ -41,7 +41,7 @@ const (
 
 var forwardedRequestHeaders = []string{
 	"Accept", "Accept-Language", "Content-Type", "Range", "If-None-Match",
-	"If-Modified-Since", "Last-Event-Id", "Cache-Control", "X-Servef-Language-Servers",
+	"If-Modified-Since", "Last-Event-Id", "Cache-Control", "X-Srcz-Language-Servers",
 }
 
 var hopByHop = map[string]bool{"Connection": true, "Keep-Alive": true, "Transfer-Encoding": true, "Upgrade": true}
@@ -74,7 +74,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.User != nil {
-		writeError(w, http.StatusNotFound, "unknownConnection", "Unknown servef connection.")
+		writeError(w, http.StatusNotFound, "unknownConnection", "Unknown srcz connection.")
 		return
 	}
 	if control := controlAPI(r.URL.Path); control != "" {
@@ -83,7 +83,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	name := path.Clean("/" + r.URL.Path)
 	if name == CrashedPath {
-		writePage(w, http.StatusOK, "This page crashed", "servef reloaded it once already, and it crashed again.")
+		writePage(w, http.StatusOK, "This page crashed", "srcz reloaded it once already, and it crashed again.")
 		return
 	}
 
@@ -113,7 +113,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var failure *Failure
 		if !errors.As(err, &failure) {
-			failure = &Failure{Status: http.StatusBadGateway, Code: "upstreamFailed", Title: "servef can't reach this server", Detail: err.Error()}
+			failure = &Failure{Status: http.StatusBadGateway, Code: "upstreamFailed", Title: "srcz can't reach this server", Detail: err.Error()}
 		}
 		fail(w, document, failure)
 		return
@@ -155,8 +155,8 @@ func controlAPI(decoded string) string {
 			if strings.HasPrefix(stack[0], "_daemon") {
 				return "daemon"
 			}
-			if strings.HasPrefix(stack[0], "_servef") {
-				return "servef"
+			if strings.HasPrefix(stack[0], "_srcz") {
+				return "srcz"
 			}
 		}
 	}
@@ -254,7 +254,7 @@ func writePage(w http.ResponseWriter, status int, title, detail string) {
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>servef</title>
+	_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>srcz</title>
 <style>body{font:15px/1.5 system-ui,sans-serif;margin:3em;color-scheme:light dark}</style>
 <h1>%s</h1><p>%s</p><p><a href="/">Try again</a></p>
 `, html.EscapeString(title), html.EscapeString(detail))

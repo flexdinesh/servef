@@ -1,6 +1,6 @@
 # Decision records
 
-Short records of decisions that shape servef. Each states the context, the
+Short records of decisions that shape srcz. Each states the context, the
 decision, and its consequences. Supersede a record with a new one instead of
 rewriting history; update `Status` on the old record.
 
@@ -44,14 +44,14 @@ rewriting history; update `Status` on the old record.
 | [0036](0036-omarchy-themes.md) | Omarchy themes and the Color Theme quick pick | Accepted; built-in labels superseded by 0039 |
 | [0037](0037-dark-default-theme.md) | Dark is the default theme | Accepted; labels superseded by 0039 |
 | [0038](0038-mise-dev-tooling-and-env-ports.md) | mise owns dev tooling, tasks, and env-configured dev ports | Accepted |
-| [0039](0039-servef-theme-labels.md) | Servef Light, Servef Dark, and Auto theme labels | Accepted |
+| [0039](0039-srcz-theme-labels.md) | Source Zero Light, Source Zero Dark, and Auto theme labels | Accepted |
 | [0040](0040-source-control-panes-and-review-files-rail.md) | Source Control panes, branch stacks, and the review Files rail | Accepted; commit-row branch chips superseded by 0042 |
-| [0041](0041-white-canvas-servef-light.md) | White canvas for Servef Light | Accepted; white document surface amended by 0043 |
+| [0041](0041-white-canvas-srcz-light.md) | White canvas for Source Zero Light | Accepted; white document surface amended by 0043 |
 | [0042](0042-expandable-commit-rows.md) | Expandable commit rows | Accepted |
-| [0043](0043-grey-document-surface-servef-light.md) | Grey document surface for Servef Light | Accepted; Servef Light values amended by 0044; grey document surface superseded by 0046 |
-| [0044](0044-servef-light-state-contrast.md) | Servef Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Servef Light values amended by 0046 |
+| [0043](0043-grey-document-surface-srcz-light.md) | Grey document surface for Source Zero Light | Accepted; Source Zero Light values amended by 0044; grey document surface superseded by 0046 |
+| [0044](0044-srcz-light-state-contrast.md) | Source Zero Light state and boundary contrast | Accepted; field border and tint-only states amended by 0045; Source Zero Light values amended by 0046 |
 | [0045](0045-selection-marks-and-field-edges.md) | Selection marks and 3:1 field edges | Accepted; activity rail bar removed by 0046 |
-| [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Servef Light, flat tabs and toolbar | Accepted |
+| [0046](0046-slate-greys-and-flat-tabs.md) | Slate greys for Source Zero Light, flat tabs and toolbar | Accepted |
 | [0047](0047-walkthroughs.md) | Walkthroughs | Accepted; publishing without a server added by 0065; application layer by 0087 |
 | [0048](0048-kept-review-tab.md) | The last review tab stays mounted behind other tabs | Accepted |
 | [0049](0049-copyable-agent-instructions.md) | Copyable agent instructions for walkthroughs | Accepted; CLI publish added by 0065 |
@@ -64,16 +64,16 @@ rewriting history; update `Status` on the old record.
 | [0057](0057-quiet-check-runner.md) | Quiet check runner and targeted agent checks | Accepted |
 | [0058](0058-local-dagger-validation.md) | Explicit local Dagger validation before PR work | Boundaries, certification, and PR wrappers superseded by 0059; engine ownership retained |
 | [0059](0059-validation-execution-boundaries.md) | Test isolation and safe host checks before PR work | Accepted; groups revised by 0095; suites and inputs by 0096 |
-| [0060](0060-scope-flags-removed.md) | Scope flags removed; `servef browser` alias | Accepted; bare `servef` clause superseded by 0068 |
+| [0060](0060-scope-flags-removed.md) | Scope flags removed; `srcz browser` alias | Accepted; bare `srcz` clause superseded by 0068 |
 | [0061](0061-daemon-roots-and-leases.md) | Daemon, runtime roots, and project leases | Accepted (leases via 0066; optional TCP listener via 0098) |
 | [0062](0062-desktop-app.md) | Desktop app | Electron shell superseded by 0095 |
-| [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `servef://` URL scheme | Accepted (0065, 0068, 0071); revised by 0076 |
+| [0063](0063-cli-commands-and-url-scheme.md) | CLI commands and the `srcz://` URL scheme | Accepted (0065, 0068, 0071); revised by 0076 |
 | [0064](0064-ssh-remotes.md) | SSH remotes | Superseded by 0095 |
-| [0065](0065-walkthrough-publish-cli.md) | `servef walkthrough publish` without a server | Accepted; revised by 0068, 0069; shared checks by 0087 |
+| [0065](0065-walkthrough-publish-cli.md) | `srcz walkthrough publish` without a server | Accepted; revised by 0068, 0069; shared checks by 0087 |
 | [0066](0066-lease-levels-and-desktop-events.md) | Lease levels, head events, and daemon control events | Accepted; announcements by 0087 |
 | [0067](0067-desktop-shell-and-protocol-proxy.md) | Desktop shell and protocol proxy | Superseded by 0095; proxy rules kept by 0094 |
 | [0068](0068-cli-opens-desktop-app-and-desktop-releases.md) | CLI opens the desktop app; desktop releases | Accepted; revised by 0069, 0072, 0073, 0076, 0079; packages superseded by 0092, then 0095 |
-| [0069](0069-servef-remote-and-ssh-links.md) | `servef remote` and ssh links | Superseded by 0076 |
+| [0069](0069-srcz-remote-and-ssh-links.md) | `srcz remote` and ssh links | Superseded by 0076 |
 | [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Superseded by 0095 |
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Superseded by 0095 |
 | [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Superseded by 0095 |
@@ -96,10 +96,11 @@ rewriting history; update `Status` on the old record.
 | [0089](0089-native-diffs-viewer.md) | Native diffs viewer | Superseded by 0094 |
 | [0090](0090-native-trees-and-pierre-icons.md) | Native trees widget and Pierre icons | Superseded by 0094 |
 | [0091](0091-native-workspace-shell-and-memory.md) | Native workspace shell and memory | Superseded by 0094 |
-| [0092](0092-electron-app-name.md) | The Electron app is named servef-electron | Superseded by 0095 |
+| [0092](0092-electron-app-name.md) | The Electron app is named srcz-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
 | [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
-| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098; notifications return in 0099 |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098; notifications return in 0099; Electron and mygo cleanup dropped by 0100 |
 | [0096](0096-correctness-and-extended-validation.md) | Correctness checks and optional extended validation | Accepted |
-| [0098](0098-remote-connections.md) | Remote connections: `servef --remote` and `servef connect` | Accepted; bridge revised by 0099 |
+| [0098](0098-remote-connections.md) | Remote connections: `srcz --remote` and `srcz connect` | Accepted; bridge revised by 0099 |
 | [0099](0099-desktop-notifications.md) | Desktop notifications | Accepted |
+| [0100](0100-rename-to-srcz.md) | Rename to srcz (Source Zero) | Accepted |

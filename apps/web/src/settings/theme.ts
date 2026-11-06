@@ -1,4 +1,4 @@
-export const THEME_STORAGE_KEY = "servef-theme"
+export const THEME_STORAGE_KEY = "srcz-theme"
 
 export type Theme =
   | "system"
@@ -49,8 +49,8 @@ export interface ThemeOption {
 // built-in themes (decision 0036); their values live in themes.css.
 const themeDefinitions: Record<Theme, Omit<ThemeOption, "value">> = {
   "system": { label: "Auto", scheme: "system" },
-  "light": { label: "Servef Light", scheme: "light" },
-  "dark": { label: "Servef Dark", scheme: "dark" },
+  "light": { label: "Source Zero Light", scheme: "light" },
+  "dark": { label: "Source Zero Dark", scheme: "dark" },
   "catppuccin": { label: "Catppuccin", scheme: "dark" },
   "catppuccin-latte": { label: "Catppuccin Latte", scheme: "light" },
   "dracula": { label: "Dracula", scheme: "dark" },
@@ -95,7 +95,7 @@ function optionRank(value: Theme): number {
   return 3
 }
 
-// themeOptions lists Auto, Servef Light, and Servef Dark, then named themes by label.
+// themeOptions lists Auto, Source Zero Light, and Source Zero Dark, then named themes by label.
 export const themeOptions: readonly ThemeOption[] = Object.keys(themeDefinitions)
   .filter(isTheme)
   .map((value): ThemeOption => ({ value, ...themeDefinitions[value] }))
@@ -133,7 +133,7 @@ export function storeTheme(theme: Theme): void {
 }
 
 function themeColorScheme(meta: HTMLMetaElement): ResolvedTheme | null {
-  const markedScheme = meta.dataset.servefThemeColor
+  const markedScheme = meta.dataset.srczThemeColor
   if (isResolvedTheme(markedScheme)) return markedScheme
 
   const media = meta.media.toLowerCase()
@@ -142,7 +142,7 @@ function themeColorScheme(meta: HTMLMetaElement): ResolvedTheme | null {
     : media.includes("prefers-color-scheme: light")
       ? "light"
       : null
-  if (scheme) meta.dataset.servefThemeColor = scheme
+  if (scheme) meta.dataset.srczThemeColor = scheme
   return scheme
 }
 

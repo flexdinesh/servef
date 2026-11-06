@@ -12,7 +12,7 @@
 
 0085 left walkthroughs in `internal/web`: its handlers rendered narration,
 mapped errors, announced publishes, and owned the 0047 target checks
-(`web.NewWalkthroughTargets`), which `servef walkthrough publish` imported.
+(`web.NewWalkthroughTargets`), which `srcz walkthrough publish` imported.
 The native app (0082) may use only `pkg/contract` and `pkg/client`, which
 had no walkthrough operations.
 

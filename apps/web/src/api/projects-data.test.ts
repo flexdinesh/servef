@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import type { ProjectsResponse } from "@servef/contracts"
+import type { ProjectsResponse } from "@srcz/contracts"
 import { landingProject } from "./projects-data.ts"
 import { emptyMemory, forgetProject, rememberProject } from "../workspace/workspace-memory.ts"
 

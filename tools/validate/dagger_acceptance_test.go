@@ -22,8 +22,8 @@ import (
 
 // This opt-in test exercises the actual engine, not a mocked command runner.
 func TestDaggerIsolationAcceptance(t *testing.T) {
-	if os.Getenv("SERVEF_DAGGER_ACCEPTANCE") != "1" {
-		t.Skip("set SERVEF_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
+	if os.Getenv("SRCZ_DAGGER_ACCEPTANCE") != "1" {
+		t.Skip("set SRCZ_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
@@ -169,8 +169,8 @@ func main(){
 }`
 
 func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
-	if os.Getenv("SERVEF_DAGGER_ACCEPTANCE") != "1" {
-		t.Skip("set SERVEF_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
+	if os.Getenv("SRCZ_DAGGER_ACCEPTANCE") != "1" {
+		t.Skip("set SRCZ_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -255,8 +255,8 @@ func TestDaggerModuleFailureAndDriftAcceptance(t *testing.T) {
 }
 
 func TestDaggerBrowserArtifactsAcceptance(t *testing.T) {
-	if os.Getenv("SERVEF_DAGGER_ACCEPTANCE") != "1" {
-		t.Skip("set SERVEF_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
+	if os.Getenv("SRCZ_DAGGER_ACCEPTANCE") != "1" {
+		t.Skip("set SRCZ_DAGGER_ACCEPTANCE=1 with the explicitly managed engine running")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()

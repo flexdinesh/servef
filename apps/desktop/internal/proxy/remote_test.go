@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
 // pinnedServer is a TLS server with a self-signed certificate, and the
@@ -99,7 +99,7 @@ func TestEveryConnectionRefusesControlAPIsAndOtherOrigins(t *testing.T) {
 	remote := startPinned(t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached = true }))
 	p, _ := remoteProxy(t, remote.saved)
 	origin := OriginOf(remote.saved.ID)
-	for _, path := range []string{"/_daemon/status", "/_servef/remote", "/%5Fdaemon/status", "/x/../_daemon/stop", "/_daemon/..%2fstatus"} {
+	for _, path := range []string{"/_daemon/status", "/_srcz/remote", "/%5Fdaemon/status", "/x/../_daemon/stop", "/_daemon/..%2fstatus"} {
 		recorder := httptest.NewRecorder()
 		p.ServeHTTP(recorder, request(http.MethodGet, origin+path, nil))
 		if recorder.Code != http.StatusForbidden {
@@ -142,7 +142,7 @@ func TestUnknownConnections(t *testing.T) {
 		r.Header.Set("Accept", "text/html")
 		recorder := httptest.NewRecorder()
 		p.ServeHTTP(recorder, r)
-		if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), "servef connect") {
+		if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), "srcz connect") {
 			t.Errorf("%s: status %d, body %q", host, recorder.Code, recorder.Body.String())
 		}
 		recorder = httptest.NewRecorder()
@@ -209,7 +209,7 @@ func TestRemoteFailuresSayWhatToDo(t *testing.T) {
 	})
 }
 
-// `servef connect` with new addresses applies on the next page load, without
+// `srcz connect` with new addresses applies on the next page load, without
 // restarting the app; a page's own requests do not read the file.
 func TestAPageLoadRereadsTheStore(t *testing.T) {
 	first := startPinned(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "first") }))
@@ -258,7 +258,7 @@ func TestAPageLoadRereadsTheStore(t *testing.T) {
 	store.mu.Lock()
 	delete(store.saved, moved.ID)
 	store.mu.Unlock()
-	if got := get("/", "text/html"); !strings.Contains(got, "servef connect") {
+	if got := get("/", "text/html"); !strings.Contains(got, "srcz connect") {
 		t.Errorf("forgotten connection: %q", got)
 	}
 }

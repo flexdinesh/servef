@@ -6,7 +6,7 @@
 
 ## Context
 
-servef runs in a browser tab on a localhost port. Tabs mix with web browsing,
+srcz runs in a browser tab on a localhost port. Tabs mix with web browsing,
 ports 7971 to 7980 shift between runs, and browser storage is origin-scoped,
 so tabs, last project, and settings fragment across ports. Notifications and
 native actions (reveal in file manager, open in editor) are unavailable. The
@@ -27,7 +27,7 @@ servers and work on remote machines (0064).
   servers found through the control registry (`internal/control`), and ssh
   remotes (0064).
 - Each connection is proxied through a custom protocol,
-  `servef-app://<connection>/`, so every server has one stable origin. Memory
+  `srcz-app://<connection>/`, so every server has one stable origin. Memory
   in localStorage survives port changes, and CSP `'self'` holds.
 
 ### Lifetime and notifications
@@ -41,7 +41,7 @@ servers and work on remote machines (0064).
 ### Nothing installed
 
 - The app never installs or copies anything, locally or on a remote. When
-  something is missing (servef on PATH, a remote binary, a protocol match),
+  something is missing (srcz on PATH, a remote binary, a protocol match),
   it shows host-specific instructions and a Retry, as language-server install
   guidance does (0018).
 
@@ -57,7 +57,7 @@ servers and work on remote machines (0064).
 
 - Signing and notarization, auto-update, and per-OS packaging are new release
   costs.
-- Electron memory is measured separately from servef RSS and language-server
-  RSS; the memory priority for servef itself is unchanged.
-- The browser remains a supported client (`servef browser`, 0060); features
+- Electron memory is measured separately from srcz RSS and language-server
+  RSS; the memory priority for srcz itself is unchanged.
+- The browser remains a supported client (`srcz browser`, 0060); features
   that need the bridge degrade there.

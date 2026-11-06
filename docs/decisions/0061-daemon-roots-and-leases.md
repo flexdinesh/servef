@@ -5,7 +5,7 @@
 
 ## Context
 
-Each `servef` run is a separate HTTP server on a port from 7971 to 7980,
+Each `srcz` run is a separate HTTP server on a port from 7971 to 7980,
 with roots fixed at startup (0009). A desktop app (0062), terminal commands
 that open a path in it (0063), and agents publishing walkthroughs (0047)
 want one long-lived local process that accepts new roots without a restart
@@ -18,7 +18,7 @@ switch) for projects with no open tab.
 
 ### Process
 
-- `servef daemon` is composed from the same server code as the CLI: the same
+- `srcz daemon` is composed from the same server code as the CLI: the same
   handlers, index, git, document, watch, and walkthrough packages. Only
   transport and root management differ.
 - Transport is a Unix domain socket only, mode 0600, in a private per-user
@@ -64,15 +64,15 @@ period, then drops to the next held level.
 
 Process and Roots are implemented in `internal/runtime/` (web app, HTTP
 server, and shutdown order shared with the CLI), `internal/daemon/`, and
-`servef daemon run|ensure|stop|status` (`cmd/daemon.go`).
+`srcz daemon run|ensure|stop|status` (`cmd/daemon.go`).
 
 ### Socket
 
-- Linux: `$XDG_RUNTIME_DIR/servef/daemon.sock` when that variable is set and
-  absolute; otherwise `${TMPDIR:-/tmp}/servef-<uid>/daemon.sock`. macOS:
-  `$TMPDIR/servef/daemon.sock` (`$TMPDIR` is per-user). A path over the
+- Linux: `$XDG_RUNTIME_DIR/srcz/daemon.sock` when that variable is set and
+  absolute; otherwise `${TMPDIR:-/tmp}/srcz-<uid>/daemon.sock`. macOS:
+  `$TMPDIR/srcz/daemon.sock` (`$TMPDIR` is per-user). A path over the
   `sun_path` limit (Linux 107 bytes, macOS 103) falls back to
-  `/tmp/servef-<uid>/daemon.sock`. `--socket` overrides it on every
+  `/tmp/srcz-<uid>/daemon.sock`. `--socket` overrides it on every
   subcommand.
 - The directory is created 0700 or verified: a symlink or a directory owned
   by another user is refused; an owned directory open to group or others is
@@ -104,14 +104,14 @@ There is no root removal.
 ### Protocol
 
 - `ProtocolVersion` is 1. Clients block only on a protocol mismatch, with
-  instructions to run `servef daemon stop` or use a matching build; a release
+  instructions to run `srcz daemon stop` or use a matching build; a release
   mismatch is reported, never blocking.
 - `/_daemon/status` and `/_daemon/stop` keep their shape across protocol
   versions, so any client can report and stop any daemon.
 
 ### Roots file
 
-- `os.UserConfigDir()/servef/roots.json` (`$XDG_CONFIG_HOME` on Linux,
+- `os.UserConfigDir()/srcz/roots.json` (`$XDG_CONFIG_HOME` on Linux,
   `~/Library/Application Support` on macOS): `{"version":1,"roots":[...]}`,
   file 0600 in a 0700 directory, written atomically (temporary file, fsync,
   rename).
@@ -137,7 +137,7 @@ There is no root removal.
 
 ### Process
 
-- `servef daemon ensure` starts `servef daemon run` in its own session
+- `srcz daemon ensure` starts `srcz daemon run` in its own session
   (`setsid`), working directory `/`, stdin `/dev/null`, output to
   `<socket>.log` (truncated per start), and waits up to 10 seconds for it to
   answer. Depth flags apply only to a daemon it starts.

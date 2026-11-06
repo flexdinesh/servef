@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flexdinesh/servef/apps/desktop/internal/connect"
-	"github.com/flexdinesh/servef/pkg/connection"
+	"github.com/flexdinesh/srcz/apps/desktop/internal/connect"
+	"github.com/flexdinesh/srcz/pkg/connection"
 )
 
 // Failure is a request that got no answer: JSON for the page's requests, a
@@ -57,7 +57,7 @@ type Store interface {
 }
 
 // Connections resolves "local" to the daemon and connection ids to saved
-// remote servers. A page load reads the store again, so running `servef
+// remote servers. A page load reads the store again, so running `srcz
 // connect` with new addresses applies to a window already open.
 type Connections struct {
 	local *Local
@@ -91,7 +91,7 @@ func (c *Connections) Resolve(host string, document bool) (Upstream, *Failure) {
 		if existing != nil {
 			return existing, nil
 		}
-		return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "connectionsUnavailable", Title: "servef can't read its saved connections", Detail: err.Error()}
+		return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "connectionsUnavailable", Title: "srcz can't read its saved connections", Detail: err.Error()}
 	}
 	if !found {
 		if existing != nil {
@@ -105,7 +105,7 @@ func (c *Connections) Resolve(host string, document bool) (Upstream, *Failure) {
 	}
 	created, err := newRemote(saved)
 	if err != nil {
-		return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "connectionsUnavailable", Title: "servef can't read this saved connection", Detail: err.Error()}
+		return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "connectionsUnavailable", Title: "srcz can't read this saved connection", Detail: err.Error()}
 	}
 	if existing != nil {
 		existing.Close()
@@ -149,8 +149,8 @@ func notPaired() *Failure {
 	return &Failure{
 		Status: http.StatusNotFound,
 		Code:   "unknownConnection",
-		Title:  "This computer has no such servef connection",
-		Detail: "Run `servef connect` with the string `servef <path> --remote` prints on the server.",
+		Title:  "This computer has no such srcz connection",
+		Detail: "Run `srcz connect` with the string `srcz <path> --remote` prints on the server.",
 	}
 }
 
@@ -221,7 +221,7 @@ func (l *Local) Send(r *http.Request, body []byte, document bool) (*http.Respons
 		}
 		l.setSocket(socket)
 		if !readOnly(r) {
-			return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "daemonRestarted", Title: "servef restarted its daemon", Detail: "The servef daemon restarted; the request was not sent. Try again."}
+			return nil, &Failure{Status: http.StatusServiceUnavailable, Code: "daemonRestarted", Title: "srcz restarted its daemon", Detail: "The srcz daemon restarted; the request was not sent. Try again."}
 		}
 		response, err = l.send(r, nil)
 	}
@@ -242,7 +242,7 @@ func (l *Local) send(r *http.Request, body []byte) (*http.Response, error) {
 }
 
 func daemonFailure(err error) *Failure {
-	return &Failure{Status: http.StatusServiceUnavailable, Code: "daemonUnavailable", Title: "servef can't reach its daemon", Detail: err.Error()}
+	return &Failure{Status: http.StatusServiceUnavailable, Code: "daemonUnavailable", Title: "srcz can't reach its daemon", Detail: err.Error()}
 }
 
 // Remote is a saved connection to a server over pinned TLS. The page never
@@ -284,7 +284,7 @@ func (r *Remote) Send(request *http.Request, body []byte, document bool) (*http.
 			Status: http.StatusBadGateway,
 			Code:   "remoteIdentityChanged",
 			Title:  r.saved.Label + " has a different identity",
-			Detail: "Its credential was rotated, or something else answers at this address. Run `servef <path> --remote` there, then `servef connect` with the new string.",
+			Detail: "Its credential was rotated, or something else answers at this address. Run `srcz <path> --remote` there, then `srcz connect` with the new string.",
 		}
 	}
 	if err != nil {
@@ -296,7 +296,7 @@ func (r *Remote) Send(request *http.Request, body []byte, document bool) (*http.
 			Status: http.StatusUnauthorized,
 			Code:   "remoteRefused",
 			Title:  r.saved.Label + " refused this connection",
-			Detail: "Run `servef <path> --remote` there, then `servef connect` with the new string.",
+			Detail: "Run `srcz <path> --remote` there, then `srcz connect` with the new string.",
 		}
 	}
 	return response, nil
@@ -306,9 +306,9 @@ func (r *Remote) unreachable(err error) *Failure {
 	return &Failure{
 		Status:      http.StatusServiceUnavailable,
 		Code:        "remoteUnavailable",
-		Title:       "servef can't reach " + r.saved.Label,
-		Detail:      "servef stops on a server when no UI needs it. Run `servef <path> --remote` there, then try again.",
-		jsonMessage: fmt.Sprintf("servef can't reach %s: %v", r.saved.Label, err),
+		Title:       "srcz can't reach " + r.saved.Label,
+		Detail:      "srcz stops on a server when no UI needs it. Run `srcz <path> --remote` there, then try again.",
+		jsonMessage: fmt.Sprintf("srcz can't reach %s: %v", r.saved.Label, err),
 	}
 }
 

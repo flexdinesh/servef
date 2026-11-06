@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { definitionOutcome, emptyMessage, navigationQuery, type NavigationKind } from "./code-navigation.ts"
 import { fetchJSON, type RequestFailure } from "../../api/http.ts"
-import { isNavigationResult, type NavigationLocation, type NavigationResult } from "@servef/contracts"
+import { isNavigationResult, type NavigationLocation, type NavigationResult } from "@srcz/contracts"
 import { LANGUAGE_SERVER_HEADER } from "./navigation-status.ts"
 import type { SourceTarget } from "./source-position.ts"
 

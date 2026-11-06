@@ -232,7 +232,7 @@ func (a app) executeHost(ctx context.Context, source, out, private string, m inp
 	if err := tools.unchanged(); err != nil {
 		return err
 	}
-	env := append(hostEnvironment(private, source, tools), "SERVEF_CHECK_LOG_DIR="+filepath.Join(output, "logs"))
+	env := append(hostEnvironment(private, source, tools), "SRCZ_CHECK_LOG_DIR="+filepath.Join(output, "logs"))
 	if err := os.WriteFile(filepath.Join(output, "environment.txt"), []byte(identity+"\n"+strings.Join(env, "\n")+"\n"), 0600); err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (a app) hostDependencies(ctx context.Context, source, private string, m inp
 func (a app) hostGoModules(ctx context.Context, private string, m inputManifest, tools hostTools, log io.Writer, files []*os.File) error {
 	var inputs []entry
 	for _, e := range m.Files {
-		if e.Path == "go.work" || e.Path == "apps/servef/go.mod" || e.Path == "apps/servef/go.sum" || e.Path == "tools/go.mod" || e.Path == "tools/validate/host.go" {
+		if e.Path == "go.work" || e.Path == "apps/srcz/go.mod" || e.Path == "apps/srcz/go.sum" || e.Path == "tools/go.mod" || e.Path == "tools/validate/host.go" {
 			inputs = append(inputs, e)
 		}
 	}

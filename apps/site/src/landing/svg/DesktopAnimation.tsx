@@ -1,16 +1,16 @@
-// A servef:// link from a terminal opens a project in the desktop app's window.
+// A srcz:// link from a terminal opens a project in the desktop app's window.
 // Animation lives in landing.css (desk-*).
 export function DesktopAnimation() {
   return (
     <svg className="landing-svg" viewBox="0 0 560 340" role="img" aria-labelledby="desk-svg-title">
-      <title id="desk-svg-title">A servef link from a terminal opens a project in the desktop app's window</title>
+      <title id="desk-svg-title">A srcz link from a terminal opens a project in the desktop app's window</title>
 
       {/* Link from a terminal */}
       <g className="desk-link">
         <rect className="s-window" x="10" y="14" width="300" height="34" rx="17" />
         <circle className="s-accent" cx="30" cy="31" r="6" />
         <text x="44" y="35" fontSize="11">
-          servef://local/?project=/srv/api
+          srcz://local/?project=/srv/api
         </text>
       </g>
 
@@ -22,7 +22,7 @@ export function DesktopAnimation() {
         <circle className="s-dot" cx="72" cy="81" r="4" />
         <circle className="s-dot" cx="86" cy="81" r="4" />
         <text x="190" y="85" fontSize="11">
-          api · servef
+          api · Source Zero
         </text>
         <line className="s-divider" x1="150" y1="98" x2="150" y2="330" />
         <rect className="s-line" x="56" y="116" width="70" height="7" rx="3.5" />

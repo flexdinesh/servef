@@ -6,7 +6,7 @@
 import { isRecord } from "../api/http.ts"
 import { includesTab, parseStoredTab, sameTab, storedTab, welcomeTab, type StoredTab, type WorkspaceTab } from "./workspace-tabs.ts"
 
-export const MEMORY_STORAGE_KEY = "servef-workspaces-v2"
+export const MEMORY_STORAGE_KEY = "srcz-workspaces-v2"
 
 const maxProjects = 100
 const maxSessions = 20

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180" role="img" aria-labelledby="title description">
-  <title id="title">servef preview</title>
-  <desc id="description">A blue image icon beside the words servef preview.</desc>
+  <title id="title">srcz preview</title>
+  <desc id="description">A blue image icon beside the words srcz preview.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#eef4ff"/>
@@ -12,5 +12,5 @@
   <rect x="65" y="59" width="62" height="62" rx="10" fill="#fff"/>
   <circle cx="111" cy="75" r="6" fill="#93b4ff"/>
   <path d="m72 111 17-20 12 13 9-10 12 17H72Z" fill="#2563eb"/>
-  <text x="170" y="103" fill="#20242c" font-family="system-ui, sans-serif" font-size="38" font-weight="700" letter-spacing="-.5">servef preview</text>
+  <text x="170" y="103" fill="#20242c" font-family="system-ui, sans-serif" font-size="38" font-weight="700" letter-spacing="-.5">srcz preview</text>
 </svg>

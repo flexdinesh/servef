@@ -7,9 +7,9 @@
 
 ## Context
 
-servef offered five named palettes beside Light, Dark, and System. Omarchy
+srcz offered five named palettes beside Light, Dark, and System. Omarchy
 ships 23 built-in themes, each a `colors.toml` palette (mode, accent,
-background and foreground tiers, ANSI hues). Copied as-is they fail servef's
+background and foreground tiers, ANSI hues). Copied as-is they fail srcz's
 roles: muted text is below 4.5:1 in 18 of them, light-theme yellows sit near
 2:1, and several palettes collapse red, yellow, and green into one hue
 (Hackerman, Lumon, Vantablack, White), which erases diff additions and
@@ -25,13 +25,13 @@ compare them quickly.
   Rose Pine, Solitude, Starship, Tokyo Night, Vantablack, White. IDs are
   Omarchy's folder names; labels are Omarchy's names. Light, Dark, and System
   are unchanged.
-- Omarchy's palettes replace servef's Catppuccin Mocha, Gruvbox Dark, and
+- Omarchy's palettes replace srcz's Catppuccin Mocha, Gruvbox Dark, and
   Nord. Stored `catppuccin-mocha` and `gruvbox-dark` read as `catppuccin` and
   `gruvbox`.
 - `theme.ts` holds one table of label and polarity per theme; validation,
   resolution, and option order derive from it. Options list System, Light,
   Dark, then named themes by label.
-- Each palette maps to servef tokens once by a fixed rule (recorded in
+- Each palette maps to srcz tokens once by a fixed rule (recorded in
   `themes.css`), then stays hand-owned CSS. No runtime parsing or generator.
 - Readable first: text, links, status, and syntax tokens reach 4.5:1 and
   comments 3:1 on `surface` and `surface-secondary`; only OKLCH lightness

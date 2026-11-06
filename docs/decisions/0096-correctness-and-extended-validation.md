@@ -59,7 +59,7 @@ Cosmetic changes need visual review. Performance and compatibility regressions
 need an explicit extended run. Input selection is a correctness boundary and
 must retain fixtures, runtime configuration, generated contracts, and shared
 tooling dependencies. Cache identity must change when cgo libraries change.
-Desktop tidy also needs tests from the replaced servef module because their
+Desktop tidy also needs tests from the replaced srcz module because their
 imports affect checksums; those remain validation inputs, even though they are
 excluded from the application binary build.
 Existing cancellation, certificate revocation, artifact retention, engine

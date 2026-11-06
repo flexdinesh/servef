@@ -80,7 +80,7 @@ for (const entry of [
     await page.goForward()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
 
-    await page.getByRole("link", { name: "servef home" }).click()
+    await page.getByRole("link", { name: "srcz home" }).click()
     await expect(page.getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
     await page.goBack()
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBe(firstScroll)
@@ -176,5 +176,5 @@ test("sidebar pointer resize clamps and double click resets width", async ({ pag
   await expect(separator).toHaveAttribute("aria-valuenow", "480")
   await separator.dblclick()
   await expect(separator).toHaveAttribute("aria-valuenow", "288")
-  expect(await page.evaluate(() => localStorage.getItem("servef-sidebar-width"))).toBe("288")
+  expect(await page.evaluate(() => localStorage.getItem("srcz-sidebar-width"))).toBe("288")
 })

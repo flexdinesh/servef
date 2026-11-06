@@ -1,22 +1,22 @@
 {
-  "name": "servef-desktop",
-  "slug": "servef-desktop",
-  "identifier": "io.github.flexdinesh.servef.desktop",
+  "name": "srcz-desktop",
+  "slug": "srcz-desktop",
+  "identifier": "io.github.flexdinesh.srcz.desktop",
   "version": "0.0.0",
   "copyright": "© 2026 Dinesh Pandiyan",
   "out": "build",
   "urlSchemes": [
-    "servef"
+    "srcz"
   ],
   "macos": {
     "signingIdentity": "-"
   },
   "linux": {
-    "comment": "Browse local files with servef",
+    "comment": "Browse local files with Source Zero",
     "categories": [
       "Development"
     ],
     "webview": true,
-    "command": "servef-desktop"
+    "command": "srcz-desktop"
   }
 }

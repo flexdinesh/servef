@@ -19,9 +19,9 @@ web UI it mirrors, and later sessions need the queue and the method.
 
 ### Tooling: `packages/mygo`
 
-- A Go module of its own (`github.com/flexdinesh/servef/packages/mygo`,
+- A Go module of its own (`github.com/flexdinesh/srcz/packages/mygo`,
   Go 1.27.3, mygo v0.7.4) outside `go.work`, generic for any mygo app: it
-  imports nothing from servef (a boundary test enforces it). `apps/native`
+  imports nothing from srcz (a boundary test enforces it). `apps/native`
   requires it through `replace => ../../packages/mygo` and may import it.
 - `agent/session` hosts any `ui.View` in a `ui.Tester` (CPU rasterizer, no
   display) and speaks mygo's automation protocol (`plugins/automation`:
@@ -56,10 +56,10 @@ web UI it mirrors, and later sessions need the queue and the method.
   need the built app, which links `plugins/automation` only in `-tags e2e`
   builds (`apps/native/agent_e2e.go`). Release builds never carry it.
 
-### Servef wiring
+### srcz wiring
 
 - `apps/native/internal/agenthost` runs the real view (`view.App` over
-  `workspace.Model`) in a session, against `fakeservef` serving
+  `workspace.Model`) in a session, against `fakesrcz` serving
   `testdata/api/default` (the files `pnpm dev:mock` serves) by default, or
   a real daemon socket or server. `cmd/native-agent` (tag `agent`) is its
   command; `--fixtures-server` serves only the fixtures over TCP.
@@ -82,7 +82,7 @@ web UI it mirrors, and later sessions need the queue and the method.
 - `skills/mygo-parity/SKILL.md` (linked at `.claude/skills/mygo-parity`)
   is the generic loop: pick a row, read the web behavior, write the
   scenario, implement, `ui.Tester` semantic tests, shots, web | native
-  compare, review, PR. Its last section holds servef's paths.
+  compare, review, PR. Its last section holds srcz's paths.
 - One PR per milestone (M1 ports, M2 to M11 features, as the matrix lists).
 
 ### User decisions
@@ -114,6 +114,6 @@ be checked on Linux.
 ## Consequences
 
 - Agents can run, see, and compare the native app on a headless machine.
-- The tooling is mygo's, not servef's, so it can move out unchanged.
+- The tooling is mygo's, not srcz's, so it can move out unchanged.
 - Pixels are compared by eye per milestone, not gated: layouts differ by
   design, and the heat map only points at differences.

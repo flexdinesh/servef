@@ -1,10 +1,10 @@
 # Desktop app
 
-The servef desktop app, `servef-desktop`, shows the same UI as `servef browser`
+The Source Zero desktop app, `srcz-desktop`, shows the same UI as `srcz browser`
 in one window of its own: the operating system's web view, with native menus
 and dialogs, through the [mygo](https://github.com/egoist/mygo) toolkit. It talks
-to one long-lived servef daemon per user over a private socket, so the window
-and `servef .` share the same server.
+to one long-lived Source Zero daemon per user over a private socket, so the window
+and `srcz .` share the same server.
 
 It shows projects on this computer. The app is a preview: macOS builds are not
 notarized and there is no auto-update. It has not been run on a Mac yet.
@@ -14,7 +14,7 @@ notarized and there is no auto-update. It has not been run on a Mac yet.
 macOS and Linux, no sudo:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh
 ```
 
 The latest stable release does not carry the app yet, so that script stops and
@@ -22,7 +22,7 @@ says so. Until the next release, use latest `main` (the `edge` prerelease; no
 macOS Intel builds):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop-edge.sh | sh
 ```
 
 Linux needs WebKitGTK 4.1 and GTK 3; the install script warns when it can't find
@@ -32,54 +32,54 @@ them. On Debian and Ubuntu:
 sudo apt install libwebkit2gtk-4.1-0
 ```
 
-The app carries its own `servef` binary for the daemon. The scripts link
-`servef-desktop` into `~/.local/bin` (or `~/bin`). The `servef` CLI is a separate
+The app carries its own `srcz` binary for the daemon. The scripts link
+`srcz-desktop` into `~/.local/bin` (or `~/bin`). The `srcz` CLI is a separate
 install ([Getting started](/docs/getting-started)); it is what opens the app with
-`servef .` and publishes walkthroughs.
+`srcz .` and publishes walkthroughs.
 
-- macOS: `servef-desktop.app` goes to `/Applications` (or `~/Applications`).
+- macOS: `srcz-desktop.app` goes to `/Applications` (or `~/Applications`).
   Builds are ad-hoc signed, not notarized. curl marks nothing as downloaded, so
   Gatekeeper does not block the first launch. A browser-downloaded zip needs one
   right-click, **Open**, or:
 
   ```sh
-  xattr -dr com.apple.quarantine /Applications/servef-desktop.app
+  xattr -dr com.apple.quarantine /Applications/srcz-desktop.app
   ```
 
-- Linux: the app goes to `~/.local/share/servef-desktop/app/`, with a desktop
-  entry that opens `servef://` links and an icon.
+- Linux: the app goes to `~/.local/share/srcz-desktop/app/`, with a desktop
+  entry that opens `srcz://` links and an icon.
 
 Run a script again to update; quit the app first. Packages are on
-[GitHub Releases](https://github.com/flexdinesh/servef/releases):
-`servef-desktop_<version>_linux_<arch>.tar.gz` and
-`servef-desktop_<version>_darwin_<arch>.zip`. Unpacking one by hand registers no
-`servef://` handler on Linux, so `servef .` serves in a browser instead.
+[GitHub Releases](https://github.com/flexdinesh/srcz/releases):
+`srcz-desktop_<version>_linux_<arch>.tar.gz` and
+`srcz-desktop_<version>_darwin_<arch>.zip`. Unpacking one by hand registers no
+`srcz://` handler on Linux, so `srcz .` serves in a browser instead.
 
 ## Open from a terminal
 
 ```sh
-servef-desktop .
+srcz-desktop .
 ```
 
 opens the current directory. Only one copy runs: a second command or link opens
 in the running app. With the CLI installed:
 
 ```sh
-servef .
+srcz .
 ```
 
-servef checks the directory, starts the daemon if needed, adds the directory to
-it, opens the project in the app, and exits. `--no-open` prints the `servef://`
+Source Zero checks the directory, starts the daemon if needed, adds the directory to
+it, opens the project in the app, and exits. `--no-open` prints the `srcz://`
 link instead.
 
-servef serves in a browser instead, as `servef browser` does, when:
+Source Zero serves in a browser instead, as `srcz browser` does, when:
 
 - `--host` or `--port` is set;
 - the app is not installed or does not open (prints install instructions);
 - the daemon cannot start or speaks another protocol (prints why).
 
-`servef browser [path]` always serves in a browser. On a machine without a UI
-(an SSH session, or Linux without a display), `servef [path]` tells you to use
+`srcz browser [path]` always serves in a browser. On a machine without a UI
+(an SSH session, or Linux without a display), `srcz [path]` tells you to use
 `--remote` ([Remote hosts](/docs/remote)).
 
 ## Tabs
@@ -90,13 +90,13 @@ when no tabs are open.
 
 ## Links
 
-`servef://local/?project=/abs/path` opens a project, and
-`servef://local/view?…` takes the same query as a browser URL (`path`, `wt`,
-`review`, …). Links never add directories; only `servef [path]`, `servef-desktop
-[path]`, and **File › Open Folder…** do. `servef walkthrough publish` prints a
-`servef://` link when the app can show the walkthrough.
+`srcz://local/?project=/abs/path` opens a project, and
+`srcz://local/view?…` takes the same query as a browser URL (`path`, `wt`,
+`review`, …). Links never add directories; only `srcz [path]`, `srcz-desktop
+[path]`, and **File › Open Folder…** do. `srcz walkthrough publish` prints a
+`srcz://` link when the app can show the walkthrough.
 
-`servef://r-<id>/…` opens a server you connected to with `servef connect`
+`srcz://r-<id>/…` opens a server you connected to with `srcz connect`
 ([Remote hosts](/docs/remote)), with the same routes. Links carry no address and
 no secret; the app looks up a connection saved on this computer.
 
@@ -104,7 +104,7 @@ no secret; the app looks up a connection saved on this computer.
 
 Right-click a file or folder in the Explorer, or a tab, for the app's native
 menu. **Reveal in File Manager** shows the file in Finder or your Linux file
-manager; the Explorer menu also copies a file's full or relative path. servef
+manager; the Explorer menu also copies a file's full or relative path. Source Zero
 reveals only files inside a project it serves, and never follows a link out of
 the project.
 
@@ -127,18 +127,18 @@ uncommitted changes does not notify again. Click a notification to open what it
 is about.
 
 Settings warns you if this computer has no notification service or macOS is
-blocking servef. Each notification is limited to one per project and kind every
+blocking Source Zero. Each notification is limited to one per project and kind every
 30 seconds.
 
 ## Not in the desktop app
 
 These went with the earlier Electron app and are not coming back as they were:
 
-- ssh connections and the Connect page. `servef connect` opens other machines
+- ssh connections and the Connect page. `srcz connect` opens other machines
   ([Remote hosts](/docs/remote)).
 - Open at Login, recent folders, the Dock menu, and dropping folders on the
   window or the Dock.
-- **Open in servef** in file managers, and deb and AppImage packages.
+- **Open in srcz** in file managers, and deb and AppImage packages.
 
 ## WebKit
 
@@ -151,35 +151,19 @@ WebKit in a browser but not yet in this app. Known differences from a browser:
 - Text shifts slightly when a document gains a scrollbar.
 - A review link to a line deep in a very large diff may not reach it.
 
-## Moving from the Electron app
-
-Run the install script. Your Electron app data (recent folders, ssh connections)
-stays where it was, unused; open tabs and other page state start fresh, because
-WebKit keeps its own, and the saved window size resets.
-
-- Linux, script install: the script removes the old AppImage, desktop entry, icon,
-  file manager actions, and login entry, and makes the new entry the `servef://`
-  handler.
-- Linux, deb: the script stops until you remove it: `sudo apt remove servef-desktop`
-  or `sudo apt remove servef-electron`.
-- macOS: the script removes `servef.app`. Remove a Quick Action you made, and a
-  Login Item in **System Settings › General**.
-- A Thunar action you made stays: the script reports it. Remove it in **Edit ›
-  Configure custom actions…**.
-
 ## Uninstall
 
 The uninstall script removes the app and CLI however you installed them in your
-home directory, along with what the Electron app and `servef-mygo` left. Quit the
+home directory. Quit the
 app first; if a daemon is running, the script stops and prints the command to end
-it. It prints the command for a deb or a copy
+it. It prints the command for a copy
 another tool installed, and keeps and lists your data:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh
 ```
 
-Page state lives in `~/.local/share/servef-desktop/` beside the app on Linux, and
-in `~/Library/WebKit/io.github.flexdinesh.servef.desktop` on macOS. The daemon's
-remembered directories are in `servef/roots.json` under `~/.config` or
+Page state lives in `~/.local/share/srcz-desktop/` beside the app on Linux, and
+in `~/Library/WebKit/io.github.flexdinesh.srcz.desktop` on macOS. The daemon's
+remembered directories are in `srcz/roots.json` under `~/.config` or
 `~/Library/Application Support`.

@@ -47,18 +47,18 @@ test("devServerUrls uses the selected port and at most one LAN address", () => {
 })
 
 test("devServerPort reads a port or falls back when unset or empty", () => {
-  assert.equal(devServerPort({}, "SERVEF_DEV_WEB_PORT", 5173), 5173)
-  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "" }, "SERVEF_DEV_WEB_PORT", 5173), 5173)
-  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "5199" }, "SERVEF_DEV_WEB_PORT", 5173), 5199)
-  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "1" }, "SERVEF_DEV_WEB_PORT", 5173), 1)
-  assert.equal(devServerPort({ SERVEF_DEV_WEB_PORT: "65535" }, "SERVEF_DEV_WEB_PORT", 5173), 65535)
+  assert.equal(devServerPort({}, "SRCZ_DEV_WEB_PORT", 5173), 5173)
+  assert.equal(devServerPort({ SRCZ_DEV_WEB_PORT: "" }, "SRCZ_DEV_WEB_PORT", 5173), 5173)
+  assert.equal(devServerPort({ SRCZ_DEV_WEB_PORT: "5199" }, "SRCZ_DEV_WEB_PORT", 5173), 5199)
+  assert.equal(devServerPort({ SRCZ_DEV_WEB_PORT: "1" }, "SRCZ_DEV_WEB_PORT", 5173), 1)
+  assert.equal(devServerPort({ SRCZ_DEV_WEB_PORT: "65535" }, "SRCZ_DEV_WEB_PORT", 5173), 65535)
 })
 
 test("devServerPort rejects values that are not TCP ports", () => {
   for (const raw of ["0", "65536", "-1", "80.5", " 80", "0x50", "1e3", "abc"]) {
     assert.throws(
-      () => devServerPort({ SERVEF_DEV_WEB_PORT: raw }, "SERVEF_DEV_WEB_PORT", 5173),
-      { message: `SERVEF_DEV_WEB_PORT must be a port from 1 to 65535, got "${raw}"` },
+      () => devServerPort({ SRCZ_DEV_WEB_PORT: raw }, "SRCZ_DEV_WEB_PORT", 5173),
+      { message: `SRCZ_DEV_WEB_PORT must be a port from 1 to 65535, got "${raw}"` },
     )
   }
 })
@@ -149,7 +149,7 @@ test("mockFixtureName maps supported API scenarios", () => {
   }
   assert.deepEqual(mockFixtureName("GET", "/changes?project=%2Fwork"), { name: "changes.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/diff?project=%2Fwork&path=code%2Fmain.go"), { name: "diff-modified.json", status: 200 })
-  assert.deepEqual(mockFixtureName("GET", "/diff?path=config%2Fservef.toml"), { name: "diff-deleted.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", "/diff?path=config%2Fsrcz.toml"), { name: "diff-deleted.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/diff?path=guides%2Fnew-guide.md"), { name: "diff-untracked.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/diff?path=guides%2Fmissing.md"), { name: "error-not-found.json", status: 404 })
   assert.deepEqual(mockFixtureName("GET", "/diff?path=constructor"), { name: "error-not-found.json", status: 404 })
@@ -178,7 +178,7 @@ test("mockFixtureName maps supported API scenarios", () => {
   assert.deepEqual(mockFixtureName("GET", "/diff?path=code%2Fmain.go&branch=1&base=missing"), unknownBase)
   assert.deepEqual(mockFixtureName("GET", "/walkthroughs?project=%2Fwork"), { name: "walkthroughs.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/walkthrough?project=%2Fwork&id=greeting-tour"), { name: "walkthrough-tour.json", status: 200 })
-  assert.deepEqual(mockFixtureName("GET", "/walkthrough?project=%2Fwork&id=servef-hello"), { name: "error-walkthrough-unavailable.json", status: 404 })
+  assert.deepEqual(mockFixtureName("GET", "/walkthrough?project=%2Fwork&id=srcz-hello"), { name: "error-walkthrough-unavailable.json", status: 404 })
   assert.deepEqual(mockFixtureName("DELETE", "/walkthroughs?project=%2Fwork&id=greeting-tour"), undefined)
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=working"), { name: "compare-stats.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=branch&base=main"), { name: "compare-stats-history.json", status: 200 })
@@ -195,7 +195,7 @@ test("mockFixtureName maps supported API scenarios", () => {
   assert.deepEqual(mockFixtureName("GET", `/compare-stats?compare=range&from=${from}&to=${commit}`), { name: "compare-stats-history.json", status: 200 })
   assert.deepEqual(mockFixtureName("GET", "/compare-stats?compare=everything"), { name: "error-not-found.json", status: 404 })
   assert.deepEqual(mockFixtureName("GET", "/projects"), { name: "projects.json", status: 200 })
-  assert.deepEqual(mockFixtureName("GET", "/directories?path=servef"), { name: "directories.json", status: 200 })
+  assert.deepEqual(mockFixtureName("GET", "/directories?path=srcz"), { name: "directories.json", status: 200 })
   assert.equal(mockFixtureName("POST", "/page"), undefined)
   assert.equal(mockFixtureName("GET", "/unknown"), undefined)
 })

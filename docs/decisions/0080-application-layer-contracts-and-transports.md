@@ -6,7 +6,7 @@
 
 ## Context
 
-Domain behavior lives in `apps/servef/internal/web` beside HTTP: handlers
+Domain behavior lives in `apps/srcz/internal/web` beside HTTP: handlers
 resolve projects, read files, and choose `http.Status*` codes in the same
 functions (about 180 uses). Only the HTTP server can run it. The desktop
 app, the CLI, and a planned native shell need the same operations over a Unix
@@ -24,7 +24,7 @@ matching and scope globs, diff parsing into hunks, gaps, anchors, and stats.
 Make the server composable across transports in stages. This record covers
 the whole design; stage 3a (this change) lays the foundation.
 
-### Application layer: `apps/servef/internal/app`
+### Application layer: `apps/srcz/internal/app`
 
 - Per-domain services (`Projects`, `Documents`, `Events`; later source
   control, navigation, walkthroughs, metrics) with typed operations. They take
@@ -44,13 +44,13 @@ the whole design; stage 3a (this change) lays the foundation.
   `daemon.Controller` (`Status`, `Roots`, `Open`, `Subscribe`) and
   `daemon.Directories`; its HTTP handler only decodes, maps, and encodes.
 
-### Contracts: `apps/servef/pkg/contract` and `packages/contracts`
+### Contracts: `apps/srcz/pkg/contract` and `packages/contracts`
 
 - `pkg/contract` is the single source of truth for transport shapes: JSON
   bodies (field order is wire order), `ErrorResponse` (`{error, code?}`),
   error codes and kinds, request parameters, and stream events.
 - `tools/contracts` (standard library only: `go/parser`) generates
-  `packages/contracts` (pnpm package `@servef/contracts`): one TypeScript
+  `packages/contracts` (pnpm package `@srcz/contracts`): one TypeScript
   module per listed Go file with interfaces, string unions, and runtime type
   guards that use no `as`, `any`, or `!`. Generation supports exported structs
   with JSON tags, string enums with typed constants, scalars, slices, pointers
@@ -70,7 +70,7 @@ the whole design; stage 3a (this change) lays the foundation.
   guards (`apps/web`), by the generator's model including rules and unknown
   keys (`tools/contracts`), and by strict Go decoding (`internal/web`).
 
-### Client: `apps/servef/pkg/client`
+### Client: `apps/srcz/pkg/client`
 
 - One `Client` interface: the data API, the project event stream, and the
   daemon control calls apps need (status, roots, open, directories, events).
@@ -85,7 +85,7 @@ the whole design; stage 3a (this change) lays the foundation.
 - `internal/daemon.Client` keeps serving the CLI (ensure, stop, announce,
   protocol checks) until those calls move to the client.
 
-### HTTP adapter: `apps/servef/internal/web`
+### HTTP adapter: `apps/srcz/internal/web`
 
 `internal/web` becomes the HTTP adapter: routing, the local-Host check, CSP,
 JSON encoding, kind-to-status mapping, server-sent events, and raw byte
@@ -98,7 +98,7 @@ stay byte-compatible.
 Logic every client needs moves to the application layer: search matching and
 include/exclude globs, diff parsing into hunks, collapsed gaps, line anchors,
 and stats. Clients keep presentation: layout, interaction, highlighting, and
-view state. Each move measures servef RSS (and browser memory where it
+view state. Each move measures srcz RSS (and browser memory where it
 changes) before and after on the dev fixture, records the numbers in its PR,
 and bounds response sizes, as the memory priority requires.
 
@@ -110,7 +110,7 @@ and bounds response sizes, as the memory priority requires.
    all three transports; the daemon controller.
 2. Remaining domains (source control, navigation, walkthroughs, metrics), and
    generated TypeScript for events and daemon control; the desktop app
-   imports `@servef/contracts` instead of web contract files.
+   imports `@srcz/contracts` instead of web contract files.
 3. Shared domain logic moves from the web client to the server.
 
 ## Consequences

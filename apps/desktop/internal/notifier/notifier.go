@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flexdinesh/servef/pkg/client"
-	"github.com/flexdinesh/servef/pkg/connection"
-	"github.com/flexdinesh/servef/pkg/contract"
+	"github.com/flexdinesh/srcz/pkg/client"
+	"github.com/flexdinesh/srcz/pkg/connection"
+	"github.com/flexdinesh/srcz/pkg/contract"
 )
 
 // Defaults for Options.

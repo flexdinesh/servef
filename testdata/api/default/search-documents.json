@@ -8,7 +8,7 @@
     {
       "path": "config/settings.json",
       "name": "settings.json",
-      "content": "{\"name\":\"servef-json-fixture\",\"large\":900719925474099312345,\"enabled\":true,\"nested\":{\"message\":\"config-search-marker\"}}\n"
+      "content": "{\"name\":\"srcz-json-fixture\",\"large\":900719925474099312345,\"enabled\":true,\"nested\":{\"message\":\"config-search-marker\"}}\n"
     },
     {
       "path": "guides/getting-started.md",

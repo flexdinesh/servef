@@ -3,7 +3,7 @@
 A walkthrough is an ordered tour of code that an agent writes for you: notes,
 line ranges in files, files at a commit, and diffs, each with Markdown
 narration. Ask an agent to explain a pull request, a branch, or how a feature
-works as a walkthrough; servef shows it beside the code.
+works as a walkthrough; Source Zero shows it beside the code.
 
 ## Following a walkthrough
 
@@ -33,7 +33,7 @@ A step can record the start of its first line when it is written. If the code
 changes later, the step says so instead of guessing where the code moved.
 Steps pinned to a commit never change.
 
-Walkthroughs live in your user cache (`servef/walkthroughs`), up to 100 per
+Walkthroughs live in your user cache (`srcz/walkthroughs`), up to 100 per
 project; the least recently updated go first. Delete one from its step list.
 They are per machine and are not shared through git.
 
@@ -42,13 +42,13 @@ They are per machine and are not shared through git.
 The quickest start: choose **Copy agent instructions** (the copy icon in the
 Walkthroughs header, or the button in an empty list), paste it into your agent,
 and finish the last line, “Walk me through: ”, with what to explain. The
-instructions carry this servef's address, your project's path, the format, and
+instructions carry this Source Zero's address, your project's path, the format, and
 how to publish.
 
-Agents publish with the servef CLI; no running server is needed:
+Agents publish with the Source Zero CLI; no running server is needed:
 
 ```sh
-servef walkthrough publish walkthrough.json
+srcz walkthrough publish walkthrough.json
 ```
 
 ```json
@@ -64,7 +64,7 @@ servef walkthrough publish walkthrough.json
 }
 ```
 
-servef checks every path, line, and commit, stores the walkthrough, and prints
+Source Zero checks every path, line, and commit, stores the walkthrough, and prints
 its `id`. An open browser lists it within seconds. `project` is the repository
 or worktree root (`git rev-parse --show-toplevel`) or a folder outside any
 repository; folders inside a repository are rejected. Publishing again with the
@@ -74,23 +74,23 @@ as `steps[2].file.lines: end 90 is past the file's last line, 61`.
 | Option | Effect |
 | --- | --- |
 | `-` instead of a file | Read the walkthrough from standard input |
-| `--depth N` | How deep working-tree files may be (default 5, as `servef browser`) |
+| `--depth N` | How deep working-tree files may be (default 5, as `srcz browser`) |
 | `--no-open` | Never open the desktop app or browser |
 | `--json` | Print `{"id", "project", "created", "url", "desktopUrl"}` as one JSON object |
 
 When the [desktop app](/docs/desktop) is installed and the daemon serves the
-project, the CLI prints a `servef://` `url` and `"open": true` opens it in the
-app. On a machine serving with `--remote`, it prints a `servef://` link that
+project, the CLI prints a `srcz://` `url` and `"open": true` opens it in the
+app. On a machine serving with `--remote`, it prints a `srcz://` link that
 opens on your connected computer (`desktopUrl` in `--json`; see [Remote
 hosts](/docs/remote)). Otherwise, when a running browser server shows the
 project, the CLI prints its web `url`, and `"open": true` opens it in the
 browser (never on a machine without a UI, such as an SSH session). Without one,
 it prints
-how to view the walkthrough: `servef <project>`, then the Walkthroughs view.
-The CLI never starts a server. `servef walkthrough schema` prints the JSON
+how to view the walkthrough: `srcz <project>`, then the Walkthroughs view.
+The CLI never starts a server. `srcz walkthrough schema` prints the JSON
 Schema.
 
-Agents can also publish with `POST /api/walkthroughs` on a running servef:
+Agents can also publish with `POST /api/walkthroughs` on a running srcz:
 
 ```sh
 curl -q -sS -X POST -H 'Content-Type: application/json' \
@@ -98,20 +98,20 @@ curl -q -sS -X POST -H 'Content-Type: application/json' \
 ```
 
 The response carries the walkthrough's `id` and `url`; `"open": true` also
-opens it in the browser unless servef runs with `--no-open`.
+opens it in the browser unless Source Zero runs with `--no-open`.
 `GET /api/walkthrough-schema` returns the JSON Schema, and any mistake comes
 back as a 400 naming each problem field.
 
-servef ships an agent skill with the full guidance: discovery, targets, and
+Source Zero ships an agent skill with the full guidance: discovery, targets, and
 how to tell a good story. Install it with the
 [`skills`](https://github.com/vercel-labs/skills) CLI:
 
 ```sh
-npx skills add flexdinesh/servef --skill servef-walkthrough
+npx skills add flexdinesh/srcz --skill srcz-walkthrough
 ```
 
-The skill is documentation only; servef does not install it. Its source is
-[`skills/servef-walkthrough`](https://github.com/flexdinesh/servef/tree/main/skills/servef-walkthrough).
+The skill is documentation only; Source Zero does not install it. Its source is
+[`skills/srcz-walkthrough`](https://github.com/flexdinesh/srcz/tree/main/skills/srcz-walkthrough).
 
 The endpoint accepts JSON only, from any local process; requests from another
 site's pages are refused.

@@ -14,7 +14,7 @@ The desktop app is the main UI and shows nothing while a window is hidden: the
 page closes its event stream then, which is exactly when a notice matters.
 Agents commit, switch branches, edit files, and publish walkthroughs in projects
 the user is not looking at, on this computer or on a server opened with
-`servef connect`. Local and remote must behave the same; they differ only in
+`srcz connect`. Local and remote must behave the same; they differ only in
 transport (Unix socket, pinned TLS).
 
 ## Decision
@@ -22,7 +22,7 @@ transport (Unix socket, pinned TLS).
 **One notifier per connection window.** `apps/desktop/internal/notifier` holds
 its own `/api/events` streams through `client.Client`, so one code path serves
 both transports. It starts with the page's first
-`window.servefDesktop.configureNotifications` call and stops when the window
+`window.srczDesktop.configureNotifications` call and stops when the window
 closes. A closed window ends its streams, so a `--remote` server still stops when
 its last UI goes (0098). It knows no mygo: the app shows what it decides.
 

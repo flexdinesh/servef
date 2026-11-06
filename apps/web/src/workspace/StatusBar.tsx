@@ -1,5 +1,5 @@
 import { formatBytes } from "../lib/format-bytes.ts"
-import type { PageData } from "@servef/contracts"
+import type { PageData } from "@srcz/contracts"
 import { projectUrl } from "../api/project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
@@ -45,7 +45,7 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
   const pathCopy = useClipboardCopy()
   const processTitle = metrics
     ? [
-        "servef process",
+        "Source Zero process",
         metrics.memorySource === "rss"
           ? `Resident RAM: ${formatBytes(metrics.memoryBytes)}`
           : `Go runtime system memory: ${formatBytes(metrics.memoryBytes)}`,
@@ -57,11 +57,11 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
   return (
     <footer className="status-bar">
       <div className="status-explorer" role="group" aria-label="File tree status">
-        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="servef home" onClick={(event) => {
+        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="srcz home" onClick={(event) => {
           if (!onHome || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
           event.preventDefault()
           onHome()
-        }}>servef</a>
+        }}>srcz</a>
         <details className="status-process" onKeyDown={(event) => {
           if (event.key === "Escape") event.currentTarget.open = false
         }}>
@@ -69,7 +69,7 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
             {isLoading ? "Loading…" : error ? "Error" : "Ready"}
           </summary>
           <div className="ui-popover status-process-panel">
-            <strong>servef process</strong>
+            <strong>Source Zero process</strong>
             {error && <p>{error}</p>}
             {metrics ? <p>{processTitle?.split("\n").slice(1).map((line) => <span key={line}>{line}</span>)}</p>
               : <p>Process metrics unavailable.</p>}
@@ -86,7 +86,7 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
       </div>
       <div className="status-document" role="group" aria-label="Document status">
         <span className="status-path" title={diff?.path || page.selected || page.rootName}>
-          {diff?.path || page.selected || page.rootName || "servef"}
+          {diff?.path || page.selected || page.rootName || "Source Zero"}
         </span>
         {(diff || (page.hasFile && page.selected)) && (
           <IconButton

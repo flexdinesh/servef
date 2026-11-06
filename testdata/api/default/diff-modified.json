@@ -15,14 +15,14 @@
     "formattable": false
   },
   "original": {
-    "content": "// Package main is a source-only sample for servef.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\") // go-search-token\n}\n",
-    "size": 137,
+    "content": "// Package main is a source-only sample for srcz.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\") // go-search-token\n}\n",
+    "size": 135,
     "binary": false,
     "tooLarge": false
   },
   "modified": {
-    "content": "// Package main is a source-only sample for servef.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello from servef\") // go-search-token\n}\n",
-    "size": 149,
+    "content": "// Package main is a source-only sample for srcz.\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello from srcz\") // go-search-token\n}\n",
+    "size": 145,
     "binary": false,
     "tooLarge": false
   },

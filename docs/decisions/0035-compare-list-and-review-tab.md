@@ -56,11 +56,11 @@ progress. The base branch was a fixed heuristic.
   gestures write a gutter selection; Pierre's echo of a programmatic one is
   ignored.
 - Viewed marks collapse a file and persist per project, path, and blob hash in
-  `servef-review-viewed` (50 projects, 2,000 files each); a new blob clears
+  `srcz-review-viewed` (50 projects, 2,000 files each); a new blob clears
   the mark.
 - The base picker lists local and remote-tracking branches (1,000 at most)
   with a filter and a Default choice. The choice persists per project in
-  `servef-source-control` and travels in the review route.
+  `srcz-source-control` and travels in the review route.
 - Phones show the list or the Files pane: tapping a row drills in, Back
   returns. Long-press a commit, then tap another, to select a range.
 - `GET /api/refs?project=` returns `repository`, `branch`, `defaultBase`,

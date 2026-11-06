@@ -9,33 +9,33 @@ mise tasks                                     # list every task
 
 ## Install from main
 
-CI publishes the `edge` prerelease after every green push to `main`; `servef --version` prints `0.0.0-edge` and the commit. Edge has no macOS Intel builds.
+CI publishes the `edge` prerelease after every green push to `main`; `srcz --version` prints `0.0.0-edge` and the commit. Edge has no macOS Intel builds.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-edge.sh | sh           # CLI
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install-desktop-edge.sh | sh   # desktop app
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/install.sh | sh                # back to stable
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/servef/main/scripts/uninstall.sh | sh              # remove all
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-edge.sh | sh           # CLI
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop-edge.sh | sh   # desktop app
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh                # back to stable
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh              # remove all
 ```
 
 Run it:
 
 ```sh
-servef --version              # servef 0.0.0-edge <commit> <date>
-servef daemon stop            # restart the daemon on the new build (next servef starts it)
-servef .                      # desktop app, else browser
-servef browser .              # browser
-servef-desktop .              # desktop app, without the CLI
-servef-desktop --version
-which -a servef               # which install wins on PATH
+srcz --version              # srcz 0.0.0-edge <commit> <date>
+srcz daemon stop            # restart the daemon on the new build (next srcz starts it)
+srcz .                      # desktop app, else browser
+srcz browser .              # browser
+srcz-desktop .              # desktop app, without the CLI
+srcz-desktop --version
+which -a srcz               # which install wins on PATH
 ```
 
 From a checkout:
 
 ```sh
 mise run install                                                  # go install to $(go env GOBIN) (mise's Go bin; on PATH in mise shells)
-mise run build:web && go build -o ./bin/servef ./apps/servef      # local binary in ./bin
-./bin/servef .                                                    # run it (--version prints servef dev)
+mise run build:web && go build -o ./bin/srcz ./apps/srcz      # local binary in ./bin
+./bin/srcz .                                                    # run it (--version prints srcz dev)
 ```
 
 ## Browser
@@ -46,10 +46,10 @@ mise run dev:server           # Go only
 mise run dev:web              # Vite only, against the Go server
 mise run dev:mock             # Vite with testdata/api fixtures, no Go; /__ui is the primitive gallery
 mise run dev:walkthroughs     # republish sample walkthroughs
-./bin/servef browser ~/code/foo   # local binary against any folder
+./bin/srcz browser ~/code/foo   # local binary against any folder
 ```
 
-Ports: copy `.env.example` to `.env`, set `SERVEF_DEV_SERVER_PORT` and `SERVEF_DEV_WEB_PORT`.
+Ports: copy `.env.example` to `.env`, set `SRCZ_DEV_SERVER_PORT` and `SRCZ_DEV_WEB_PORT`.
 
 ## Desktop app
 
@@ -57,7 +57,7 @@ User docs: [desktop app](../apps/site/src/pages/docs/desktop.mdx); decisions 009
 
 ```sh
 mise run dev:desktop                                 # build, then run against a private daemon, roots, and page state under .dev/desktop
-.dev/desktop/servef daemon stop --socket $PWD/.dev/desktop/daemon.sock   # stop its daemon
+.dev/desktop/srcz daemon stop --socket $PWD/.dev/desktop/daemon.sock   # stop its daemon
 mise run test:desktop                                # unit tests
 mise run test:desktop:e2e                            # built app (-tags e2e) under Xvfb in Dagger
 mise run test:desktop:extended                       # desktop resource measurements
@@ -66,8 +66,8 @@ mise run test:desktop:extended                       # desktop resource measurem
 ## Remote
 
 ```sh
-ssh host 'servef ~/code/foo'                    # no-UI host: prints web: and desktop: links
-servef browser --host 0.0.0.0 --no-open .       # simulate a remote server locally
+ssh host 'srcz ~/code/foo'                    # no-UI host: prints web: and desktop: links
+srcz browser --host 0.0.0.0 --no-open .       # simulate a remote server locally
 ```
 
 ## Docs site
@@ -75,7 +75,7 @@ servef browser --host 0.0.0.0 --no-open .       # simulate a remote server local
 ```sh
 mise run dev:site                               # Vocs dev server
 pnpm build:site                                 # static build to apps/site/dist/public
-pnpm --filter @servef/site preview              # preview the build
+pnpm --filter @srcz/site preview              # preview the build
 ```
 
 ## Test

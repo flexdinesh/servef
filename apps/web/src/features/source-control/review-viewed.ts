@@ -1,11 +1,11 @@
 import { isRecord } from "../../api/http.ts"
 
 // Files marked Viewed in review tabs (decision 0035), remembered in this
-// browser under servef-review-viewed as project -> path -> blob. A mark
+// browser under srcz-review-viewed as project -> path -> blob. A mark
 // counts only while the file's blob matches, so changed content unmarks
 // itself. Pure except for readViewed/writeViewed, which never throw.
 
-export const VIEWED_STORAGE_KEY = "servef-review-viewed"
+export const VIEWED_STORAGE_KEY = "srcz-review-viewed"
 
 const maxProjects = 50
 const maxFiles = 2_000

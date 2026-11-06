@@ -8,7 +8,7 @@
 
 Source Control (0024) shows uncommitted changes only. Reviewing what a branch
 already committed, such as an agent's work before a pull request, meant
-switching to another tool. servef never runs `git` (0023).
+switching to another tool. srcz never runs `git` (0023).
 
 ## Decision
 
@@ -16,7 +16,7 @@ switching to another tool. servef never runs `git` (0023).
   desktop a horizontal separator resizes them while both are open (arrow keys
   step 5%, double-click resets to an even split); on phones they stack with no
   separator. Collapsed state, the split (15% to 85%), and the commit range
-  persist in this browser under `servef-source-control`.
+  persist in this browser under `srcz-source-control`.
 - Commits lists the branch range by default: commits on HEAD that the base
   branch does not have (`git log base..HEAD`). The base is the first that
   exists of `origin/HEAD`'s target, `main`, `master`, `origin/main`,

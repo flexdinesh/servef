@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from "react"
 import { historyError } from "../../api/source-control-messages.ts"
 import { failureReason, fetchJSON, isAbort } from "../../api/http.ts"
 import { projectUrl } from "../../api/project-url.ts"
-import { isRefsResponse, type RefsResponse } from "@servef/contracts"
+import { isRefsResponse, type RefsResponse } from "@srcz/contracts"
 
 export interface RefsState {
   result: RefsResponse | null
