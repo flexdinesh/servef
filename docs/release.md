@@ -81,14 +81,12 @@ The install scripts download these names:
 
 | Script | Installs | From |
 | --- | --- | --- |
-| `install.sh` | CLI | the release `releases/latest` redirects to |
-| `install-desktop.sh` | desktop app | the same release |
-| `install-edge.sh` | CLI | `releases/download/edge/` |
-| `install-desktop-edge.sh` | desktop app | `releases/download/edge/` |
+| `install.sh` | CLI and desktop app; CLI alone with `--cli-only` | the release `releases/latest` redirects to |
+| `install-edge.sh` | CLI and desktop app; CLI alone with `--cli-only` | `releases/download/edge/` |
 
-Renaming an asset breaks them for every user at once. v0.1.6 and earlier have no
-desktop asset: `install-desktop.sh` stops with a message naming the edge script
-until a release carries one.
+Renaming an asset breaks them for every user at once. v0.1.6 and earlier have
+neither `srcz_*` nor desktop assets, so `install.sh` stops until a release
+carries them.
 
 Each archive contains the native `srcz` binary, README, and license. The
 frontend is built into `apps/srcz/internal/web/dist/` before Go

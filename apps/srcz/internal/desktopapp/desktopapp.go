@@ -121,8 +121,9 @@ func open(ctx context.Context, url, goos string, run runner) error {
 const (
 	releasesURL = "https://github.com/flexdinesh/srcz/releases"
 	docsURL     = "https://github.com/flexdinesh/srcz/blob/main/apps/site/src/pages/docs/desktop.mdx"
-	// installScript installs the app from the latest release (decision 0095).
-	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh"
+	// installScript installs the CLI and the app from the latest release
+	// (decision 0101).
+	installScript = "curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh"
 )
 
 // InstallHint returns install instructions for the desktop app on goos.

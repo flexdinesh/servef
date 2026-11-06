@@ -6,11 +6,11 @@ Source Zero runs beside the files. To browse another machine, start it there wit
 
 ## Install Source Zero on the host
 
-Install the CLI on the remote machine as on any computer
+Install the CLI alone on the remote machine; it needs no desktop app
 ([Getting started](/docs/getting-started)):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh -s -- --cli-only
 ```
 
 The script needs no sudo and puts `srcz` in `~/.local/bin` (or `~/bin`).

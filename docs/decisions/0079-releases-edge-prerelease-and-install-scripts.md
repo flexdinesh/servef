@@ -1,7 +1,7 @@
 # 0079: Releases, the edge prerelease, and install scripts only
 
 - Status: Accepted; script and asset names revised by [0092](0092-electron-app-name.md); edge assets by [0093](0093-no-macos-intel-on-edge.md)
-- Revised by: [0095](0095-desktop-app-is-mygo-electron-removed.md) (desktop job, asset, and script names)
+- Revised by: [0095](0095-desktop-app-is-mygo-electron-removed.md) (desktop job, asset, and script names), [0101](0101-install-script-installs-cli-and-desktop.md) (one script per channel)
 - Date: 2026-11-03
 - Supersedes: [0021](0021-built-frontend-on-release-tags-and-edge.md)
 - Revises: [0068](0068-cli-opens-desktop-app-and-desktop-releases.md)

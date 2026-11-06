@@ -77,13 +77,13 @@ rewriting history; update `Status` on the old record.
 | [0070](0070-desktop-ssh-connections.md) | Desktop ssh connections | Superseded by 0095 |
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Superseded by 0095 |
 | [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Superseded by 0095 |
-| [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 and 0095 (names, what the desktop script installs) |
+| [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 and 0095 (names, what the desktop script installs), 0101 (one script per channel, `--cli-only`) |
 | [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted; revised by 0079 (install tabs) |
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Superseded by 0095 |
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Superseded by 0095 (ssh, server windows) and 0098 (no-UI serving, links) |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Superseded by 0095 |
 | [0078](0078-apps-and-packages-layout.md) | `apps/` and `packages/` layout | Accepted; revised by 0080 |
-| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 and 0095 (names, assets), 0093 (edge assets) |
+| [0079](0079-releases-edge-prerelease-and-install-scripts.md) | Releases, the edge prerelease, and install scripts only | Accepted; revised by 0092 and 0095 (names, assets), 0093 (edge assets), 0101 (one script per channel) |
 | [0080](0080-application-layer-contracts-and-transports.md) | Application layer, generated contracts, and transports | Accepted; source control stages by 0083; in-process package by 0084; navigation, metrics, image reads by 0085; walkthroughs by 0087 |
 | [0081](0081-desktop-bridge-v2-native-features.md) | Desktop bridge v2: reveal, native context menus, recent folders, folder drop | Accepted; folder drop and recent folders superseded by 0095 |
 | [0082](0082-native-mygo-experiment.md) | Experimental native app on mygo | Superseded for the native UI by 0094 |
@@ -99,8 +99,9 @@ rewriting history; update `Status` on the old record.
 | [0092](0092-electron-app-name.md) | The Electron app is named srcz-electron | Superseded by 0095 |
 | [0093](0093-no-macos-intel-on-edge.md) | No macOS Intel on edge | Accepted; revises 0079 |
 | [0094](0094-mygo-app-uses-web-views.md) | mygo app uses web views | Accepted; names and ssh superseded by 0095 |
-| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098; notifications return in 0099; Electron and mygo cleanup dropped by 0100 |
+| [0095](0095-desktop-app-is-mygo-electron-removed.md) | Desktop app is mygo in web views; Electron removed | Accepted; resource checks moved to extended by 0096; server connections return in 0098; notifications return in 0099; Electron and mygo cleanup dropped by 0100; desktop scripts removed by 0101 |
 | [0096](0096-correctness-and-extended-validation.md) | Correctness checks and optional extended validation | Accepted |
 | [0098](0098-remote-connections.md) | Remote connections: `srcz --remote` and `srcz connect` | Accepted; bridge revised by 0099 |
 | [0099](0099-desktop-notifications.md) | Desktop notifications | Accepted |
 | [0100](0100-rename-to-srcz.md) | Rename to srcz (Source Zero) | Accepted |
+| [0101](0101-install-script-installs-cli-and-desktop.md) | Install script installs the CLI and the desktop app | Accepted |

@@ -4,32 +4,28 @@
 
 ### Install script
 
-macOS and Linux, no sudo:
+macOS and Linux, no sudo. This installs the CLI and the
+[desktop app](/docs/desktop):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
 ```
 
-It installs the latest release's `srcz` in `~/.local/bin` (or `~/bin` when
-that is on your `PATH`), and prints the line to add when the directory is not
-on `PATH`. Run it again to update.
+For the CLI alone, such as on a server:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh -s -- --cli-only
+```
+
+It puts the latest release's `srcz` in `~/.local/bin` (or `~/bin` when that is
+on your `PATH`), and prints the line to add when the directory is not on `PATH`.
+The desktop app needs WebKitGTK 4.1 on Linux. Run the script again to update,
+after quitting the app; it stops while the app runs.
 
 The install scripts are the supported way to install Source Zero; Homebrew and
 `go install` are no longer offered. A specific version's archive is on
 [GitHub Releases](https://github.com/flexdinesh/srcz/releases): put its
 `srcz` binary in `~/.local/bin`.
-
-### Desktop app
-
-Optional, macOS and Linux. Linux needs WebKitGTK 4.1. It installs the app only:
-install the CLI too for `srcz .` to open it.
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh
-```
-
-The latest stable release does not carry the app yet: until the next one, use
-`scripts/install-desktop-edge.sh`. See [Desktop app](/docs/desktop).
 
 ### Uninstall
 

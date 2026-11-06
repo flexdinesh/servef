@@ -9,10 +9,10 @@ navigation, walkthroughs, and live updates. Desktop app, browser, or remote.
 macOS and Linux, no sudo, no runtime needed. Installs to `~/.local/bin` (or `~/bin`).
 
 ```sh
-# CLI
+# CLI and desktop app (Linux needs WebKitGTK 4.1)
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh
-# desktop app (Linux needs WebKitGTK 4.1; `srcz .` also needs the CLI)
-curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install-desktop.sh | sh
+# CLI only
+curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/install.sh | sh -s -- --cli-only
 # uninstall everything (keeps user data)
 curl -fsSL https://raw.githubusercontent.com/flexdinesh/srcz/main/scripts/uninstall.sh | sh
 ```
