@@ -6,13 +6,11 @@
   align-items: stretch;
   gap: calc(var(--space-1) / 2);
   padding: calc(var(--space-1) / 2);
-  border-radius: var(--radius-lg);
   background: var(--color-hover);
 }
 
 .ui-segmented[data-size="sm"] {
   height: var(--control-xs);
-  border-radius: var(--radius-md);
 }
 
 /* md fills the document toolbar like tabs: square segments on the chrome, and
@@ -21,7 +19,6 @@
   height: var(--chrome-height);
   gap: 0;
   padding: 0;
-  border-radius: 0;
   background: transparent;
 }
 
@@ -33,7 +30,6 @@
   gap: var(--space-1);
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   background: transparent;
   cursor: pointer;
@@ -45,7 +41,6 @@
 
 .ui-segmented[data-size="sm"] .ui-segmented-item {
   padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
 }
 
 /* Icon-only items are square. */
@@ -70,10 +65,6 @@
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: var(--shadow-control);
-}
-
-.ui-segmented[data-size="md"] .ui-segmented-item {
-  border-radius: 0;
 }
 
 /* Icon-only segments keep a control's width rather than the strip's square,

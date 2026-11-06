@@ -26,19 +26,14 @@
   color-scheme: dark;
 }
 
-/* Source Zero Light (and Auto resolving light) sets islands on a white canvas
-   (decision 0041): chrome is its own light grey rather than the mix toward
-   the canvas, and islands take a hairline edge. Dark keeps the mix. Greys
-   are cool slate, matching the slate text, and the document surface is
-   white (decision 0046). Chrome and recessed fills sit a clear step under
-   the surface, and chrome hover moves toward the active tone rather than
-   past it (decision 0044). */
+/* Source Zero Light and Dark are slate (decision 0102). Chrome is set directly
+   rather than mixed toward the canvas; in Dark it matches the sidebar and the
+   active tab drops to the darker document surface. Chrome hover moves toward
+   the active tone rather than past it in Light (decision 0044). */
 :root:is([data-theme="system"], [data-theme="light"], [data-theme="dark"]) {
-  --color-surface-recessed: light-dark(#eff1f4, var(--color-surface-secondary));
-  --color-workspace-chrome: light-dark(#e5e7eb, color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%));
+  --color-workspace-chrome: light-dark(#e4e5e8, #2e323b);
   --color-chrome-hover: light-dark(color-mix(in srgb, var(--color-surface), var(--color-workspace-chrome)), var(--color-hover));
   --color-field-border: light-dark(#7a808a, color-mix(in srgb, var(--color-text-muted) 90%, var(--color-surface)));
-  --color-island-border: light-dark(#d3d7dd, transparent);
 }
 
 /* Source Zero Light added lines: Pierre mixes 12% of a hue into the surface, and

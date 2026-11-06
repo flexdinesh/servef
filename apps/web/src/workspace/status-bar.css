@@ -1,14 +1,16 @@
 .status-bar {
-  /* Metadata needs stronger contrast on the canvas than inside the panels. */
+  /* Metadata needs stronger contrast on the chrome than inside the panels. */
   --color-text-muted: var(--color-text-secondary);
   display: grid;
-  grid-template-columns: calc(var(--workspace-inset) + var(--activity-width) + var(--sidebar-width) + var(--workspace-gap)) minmax(0, 1fr);
+  grid-template-columns: calc(var(--activity-width) + var(--sidebar-width) + 1px) minmax(0, 1fr);
   min-width: 0;
   align-items: center;
   --bar-size: var(--status-height);
   color: var(--color-text-muted);
-  background: var(--color-canvas);
-  height: calc(var(--status-height) + var(--workspace-inset));
+  background: var(--color-workspace-chrome);
+  /* Inset, so the band's flush controls keep the full status height. */
+  box-shadow: inset 0 1px 0 var(--color-border);
+  height: var(--status-height);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: 1;
@@ -26,12 +28,8 @@
   padding: 0 var(--space-3);
 }
 
-.status-explorer {
-  padding-left: calc(var(--workspace-inset) + var(--space-3));
-}
-
 .status-state {
-  /* Status hues blend toward text so labels keep contrast on the deeper canvas. */
+  /* Status hues blend toward text so labels keep contrast on the chrome. */
   color: color-mix(in srgb, var(--color-success), var(--color-text-primary) 30%);
 }
 
@@ -61,7 +59,7 @@
   white-space: nowrap;
 }
 
-/* On the canvas, status hues mix toward text as the process state does. */
+/* On the chrome, status hues mix toward text as the process state does. */
 .status-diff-stats .diff-stat[data-kind="added"]:not([data-zero]) {
   color: color-mix(in srgb, var(--color-success), var(--color-text-primary) 30%);
 }
@@ -115,10 +113,10 @@
   .status-navigation .status-navigation-panel {
     position: fixed;
     right: var(--space-2);
-    bottom: calc(var(--status-height) + var(--workspace-inset) + var(--space-1));
+    bottom: calc(var(--status-height) + var(--space-1));
     left: auto;
     width: calc(100vw - var(--space-4));
-    max-height: calc(100dvh - var(--status-height) - var(--workspace-inset) - var(--space-4));
+    max-height: calc(100dvh - var(--status-height) - var(--space-4));
     overflow: auto;
   }
 
@@ -164,7 +162,6 @@
 .status-search {
   height: var(--status-height);
   gap: var(--space-2);
-  border-radius: 0;
   font-weight: 400;
 }
 

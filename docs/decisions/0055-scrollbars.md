@@ -1,6 +1,6 @@
 # 0055: Thin, hover-revealed scrollbars with reserved gutters
 
-- Status: Accepted
+- Status: Accepted; review gutter surface revised by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-28
 
 ## Context

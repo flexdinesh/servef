@@ -42,7 +42,6 @@
 
 .navigation-dialog .navigation-result mark {
   padding: 0 0.1em;
-  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   background: var(--color-warning-subtle);
 }

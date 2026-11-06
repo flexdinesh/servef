@@ -92,7 +92,7 @@ export function DiffToolbar({ anyExpanded, files, hasChanges, narrow, onChange, 
         icon={anyExpanded ? <ChevronsDownUpIcon aria-hidden="true" /> : <ChevronsUpDownIcon aria-hidden="true" />}
         onClick={() => onExpandAll(!anyExpanded)} />
       {files && (
-        <IconButton className="diff-files-toggle" label="Files" title={files.shown ? "Hide Files" : "Show Files"} aria-pressed={files.shown}
+        <IconButton label="Files" title={files.shown ? "Hide Files" : "Show Files"} aria-pressed={files.shown}
           icon={<PanelRightIcon aria-hidden="true" />} onClick={files.onToggle} />
       )}
     </div>

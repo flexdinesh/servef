@@ -55,10 +55,12 @@ const poolOptions: WorkerPoolOptions = {
   mainThreadMaxCharacters: MAIN_THREAD_MAX_CHARACTERS,
 }
 
-// Browser surfaces inside Pierre's shadow root follow srcz tokens: the
-// selection, and wide code's square, inset scrollbar thumb (decision 0055).
-const diffCSS = `::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }
-[data-code]::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 0; }
+// Browser surfaces inside Pierre's shadow root follow srcz tokens: square
+// corners over Pierre's own radii (decision 0102), the selection, and wide
+// code's square, inset scrollbar thumb (decision 0055).
+const diffCSS = `*, ::before, ::after { border-radius: 0 !important; }
+::selection { color: var(--color-text-primary); background: var(--color-accent-subtle); }
+[data-code]::-webkit-scrollbar-thumb { border: 2px solid transparent; }
 :is([data-diff], [data-file]):hover [data-code]::-webkit-scrollbar-thumb { background-color: var(--color-scrollbar-thumb); }
 @supports not selector(::-webkit-scrollbar) { [data-code] { scrollbar-color: var(--color-scrollbar-thumb) transparent; } }`
 
@@ -332,7 +334,6 @@ function ReviewBody({
       const box = lineBox()
       const top = box ? box.top - root.clientHeight * revealTop
         : section.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
-          - (parseFloat(getComputedStyle(section).scrollMarginTop) || 0)
       if (Math.abs(root.scrollTop - top) > 1) root.scrollTo({ top })
     }
     pinned.current = target

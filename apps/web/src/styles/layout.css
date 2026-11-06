@@ -20,15 +20,14 @@
 
 .layout {
   display: grid;
-  /* The footer owns the bottom canvas gutter so its controls center in the band. */
-  height: calc(100dvh - var(--status-height) - var(--workspace-inset));
+  height: calc(100dvh - var(--status-height));
   min-height: 0;
-  grid-template-columns: calc(var(--activity-width) + var(--sidebar-width)) var(--workspace-gap) minmax(0, 1fr);
-  padding: var(--workspace-inset) var(--workspace-inset) 0;
+  /* Panes meet edge to edge; the middle column is the sidebar's hairline. */
+  grid-template-columns: calc(var(--activity-width) + var(--sidebar-width)) 1px minmax(0, 1fr);
 }
 
 .layout[data-sidebar="hidden"] {
-  grid-template-columns: var(--activity-width) var(--workspace-gap) minmax(0, 1fr);
+  grid-template-columns: var(--activity-width) 0 minmax(0, 1fr);
 }
 
 .layout[data-sidebar="hidden"] .sidebar-resizer {
@@ -58,12 +57,19 @@ main.image-mode {
   z-index: var(--z-sticky);
   cursor: col-resize;
   touch-action: none;
+  background: var(--color-border);
+}
+
+/* The hairline stays 1px; the pointer target extends either side of it. */
+.sidebar-resizer::before {
+  position: absolute;
+  inset: 0 calc((1px - var(--separator-hit)) / 2);
+  content: "";
 }
 
 .sidebar-resizer::after {
   position: absolute;
-  inset: var(--radius-island) calc((var(--workspace-gap) - 2px) / 2);
-  border-radius: var(--radius-sm);
+  inset: 0 calc(-1px / 2);
   content: "";
 }
 
@@ -84,21 +90,7 @@ main.image-mode {
   grid-template-rows: var(--chrome-height) minmax(0, 1fr);
   overflow: hidden;
   position: relative;
-  border-radius: var(--radius-island);
   background: var(--color-surface);
-}
-
-/* The island edge paints above content: an inset outline sits under any
-   child with its own background or stacking (active tab, sticky rows). */
-.workspace::after,
-.sidebar-drawer:not([open])::after {
-  position: absolute;
-  z-index: var(--z-sticky);
-  inset: 0;
-  border: 1px solid var(--color-island-border);
-  border-radius: inherit;
-  content: "";
-  pointer-events: none;
 }
 
 .workspace main:focus-visible {
@@ -120,17 +112,31 @@ main.image-mode {
   position: absolute;
   z-index: var(--z-sticky);
   inset: 0;
-  border-radius: 0 0 var(--radius-island) var(--radius-island);
   box-shadow: inset 0 0 0 2px var(--color-focus);
   content: "";
   pointer-events: none;
 }
 
 .workspace-toolbar {
+  position: relative;
   display: flex;
   min-width: 0;
   align-items: stretch;
   background: var(--color-workspace-chrome);
+}
+
+/* The strip's hairline paints over its tabs; the active tab stacks above it
+   and joins the document surface. */
+.workspace-toolbar::after {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--color-border);
+  content: "";
+  pointer-events: none;
 }
 
 /* Files and project toggles stand in for the sidebar on touch layouts. */
@@ -163,8 +169,4 @@ main.image-mode {
 
 :root:has(.layout[data-sidebar="hidden"]) .status-bar {
   grid-template-columns: auto minmax(0, 1fr);
-}
-
-.layout[data-sidebar="hidden"] .activity-bar {
-  border-right: 0;
 }

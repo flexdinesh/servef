@@ -13,15 +13,15 @@ Constraints: local assets, one Go binary, strict TypeScript, existing diagrams/s
 
 ## Direction contract
 
-THESIS: A compact VS Code-style Markdown workspace. App identity and global actions move into the status bar.
+THESIS: Sharp slate panes: a compact workspace with VS Code's conventions and Zed's visual language. App identity and global actions stay in the status bar.
 
-OWN-WORLD: Neutral editor surfaces on a shared canvas; rounded navigation and document islands, flat rectangular internal rows, subtle borders, compact sans UI, proportional prose, monospace code. All named themes share semantic tokens.
+OWN-WORLD: Cool slate surfaces, with a near-white document in Source Zero Light; square panes meeting on 1px hairlines, with no canvas gaps; flat rows, compact sans UI, mono chrome labels, proportional prose, monospace code. Every corner is square. All named themes share semantic tokens.
 
-STORY: Browse paths with Pierre, read a document, or search its workspace's content separately.
+STORY: Browse paths with Pierre, read a document, or search its workspace's content separately. Review a compare as one continuous buffer.
 
-FIRST VIEWPORT: Activity bar and explorer share one 10px-radius island; the document toolbar and content share another. Canvas insets and resize gutter are 6px, with 4px insets on mobile. Workspace name remains above the left explorer; 32px tabs remain on the right. Footer stays full-width on the canvas, aligned with the document island. Mobile uses a rounded files drawer. Content typography and control placement remain as documented in DESIGN.md.
+FIRST VIEWPORT: Activity bar and explorer share one pane; the document toolbar and content share another, split by the sidebar's hairline. Workspace name remains above the left explorer; 32px mono tabs remain on the right. Footer stays full-width on chrome under a top hairline, aligned with the document pane. Mobile uses a full-height files drawer. Content typography and control placement remain as documented in DESIGN.md.
 
-FORM: User-pinned VS Code conventions and explicitly approved proposal/wireframe; code-first implementation. No unchosen visual alternatives.
+FORM: User-pinned VS Code conventions and the approved direction C, Slate panes (decision 0102); seed none, user-pinned; code-first implementation. No unchosen visual alternatives.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 

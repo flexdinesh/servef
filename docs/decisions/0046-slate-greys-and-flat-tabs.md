@@ -1,6 +1,6 @@
 # 0046: Slate greys for Source Zero Light, flat tabs and toolbar
 
-- Status: Accepted
+- Status: Accepted; Source Zero Light values and activity tile superseded by [0102](0102-sharp-slate-panes.md)
 - Date: 2026-10-26
 - Supersedes: [0043](0043-grey-document-surface-srcz-light.md)'s grey document surface
 - Amends: [0044](0044-srcz-light-state-contrast.md) Source Zero Light values and [0045](0045-selection-marks-and-field-edges.md)'s activity rail bar

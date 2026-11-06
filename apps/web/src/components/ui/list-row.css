@@ -16,10 +16,8 @@
   user-select: none;
 }
 
-/* List rows run edge to edge; picker rows are inset chips. */
 .ui-row[data-density="pick"] {
   --row-height: var(--row-pick);
-  border-radius: var(--radius-sm);
 }
 
 .ui-row[data-density="menu"] {
