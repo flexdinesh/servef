@@ -2,6 +2,7 @@ import { CaseSensitiveIcon, FilterIcon, RefreshCwIcon, SearchIcon, TriangleAlert
 import { useRef, useState, type ReactNode } from "react"
 
 import { Badge } from "../components/ui/badge.tsx"
+import { BrandMark } from "../components/ui/brand-mark.tsx"
 import { Button, type ButtonSize, type ButtonVariant } from "../components/ui/button.tsx"
 import { CopyButton } from "../components/ui/copy-button.tsx"
 import { DialogShell } from "../components/ui/dialog-shell.tsx"
@@ -131,8 +132,10 @@ export default function UiGallery() {
         </div>
       </Section>
 
-      <Section title="Badge, Kbd, CopyButton">
+      <Section title="Badge, Kbd, CopyButton, BrandMark">
         <Row>
+          <BrandMark />
+          <BrandMark size="display" tone="brand" />
           <Badge>12</Badge>
           <Badge tone="accent">3</Badge>
           <Kbd>Ctrl P</Kbd>

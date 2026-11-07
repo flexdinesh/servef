@@ -20,6 +20,11 @@
   font-size: var(--text-label);
 }
 
+.welcome-mark {
+  width: var(--control-lg);
+  height: var(--control-lg);
+}
+
 .welcome-title {
   margin: 0;
   color: var(--color-text-primary);

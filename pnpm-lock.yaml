@@ -7,6 +7,7 @@ settings:
 patchedDependencies:
   '@pierre/diffs@1.6.1': b21f421f0309419d65b5c80db2a04abbf93562257d37dc0ea42e728ff55c297b
   '@pierre/trees@1.0.0-beta.6': d9023c6c356398cde15929db84dbb2a621f39a43dbb8d5f8163281671504ea89
+  vocs@2.10.3: 01b1cd510686ab08d20789fc0d2490ba6526c9062d0c843ce7cef65a827ed3d9
 
 importers:
 
@@ -32,7 +33,7 @@ importers:
         version: 19.3.1(react@19.3.1)
       vocs:
         specifier: 2.10.3
-        version: 2.10.3(@cfworker/json-schema@4.1.1)(@tanstack/react-router@1.170.33(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.2.18)(@vue/compiler-sfc@3.5.44)(esbuild@0.28.1)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(rolldown@1.2.7)(rollup@4.64.9)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(waku@1.0.0-rc.3(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30))
+        version: 2.10.3(patch_hash=01b1cd510686ab08d20789fc0d2490ba6526c9062d0c843ce7cef65a827ed3d9)(@cfworker/json-schema@4.1.1)(@tanstack/react-router@1.170.33(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.2.18)(@vue/compiler-sfc@3.5.44)(esbuild@0.28.1)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(rolldown@1.2.7)(rollup@4.64.9)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(waku@1.0.0-rc.3(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30))
       waku:
         specifier: 1.0.0-rc.3
         version: 1.0.0-rc.3(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -9868,7 +9869,7 @@ snapshots:
     optionalDependencies:
       vite: 8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
 
-  vocs@2.10.3(@cfworker/json-schema@4.1.1)(@tanstack/react-router@1.170.33(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.2.18)(@vue/compiler-sfc@3.5.44)(esbuild@0.28.1)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(rolldown@1.2.7)(rollup@4.64.9)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(waku@1.0.0-rc.3(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)):
+  vocs@2.10.3(patch_hash=01b1cd510686ab08d20789fc0d2490ba6526c9062d0c843ce7cef65a827ed3d9)(@cfworker/json-schema@4.1.1)(@tanstack/react-router@1.170.33(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.2.18)(@vue/compiler-sfc@3.5.44)(esbuild@0.28.1)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(rolldown@1.2.7)(rollup@4.64.9)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.2.2(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(waku@1.0.0-rc.3(@types/node@22.19.21)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.3.1(react@19.3.1))(react-server-dom-webpack@19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)))(react@19.3.1)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.112.0(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.30)):
     dependencies:
       '@base-ui/react': 1.8.0(@types/react@19.2.18)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@codesandbox/sandpack-react': 2.20.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

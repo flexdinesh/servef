@@ -6,6 +6,9 @@ export default defineConfig({
     'Browse any file in a local directory: rendered Markdown, image previews, formatted data, and highlighted source.',
   renderStrategy: 'full-static',
   accentColor: 'light-dark(#325dc8, #74ade8)',
+  iconUrl: '/favicon.svg',
+  logoUrl: { light: '/logo-light.svg', dark: '/logo-dark.svg' },
+  ogImageUrl: (_path, { baseUrl }) => `${baseUrl ?? ''}/og.png`,
   sidebar: [
     { text: 'Introduction', link: '/docs' },
     { text: 'Getting started', link: '/docs/getting-started' },

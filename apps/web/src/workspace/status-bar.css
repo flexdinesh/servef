@@ -150,12 +150,32 @@
   .status-settings {
     margin-right: calc(-1 * var(--space-1));
   }
+
+  .status-brand {
+    min-width: var(--control-touch);
+    justify-content: center;
+  }
 }
 
+/* A band item: the padding widens its target, the margin keeps the mark on the bar's inset. */
 .status-brand {
+  display: flex;
+  height: var(--status-height);
+  flex: none;
+  align-items: center;
+  margin-inline: calc(-1 * var(--space-1));
+  padding-inline: var(--space-1);
   color: var(--color-text-secondary);
-  font-weight: 600;
-  text-decoration: none;
+}
+
+.status-brand:hover {
+  color: var(--color-text-primary);
+  background: var(--color-hover);
+}
+
+.status-brand:focus-visible {
+  outline-width: 1px;
+  outline-offset: -1px;
 }
 
 /* Band items fill the status height, square and flush like the bar icon buttons. */

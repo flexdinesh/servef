@@ -4,6 +4,7 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
+import { BrandMark } from "../../components/ui/brand-mark.tsx"
 import { Button } from "../../components/ui/button.tsx"
 import { IconButton } from "../../components/ui/icon-button.tsx"
 import { Kbd } from "../../components/ui/kbd.tsx"
@@ -73,6 +74,7 @@ export function WelcomeTab({ facts, onAction, onOpenProject, onStartupSetting, p
     <div className="welcome">
       <header className="welcome-header">
         <p className="welcome-meta">Serving {roots.join(", ")}</p>
+        <BrandMark className="welcome-mark" size="display" tone="brand" />
         <h1 className="welcome-title">Source Zero</h1>
         <p className="welcome-tagline">Browse, search, and review local files.</p>
       </header>

@@ -4,6 +4,7 @@ import { projectUrl } from "../api/project-url.ts"
 import { useProcessMetrics } from "./process-metrics.ts"
 import { CheckIcon, CopyIcon, SearchIcon, SettingsIcon } from "lucide-react"
 import { useClipboardCopy } from "../lib/clipboard.ts"
+import { BrandMark } from "../components/ui/brand-mark.tsx"
 import { Button } from "../components/ui/button.tsx"
 import { IconButton } from "../components/ui/icon-button.tsx"
 import { lineRangeLabel, type LineRange } from "../lib/line-selection.ts"
@@ -57,11 +58,11 @@ export function StatusBar({ detail, diff, isLoading, error, lines, live, navigat
   return (
     <footer className="status-bar">
       <div className="status-explorer" role="group" aria-label="File tree status">
-        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="srcz home" onClick={(event) => {
+        <a className="status-brand" href={page.project ? projectUrl("/", page.project) : "/"} aria-label="srcz home" title="srcz home" onClick={(event) => {
           if (!onHome || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
           event.preventDefault()
           onHome()
-        }}>srcz</a>
+        }}><BrandMark /></a>
         <details className="status-process" onKeyDown={(event) => {
           if (event.key === "Escape") event.currentTarget.open = false
         }}>

@@ -1,0 +1,15 @@
+diff --git a/dist/react/Layout.client.js b/dist/react/Layout.client.js
+index 83b002bc81ed2539600599aaf32a2197b1c21fb8..ed16f3856ef776bd626ebfee4e7fa327df2e2c82 100644
+--- a/dist/react/Layout.client.js
++++ b/dist/react/Layout.client.js
+@@ -47,8 +47,8 @@ export function Logo() {
+             if (!logoUrl)
+                 return (_jsx("div", { className: "vocs:text-2xl vocs:text-heading vocs:tracking-tight vocs:font-bold", "data-v-logo-text": true, children: title }));
+             if (typeof logoUrl === 'string')
+-                return (_jsx("img", { alt: "Logo", className: "vocs:h-full vocs:max-h-7", "data-v-logo-image": true, src: logoUrl }));
+-            return (_jsxs(_Fragment, { children: [_jsx("img", { alt: "Logo", className: "vocs:h-full vocs:max-h-7 vocs:dark:hidden", "data-v-logo-image": true, src: logoUrl.light }), _jsx("img", { alt: "Logo", className: "vocs:h-full vocs:max-h-7 vocs:hidden vocs:dark:block", "data-v-logo-image": true, src: logoUrl.dark })] }));
++                return (_jsx("img", { alt: title, className: "vocs:h-full vocs:max-h-7", "data-v-logo-image": true, src: logoUrl }));
++            return (_jsxs(_Fragment, { children: [_jsx("img", { alt: title, className: "vocs:h-full vocs:max-h-7 vocs:dark:hidden", "data-v-logo-image": true, src: logoUrl.light }), _jsx("img", { alt: title, className: "vocs:h-full vocs:max-h-7 vocs:hidden vocs:dark:block", "data-v-logo-image": true, src: logoUrl.dark })] }));
+         })() }));
+ }
+ //# sourceMappingURL=Layout.client.js.map

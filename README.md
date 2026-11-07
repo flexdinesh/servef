@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/mark-dark.svg">
+  <img src="docs/brand/mark-light.svg" alt="Source Zero logo" width="64" height="64">
+</picture>
+
 # Source Zero
 
 Source Zero (`srcz`) browses local files: rendered Markdown, image previews, formatted

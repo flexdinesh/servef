@@ -194,7 +194,7 @@ components:
 
 srcz keeps VS Code's conventions and takes Zed's visual language (decision 0102): an activity bar, a compact explorer and search sidebar, document tabs, a readable preview, and a quiet status footer, as square panes meeting on 1px hairlines. Slate surfaces, flat rows, and restrained controls keep local files central.
 
-Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.
+Workspace identity sits above the explorer as the project picker trigger. App identity, content search, process state, and the Settings gear sit in the footer; Ctrl/Cmd+Shift+P opens the command palette. There is no top app header; the logo sits in the footer and on Welcome. Mobile keeps the document visible and opens files in a drawer.
 
 **Key Characteristics:**
 
@@ -285,6 +285,8 @@ Motion is functional: state changes use `--duration-fast`, progress fades in aft
 **Every corner is square (decision 0102):** panes, overlays, controls, badges, marks, code blocks, and Pierre's trees and diffs. A base rule zeroes browser defaults, and stylelint allows only `border-radius: 0`. One exception: Mermaid node shapes (circles, stadiums) carry meaning and keep their geometry; other diagram corners are square.
 
 Icons: 16px in header and panel actions, 14px in bars, fields, and toggles, 12px in rows, tabs, and segmented items; rest ink `text-secondary`, `text-primary` on hover. Tabs show the explorer's Pierre colored file icon, mapped to theme tokens by hue family.
+
+**Logo (decision 0104).** A Z inside a zero: the Z in ink, the zero's side rails in coral (`--color-brand-mark`, `#ff6b4a` on dark, `#f2502e` on light), parted by a gap. `BrandMark` draws it: the 16 grid at 24px and under, the 32 grid above. The footer uses one color so the chrome stays quiet, with the rails at 55%; Welcome and the site use two. The docs logo and social card set it beside "Source Zero" in outlined JetBrains Mono Bold; the landing wordmark is live text in its system mono stack. The desktop tile is square, graphite `#2b2d33`, white Z, with one raster for every OS size. Masters live in `docs/brand/`.
 
 **Focus.** Rows, icon buttons, toggles, segmented items, and copy controls draw a 1px `--color-focus` outline inset 1px. Standalone buttons draw 2px, offset 1px. Fields replace their border with `--color-focus` and add a 1px ring. Invalid fields use `destructive` for the full border and ring.
 
@@ -395,7 +397,7 @@ Non-image files over 32 MiB use the same layout: “Too large to display”, `na
 
 ### Footer
 
-Explorer footer: the srcz brand (opens or activates the Welcome tab), process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against chrome, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
+Explorer footer: the logo in one color (`srcz home`; opens or activates the Welcome tab), process state/details, file count. Document footer: full relative file path first, a Copy path icon action (14px; checks in success color for 1.6s, announced politely), Find in files, then selected lines (`Ln 12` / `Ln 12–20`, Source only), image dimensions/zoom (images only), size, file-type label, and a Settings gear (14px icon, square 28px target, 44px on mobile). Footer metadata uses `text-secondary` for contrast against chrome, including its local `text-muted` role; process and failed LSP state labels mix their status hue with 30% `text-primary`. Mobile keeps Copy path and hides selected lines; 4px document-status gaps keep Settings visible at 320px. File path truncates and exposes its full value in a title. Actions use flat hover fills. Process state pairs color with Ready/Loading/Error; details open above.
 
 LSP availability sits beside the document language for every text file, including
 unsupported languages: LSP unavailable, missing, off, available, starting, ready,

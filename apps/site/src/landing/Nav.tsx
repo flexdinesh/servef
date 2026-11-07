@@ -1,11 +1,13 @@
 import { links } from './links'
+import { Mark } from './Mark'
 import { ThemeToggle } from './ThemeToggle'
 
 export function Nav() {
   return (
     <header className="landing-nav">
       <a className="landing-wordmark" href="/">
-        Source Zero
+        <Mark />
+        <span className="landing-nav-name">Source Zero</span>
       </a>
       <nav aria-label="Primary" className="landing-nav-links">
         <a href="#features">Features</a>
