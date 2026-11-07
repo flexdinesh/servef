@@ -59,6 +59,8 @@
   /* Surfaces derived from theme values. Chrome sits halfway between the
      document surface and the canvas, so the active tab reads against it. */
   --color-workspace-chrome: color-mix(in srgb, var(--color-surface), var(--color-canvas) 50%);
+  /* The logo's rails (decision 0104): one brand color in every theme, by polarity. */
+  --color-brand-mark: light-dark(#f2502e, #ff6b4a);
   /* Fills set into the document surface: the active source line, code
      blocks, table headers, diff separators, the image checkerboard. */
   --color-surface-recessed: var(--color-surface-secondary);

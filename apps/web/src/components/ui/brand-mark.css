@@ -1,0 +1,15 @@
+.ui-brand-mark {
+  display: block;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: none;
+}
+
+/* At 16px in one color the rails and the Z would blur into a block. */
+.ui-brand-mark[data-tone="mono"] .ui-brand-mark-rails {
+  opacity: 0.55;
+}
+
+.ui-brand-mark[data-tone="brand"] .ui-brand-mark-rails {
+  fill: var(--color-brand-mark);
+}

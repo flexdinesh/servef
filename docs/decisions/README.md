@@ -107,3 +107,4 @@ rewriting history; update `Status` on the old record.
 | [0101](0101-install-script-installs-cli-and-desktop.md) | Install script installs the CLI and the desktop app | Accepted |
 | [0102](0102-sharp-slate-panes.md) | Sharp slate panes | Accepted |
 | [0103](0103-site-on-workers-static-assets.md) | Site on Workers Static Assets | Accepted |
+| [0104](0104-source-zero-logo.md) | Source Zero logo | Accepted |

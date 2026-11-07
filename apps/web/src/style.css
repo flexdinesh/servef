@@ -19,6 +19,7 @@
 @import "./components/ui/view-header.css" layer(ui);
 @import "./components/ui/section-toggle.css" layer(ui);
 @import "./components/ui/kbd.css" layer(ui);
+@import "./components/ui/brand-mark.css" layer(ui);
 @import "./components/ui/dialog-shell.css" layer(ui);
 @import "./components/ui/menu.css" layer(ui);
 @import "./styles/layout.css" layer(features);

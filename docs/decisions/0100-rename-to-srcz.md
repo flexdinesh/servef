@@ -1,6 +1,6 @@
 # 0100: Rename servef to srcz (Source Zero)
 
-- Status: Accepted
+- Status: Accepted; status bar text revised by [0104](0104-source-zero-logo.md)
 - Date: 2026-11-06
 - Revises: [0095](0095-desktop-app-is-mygo-electron-removed.md) (install scripts
   no longer clean up the Electron app or `servef-mygo`),

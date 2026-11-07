@@ -23,6 +23,8 @@ article:has(> .landing) {
   --l-text: light-dark(#24272c, #dce0e5);
   --l-text-2: light-dark(#4b515b, #b0b6c2);
   --l-accent: light-dark(#325dc8, #74ade8);
+  --l-mark: light-dark(#f2502e, #ff6b4a);
+  --l-mark-ink: light-dark(#2b2d33, #ffffff);
   --l-accent-hover: light-dark(#2348ac, #a8cdf5);
   --l-accent-subtle: light-dark(#dbe5fa, #2f4563);
   --l-on-accent: light-dark(#ffffff, #1d2026);
@@ -110,10 +112,40 @@ article:has(> .landing) {
 }
 
 .landing-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-family: var(--l-mono);
   font-weight: 700;
   font-size: 1.125rem;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* The mark alone where the name and the nav links no longer fit on one line. */
+@media (max-width: 23.75rem) {
+  .landing-nav-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+.landing-mark {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+}
+
+.landing-mark-z {
+  fill: var(--l-mark-ink);
+}
+
+.landing-mark-rails {
+  fill: var(--l-mark);
 }
 
 .landing-nav-links {
@@ -355,7 +387,7 @@ article:has(> .landing) {
 
 .landing-footer-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 1rem;
 }
 

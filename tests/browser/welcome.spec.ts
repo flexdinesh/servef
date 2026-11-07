@@ -36,6 +36,7 @@ test("a first landing opens Welcome with the projects instead of the picker", as
   await expect(page).toHaveURL(endsWith(`/view?project=${rootParam}&welcome=1`))
   await expect(tabs(page).getByRole("tab", { name: "Welcome" })).toHaveAttribute("aria-selected", "true")
   await expect(welcome(page).getByRole("heading", { name: "Source Zero", level: 1 })).toBeVisible()
+  await expect(page.getByRole("link", { name: "srcz home" }).locator("svg")).toBeVisible()
   await expect(page.getByRole("dialog", { name: "Switch project" })).toBeHidden()
   await expect(page).toHaveTitle("Welcome · Source Zero")
 

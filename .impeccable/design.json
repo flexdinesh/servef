@@ -549,7 +549,7 @@
   ],
   "narrative": {
     "northStar": "Sharp slate panes",
-    "overview": "srcz follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Square panes meet on 1px hairlines; slate surfaces, flat rows, and restrained controls keep local files central.\n\nWorkspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header or logo. Mobile keeps the document visible and opens files in a drawer.",
+    "overview": "srcz follows familiar editor conventions: a compact explorer, document tabs, a readable preview, and a quiet status footer. Square panes meet on 1px hairlines; slate surfaces, flat rows, and restrained controls keep local files central.\n\nWorkspace identity sits above the explorer. App identity, content search, process state, and theme selection sit in the footer. There is no top app header; the logo sits in the footer and on Welcome. Mobile keeps the document visible and opens files in a drawer.",
     "keyCharacteristics": [
       "Compact editor navigation.",
       "Square corners and panes on hairlines; slate Source Zero surfaces.",
