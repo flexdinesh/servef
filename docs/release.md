@@ -119,7 +119,7 @@ settings:
 
 | Setting | Value |
 | --- | --- |
-| Worker name | `sourcezero` (must match `name` in `wrangler.jsonc`) |
+| Worker name | `sourcezero-docs` (must match `name` in `wrangler.jsonc`) |
 | Root directory | repository root (CF reads `.node-version`, Node 26) |
 | Build command | `pnpm install --frozen-lockfile --filter @srcz/site... && pnpm build:site` |
 | Deploy command | `npx wrangler deploy --config apps/site/wrangler.jsonc` |

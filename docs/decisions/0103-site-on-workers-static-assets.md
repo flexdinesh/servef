@@ -14,8 +14,8 @@ chose the Workers flow for the first deploy instead of the older one.
 
 ## Decision
 
-- The site deploys as a Worker named `sourcezero`, with static assets only and
-  no Worker code. It connects to the repository through Workers Builds.
+- The site deploys as a Worker named `sourcezero-docs`, with static assets only
+  and no Worker code. It connects to the repository through Workers Builds.
 - `apps/site/wrangler.jsonc` owns the Worker name, compatibility date, assets
   directory (`./dist/public`), and 404 handling. The file stays with the site,
   so 0074's objection to a root config no longer applies; the deploy command
