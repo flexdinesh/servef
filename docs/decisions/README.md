@@ -78,7 +78,7 @@ rewriting history; update `Status` on the old record.
 | [0071](0071-cli-server-connections-and-pasted-urls.md) | CLI-server connections and pasted URLs | Superseded by 0095 |
 | [0072](0072-os-integration.md) | OS integration: open folders from the OS, open at login | Superseded by 0095 |
 | [0073](0073-install-scripts.md) | Install scripts | Accepted; revised by 0078 (paths), 0079 (edge scripts, Homebrew and `go install`), 0092 and 0095 (names, what the desktop script installs), 0101 (one script per channel, `--cli-only`) |
-| [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted; revised by 0079 (install tabs) |
+| [0074](0074-landing-page-and-cloudflare-pages.md) | Landing page and Cloudflare Pages | Accepted; revised by 0079 (install tabs); hosting superseded by 0103 |
 | [0075](0075-desktop-title-bar.md) | Desktop title band | Superseded by 0095 |
 | [0076](0076-remote-servers-over-http.md) | Remote servers over http; ssh driven from the app | Superseded by 0095 (ssh, server windows) and 0098 (no-UI serving, links) |
 | [0077](0077-desktop-shell-stays-on-electron.md) | Desktop shell stays on Electron | Superseded by 0095 |
@@ -106,3 +106,4 @@ rewriting history; update `Status` on the old record.
 | [0100](0100-rename-to-srcz.md) | Rename to srcz (Source Zero) | Accepted |
 | [0101](0101-install-script-installs-cli-and-desktop.md) | Install script installs the CLI and the desktop app | Accepted |
 | [0102](0102-sharp-slate-panes.md) | Sharp slate panes | Accepted |
+| [0103](0103-site-on-workers-static-assets.md) | Site on Workers Static Assets | Accepted |

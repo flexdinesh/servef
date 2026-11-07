@@ -112,19 +112,22 @@ script against stub tools.
 
 ## Docs site deploy
 
-The site (`apps/site`) deploys as plain static files through Cloudflare Pages
-Git integration (decision 0074). Project settings:
+The site (`apps/site`) deploys as plain static files through Cloudflare Workers
+Static Assets and Workers Builds (decision 0103). `apps/site/wrangler.jsonc`
+owns the Worker name and assets directory (`apps/site/dist/public`). Dashboard
+settings:
 
 | Setting | Value |
 | --- | --- |
+| Worker name | `sourcezero-docs` (must match `name` in `wrangler.jsonc`) |
 | Root directory | repository root (CF reads `.node-version`, Node 26) |
 | Build command | `pnpm install --frozen-lockfile --filter @srcz/site... && pnpm build:site` |
-| Build output directory | `apps/site/dist/public` |
-| Environment variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
+| Deploy command | `npx wrangler deploy --config apps/site/wrangler.jsonc` |
+| Build variables | `SKIP_DEPENDENCY_INSTALL=1`; `PNPM_VERSION=11.24.0` if the build image ignores `packageManager` |
 
 The filtered install skips the web workspace. `pnpm build:site`
-fails on dead internal links. Cloudflare serves `404.html` for unknown paths.
-There is no `wrangler.toml`: Pages build settings live in the dashboard.
+fails on dead internal links. `not_found_handling` serves `404.html` for unknown
+paths.
 
 ## Version series
 
